@@ -1085,7 +1085,128 @@ jobs:
           text = authority.decode('utf-8', errors='strict')
           marker = '\n## DC1 — Closed Docker diagnostic source purpose, 2026-11-01\n\n```json\n'
           dc2_marker = '\n## DC2 — Corrected Docker and cold source purpose, 2026-11-02\n\n```json\n'
-          if dc2_marker in text:
+          rg2_marker = '\n## RG2S — Closed geometry receipt source admission, 2026-11-02\n\n' + chr(96) * 3 + 'json\n'
+          if rg2_marker in text:
+              # RG2_NATIVE_CONTROLS_BEGIN: accepted data, exact source bytes, no host authority.
+              def rg2_fail(reason):
+                  raise SystemExit('RG2_SOURCE_CONTROLS_' + reason)
+              def rg2_pairs(pairs):
+                  value = {}
+                  for key, item in pairs:
+                      if key in value:
+                          rg2_fail('DUPLICATE_KEY')
+                      value[key] = item
+                  return value
+              def rg2_purpose(marker, digest):
+                  if text.count(marker) != 1:
+                      rg2_fail('PURPOSE_NOT_UNIQUE')
+                  encoded, fence, remainder = text.split(marker, 1)[1].partition('\n' + chr(96) * 3 + '\n')
+                  if not fence:
+                      rg2_fail('PURPOSE_FORMAT')
+                  try:
+                      value = json.loads(encoded, object_pairs_hook=rg2_pairs)
+                      canonical = json.dumps(value, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+                  except (ValueError, TypeError):
+                      rg2_fail('PURPOSE_FORMAT')
+                  if (type(value) is not dict or canonical != encoded or
+                          hashlib.sha256(encoded.encode('utf-8')).hexdigest() != digest):
+                      rg2_fail('PURPOSE_NOT_ACCEPTED')
+                  return value
+              original = rg2_purpose(rg2_marker, 'a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328')
+              correction = rg2_purpose('\n## RG2P — Pin-only source correction admission, 2026-11-02\n\n' + chr(96) * 3 + 'json\n',
+                                      '3becb5c92d70aa3830fe4b79d99a01e1ca26fd54c85981c8a9bc41b87344ffda')
+              controls = rg2_purpose('\n## RG2C — Native source control reader admission, 2026-11-02\n\n' + chr(96) * 3 + 'json\n',
+                                    '6d45d456e1577534c15c4264ec001fcd9f0e8f297a340c700c0fb9239d43df5c')
+              if (controls['schema'] != 'pc.rg2-native-source-controls-purpose.v1' or
+                      original['sourceBranch'] != correction['sourceBranch'] or
+                      original['sourceBranch'] != controls['sourceBranch'] or
+                      controls['sourceBranch'] != os.environ.get('GITHUB_HEAD_REF')):
+                  rg2_fail('BRANCH_OR_SCHEMA')
+              git('--no-replace-objects', 'merge-base', '--is-ancestor', controls['authorityBaseExactMain'], base)
+              workflow_pin = {'path': original['workflow']['path'], 'mode': original['workflow']['mode'],
+                              'blob': correction['workflow']['afterBlob'], 'bytes': correction['workflow']['afterBytes'],
+                              'sha256': correction['workflow']['afterSha256']}
+              if controls['sourceWorkflow'] != workflow_pin:
+                  rg2_fail('SOURCE_BINDING')
+              def rg2_physical(path, data, mode):
+                  physical = pathlib.Path(path)
+                  before = physical.lstat()
+                  token = lambda info: (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                  fd = os.open(physical, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+                  try:
+                      info = os.fstat(fd)
+                      if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != mode or
+                              token(info) != token(before) or info.st_size != len(data)):
+                          rg2_fail('WORKTREE_IDENTITY')
+                      actual = bytearray()
+                      while len(actual) <= len(data):
+                          chunk = os.read(fd, len(data) + 1 - len(actual))
+                          if not chunk:
+                              break
+                          actual.extend(chunk)
+                      if (bytes(actual) != data or token(os.fstat(fd)) != token(info) or
+                              token(physical.lstat()) != token(info)):
+                          rg2_fail('WORKTREE_CONTENT')
+                  finally:
+                      os.close(fd)
+              def rg2_checked(pin, require_base):
+                  path = pin['path']
+                  if pin['mode'] not in ('100644', '100755'):
+                      rg2_fail('MODE')
+                  expected = pin['mode'] + ' blob ' + pin['blob'] + '\t' + path
+                  for ref in ([base, head] if require_base else [head]):
+                      if git('--no-replace-objects', 'ls-tree', ref, '--', path).decode().strip() != expected:
+                          rg2_fail('BLOB_OR_MODE')
+                  size = int(git('--no-replace-objects', 'cat-file', '-s', head + ':' + path))
+                  if not 0 < size <= 1024 * 1024 or size != pin['bytes']:
+                      rg2_fail('CONTENT_CAPACITY')
+                  data = git('--no-replace-objects', 'show', head + ':' + path)
+                  if len(data) != size or hashlib.sha256(data).hexdigest() != pin['sha256']:
+                      rg2_fail('CONTENT')
+                  rg2_physical(path, data, 0o755 if pin['mode'] == '100755' else 0o644)
+                  return path, data
+              # The accepted guard already validated exact BASE/S/T, both crypto outputs
+              # and the two-pin reversal before this branch executes any source helper.
+              rg2_checked(controls['acceptedGuard'], True)
+              execution = dict(rg2_checked(pin, True) for pin in controls['unchangedHelperInputs'])
+              path, data = rg2_checked(workflow_pin, False)
+              if path in execution:
+                  rg2_fail('DUPLICATE_EXECUTION_PATH')
+              execution[path] = data
+              helper = 'scripts/test_production_stopped_runtime_headroom.py'
+              command = ['python3', '-I', '-B', helper]
+              if (len(execution) != 8 or controls['snapshot']['exactFiles'] != 8 or
+                      controls['snapshot']['execute'] != command or
+                      '.github/workflows/production-cold-preservation.yml' not in execution or helper not in execution):
+                  rg2_fail('FIXED_EXECUTION_SET')
+              with tempfile.TemporaryDirectory(prefix='rg2-pinned-execution-') as directory:
+                  snapshot = pathlib.Path(directory) / 'source'
+                  snapshot.mkdir()
+                  for path, data in execution.items():
+                      output = snapshot / path
+                      output.parent.mkdir(parents=True, exist_ok=True)
+                      output.write_bytes(data)
+                      output.chmod(0o400)
+                      rg2_physical(output, data, 0o400)
+                  print('RG2_SOURCE_CONTROLS_PINNED_SNAPSHOT=' + json.dumps({
+                      'head': head, 'cwd': str(snapshot), 'files': [
+                          {'path': path, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+                          for path, data in sorted(execution.items())]}, separators=(',', ':')), flush=True)
+                  # Every legacy/new Node assertion remains in the unfiltered standard
+                  # step. This distinct source case runs all fifty unchanged Python tests.
+                  subprocess.run(command, cwd=snapshot, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}, check=True)
+                  files = sorted(str(path.relative_to(snapshot)) for path in snapshot.rglob('*') if path.is_file())
+                  if files != sorted(execution) or any(path.is_symlink() for path in snapshot.rglob('*')):
+                      rg2_fail('SNAPSHOT_EXTRA_OR_ALIAS')
+                  for path, data in execution.items():
+                      rg2_physical(snapshot / path, data, 0o400)
+                  if git('--no-replace-objects', 'rev-parse', 'HEAD').decode().strip() != head:
+                      rg2_fail('HEAD_DRIFT')
+              if snapshot.exists():
+                  rg2_fail('SNAPSHOT_CLEANUP')
+              print('RG2_SOURCE_CONTROLS_EXACT_HEAD_PASS; SNAPSHOT_REMOVED; HOST_AUTHORITY=NONE')
+              # RG2_NATIVE_CONTROLS_END
+          elif dc2_marker in text:
               if text.count(dc2_marker) != 1:
                   raise SystemExit('DC2_SOURCE_CONTROLS_PURPOSE_NOT_UNIQUE')
               encoded = text.split(dc2_marker, 1)[1].split('\n```\n', 1)[0]
