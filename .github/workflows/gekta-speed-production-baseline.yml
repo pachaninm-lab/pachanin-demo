@@ -29,6 +29,16 @@ on:
       - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-20260811.json'
   workflow_dispatch:
     inputs:
+      operation:
+        description: Explicit read-only measurement mode
+        required: true
+        default: speed
+        type: choice
+        options: [speed, broad1000]
+      seed:
+        description: BEFORE seed, either bounded gzip/base64 or blob:GIT_SHA:SHA256 in this repository
+        required: false
+        type: string
       phase:
         description: Baseline phase label recorded in the artifact name
         required: true
@@ -58,9 +68,13 @@ permissions:
 concurrency:
   group: >-
     gekta-speed-production-baseline-${{
-      (github.event_name == 'workflow_dispatch'
-        || (github.event_name == 'issue_comment'
-            && startsWith(github.event.comment.body, '/gekta speed-baseline current-main')))
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'issue_comment' && github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        (startsWith(github.event.comment.body, '/gekta speed-baseline current-main') ||
+         startsWith(github.event.comment.body, '/gekta broad1000 current-main'))))
       && 'measurement' || github.run_id }}
   cancel-in-progress: false
 
@@ -126,8 +140,13 @@ jobs:
   baseline:
     name: Measure production speed baseline
     if: >-
+      github.run_attempt == 1 &&
+      github.ref == 'refs/heads/main' &&
+      github.triggering_actor == github.repository_owner &&
+      (
       (
         github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.operation == 'speed' || github.event.inputs.operation == '') &&
         github.actor == github.repository_owner
       ) ||
       (
@@ -137,6 +156,7 @@ jobs:
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
         startsWith(github.event.comment.body, '/gekta speed-baseline current-main')
+      )
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -230,3 +250,137 @@ jobs:
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: warn
           retention-days: 30
+
+  broad-plan:
+    name: Plan finite Gekta 1000 measurement
+    if: >-
+      github.run_attempt == 1 &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'broad1000' && github.event.inputs.phase == 'before') ||
+        (github.event_name == 'issue_comment' && github.event.issue.number == 3072 &&
+         github.event.comment.user.login == github.repository_owner &&
+         startsWith(github.event.comment.body, '/gekta broad1000 current-main'))
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .node-version
+      - name: Verify checked-out source
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Validate owner command and immutable local evidence
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/tai-speed-baseline.mjs --broad-plan
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gekta-1000-plan
+          path: artifacts/gekta-broad/plan/plan.json
+          if-no-files-found: error
+          retention-days: 7
+
+  broad-client:
+    name: Gekta broad client (${{ matrix.slot }})
+    needs: broad-plan
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.broad-plan.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    # Same60-minute cap as the existing measurement. At most16*150s requests
+    # plus16*15s health checks leave margin for setup and receipt transfer.
+    timeout-minutes: 60
+    env:
+      BROAD_SOURCE_SHA: ${{ needs.broad-plan.outputs.source_sha }}
+      BROAD_SLOT: ${{ matrix.slot }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.broad-plan.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .node-version
+      - name: Verify pinned accepted source
+        run: test "$(git rev-parse HEAD)" = "$BROAD_SOURCE_SHA"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: gekta-1000-plan
+          path: artifacts/gekta-broad/plan
+      - name: Refuse to proceed after a lost or failed native client
+        id: prior
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/tai-speed-baseline.mjs --broad-prepare
+      - name: Download exact prior receipts from this run
+        if: steps.prior.outputs.prior_artifact_ids != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ steps.prior.outputs.prior_artifact_ids }}
+          path: artifacts/gekta-broad/prior
+          merge-multiple: false
+      - name: Measure at most16 new cases on the unchanged public widget
+        run: node scripts/tai-speed-baseline.mjs --broad-client
+      - name: Preserve completed and partial native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gekta-1000-part-${{ matrix.slot }}
+          path: artifacts/gekta-broad/current
+          if-no-files-found: error
+          retention-days: 7
+
+  broad-report:
+    name: Report actual Gekta 1000 outcomes
+    needs: [broad-plan, broad-client]
+    if: always() && needs.broad-plan.result == 'success'
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BROAD_SOURCE_SHA: ${{ needs.broad-plan.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.broad-plan.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .node-version
+      - name: Verify pinned accepted source
+        run: test "$(git rev-parse HEAD)" = "$BROAD_SOURCE_SHA"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: gekta-1000-plan
+          path: artifacts/gekta-broad/plan
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: gekta-1000-part-*
+          path: artifacts/gekta-broad/prior
+          merge-multiple: false
+      - name: Separate protocol outcomes from semantic quality
+        run: node scripts/tai-speed-baseline.mjs --broad-aggregate
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: gekta-1000-report
+          path: artifacts/gekta-broad/final/report.json
+          if-no-files-found: error
+          retention-days: 7
