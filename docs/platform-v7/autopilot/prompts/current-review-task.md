@@ -7379,3 +7379,66 @@ Review this metadata on its actual exact head. Exactly three already-allowed gov
 ```
 
 Full17774-byte source patch lives in the matching queue purpose. The future source must match all eight after blobs/modes and preserve every other accepted-main leaf. CI must preserve all48old arguments, add exactly4, remove only4old failed exclusions and account for932files=52executed+880excluded; no other workflow/registry semantics change. Private six-core82/independent108 results remain separate from new eight-path CI-wiring review and native52 acceptance. Metadata acceptance precedes source publication. Source requires genuine exact-head independent review, owner audit, complete native/security/Kubernetes/cleanup/readiness and manual expected-full-SHA acceptance. Application release is separate. Full block andMASTER5/100 remain open.
+
+
+## Shared bank read-entry P2 — exact bounded one-page admission, 2026-11-03
+
+Review the full exact purpose, token/value/inverse proof, frozen patch and current private independent source report in the matching queue section. Accepted6104 queue must remain the whole exact prefix. Explicitly authorize ONLY this below-ceiling one-page P2 exception after normal acceptance; do not infer4MiB/CAP1 closure or oldsource6 adoption. All other state values/tokens/history/vectors remain equal.
+
+```json
+{
+  "purposeId": "bank-shared-read-entry-p2-6093-20261103",
+  "status": "METADATA_ONLY_SOURCE_NOT_ACCEPTED",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "metadataBaseExactMain": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+  "metadataPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md"
+  ],
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "exactSourcePaths": [
+    "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+  ],
+  "sourcePins": [
+    {
+      "path": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7c5363a4653d5bce296ed7e2d0027863a897f23e",
+      "beforeBytes": 1259,
+      "beforeSha256": "35d679f26aee9176caffd84a3825167dc63a53d6a582c52846b5caa7e4652b5b",
+      "afterBlob": "5eb5a640b68bd9d89bb9c6d6dc64beee654369c9",
+      "afterBytes": 578,
+      "afterSha256": "2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "694474f883a8549d4087c1bc9b287738d2ff37e5",
+      "beforeBytes": 6680,
+      "beforeSha256": "fa96b78fcdd5e406b08b49814ab55c8d4fa97c1888fc01e094e130caa97451a0",
+      "afterBlob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "afterBytes": 20664,
+      "afterSha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5"
+    }
+  ],
+  "completeSourcePatchBytes": 17138,
+  "completeSourcePatchSha256": "3c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21",
+  "stateAdmission": {
+    "beforeBytes": 3145690,
+    "removeOnlyOutsideStringWhitespaceBytes": 18,
+    "appendOnlyPagePathBytes": 55,
+    "afterBytes": 3145727,
+    "acceptedCeiling": 3145728,
+    "afterSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "actualGrowthBytes": 37,
+    "oldVector": 10,
+    "newVector": 11
+  }
+}
+```
+
+Reject extra paths, stale head/context evidence or scope/owner/role/tenant/backend/guard/budget change. Source default reuses the canonical read-only view at its existing permitted URI. Disclose remaining bank nav/backlinks denials; no all-subroute/live13/DB/provider acceptance. Metadata and actual published source each need independent whole-head review, distinctowner, all applicable native/security/build/browser/KIND/cleanup/readiness and ordinary full-SHA manual gates. Exact image/web/live release is separate; official5/100 unchanged.
+
+Current private SOURCE2 review: exact738fd1004549c39de6e8959c79b9cb77c2d32142/basef069,7169B/SHA25605b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093. Root read it in full. Fresh independent167PASS, fresh author52/2022PASS and authorwhole-workspacetypecheckexit0 are separate PRIVATE evidence. No actualnative/metadata/source acceptance is credited. Historicalff9a report stays support, never transferred approval. Full H2 report is in the matching queue. Localhostingconfigcheckexit1 remainsNOT_PASS pending actualnativeDocker/build.

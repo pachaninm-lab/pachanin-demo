@@ -13871,3 +13871,321 @@ Lossless source-patch capture as a JSON string. Parse this string to recover the
   "newRecurringCostRub": 0
 }
 ```
+
+
+## Shared bank read-entry P2 — exact bounded one-page admission, 2026-11-03
+
+This exact metadata proposal explicitly adopts only the bounded normalization/path exception below. Entire accepted6104 queue is preserved as an exact prefix. It does not close CAP1 or admit the earlier four-test QA payload. Source remains private until actual metadata acceptance and every later source gate.
+
+```json
+{
+  "purposeId": "bank-shared-read-entry-p2-6093-20261103",
+  "status": "METADATA_ONLY_SOURCE_NOT_ACCEPTED",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "issue": 6093,
+  "metadataBaseExactMain": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+  "metadataBranch": "governance/bank-shared-read-entry-6093",
+  "metadataPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md"
+  ],
+  "claims": [
+    6615332749,
+    6615603394
+  ],
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "exactSourcePaths": [
+    "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+  ],
+  "privateHead": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+  "privateTree": "0e842c654fa249df75defec2be2b91f2d908efc0",
+  "sourcePins": [
+    {
+      "path": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7c5363a4653d5bce296ed7e2d0027863a897f23e",
+      "beforeBytes": 1259,
+      "beforeSha256": "35d679f26aee9176caffd84a3825167dc63a53d6a582c52846b5caa7e4652b5b",
+      "afterBlob": "5eb5a640b68bd9d89bb9c6d6dc64beee654369c9",
+      "afterBytes": 578,
+      "afterSha256": "2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "694474f883a8549d4087c1bc9b287738d2ff37e5",
+      "beforeBytes": 6680,
+      "beforeSha256": "fa96b78fcdd5e406b08b49814ab55c8d4fa97c1888fc01e094e130caa97451a0",
+      "afterBlob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "afterBytes": 20664,
+      "afterSha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5"
+    }
+  ],
+  "completeSourcePatchBytes": 17138,
+  "completeSourcePatchSha256": "3c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21",
+  "sourcePatchEncoding": "json-string-utf8",
+  "explicitBoundedAdmission": [
+    "After ordinary acceptance of THIS exact metadata, authorize ONLY these two frozen payloads on the retained source ref: the shared entry default reuses the existing canonical read-only renderer, and its existing already-native test adds behavioral/negative regressions. No other retained source path may ride along.",
+    "Explicitly adopt only the18 ASCII whitespace deletions OUTSIDE all JSON strings plus ONE exact ordered page-path append to the existing ten-path vector. This is the sole narrow below-ceiling P2 exception to prior blanket product-admission holds; it is not a general normalization/scope/capacity exception.",
+    "Actual state grows37B, from3145690 to3145727B, still <=3145728. Preserve all other values, string/numeric tokens, records/history, other vectors/order, owners, primary/current/next/progress and exact source/guard/workflow bytes. No false zero-growth/all-state-unchanged claim.",
+    "CAP1 ceiling/consumer owner remains unchanged. The separate four-test-path/+220B QA source6 candidate5edd stays private/HOLD. This bounded one-page metadata is neither its adoption nor CAP1 closure nor4MiB authority.",
+    "State/source authority for later adoption comes from the genuinely accepted metadata base, never an unaccepted candidate-owned scope or manifest. Full source diff must be exactly these two after blobs/modes and preserve every other THEN-current accepted leaf, including Gekta6096."
+  ],
+  "stateTransition": {
+    "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+    "metadataDirectory": "/workspace/scratch/5b06f14799fe/payment-basis-admission-6093",
+    "baseBytes": 3145690,
+    "normalizedBytes": 3145672,
+    "candidateBytes": 3145727,
+    "ceilingBytes": 3145728,
+    "spareBytes": 1,
+    "actualByteGrowth": 37,
+    "removedOutsideStringWhitespace": [
+      {
+        "byteOffset": 103578,
+        "byteHex": "0a"
+      },
+      {
+        "byteOffset": 103579,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103580,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103581,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103582,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103630,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087186,
+        "byteHex": "0a"
+      },
+      {
+        "byteOffset": 3087187,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087188,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087189,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087190,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087234,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121586,
+        "byteHex": "0a"
+      },
+      {
+        "byteOffset": 3121587,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121588,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121589,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121590,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121627,
+        "byteHex": "20"
+      }
+    ],
+    "appendedScopeBranch": "test/bank-acceptance-contract-6085",
+    "appendedOnlyPath": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "allOtherValuesAndStringNumericTokensPreserved": true,
+    "candidateSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "notAccepted": true
+  },
+  "privateChecksOnly": {
+    "actualCurrent52Selection": {
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+      "native": false,
+      "exit": 0,
+      "seconds": 75.734,
+      "files": 52,
+      "success": true,
+      "numTotalTests": 2022,
+      "numPassedTests": 2022,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "evidenceOwner": "implementation author"
+    },
+    "closestThree": {
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "evidenceOwner": "independent reviewer",
+      "passed": 167,
+      "failed": 0,
+      "skipped": 0,
+      "native": false
+    },
+    "sameNew44TestsOnAcceptedEntry": {
+      "passed": 22,
+      "failed": 22,
+      "skipped": 0,
+      "observedBase": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+      "currentF069EntryBytesIdentical": true
+    },
+    "correctedReadinessFile": {
+      "oldCasesRetained": 17,
+      "added": 27,
+      "total": 44,
+      "passed": 44
+    },
+    "pnpmTypecheckExit": 0,
+    "reviewVerifier": {
+      "passed": 49,
+      "failed": 0
+    },
+    "mechanicalUiDetectorFindings": 0,
+    "initialAuthorTestError": "Initial36-case version35PASS/1FAIL used an incorrect expected Chinese unavailable literal. It was corrected to existing actual server copy; raw red JSON retained. No application copy changed.",
+    "preflightReview": {
+      "bytes": 11301,
+      "sha256": "c4a02958c1aea9c7613674afc10a3dfb0cf3617de6d2272b1083b69d539ef8a4",
+      "actualRegistryReplay": "PASS; focused private callback with genuine Git and unchanged guard, not full/native guard"
+    },
+    "independentWholeSourceReview": {
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+      "reviewer": "/root/review_bank_6103",
+      "independentNonauthor": true,
+      "bytes": 7169,
+      "sha256": "05b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093",
+      "verdict": "PRIVATE_H2_SOURCE_CLEAN_NO_INTRODUCED_P0_P1_P2_P3",
+      "freshClosest167": {
+        "passed": 167,
+        "failed": 0,
+        "skipped": 0
+      },
+      "authorFull52NotIndependentCredit": 2022,
+      "historicalAdverseChecksOnly": "Priorff9a8adverse/webTS/oldpagebaseline remain support for byte-identical functions, not fresh H2 or native checks",
+      "native": false,
+      "sourceAdmission": false
+    },
+    "hostingAuthorityCheck": {
+      "exit": 1,
+      "actualFailure": "docker compose config --format json failed with an empty child diagnostic in this local environment",
+      "notPassed": true,
+      "nativeDockerChecksStillRequired": true
+    },
+    "historicalInitialWholeSourceReview": {
+      "reviewer": "/root/review_bank_6103",
+      "independentNonauthor": true,
+      "exactPrivateHead": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+      "bytes": 12436,
+      "sha256": "93b120ec3d1426b4cec3d63ef4a7f2900dbdc60a47589bff5d1dd9c7dacb3298",
+      "verdict": "PRIVATE_SOURCE_CLEAN_NO_INTRODUCED_P0_P1_P2_P3",
+      "closest167": {
+        "passed": 167,
+        "failed": 0,
+        "skipped": 0
+      },
+      "additionalMoney62": {
+        "passed": 62,
+        "overlap44NotSummed": true
+      },
+      "webTypecheckExit": 0,
+      "same44OnBase": {
+        "passed": 22,
+        "failed": 22
+      },
+      "deliberateRegressionsRejected": 8,
+      "native": false,
+      "sourceAdmission": false
+    },
+    "historicalInitial52Selection": {
+      "head": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+      "files": 52,
+      "passed": 2022,
+      "failed": 0,
+      "skipped": 0,
+      "native": false
+    },
+    "historicalInitialClosestThree": {
+      "files": 3,
+      "passed": 167,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pnpmTypecheckObservedHead": "738fd1004549c39de6e8959c79b9cb77c2d32142"
+  },
+  "requiredGates": [
+    "Genuine private whole-two independent nonauthor review before this metadata publication; exact after pins and full patch must match.",
+    "Metadata3 fresh actual-head whole-diff independent review, distinct owner audit, all applicable native/security, strict current-base/readiness/review-thread checks and ordinary full-expected-SHA manual acceptance before any source publication.",
+    "After acceptance recheck exact current main/Hub/owners and all source before-pins, compose exactly these two afters preserving current foreign leaves and retained ref ancestry. Fresh actual published-head whole-two independent review and distinct author audit; local/private old results do not transfer.",
+    "Actual native existing52 unit selection INCLUDING all44 readiness cases, full unmodified source/guard/security/build/browser/Kubernetes/positive cleanup and canonical readiness, unresolved-finding checks and ordinary expected-full-head manual merge remain required.",
+    "Actual exact-current-main web image/OCI/persisted model/healthy/live evidence is separately required before deployment claims. API/model/provider/DB/original19/13-cabinet and whole-block acceptance stay separate."
+  ],
+  "requiredTruthBoundaries": [
+    "The source adds no shell/cabinet/role/tenant/RLS/backend permission or actor/session override. Parent verified cabinet session and existing bank RbacGuard remain; canonical workspace GET/no-store/server bearer/participant/RLS/parsed evidence remain the data authority.",
+    "Only reuse the existing read-only canonical renderer at the already shared URI. Forward its original props/searchParams unchanged through default export; preserve existing metadata/robots and locale/query normalization. No cloned domain or fixture page, client money controls, new POST/request, readiness invention or money write.",
+    "Existing bank parent nav/return-to-bank links remain denied for buyer/seller. This fixes the primary shared entry rendering only; disclose these residual limitations and do not claim all bank subroutes/full participant journey/live authenticated13 accepted.",
+    "Tests execute actual entry/canonical renderer/cockpit/RbacGuard; positive display cases use explicit disposable locale/profile/server-data/visual doubles. Eight adapter cases use the actual canonical GET adapter/projection with only URL/header/fetch boundary doubles. They do not certify live credentials or backend RLS.",
+    "Keep all17 old money/confirmation denial cases and original52CI arguments; no new test path, CI list, registry, skipped test, guard limit or timeout edit. New cases cover readonly RUENZH, normalizedDeal/shipment arrays, unavailable/malformed/mismatched data,401/403, cross-tenant shipment, unknown shipment, network errors and ordinary guard denials.",
+    "Preserve every previous purpose/report/failure. All source6QA/CAP1/original19/CORE5525/5526/owner13/real external bank-FGIS requirements and official MASTER5/100 stay open."
+  ],
+  "forbiddenAuthority": [
+    "Guard writer/owner transfer,4MiB consumer permission, scope/state/history deletion or unbounded compaction",
+    "Shell/cabinet/business permission, actor/tenant/session/DB/RLS/API/migration/provider/command/payment or finality change",
+    "CI/security/independent-review/readiness waiver, broad exclusions, retries/budget increase, forged statuses, forced/automatic merge",
+    "Host/model/API/DB/backup/restore/original19 operation, new recurring cost or whole-block/MASTER score claim"
+  ],
+  "privateSourceReviewEncoding": "json-string-utf8",
+  "historicalInitialPrivateHead": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+  "historicalInitialMetadataBase": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+  "currentBaseDrift": {
+    "priorBase": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+    "acceptedCurrentBase": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+    "acceptedPr": 6104,
+    "delta": "execution-queue append128/0 only; all runtime/state/review/guard/source2 bytes unchanged",
+    "queuePrefixBlob": "fa8ac645dd128db9816401645fc2a768c24e078b",
+    "preserveWholeCurrentPrefix": true,
+    "notReusingOldHeadGates": true,
+    "queuePrefixSha256": "ee6789c6b6da8fee8180fc840a9e5eeb0ff334f852b88341d314e8abbc2a464c"
+  }
+}
+```
+
+Complete frozen source patch, losslessly JSON-encoded:
+
+```json
+"diff --git a/apps/web/app/platform-v7/bank/payment-basis/page.tsx b/apps/web/app/platform-v7/bank/payment-basis/page.tsx\nindex 7c5363a4653d5bce296ed7e2d0027863a897f23e..5eb5a640b68bd9d89bb9c6d6dc64beee654369c9 100644\n--- a/apps/web/app/platform-v7/bank/payment-basis/page.tsx\n+++ b/apps/web/app/platform-v7/bank/payment-basis/page.tsx\n@@ -1,7 +1,4 @@\n import type { Metadata } from 'next';\n-import { redirect } from 'next/navigation';\n-\n-type PageSearchParams = { dealId?: string | string[]; shipmentId?: string | string[] };\n \n export const metadata: Metadata = {\n   title: 'Проверка основания выплаты · Прозрачная Цена',\n@@ -9,20 +6,6 @@ export const metadata: Metadata = {\n   robots: { index: false, follow: false },\n };\n \n-export default async function BankPaymentBasisPage(props: { searchParams?: Promise<PageSearchParams> }) {\n-  const searchParams = await props.searchParams;\n-  const query = new URLSearchParams();\n-  const dealId = firstParam(searchParams?.dealId);\n-  const shipmentId = firstParam(searchParams?.shipmentId);\n-  if (dealId) query.set('dealId', dealId);\n-  if (shipmentId) query.set('shipmentId', shipmentId);\n-\n-  const suffix = query.size > 0 ? `?${query.toString()}` : '';\n-  redirect(`/platform-v7/bank/release-safety${suffix}`);\n-}\n-\n-function firstParam(value: string | string[] | undefined): string | undefined {\n-  const candidate = Array.isArray(value) ? value[0] : value;\n-  const normalized = candidate?.trim();\n-  return normalized || undefined;\n-}\n+// Keep the shared entry on its permitted URI while using the canonical\n+// authenticated, read-only review and its existing query normalization.\n+export { default } from '../release-safety/page';\ndiff --git a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\nindex 694474f883a8549d4087c1bc9b287738d2ff37e5..52d68700a2653f76b59f9a624ee31538845cca40 100644\n--- a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n+++ b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n@@ -1,6 +1,10 @@\n import fs from 'node:fs';\n import path from 'node:path';\n-import { describe, expect, it } from 'vitest';\n+import { createRequire } from 'node:module';\n+import { createElement, type ReactNode } from 'react';\n+import { renderToStaticMarkup } from 'react-dom/server';\n+import ts from 'typescript';\n+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\n import {\n   p7BuildBankBasis,\n   p7MarkBankBasisSent,\n@@ -17,6 +21,17 @@ import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key\n import { PLATFORM_V7_CANONICAL_ROLES, type PlatformV7CanonicalRole } from '@/lib/platform-v7/role-canonical';\n import type { PlatformV7DocumentRequirement } from '@/lib/platform-v7/document-matrix';\n import type { PlatformV7MoneyTree } from '@/lib/platform-v7/money-tree';\n+import {\n+  getCanonicalBankReleaseWorkspace,\n+  buildBankReleaseProjection,\n+  type BankReleaseProjection,\n+} from '@/lib/bank-release-server';\n+import * as serverApi from '@/lib/server-api';\n+import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';\n+import {\n+  evaluatePlatformV7RouteGuard,\n+  platformV7RouteGuardRequest,\n+} from '@/lib/platform-v7/rbac-route-guard';\n \n const webRoot = fs.existsSync(path.join(process.cwd(), 'lib/platform-v7/bank-basis.ts'))\n   ? process.cwd()\n@@ -121,3 +136,235 @@ describe('platform-v7 bank readiness guard', () => {\n     expect(tree).toEqual(before);\n   });\n });\n+\n+// These are explicit server-data/request boundary doubles. The entry page,\n+// canonical read-only renderer, cockpit and bank role guard execute unchanged;\n+// this fixture does not certify a live session, PostgreSQL access or payment.\n+const readEntryBoundary = {\n+  locale: vi.fn(),\n+  workspace: vi.fn(),\n+  projection: vi.fn(),\n+  profile: vi.fn(),\n+};\n+\n+function loadReadEntry() {\n+  const requireFromWeb = createRequire(path.join(webRoot, 'package.json'));\n+  const loaded = new Map<string, Record<string, any>>();\n+  function load(relativePath: string): Record<string, any> {\n+    const cached = loaded.get(relativePath);\n+    if (cached) return cached;\n+    const module = { exports: {} as Record<string, any> };\n+    loaded.set(relativePath, module.exports);\n+    const source = fs.readFileSync(path.join(webRoot, relativePath), 'utf8');\n+    const compiled = ts.transpileModule(source, { compilerOptions: {\n+      target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,\n+      jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,\n+    } }).outputText;\n+    const boundRequire = (specifier: string): unknown => {\n+      if (specifier === '../release-safety/page') return load('app/platform-v7/bank/release-safety/page.tsx');\n+      if (specifier === 'next-intl/server') return { getLocale: readEntryBoundary.locale };\n+      if (specifier === '@/lib/bank-release-server') return {\n+        getCanonicalBankReleaseWorkspace: readEntryBoundary.workspace,\n+        buildBankReleaseProjection: readEntryBoundary.projection,\n+      };\n+      if (specifier === '@/lib/auth-profile-server') return { getAuthProfile: readEntryBoundary.profile };\n+      if (specifier === '@/lib/platform-v7/rbac-route-guard') return {\n+        evaluatePlatformV7RouteGuard, platformV7RouteGuardRequest,\n+      };\n+      if (specifier === '@/components/platform-v7/CanonicalDealsList') return {\n+        CanonicalDealsList: () => createElement('div', { 'data-testid': 'read-entry-deal-list-boundary' }),\n+      };\n+      if (specifier === '@pc/design-system-v8') return {\n+        StatusChip: ({ children, tone }: { children: ReactNode; tone?: string }) => createElement('span', { 'data-tone': tone }, children),\n+        InlineNotice: ({ children, title }: { children: ReactNode; title?: string }) => createElement('aside', null, title, children),\n+      };\n+      if (specifier === '@/components/transaction-ux/MoneyObligationCockpit') return load('components/transaction-ux/MoneyObligationCockpit.tsx');\n+      if (specifier.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };\n+      return requireFromWeb(specifier);\n+    };\n+    new Function('require', 'module', 'exports', compiled)(boundRequire, module, module.exports);\n+    return module.exports;\n+  }\n+  return {\n+    Page: load('app/platform-v7/bank/payment-basis/page.tsx').default,\n+    Guard: load('components/platform-v7/RbacGuard.tsx').RbacGuard,\n+    metadata: load('app/platform-v7/bank/payment-basis/page.tsx').metadata,\n+  };\n+}\n+\n+describe('shared bank payment-basis read entry', () => {\n+  const workspace = Object.freeze({ marker: 'authenticated-workspace-unit-boundary' });\n+  let projection: BankReleaseProjection;\n+  beforeEach(() => {\n+    vi.clearAllMocks();\n+    projection = {\n+      dealId: 'deal-read-entry', tenantId: 'tenant-read-entry', dealVersion: '7', dealStatus: 'RELEASE_REQUESTED',\n+      shipmentId: 'shipment-read-entry', amountKopecks: '12000', currency: 'RUB', viewerRole: 'BUYER',\n+      viewerCanRequest: false, state: 'awaiting_bank', documents: [], documentsReady: false,\n+      acceptanceReady: false, reserveConfirmed: false, releaseRequested: true, releaseConfirmed: false,\n+      activeDisputeCount: 0, activeHoldKopecks: '0', payment: null, reserveOperation: null,\n+      releaseOperation: null, releaseOutbox: null, blockers: [], warnings: [],\n+    };\n+    readEntryBoundary.locale.mockResolvedValue('ru');\n+    readEntryBoundary.workspace.mockResolvedValue(workspace);\n+    readEntryBoundary.projection.mockReturnValue(projection);\n+    readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });\n+  });\n+\n+  const locales = [\n+    { locale: 'ru', unknown: 'внешний исход не подтверждён', unavailable: 'Серверная проверка выплаты недоступна' },\n+    { locale: 'en', unknown: 'external outcome unconfirmed', unavailable: 'Server payout review is unavailable' },\n+    { locale: 'zh', unknown: '外部结果尚未确认', unavailable: '服务器付款检查不可用' },\n+  ];\n+  const readers = [\n+    { cabinet: 'buyer', apiRole: 'BUYER' },\n+    { cabinet: 'seller', apiRole: 'FARMER' },\n+  ] as const;\n+\n+  for (const reader of readers) {\n+    it.each(locales)(`${reader.cabinet} reads the canonical review at the shared URI in $locale`, async copy => {\n+      expect(canRoleAccessCabinet(reader.cabinet, '/platform-v7/bank/payment-basis')).toBe(true);\n+      expect(canRoleAccessCabinet(reader.cabinet, '/platform-v7/bank')).toBe(false);\n+      readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+      readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: reader.apiRole });\n+      const before = structuredClone(projection);\n+      const { Page, Guard, metadata } = loadReadEntry();\n+      const page = await Page({ searchParams: Promise.resolve({\n+        dealId: ['  deal-read-entry  ', 'ignored-deal'], shipmentId: ['  shipment-read-entry  ', 'ignored-shipment'],\n+        released: 'true', bankConfirmed: 'true',\n+      }) });\n+      const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: page }));\n+      expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('deal-read-entry');\n+      expect(readEntryBoundary.projection).toHaveBeenCalledExactlyOnceWith(workspace, 'shipment-read-entry');\n+      expect(metadata.robots).toEqual({ index: false, follow: false });\n+      expect(html).toContain('data-testid=\"platform-v7-bank-release-safety-v8\"');\n+      expect(html).toContain(copy.unknown);\n+      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');\n+      expect(html).toContain('dealId=deal-read-entry&amp;shipmentId=shipment-read-entry');\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+      expect(projection).toEqual(before);\n+      expect(projection.releaseConfirmed).toBe(false);\n+      expect(projection.viewerCanRequest).toBe(false);\n+    });\n+  }\n+\n+  it.each(locales)('keeps unavailable workspace data unavailable in $locale', async copy => {\n+    readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+    readEntryBoundary.workspace.mockResolvedValue(null);\n+    const { Page } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'missing-deal' }) }));\n+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('missing-deal');\n+    expect(readEntryBoundary.projection).not.toHaveBeenCalled();\n+    expect(html).toContain(copy.unavailable);\n+    expect(html).not.toContain('deal-read-entry');\n+    expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+  });\n+\n+  it('keeps a rejected canonical projection unavailable', async () => {\n+    readEntryBoundary.projection.mockReturnValue(null);\n+    const { Page } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'deal-read-entry' }) }));\n+    expect(html).toContain('Серверная проверка выплаты недоступна');\n+    expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');\n+    expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+  });\n+\n+  it.each([undefined, {}, { dealId: '   ' }, { dealId: [] }])('uses the canonical registry when no Deal is selected: %j', async query => {\n+    const { Page } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));\n+    expect(html).toContain('read-entry-deal-list-boundary');\n+    expect(readEntryBoundary.workspace).not.toHaveBeenCalled();\n+    expect(readEntryBoundary.projection).not.toHaveBeenCalled();\n+    expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+  });\n+\n+  it.each([\n+    { available: false, id: null, orgId: null, role: null },\n+    { available: true, id: 'unit-reader', orgId: null, role: 'BUYER' },\n+    { available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'DRIVER' },\n+    { available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'GUEST' },\n+    { available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'PLATFORM_OWNER' },\n+  ])('preserves the actual bank guard denial for %j', async profile => {\n+    readEntryBoundary.profile.mockResolvedValue(profile);\n+    const { Guard } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: createElement('div', null, 'PRIVATE_UNIT_READ_VIEW') }));\n+    expect(html).toContain('platform-v7-rbac-denied-bank_workspace');\n+    expect(html).not.toContain('PRIVATE_UNIT_READ_VIEW');\n+  });\n+\n+  describe('canonical read-data boundary', () => {\n+    afterEach(() => {\n+      vi.restoreAllMocks();\n+      vi.unstubAllGlobals();\n+    });\n+\n+    function responseBody() {\n+      return {\n+        deal: {\n+          id: 'deal-read-entry', tenantId: 'tenant-read-entry', status: 'DRAFT', version: '1',\n+          totalKopecks: '12000', currency: 'RUB', updatedAt: '2026-11-03T12:00:00.000Z',\n+          shipments: [{ id: 'shipment-read-entry', dealId: 'deal-read-entry', tenantId: 'tenant-read-entry', status: 'PLANNED', checkpoints: [] }],\n+          acceptanceRecords: [], labSamples: [], documents: [], payments: [], bankOperations: [],\n+        },\n+        viewer: { participantId: 'unit-participant', organizationId: 'unit-reader-org', role: 'BUYER', accessLevel: 'READ' },\n+        projections: { documents: [], payments: [], disputes: [] }, outbox: [],\n+      };\n+    }\n+\n+    function useCanonicalRead(fetchBoundary: ReturnType<typeof vi.fn>) {\n+      vi.spyOn(serverApi, 'serverApiUrl').mockImplementation(route => `https://unit-api.example${route}`);\n+      vi.spyOn(serverApi, 'serverAuthHeaders').mockResolvedValue({ authorization: 'Bearer disposable-unit-fixture' });\n+      vi.stubGlobal('fetch', fetchBoundary);\n+      readEntryBoundary.workspace.mockImplementation(getCanonicalBankReleaseWorkspace);\n+      readEntryBoundary.projection.mockImplementation(buildBankReleaseProjection);\n+    }\n+\n+    it('uses the actual authenticated GET adapter and projection without creating a payout', async () => {\n+      const body = responseBody();\n+      const before = structuredClone(body);\n+      const fetchBoundary = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));\n+      useCanonicalRead(fetchBoundary);\n+      const { Page } = loadReadEntry();\n+      const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'deal-read-entry', shipmentId: 'shipment-read-entry' }) }));\n+      expect(fetchBoundary).toHaveBeenCalledTimes(1);\n+      const [url, init] = fetchBoundary.mock.calls[0];\n+      expect(url).toBe('https://unit-api.example/deals/deal-read-entry/workspace');\n+      expect(init.cache).toBe('no-store');\n+      expect(init.method ?? 'GET').toBe('GET');\n+      expect(init.headers).toEqual({ authorization: 'Bearer disposable-unit-fixture' });\n+      expect(init.body).toBeUndefined();\n+      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');\n+      expect(html).toContain('выплата заблокирована');\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+      expect(body).toEqual(before);\n+    });\n+\n+    it.each(['401', '403', 'mismatched-deal', 'cross-tenant-shipment', 'unknown-shipment', 'malformed', 'network-error'])(\n+      'keeps the actual canonical adapter/projection failure unavailable: %s', async failure => {\n+        const body = responseBody();\n+        const query = { dealId: 'deal-read-entry', shipmentId: 'shipment-read-entry' };\n+        if (failure === 'mismatched-deal') {\n+          body.deal.id = 'different-deal';\n+          body.deal.shipments[0].dealId = 'different-deal';\n+        }\n+        if (failure === 'cross-tenant-shipment') body.deal.shipments[0].tenantId = 'different-tenant';\n+        if (failure === 'unknown-shipment') query.shipmentId = 'unknown-shipment';\n+        const fetchBoundary = failure === 'network-error'\n+          ? vi.fn().mockRejectedValue(new Error('PRIVATE_READ_FIXTURE_DETAIL'))\n+          : vi.fn().mockResolvedValue(\n+            failure === '401' || failure === '403'\n+              ? new Response(null, { status: Number(failure) })\n+              : new Response(JSON.stringify(failure === 'malformed' ? { unexpected: true } : body), { status: 200 }),\n+          );\n+        useCanonicalRead(fetchBoundary);\n+        const { Page } = loadReadEntry();\n+        const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));\n+        expect(fetchBoundary).toHaveBeenCalledTimes(1);\n+        expect(html).toContain('Серверная проверка выплаты недоступна');\n+        expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');\n+        expect(html).not.toContain('PRIVATE_READ_FIXTURE_DETAIL');\n+        expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+      },\n+    );\n+  });\n+});\n"
+```
+
+Historical initial private source review onff9a/base5f0 (support only, not renewed-head acceptance), losslessly JSON-encoded:
+
+```json
+"Independent private SOURCE2 whole-head review — payment-basis P2\nReviewer: /root/review_bank_6103; independent nonauthor. I did not author the candidate, change the author's source tree or publish/authenticate/invoke any GitHub/production operation. All checks/adversarial controls ran in my isolated /workspace/scratch/5b06f14799fe/reviewer-payment-basis-source2. Private control mutations were restored, source bytes reverified against author pins, and tracked tree is clean.\n\nExact full head ff9a8927ace1195ee9da2cf9fc60247455f8f0b4\nSole parent/base5f0b26c0681fa1457c011e20fa612886701f8d37\nTree d6e954e8068bd0a678d24e47807ee2f105511b70\nFull-index binary patch17138B / SHA2563c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21\nIndependent source/evidence pins: /workspace/scratch/5b06f14799fe/reviewer-bank-6103/PAYMENT_SOURCE2_INDEPENDENT_PRIVATE_PINS.json\nPins4510B / SHA256a9a32544807e05faaaed6fae1645284374a83ecce184559b4149e709ca974d76\n\n**Verdict: PRIVATE_SOURCE_CLEAN_FOR_BOUNDED_ENTRY_FIX; no introduced P0/P1/P2/P3 finding.** This is a private source review, not metadata/path admission, native CI, publication, merge, deployment or live buyer/seller acceptance. Residual denied bank navigation/backlinks remain; whole block/CORE/original19/API/DB/authenticated13/QA6093 stay OPEN5/100. Separate explicitly reviewed metadata3 is still required before source publication, then new whole published-head review/native/manual gates.\n\nRead applicable root/web AGENTS; inspected the actual complete two-file diff, complete after bytes and unchanged relevant server renderer, parent layout/RbacGuard, route/access policies, canonical server adapter/projection and API/RLS path. Exact modes/size/SHA256/Git blob before-and-after pins match supplied packet. Regenerated full-index patch equals supplied17138B/hash. Both base/head trees have7101 leaves; EXACTLY two differ, all7099 foreign leaves/modes/blob IDs identical. All accepted Gekta6096 files remain exactly5f0. No state/queue/review/guard, CI list/coverage registry, shell/cabinet role, backend/schema/provider/command or canonical renderer source changes.\n\n| Path | Before blob → after blob | After bytes / SHA256 |\n|---|---|---|\n| apps/web/app/platform-v7/bank/payment-basis/page.tsx |7c5363a4653d5bce296ed7e2d0027863a897f23e →5eb5a640b68bd9d89bb9c6d6dc64beee654369c9 |578 /2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3 |\n| apps/web/tests/unit/platformV7BankReadinessGuard.test.ts |694474f883a8549d4087c1bc9b287738d2ff37e5 →52d68700a2653f76b59f9a624ee31538845cca40 |20664 /0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5 |\n\n**Runtime behavior and safety.** The sole runtime change removes the async alias redirect to /bank/release-safety and re-exports that page's actual default renderer from the existing permitted /bank/payment-basis URI. Its previous static metadata/title/description/noindex/nofollow remain unchanged. It does not also re-export generateMetadata, so there is no conflicting Next metadata export. Query props reach the unchanged canonical renderer and its first-value/trim handling; no copy of canonical view/projection logic or new client command is created.\n\nThe fix addresses the earlier source P2: buyer/seller first-hop permission was valid, but redirect destination was denied by the real protected layout. Now that destination redirect is absent. It does NOT authorize direct release-safety, bank root or bank subroutes for buyer/seller. Root signed-cabinet policy and bank parent RbacGuard remain byte-identical. Actual bank guard derives authenticated own-org buyer/seller money READ scope. The reused view only reads canonical workspace and renders facts/links; command and money-confirmation authority are unchanged.\n\nUnchanged lib/bank-release-server.ts:196–211 uses GET /deals/<encodedID>/workspace, no-store and server cookie bearer headers, returning unavailable on non-OK/malformed/ID mismatch. Its parser/projection rejects inconsistent Deal/tenant-linked facts and invalid shipment selection. API workspace remains trusted identity + withTrustedContext/RLS + active participant/user/org/KYC/membership/tenant enforcement (PrismaDealRepository:220–223,570–606). Source review of those checks is not a fresh live PostgreSQL or auth acceptance. No selected Deal renders the existing accessible-Deal registry; selected Deal renders canonical read-only review. No release request, callback, bank/provider operation or money-state write is added.\n\n**Test integrity and actual coverage.** All original helper code and17 money/readiness tests from const webRoot through the original final describe close remain an EXACT5907B prefix; only imports expand before it. No prior assertion, role list, no-mutation identity check or confirmation gate is weakened/deleted/skipped. Existing test file is already selected by native CI; no new file/CI/registry expansion.\n\nNew27 cases produce44 total in this existing file:\n\n| New group | Cases | Actual boundary |\n|---|---:|---|\n|buyer/seller × RU/EN/ZH selected read|6|Actual entry/default re-export, actual canonical page/cockpit and actual RbacGuard; normalized query calls, own cabinet first-hop and bank-root denial, preserved robots, unknown external outcome, no form/button/post, unchanged projection|\n|unavailable workspace × locales|3|Actual renderer fails closed; projection never called|\n|rejected projection|1|Actual unavailable view, no selected-Deal link|\n|no Deal/empty values|4|Actual registry branch; no workspace/projection read|\n|unavailable/missing-org/driver/guest/platform-owner profiles|5|Actual RbacGuard denial excludes private child|\n|actual canonical GET adapter/projection positive+negative|8|Only API URL/headers/fetch controlled; real adapter/projection parse+guard; GET/no-store/no body/auth-header,401/403/mismatched Deal/cross-tenant shipment/unknown shipment/malformed/network failure|\n\nThe test's local TypeScript loader transpiles the ACTUAL source modules and executes their actual exported functions. It does not stub the page's success result or replace its renderer with a fixed success function. It explicitly doubles locale, profile, server-data/projection inputs in the first groups, deal-list/visual boundaries and CSS; real page/cockpit/guard execute. The8 canonical adapter cases switch workspace/projection doubles to REAL imported functions and mock only server API URL/headers and fetch. Temporary fetch spies/globals are restored after each such case. These controlled fixtures do not verify real cookie/JWT issuance, a root server session, actual network, database permissions or live human/account behavior. No such result is claimed by this review.\n\nThe first6 use an explicitly controlled awaiting-bank projection; they do not prove the adapter produces that state from real production data. Existing bankReleaseServer78 tests and bankReleaseSafetyRoute45 tests independently remain passing and cover the unchanged canonical logic. New query parameters released=true/bankConfirmed=true never alter the controlled projection/authority; actual8 adapter cases exercise real read/parse behavior. Fixture GET proof does not turn the disposable unit bearer string into a real credential.\n\n**Independent executable results.**\n\n| Check | Actual result |\n|---|---|\n|Exact diff/head/tree/sole parent/two pins/full-index patch/7099 foreign leaves|PASS|\n|Readiness44 + canonical bankReleaseServer78 + bankReleaseSafetyRoute45|167PASS/0FAIL/0skip, independent local Vitest|\n|Readiness44 + unchanged money/document action boundary9 + server-action money guard9|62PASS/0FAIL/0skip, independent;44 overlap, not summed|\n|Web TypeScript --noEmit --incremental false|exit0, empty diagnostic log|\n|OLD5f0 page with current new44 tests|44total:22FAIL/22PASS/0skip, exit1; expected regression reproduced|\n|Eight deliberate adverse controls|All8 rejected with intended real assertion failures; all mutated source restored|\n|Author's exact52 workflow selection|Separate author evidence read:2022PASS/0FAIL/0skip, receipt binds ff9a/base5f0. Not my independent/native full52 run.|\n\nThe baseline changes ONLY my clone's page back to actual5f0 bytes while retaining current44 tests. Exactly22 read/renderer cases fail on actual NEXT_REDIRECT; the17 original money guards plus5 guard-denial cases still pass. Thus new positive-read cases detect the old product defect rather than simply asserting policy or mock success.\n\nAdverse controls ran the actual current44 tests separately:\n-Discard entry query/props:18 intended failures.\n-Change actual workspace adapter GET to POST with body:positive HTTP contract fails.\n-Remove actual adapter auth headers:positive HTTP contract fails.\n-Remove actual cross-tenant shipment check:that real negative fails.\n-Bypass actual RbacGuard denial:all5 denial cases fail.\n-Insert a release button into canonical renderer:22 DOM money-control assertions fail.\n-Enable entry robots indexing/following:6 metadata assertions fail.\n-Grant buyer access to bank root:3 existing bank-root denials fail.\nFailures were assertion results with44 total cases, not loader/parser errors. The controls are private experiments, not new source changes or proposed permissions.\n\nFull raw results/logs and exact evidence hashes are in the independent pins manifest. No overlapping passes, repeated controls or author's run are summed. Earlier author36-case35PASS/1FAIL JSON remains real historical red; I read it. Parent identifies the wrong expected Chinese fixture text, corrected to actual unchanged canonical copy; current runtime Chinese copy was NOT edited. Current44/167 source checks are fresh; old red is not relabelled.\n\n**Residual limits and required disclosure.** Bank parent navigation still points buyer/seller toward canonical bank and release-safety destinations they cannot open; registry/unavailable renderer still has a return-to-bank link. These are existing shared-layout/backlink limitations, not fixed here. This source fixes the permitted entry's read path; do not claim all bank navigation or authenticated money journey is complete. Controlled render success and real adapter tests do not establish live tenant/participant permissions, deployed target revision, provider readiness, external integration, production auth/RLS,13cabinet acceptance, bank finality or whole-block closure.\n\nActual Next production build was not run by this reviewer; typecheck and source/default re-export semantics passed. Future genuine native build and applicable security/Kubernetes/source checks remain mandatory. No server state or production page is changed by this private review.\n\n**Admission and later gates.**\n1. Separate metadata3 must explicitly adopt ONLY18 ASCII outside-JSON-string whitespace removals plus one55B payment-basis source-path append to the retained10-path vector, yielding11 and3145727B. Preserve every other token/value/history/purpose/owner/vector; actual raw delta is+37B, not zero. Pin exact future two-source payloads/patch and narrowly renew the old blanket admission hold ONLY for this bounded P2. Current state/guard are unchanged; no4MiB/CAP1 fix or guard takeover is granted.\n2. Obtain independent complete metadata-head review, separate owner audit, full genuine native/security/readiness and normal full-expected-SHA manual metadata acceptance. Earlier focused real-registry fixture proof is local, not full native guard. Preserve all current unrelated source/Gekta leaves; recompute if base/state changes.\n3. ONLY then compose/publish this exact two-source change on the accepted current base/retained lane, preserving branch history and all foreign leaves. Published head necessarily differs from this private ff9a context and needs fresh actual whole-head source review/owner audit/native selected tests/full guard/security/build/Kubernetes/positive cleanup/canonical readiness and ordinary manual expected-SHA merge. No private result transfer to changed bytes/context.\n4. Later image/web release/live role read validation remain separately admitted operational work. No existing bank write/RLS/role/backend authority changes. Frozen old source6 QA5edd remains CAP1 HOLD; original19/API/DB/restore/CORE5525/5526/authenticated13/fullblock remain OPEN5/100.\n\nIntroduced findings P0=0/P1=0/P2=0/P3=0. PRIVATE SOURCE CLEAN for these exact bytes and bounded entry behavior, with the stated doubles, residual links and pending metadata/native/live gates.\n"
+```
+
+Fresh H2 whole-source independent review, losslessly JSON-encoded,7169B/SHA25605b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093:
+
+```json
+"Fresh independent PRIVATE SOURCE2 H2 context review\nReviewer /root/review_bank_6103, independent nonauthor. No author/public/ref/auth/host operation or source implementation was performed. Review snapshot and fresh checks use isolated /workspace/scratch/5b06f14799fe/reviewer-payment-basis-H2.\n\nHead738fd1004549c39de6e8959c79b9cb77c2d32142\nSole base/parentf069117ccec5eb594e61d69b85b0bf643a8ef92f\nTree0e842c654fa249df75defec2be2b91f2d908efc0\nFull-index patch17138B/SHA2563c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21.\nFresh pins: /workspace/scratch/5b06f14799fe/reviewer-bank-6103/PAYMENT_SOURCE2_H2_738FD100_PINS.json\n2745B/SHA256f4cf9ed71678df65b264743122169835f309fcdd38dcc096e5e6ef6b7b31cd31.\n\n**Verdict: PRIVATE_H2_SOURCE_CLEAN; introduced P0/P1/P2/P3=0.** This is a new review bound to H2, not approval transferred fromff9a. Metadata3/path admission, actual published-head review/native/security/readiness/manual acceptance and live validation remain required. No publication or production approval is created.\n\nI inspected the actual complete H2 diff and both complete after files, independently checked Git commit-object SHA1, sole parent/tree, all before/after mode/size/SHA256/blob pins and full regenerated binary patch. Both trees contain7101 leaves. Exactly two paths differ; all7099 foreign leaves/modes/blob IDs are IDENTICAL to acceptedf069. Worktree tracked source is clean. H2 versus the earlierff9a snapshot differs only in the accepted execution-queue context; all runtime/test/helper/dependency source bytes are identical.\n\n| Actual H2 changed file | Mode / before→after blob | After bytes / SHA256 |\n|---|---|---|\n|apps/web/app/platform-v7/bank/payment-basis/page.tsx|100644 /7c5363a4653d5bce296ed7e2d0027863a897f23e→5eb5a640b68bd9d89bb9c6d6dc64beee654369c9|578 /2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3|\n|apps/web/tests/unit/platformV7BankReadinessGuard.test.ts|100644 /694474f883a8549d4087c1bc9b287738d2ff37e5→52d68700a2653f76b59f9a624ee31538845cca40|20664 /0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5|\n\n**Accepted6104 context preserved.** Fresh primary GitHub evidence establishedf069 parents5f0b26c0681fa1457c011e20fa612886701f8d37+9b2c8f1f6125bf1d623729fe82b9c5a1b44f7451 and a complete one-file comparison: execution-queue.md +128/-0. The local H2 queue is EXACTLY acceptedf069 blobfa8ac645dd128db9816401645fc2a768c24e078b,2779961B/SHA256ee6789c6b6da8fee8180fc840a9e5eeb0ff334f852b88341d314e8abbc2a464c. It preserves the complete prior prefix and81182B/128line accepted6104 append, without editing or dropping it.\n\nParsed appended purpose is pc.gekta.exact-source-preparation.v1 / gekta-supplied-yield-numeric-identity-20261103, SOURCE_PREPARATION_ONLY on retainedcodex/gekta-security-review, queue-only metadata. sourcePublicationAccepted=false; production mutation/model invocation or activation/execution grants=false. It does not replace the bank source owner, grant source2 paths, install an API image or change the canonical read adapter. Accepted6096 Gekta source and all other foreign leaves remain intact. Peer6106 API work remains separate; if accepted later, recompose/recheck rather than overwrite or inherit its authority.\n\n**Current source and test assessment.** The page retains its static metadata/noindex/nofollow and now exports the actual canonical release-safety default renderer at the already permitted payment-basis URI. It removes the redirect into a destination buyer/seller policy denies. There is no shell/cabinet/role/backend/command change or duplicate renderer; original query handling, server bearer/no-store GET, failure-unavailable behavior, participant/tenant/RLS authority and no-money-write boundaries remain in unchanged canonical source.\n\nAll17 original readiness/money cases and their helper body remain the exact original prefix. New27 cases make44 in the already selected file. They execute actual entry/canonical renderer/cockpit/RbacGuard with explicit locale/profile/server-data/visual doubles;8 cases execute actual canonical GET adapter/projection with only URL/header/fetch boundaries controlled. Coverage includes buyer/seller×RU/EN/ZH, first-query/trim handling, registry/no Deal, unavailable projection/data, denied/missing profiles, GET/no-store/no-body/auth header,401/403/mismatched Deal/cross-tenant shipment/unknown shipment/malformed/network. Page success is not replaced by a fixed mock. No CI selection/coverage registry/test path change occurs.\n\n**Fresh independent H2 execution:** actual44 readiness +78 bankReleaseServer +45 bankReleaseSafetyRoute =167PASS/0FAIL/0skip, exit0. Result paths are this H2 snapshot and source bytes were rechecked afterward. Logs/results are pinned in the new manifest. This fresh local result is not native CI.\n\nThe parent’s NEW H2 full52 receipt was read: head738fd1004549c39de6e8959c79b9cb77c2d32142/basef069,2022PASS/0FAIL/0skip, exit0. That is author/private evidence, not my independent full52/native run. H2 author typecheck was pending when requested; no fresh independent H2 TypeScript/build/native result is claimed here.\n\nPreservedff9a report /workspace/scratch/5b06f14799fe/reviewer-bank-6103/PAYMENT_SOURCE2_INDEPENDENT_PRIVATE_REVIEW.md remains SHA25693b120ec3d1426b4cec3d63ef4a7f2900dbdc60a47589bff5d1dd9c7dacb3298. Its old-page22FAIL/22PASS,8 adversarial rejection controls and webTS0 are historical supporting evidence for these byte-identical functions, not rerun H2 checks or current approval. Complete H2 before/after/policy/renderer equivalence and fresh167 are independently established above; no repetitive adverse runs were needed because no function/dependency changed.\n\n**Limits retained.** Actual parent-bank navigation and return-to-bank links still lead buyer/seller to denied root/release-safety destinations. This fixes the shared read entry and canonical Deal read path, not every bank navigation path. Controlled unit profiles/bearer/data/visual boundaries are not live cookies/JWT issuance, a human account, actual HTTP/PostgreSQL RLS or authenticated13 acceptance. Backend/provider/finality/CORE/original19/API/DB/restore and full product block remain OPEN5/100.\n\nMetadata3 is still unaccepted. It must start from the ENTIRE f069 queue prefix and explicitly adopt only18 outside-string ASCII whitespace removals plus one55B payment-basis path appended to the existing ordered10-vector, yielding11 and3145727B. This is actual+37B raw state growth, not zero; no4MiB/guard/CAP1 authority is created. Narrowly supersede only the relevant blanket admission hold for this bounded P2; preserve other scopes/owners/history and frozen QA6/5edd HOLD.\n\nFresh complete metadata-head review/owner audit/applicable native/security/readiness/ordinary manual expected-SHA acceptance must precede source publication. Then recompose on actual accepted main, preserve every accepted foreign leaf and obtain NEW actual published-head whole review/owner/native52/full guard/build/Kubernetes/security/cleanup/readiness/manual gates. Any further main/head/payload drift invalidates this context binding. No source/host/main freeze or peer API authority is inferred.\n"
+```
