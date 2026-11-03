@@ -185,9 +185,11 @@ function stream() {
   ];
   return new Response(frames.map(encodeFrame).join(''), { headers: { 'content-type': 'text/event-stream' } });
 }
-function installServer(options: { consentFails?: boolean; reserveFails?: boolean; delayedProbe?: Promise<Response>; reserveGate?: Promise<void>; firstReserveGate?: Promise<void> } = {}) {
+function installServer(options: { consentFails?: boolean; reserveFails?: boolean; delayedProbe?: Promise<Response>; reserveGate?: Promise<void>; firstReserveGate?: Promise<void>; completeGate?: Promise<void>; generation?: (init: RequestInit | undefined, ordinal: number) => Response | Promise<Response> } = {}) {
   let accepted = false;
   let reserveCount = 0;
+  let ticketCount = 0;
+  let generationCount = 0;
   const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/api/gekta/account/')) return json({}, 401);
@@ -200,16 +202,17 @@ function installServer(options: { consentFails?: boolean; reserveFails?: boolean
         return json(envelope(true));
       }
       if (body.action === 'reserve') {
-        const reservation = accepted ? { ...envelope(true), allowed: true, ticket: 'synthetic-ticket' } : { ...envelope(false), allowed: false, reason: 'consent_required' };
+        const reservation = accepted ? { ...envelope(true), allowed: true, ticket: `synthetic-ticket-${++ticketCount}` } : { ...envelope(false), allowed: false, reason: 'consent_required' };
         if (options.firstReserveGate && reserveCount++ === 0) await options.firstReserveGate;
         if (options.reserveGate) await options.reserveGate;
         if (options.reserveFails) return json({}, 503);
         return json(reservation);
       }
+      if (body.action === 'complete' && options.completeGate) await options.completeGate;
       return json(envelope(accepted));
     }
     if (url === '/api/public-platform-assistant/attachments') return json({ documents: [{ id: 'synthetic-doc', name: 'soil.txt', size: 50, mediaType: 'text/plain', text: 'Почва суглинок. QA_SOIL_DOC_754.', checksumSha256: 'a'.repeat(64), truncated: false }], rejected: [] });
-    if (url.startsWith('/api/agro-chat')) return stream();
+    if (url.startsWith('/api/agro-chat')) return options.generation?.(init, generationCount++) ?? stream();
     throw new Error(`Unexpected test network ${url}`);
   });
   Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: spy });
@@ -231,6 +234,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: originalFetch });
   vi.restoreAllMocks();
 });
@@ -378,6 +382,155 @@ describe('G-A02 first manual question from discovery', () => {
     expect(generations(spy)).toHaveLength(1);
     expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe('Как хранить овёс?');
   });
+  it.each(['network', '401', '503'])('does not replay an uncertain one-use generation after %s; explicit Retry obtains a fresh ticket and document', async failure => {
+    const spy = installServer({ generation: (_init, ordinal) => {
+      if (ordinal > 0) return stream();
+      if (failure === 'network') throw new TypeError('synthetic response lost after ticket admission');
+      return json({}, Number(failure));
+    } });
+    await draft();
+    const fileInput = document.querySelector<HTMLInputElement>('[data-gekta-drop-target] input[type=file]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['Почва суглинок'], 'soil.txt', { type: 'text/plain' })] } });
+    await screen.findByText('soil.txt');
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Понятно, начать' }));
+    const retryButton = await screen.findByRole('button', { name: 'Повторить' });
+    expect(generations(spy)).toHaveLength(1);
+    const first = generations(spy)[0][1]!;
+    expect(new Headers(first.headers).get('x-gekta-answer-ticket')).toBe('synthetic-ticket-1');
+    expect(spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete')).toHaveLength(0);
+    fireEvent.click(retryButton);
+    await screen.findByText('Сначала уточни тип почвы.');
+    await waitFor(() => expect(generations(spy)).toHaveLength(2));
+    const second = generations(spy)[1][1]!;
+    expect(new Headers(second.headers).get('x-gekta-answer-ticket')).toBe('synthetic-ticket-2');
+    for (const init of [first, second]) {
+      expect(JSON.parse(String(init.body))).toMatchObject({ message: QUESTION, documents: [{ name: 'soil.txt', text: 'Почва суглинок. QA_SOIL_DOC_754.', truncated: false }] });
+    }
+    await waitFor(() => {
+      const completions = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+      expect(completions).toHaveLength(1);
+      expect(JSON.parse(String(completions[0][1]?.body)).ticket).toBe('synthetic-ticket-2');
+    });
+    expect(JSON.stringify(localStorage)).not.toContain('QA_SOIL_DOC_754');
+  });
+
+  it('aborts one pending generation on Stop without replay or completion and exposes Retry', async () => {
+    let signal: AbortSignal | undefined;
+    const spy = installServer({ generation: init => new Promise<Response>((_resolve, reject) => {
+      signal = init?.signal ?? undefined;
+      signal?.addEventListener('abort', () => reject(new DOMException('stopped', 'AbortError')), { once: true });
+    }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Понятно, начать' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Остановить' }));
+    await screen.findByRole('button', { name: 'Повторить' });
+    expect(signal?.aborted).toBe(true);
+    expect(generations(spy)).toHaveLength(1);
+    expect(spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete')).toHaveLength(0);
+  });
+
+  it.each(['late-success', 'never-headers'])('waits beyond ninety seconds while retaining a finite overall deadline: %s', async mode => {
+    let signal: AbortSignal | undefined;
+    const spy = installServer({ generation: init => new Promise<Response>((resolve, reject) => {
+      signal = init?.signal ?? undefined;
+      if (mode === 'late-success') window.setTimeout(() => resolve(stream()), 100_000);
+      signal?.addEventListener('abort', () => reject(new DOMException('deadline', 'AbortError')), { once: true });
+    }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const confirm = await screen.findByRole('button', { name: 'Понятно, начать' });
+    vi.useFakeTimers();
+    await act(async () => { fireEvent.click(confirm); });
+    expect(generations(spy)).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_001); });
+    expect(signal?.aborted).toBe(false);
+    if (mode === 'late-success') {
+      await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+      expect(screen.getByText('Сначала уточни тип почвы.')).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(signal?.aborted).toBe(false);
+    } else {
+      await act(async () => { await vi.advanceTimersByTimeAsync(59_998); });
+      expect(signal?.aborted).toBe(false);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(signal?.aborted).toBe(true);
+      expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    }
+    expect(generations(spy)).toHaveLength(1);
+    const completed = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+    expect(completed).toHaveLength(mode === 'late-success' ? 1 : 0);
+  });
+
+  it('labels a stalled partial stream at the overall deadline as timeout, without claiming the user pressed Stop', async () => {
+    let signal: AbortSignal | undefined;
+    let bodyCancelled = false;
+    const spy = installServer({ generation: init => new Promise<Response>(resolve => {
+      signal = init?.signal ?? undefined;
+      window.setTimeout(() => {
+        const streamId = 'synthetic-stalled-partial';
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode([
+              { event: 'meta', streamId, mode: 'public', modelIdentity: null },
+              { event: 'token', streamId, text: 'Незавершённый синтетический ответ.' },
+            ].map(frame => encodeFrame(frame as GatewayFrame)).join('')));
+          },
+          cancel() { bodyCancelled = true; },
+        });
+        resolve(new Response(body, { headers: { 'content-type': 'text/event-stream' } }));
+      }, 10_000);
+    }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const confirm = await screen.findByRole('button', { name: 'Понятно, начать' });
+    vi.useFakeTimers();
+    await act(async () => { fireEvent.click(confirm); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(screen.getByText('Незавершённый синтетический ответ.')).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(139_999); });
+    expect(signal?.aborted).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(signal?.aborted).toBe(true);
+    expect(bodyCancelled).toBe(true);
+    expect(screen.getAllByText('Время ожидания ответа истекло. Повтори запрос.').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Ответ остановлен.')).toBeNull();
+    expect(screen.queryByText('Незавершённый синтетический ответ.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(generations(spy)).toHaveLength(1);
+    const completed = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+    expect(completed).toHaveLength(0);
+    const stored = JSON.stringify(localStorage);
+    expect(stored).toContain('UPSTREAM_ERROR');
+    expect(stored).not.toContain('CANCELLED');
+  });
+
+  it('disarms the completed generation deadline while its separate completion acknowledgement is pending', async () => {
+    let release!: () => void;
+    let signal: AbortSignal | undefined;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const spy = installServer({ completeGate: gate, generation: init => {
+      signal = init?.signal ?? undefined;
+      return stream();
+    } });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const confirm = await screen.findByRole('button', { name: 'Понятно, начать' });
+    vi.useFakeTimers();
+    try {
+      await act(async () => { fireEvent.click(confirm); });
+      expect(screen.getByText('Сначала уточни тип почвы.')).toBeTruthy();
+      const completed = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+      expect(completed).toHaveLength(1);
+      await act(async () => { await vi.advanceTimersByTimeAsync(160_000); });
+      expect(signal?.aborted).toBe(false);
+      expect(generations(spy)).toHaveLength(1);
+      expect(JSON.stringify(localStorage)).toContain('answered');
+      expect(screen.queryByRole('button', { name: 'Повторить' })).toBeNull();
+    } finally { await act(async () => release()); }
+  });
+
   it('uses the reserve notice when the initial probe is still pending', async () => {
     const spy = installServer({ delayedProbe: new Promise<Response>(() => {}) });
     await draft();

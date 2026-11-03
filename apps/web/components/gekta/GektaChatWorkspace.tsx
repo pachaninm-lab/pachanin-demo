@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import type { PublicAssistantDocument } from '@/components/platform-v7/PublicAssistantAttachmentPicker';
 import { DOCUMENT_CONTEXT_COPY, GektaDocumentRetryCache, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import {
+  PUBLIC_STREAM_TIMEOUT_MS,
   readGatewayStream,
   refusalCopy,
   type GatewayStreamSnapshot,
@@ -713,45 +714,38 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     track('gekta_answer_started', locale);
 
     let terminal: GatewayStreamSnapshot | null = null;
-    let received = false;
-    let attempt = 0;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let deadlineReached = false;
+    const timeout = window.setTimeout(() => {
+      deadlineReached = true;
+      controller.abort();
+    }, PUBLIC_STREAM_TIMEOUT_MS + 5_000);
     try {
-      while (attempt < 2) {
-        const controller = new AbortController();
-        abortRef.current = controller;
-        const timeout = window.setTimeout(() => controller.abort(), 90_000);
-        try {
-          const response = await fetch('/api/agro-chat?stream=1', {
-            method: 'POST',
-            cache: 'no-store',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'text/event-stream',
-              'x-gekta-answer-ticket': ticket,
-            },
-            signal: controller.signal,
-            body: JSON.stringify({ message: question, documents: requestDocuments, locale: answerLocale === 'auto' ? locale : answerLocale, context: 'gekta-standalone', conversationId, history }),
-          });
-          terminal = await readGatewayStream(response, {
-            mode: 'public',
-            signal: controller.signal,
-            onSnapshot: (snapshot) => {
-              if (snapshot.text) received = true;
-              const text = snapshot.status === 'refused' ? finalText(locale, snapshot) : snapshot.text;
-              setMessages([...baseMessages, { ...assistantBase, text: cleanText(text), status: snapshot.status, refusal: snapshot.refusal, citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) }]);
-            },
-          });
-          window.clearTimeout(timeout);
-          break;
-        } catch (reason) {
-          window.clearTimeout(timeout);
-          const aborted = reason instanceof DOMException && reason.name === 'AbortError';
-          if (aborted || received || attempt > 0) throw reason;
-          attempt += 1;
-          setError(ui.reconnecting);
-          track('gekta_answer_reconnect', locale);
-        }
-      }
+      // A lost response does not prove that the one-use ticket is unconsumed.
+      // Explicit Retry obtains fresh admission before another generation.
+      const response = await fetch('/api/agro-chat?stream=1', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          'x-gekta-answer-ticket': ticket,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({ message: question, documents: requestDocuments, locale: answerLocale === 'auto' ? locale : answerLocale, context: 'gekta-standalone', conversationId, history }),
+      });
+      terminal = await readGatewayStream(response, {
+        mode: 'public',
+        signal: controller.signal,
+        onSnapshot: (snapshot) => {
+          if (deadlineReached && !stopRequested.current) return;
+          const text = snapshot.status === 'refused' ? finalText(locale, snapshot) : snapshot.text;
+          setMessages([...baseMessages, { ...assistantBase, text: cleanText(text), status: snapshot.status, refusal: snapshot.refusal, citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) }]);
+        },
+      });
+      window.clearTimeout(timeout);
+      if (deadlineReached && !stopRequested.current) throw new DOMException('generation-deadline', 'AbortError');
       if (!terminal) throw new Error('stream-ended-without-terminal-snapshot');
       const text = terminal.status === 'refused' ? finalText(locale, terminal) : terminal.text;
       const finalMessage: GektaMessage = { ...assistantBase, text: cleanText(text), status: terminal.status, refusal: terminal.refusal, citations: terminal.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) };
@@ -770,11 +764,12 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       saveConversation(conversationId, finalMessages);
       setError(text);
     } finally {
+      window.clearTimeout(timeout);
       abortRef.current = null;
       stopRequested.current = false;
       setSending(false);
     }
-  }, [answerLocale, locale, saveConversation, sending, settleAnswer, ui.error, ui.reconnecting, ui.stopped, ui.timeout]);
+  }, [answerLocale, locale, saveConversation, sending, settleAnswer, ui.error, ui.stopped, ui.timeout]);
 
   const submit = React.useCallback(async (override?: string, resumed = false) => {
     if (sending || submittingPrompt.current === promptIntentRevision.current) return;
