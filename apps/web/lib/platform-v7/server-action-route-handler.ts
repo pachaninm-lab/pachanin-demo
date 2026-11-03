@@ -153,6 +153,7 @@ export function handlePlatformV7ServerActionRouteBody(
   });
   const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);
   const routeSummary = buildPlatformV7ServerActionRouteSummary({
+    contractResponse: response,
     idempotencyBoundary,
     auditBoundary,
     documentGate,

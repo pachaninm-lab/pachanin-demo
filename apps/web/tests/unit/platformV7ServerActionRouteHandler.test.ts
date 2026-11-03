@@ -228,7 +228,7 @@ describe('platform-v7 server action route handler', () => {
 
   it('rejects forbidden role through server route handler', () => {
     const result = handlePlatformV7ServerActionRouteBody({
-      boundaryId: 'confirm_money_released',
+      boundaryId: 'confirm_money_reserved',
       actorId: 'driver-1',
       actorRole: 'driver',
       entityId: 'money-1',
@@ -241,13 +241,13 @@ describe('platform-v7 server action route handler', () => {
         confirmedAt: '2026-05-07T10:00:00.000Z',
       },
       occurredAt: '2026-05-07T10:00:00.000Z',
-      summary: 'Release boundary checked.',
+      summary: 'Reserve confirmation boundary checked.',
     });
 
     expect(result.status).toBe(403);
     expect(result.body.response).toMatchObject({
-      boundaryId: 'confirm_money_released',
-      actionId: 'bank.confirm_money_released',
+      boundaryId: 'confirm_money_reserved',
+      actionId: 'bank.confirm_money_reserved',
       serviceName: 'money',
       status: 'not_accepted',
       canClaimExecuted: false,
