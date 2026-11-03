@@ -7390,7 +7390,7 @@ Review the full exact purpose, token/value/inverse proof, frozen patch and curre
   "purposeId": "bank-shared-read-entry-p2-6093-20261103",
   "status": "METADATA_ONLY_SOURCE_NOT_ACCEPTED",
   "owner": "ACCOUNT_2_PRODUCT",
-  "metadataBaseExactMain": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+  "metadataBaseExactMain": "9e38468733be0cf159c1fec60e89c20f3ee10174",
   "metadataPaths": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
@@ -7441,4 +7441,6 @@ Review the full exact purpose, token/value/inverse proof, frozen patch and curre
 
 Reject extra paths, stale head/context evidence or scope/owner/role/tenant/backend/guard/budget change. Source default reuses the canonical read-only view at its existing permitted URI. Disclose remaining bank nav/backlinks denials; no all-subroute/live13/DB/provider acceptance. Metadata and actual published source each need independent whole-head review, distinctowner, all applicable native/security/build/browser/KIND/cleanup/readiness and ordinary full-SHA manual gates. Exact image/web/live release is separate; official5/100 unchanged.
 
-Current private SOURCE2 review: exact738fd1004549c39de6e8959c79b9cb77c2d32142/basef069,7169B/SHA25605b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093. Root read it in full. Fresh independent167PASS, fresh author52/2022PASS and authorwhole-workspacetypecheckexit0 are separate PRIVATE evidence. No actualnative/metadata/source acceptance is credited. Historicalff9a report stays support, never transferred approval. Full H2 report is in the matching queue. Localhostingconfigcheckexit1 remainsNOT_PASS pending actualnativeDocker/build.
+Current private SOURCE2 review: exact738fd1004549c39de6e8959c79b9cb77c2d32142/basef069,7169B/SHA25605b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093. Root read it in full. Fresh independent167PASS, fresh author52/2022PASS and authorwhole-workspacetypecheckexit0 are separate PRIVATE evidence. No actualnative/metadata/source acceptance is credited. Historicalff9a report stays support, never transferred approval. Full genuine H2 report: https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616393047; exact original bytes/hash verified. The matching queue pins both full linked reports and retains the full literal source patch. Localhostingconfigcheckexit1 remainsNOT_PASS pending actualnativeDocker/build.
+
+Current metadata base9e accepts only two Gekta API service/spec changes; preserve them and every other accepted foreign leaf. All H2/private2022 evidence remains on738fd100/basef069; it is not execution on9e or this metadata head. Prior metadata90 native failure is preserved; the duplicate-report correction has independent forensic classification 8789B/SHA2563b3e6dc8e423bdaedc99362e30bc01aebce003776b84a0797740c30fe2e7b204. No scanner/CI policy changes or acceptance transfer. Fresh actual metadata-head review and all genuine gates remain required.
