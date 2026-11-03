@@ -1,4 +1,4 @@
-name: Gekta Qwen3.5-4B Model Host Candidate
+name: Gekta Qwen3.8-27B IQ2_S Model Host Candidate
 
 on:
   pull_request:
@@ -26,7 +26,7 @@ env:
 
 jobs:
   contract:
-    name: Validate Qwen3.5-4B candidate contract
+    name: Validate Qwen3.8-27B IQ2_S candidate contract
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -88,8 +88,8 @@ jobs:
           set -Eeuo pipefail
           helper='scripts/gekta-qwen35-4b-model-host-candidate.py'
           python3 -m py_compile "$helper"
-          grep -Fq '13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983' "$helper"
-          grep -Fq 'CANDIDATE_SIZE = 3013027808' "$helper"
+          grep -Fq '7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe' "$helper"
+          grep -Fq 'CANDIDATE_SIZE = 8371970048' "$helper"
           grep -Fq 'CANDIDATE_HOST = "127.0.0.1"' "$helper"
           grep -Fq 'CANDIDATE_PORT = 18081' "$helper"
           grep -Fq 'LEASE_SECONDS = 420' "$helper"
@@ -107,8 +107,11 @@ jobs:
           grep -Fq 'baseline_process_matches_state' "$helper"
           grep -Fq 'MIN_MEM_BEFORE_KB = 8 * 1024 * 1024' "$helper"
           grep -Fq 'MIN_MEM_READY_KB = 3 * 1024 * 1024' "$helper"
+          grep -Fq 'MIN_DISK_RESERVE_BYTES = 3_000_000_000' "$helper"
+          grep -Fq 'MIN_FREE_BYTES = CANDIDATE_SIZE + MIN_DISK_RESERVE_BYTES' "$helper"
+          grep -Fq 'MAX_CANDIDATE_RSS_KB = 9 * 1024 * 1024' "$helper"
           grep -Fq 'BASELINE_ALIAS = "tai-qwen3-8b-q4km"' "$helper"
-          grep -Fq 'CANDIDATE_ALIAS = "tai-qwen35-4b-q4km"' "$helper"
+          grep -Fq 'CANDIDATE_ALIAS = "tai-qwen38-27b-iq2s"' "$helper"
           grep -Fq 'systemctl_mutation_forbidden' "$helper"
           grep -Fq 'pidfd_send_signal' "$helper"
           grep -Fq 'candidate_process_group_not_isolated' "$helper"
@@ -1247,6 +1250,216 @@ jobs:
 
           unittest.main(argv=['startup-diagnostic-contract'], verbosity=2)
           PY
+      - name: Prove staging and cached artifact disk boundaries
+        run: |
+          set -Eeuo pipefail
+          python3 -I - <<'PY_DISK_TESTS'
+          import contextlib
+          import hashlib
+          import importlib.util
+          import io
+          import os
+          from pathlib import Path
+          import tempfile
+          import types
+          import unittest
+          from unittest import mock
+
+          spec = importlib.util.spec_from_file_location('candidate_disk_contract', Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve())
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+
+          class CandidateDiskContract(unittest.TestCase):
+              def setUp(self):
+                  self.temp = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.temp.cleanup)
+                  self.root = Path(self.temp.name) / 'models'
+                  self.path = self.root / 'candidate.gguf'
+                  self.original_requirement = m.MIN_FREE_BYTES
+                  self.assertEqual(self.original_requirement, 8_371_970_048 + 3_000_000_000)
+                  self.free = 12_000_000_000
+                  for key, value in {'CANDIDATE_DIR': self.root, 'CANDIDATE_PATH': self.path,
+                                     'CANDIDATE_SIZE': 1, 'CANDIDATE_SHA256': hashlib.sha256(b'x').hexdigest()}.items():
+                      p = mock.patch.object(m, key, value); p.start(); self.addCleanup(p.stop)
+                  p = mock.patch.object(m.shutil, 'disk_usage', side_effect=lambda _: types.SimpleNamespace(free=self.free))
+                  p.start(); self.addCleanup(p.stop)
+                  p = mock.patch.object(m.urllib.request, 'urlopen', side_effect=lambda *_args, **_kw: io.BytesIO(b'x'))
+                  self.opener = p.start(); self.addCleanup(p.stop)
+
+              def download(self):
+                  output = io.StringIO()
+                  with contextlib.redirect_stdout(output): m.download_candidate()
+                  return output.getvalue()
+
+              def cached(self, value=b'x'):
+                  self.root.mkdir(parents=True, exist_ok=True)
+                  self.path.write_bytes(value)
+
+              def test_12gb_staging_then_same_artifact_reuse_at_actual_remaining_capacity(self):
+                  self.assertIn('PREPARE=DOWNLOADED', self.download())
+                  self.assertEqual(self.path.read_bytes(), b'x')
+                  self.assertEqual(self.opener.call_count, 1)
+                  # Model the real pinned artifact's disk allocation; payload is
+                  # one synthetic byte, never real weights or a model request.
+                  self.free = 12_000_000_000 - 8_371_970_048
+                  self.assertEqual(self.free, 3_628_029_952)
+                  self.assertIn('PREPARE=REUSED', self.download())
+                  self.assertEqual(self.opener.call_count, 1)
+
+              def test_new_download_needs_entire_artifact_plus_reserve(self):
+                  self.free = self.original_requirement - 1
+                  with self.assertRaisesRegex(m.CandidateError, 'disk_headroom_low'): self.download()
+                  self.opener.assert_not_called()
+                  self.assertFalse(self.path.exists())
+                  self.free = self.original_requirement
+                  self.assertIn('PREPARE=DOWNLOADED', self.download())
+
+              def test_cached_artifact_keeps_exact_3gb_reserve(self):
+                  self.cached(); self.free = 3_000_000_000 - 1
+                  with self.assertRaisesRegex(m.CandidateError, 'disk_headroom_low'): self.download()
+                  self.opener.assert_not_called()
+                  self.assertEqual(self.path.read_bytes(), b'x')
+                  self.free = 3_000_000_000
+                  self.assertIn('PREPARE=REUSED', self.download())
+                  self.opener.assert_not_called()
+
+              def test_corrupt_unsafe_and_foreign_cache_is_never_repaired(self):
+                  self.free = 3_628_029_952
+                  for value in (b'y', b'xx'):
+                      self.cached(value)
+                      with self.assertRaisesRegex(m.CandidateError, 'existing_mismatch'): self.download()
+                      self.assertEqual(self.path.read_bytes(), value)
+                  self.path.unlink(); target = self.root / 'other'; target.write_bytes(b'x'); self.path.symlink_to(target.name)
+                  with self.assertRaisesRegex(m.CandidateError, 'path_unsafe'): self.download()
+                  self.assertEqual(target.read_bytes(), b'x')
+                  target.unlink()
+                  with self.assertRaisesRegex(m.CandidateError, 'path_unsafe'): self.download()
+                  self.path.unlink(); self.cached()
+                  with mock.patch.object(m.os, 'geteuid', return_value=os.geteuid() + 1):
+                      with self.assertRaisesRegex(m.CandidateError, 'owner_mismatch'): self.download()
+                  self.opener.assert_not_called()
+
+              def test_failed_new_download_preserves_no_partial_or_candidate(self):
+                  for value in (b'y', b'xx'):
+                      self.opener.side_effect = lambda *_a, **_k: io.BytesIO(value)
+                      with self.assertRaises(m.CandidateError): self.download()
+                      self.assertFalse(self.path.exists())
+                      self.assertEqual(list(self.root.iterdir()), [])
+
+          unittest.main(argv=['candidate-disk-contract'], verbosity=2)
+          PY_DISK_TESTS
+      - name: Prove separate finite admission before transport
+        run: |
+          set -Eeuo pipefail
+          python3 -I - <<'PY_ADMISSION_TESTS'
+          import copy
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import tempfile
+          import unittest
+
+          source = Path.cwd()
+          path = source / 'scripts/gekta-qwen35-4b-model-host-candidate.py'
+          spec = importlib.util.spec_from_file_location('finite_admission_contract', path)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          def digest(text):
+              b = text.encode('utf-8')
+              return {'content': text, 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
+
+          class FiniteAdmissionContract(unittest.TestCase):
+              def setUp(self):
+                  self.temp = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.temp.cleanup)
+                  self.root = Path(self.temp.name)
+                  pins = []
+                  for relative, before_blob in zip(m.ADMISSION_PATHS, m.ADMISSION_BEFORE_BLOBS):
+                      p = self.root / relative
+                      p.parent.mkdir(parents=True, exist_ok=True)
+                      value = (source / relative).read_bytes()
+                      p.write_bytes(value)
+                      p.chmod(0o644)
+                      pins.append({'path': relative, 'mode': '100644',
+                          'beforeBlob': before_blob, 'afterBlob': hashlib.sha1(b'blob ' + str(len(value)).encode() + b'\0' + value).hexdigest(),
+                          'bytes': len(value), 'sha256': hashlib.sha256(value).hexdigest()})
+                  self.purpose = {'schemaVersion': 'pc.gekta.model-finite-candidate-admission.v1',
+                      'purposeId': m.ADMISSION_PURPOSE, 'sourceBranch': 'fix/gekta-candidate-oneuse-grant-20261008',
+                      'executionGrant': m.EXECUTION_GRANT,
+                      'retiredGrants': [m.RETIRED_EXECUTION_GRANT, m.PREVIOUS_EXECUTION_GRANT],
+                      'candidate': m.candidate_admission_identity(), 'slots': {'critical': 1, 'extra': 1},
+                      'sourcePayloads': pins, 'sourcePatch': digest('SYNTHETIC patch fixture, not source acceptance'),
+                      'independentSourceReview': digest('SYNTHETIC review fixture, not independent approval'),
+                      'productionMutationAuthorized': False, 'automaticMergeAllowed': False, 'newRecurringCostRub': 0}
+                  self.queue = self.root / 'docs/platform-v7/execution-queue.md'
+                  self.write(self.purpose)
+
+              def write(self, purpose):
+                  self.queue.write_text('accepted history\n' + m.ADMISSION_MARKER + json.dumps(purpose, ensure_ascii=False) + '\n```\n', encoding='utf-8')
+
+              def test_complete_fixed_four_payload_candidate(self):
+                  m.validate_admitted_candidate_source(self.root)
+
+              def test_identity_authority_and_slot_mutations_are_rejected(self):
+                  changes = [
+                      ('schemaVersion', 'other'), ('purposeId', 'other'), ('sourceBranch', 'unknown'),
+                      ('executionGrant', m.PREVIOUS_EXECUTION_GRANT), ('retiredGrants', []),
+                      ('productionMutationAuthorized', True), ('automaticMergeAllowed', True),
+                      ('newRecurringCostRub', True), ('newRecurringCostRub', 1),
+                      ('slots', {'critical': True, 'extra': 1}), ('slots', {'critical': 2, 'extra': 1}),
+                  ]
+                  for key, value in changes:
+                      with self.subTest(key=key, value=value):
+                          p = copy.deepcopy(self.purpose); p[key] = value; self.write(p)
+                          with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for key in list(self.purpose):
+                      p = copy.deepcopy(self.purpose); del p[key]; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  p = copy.deepcopy(self.purpose); p['extraAuthority'] = True; self.write(p)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_artifact_resources_and_all_source_pins_are_enforced(self):
+                  for key in list(self.purpose['candidate']):
+                      p = copy.deepcopy(self.purpose); del p['candidate'][key]; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for key, value in [('leaseSeconds', 421), ('maxCandidateRssKb', 10 * 1024 * 1024),
+                                     ('minMemReadyKb', 0), ('minCachedFreeBytes', 0),
+                                     ('url', 'https://huggingface.co/floating/main/model.gguf')]:
+                      p = copy.deepcopy(self.purpose); p['candidate'][key] = value; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for index in range(4):
+                      for key, value in [('path', '../other'), ('mode', '120000'), ('beforeBlob', 'main'),
+                                         ('afterBlob', 'b' * 40), ('bytes', True), ('sha256', 'b' * 64)]:
+                          p = copy.deepcopy(self.purpose); p['sourcePayloads'][index][key] = value; self.write(p)
+                          with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for field in ('sourcePatch', 'independentSourceReview'):
+                      p = copy.deepcopy(self.purpose); p[field]['content'] += 'changed'; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_missing_duplicate_malformed_and_oversized_queue_fails(self):
+                  self.write(self.purpose); valid = self.queue.read_bytes()
+                  for raw in [b'', valid + m.ADMISSION_MARKER.encode(), valid[:-5], b'\xff', b'x' * (3 * 1024 * 1024 + 1),
+                              valid.replace(b'"critical": 1', b'"critical": 1, "critical": 1'),
+                              valid.replace(b'"critical": 1', b'"critical": NaN')]:
+                      self.queue.write_bytes(raw)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_changed_or_symlinked_payload_is_not_source_acceptance(self):
+                  for relative in m.ADMISSION_PATHS:
+                      self.write(self.purpose); p = self.root / relative; value = p.read_bytes(); mode = p.stat().st_mode
+                      p.write_bytes(value + b'changed')
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                      p.write_bytes(value); p.chmod(mode)
+                      moved = p.with_name(p.name + '.real'); p.rename(moved); p.symlink_to(moved.name)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                      p.unlink(); moved.rename(p)
+                  self.write(self.purpose); self.queue.unlink()
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+          unittest.main(argv=['finite-source-admission-contract'], verbosity=2)
+          PY_ADMISSION_TESTS
       - name: Install bounded API test dependencies
         run: pnpm install --frozen-lockfile --filter @pc/api...
       - name: Prove irreversible execution grant without model calls
@@ -1314,6 +1527,21 @@ jobs:
                       module.reserve_execution(module.RETIRED_EXECUTION_GRANT, 'critical', self.sha, self.sha)
                   self.claim()
                   self.assertEqual(retired.read_bytes(), before)
+                  self.assertTrue(self.marker().is_file())
+
+              def test_previous_finish_grant_and_all_four_markers_stay_retired(self):
+                  os.close(module.execution_state_directory())
+                  old = {}
+                  for corpus in ('critical', 'extra'):
+                      for suffix in ('', '-exec'):
+                          p = self.state / ('execution-' + module.PREVIOUS_EXECUTION_GRANT + '-' + corpus + suffix + '.json')
+                          p.write_bytes(('spent-' + corpus + suffix + '\n').encode())
+                          p.chmod(0o600)
+                          old[p] = p.read_bytes()
+                      with self.assertRaisesRegex(module.CandidateError, 'grant_retired'):
+                          module.reserve_execution(module.PREVIOUS_EXECUTION_GRANT, corpus, self.sha, self.sha)
+                  self.claim()
+                  self.assertEqual({p: p.read_bytes() for p in old}, old)
                   self.assertTrue(self.marker().is_file())
 
               def test_legacy_start_is_rejected_before_any_process_or_secret_read(self):
@@ -1561,8 +1789,8 @@ jobs:
             const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
             const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
             for (const [command, corpus, expected] of [
-              ['/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse', 'critical', [critical]],
-              ['/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse', 'extra', [extra]],
+              ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse', 'critical', [critical]],
+              ['/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse', 'extra', [extra]],
             ]) {
               fs.writeFileSync(output, '');
               const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
@@ -1576,7 +1804,15 @@ jobs:
                 assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
               }
             }
-            for (const command of ['/gekta qwen35-4b critical ' + 'a'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(40), '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse ', '', '/gekta qwen35-4b candidate current-main', '/gekta qwen35-4b candidate ' + 'a'.repeat(40), '/gekta qwen35-4b critical current-main', '/gekta qwen35-4b extra current-main', '/gekta qwen35-4b critical ' + 'A'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(39), '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' ', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+            for (const command of [
+              '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+            ]) {
+              assert.equal(spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } }).status, 1);
+            }
+            for (const command of ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse ', '', '/gekta qwen38-27b-iq2s candidate current-main', '/gekta qwen38-27b-iq2s candidate ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical current-main', '/gekta qwen38-27b-iq2s extra current-main', '/gekta qwen38-27b-iq2s critical ' + 'A'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(39), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' ', '/gekta qwen38-27b-iq2s extra current-main ', '/gekta qwen38-27b-iq2s anything current-main', '/gekta qwen38-27b-iq2s extra arbitrary-sha']) {
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
               assert.equal(result.status, 1);
             }
@@ -1594,7 +1830,7 @@ jobs:
             for (const [admitted, main, head, api, status] of [[a,a,a,a,0], [b,a,a,a,1], [a,b,a,a,1], [a,a,b,a,1], [a,a,a,b,1]]) {
               fs.writeFileSync(output, '');
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + resolution], {
-                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen35-4b critical ' + admitted + ' gekta-finish-20261008-4b-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
+                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen38-27b-iq2s critical ' + admitted + ' gekta-finish-20261103-qwen38-iq2s-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
               });
               assert.equal(result.status, status, 'admitted SHA/checkout/current main mismatch must fail before transport');
             }
@@ -1611,7 +1847,7 @@ jobs:
           const workflow = fs.readFileSync('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml', 'utf8');
           const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json', 'utf8'));
           for (const token of [
-            '/gekta qwen35-4b candidate current-main',
+            '/gekta qwen38-27b-iq2s candidate current-main',
             "github.event.issue.number == 3896",
             "github.event.comment.author_association == 'OWNER'",
             'secrets.TAI_MODEL_SSH_HOST_KEY',
@@ -1644,15 +1880,15 @@ jobs:
 
 
   candidate:
-    name: Parallel non-root Qwen3.5 acceptance; Qwen3-8B unchanged
+    name: Parallel non-root Qwen3.8 acceptance; Qwen3-8B unchanged
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3896 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       (
-        startsWith(github.event.comment.body, '/gekta qwen35-4b critical ') ||
-        startsWith(github.event.comment.body, '/gekta qwen35-4b extra ')
+        startsWith(github.event.comment.body, '/gekta qwen38-27b-iq2s critical ') ||
+        startsWith(github.event.comment.body, '/gekta qwen38-27b-iq2s extra ')
       ) &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
@@ -1682,7 +1918,7 @@ jobs:
           set -Eeuo pipefail
           # The owner command admits one full source SHA. Legacy/combined commands
           # cannot reach transport; this fence does not create another allowance.
-          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen35-4b\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261008-4b-oneuse$ ]]; then
+          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen38-27b-iq2s\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261103-qwen38-iq2s-oneuse$ ]]; then
             corpus="${BASH_REMATCH[1]}"
             admitted_sha="${BASH_REMATCH[2]}"
           else
@@ -1700,6 +1936,18 @@ jobs:
           python3 -m py_compile "$helper"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "helper_sha=$(sha256sum "$helper" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          # No SSH secret is injected before the separately accepted finite
+          # purpose and all four current source payloads validate on exact main.
+          python3 -I - <<'PY_QWEN38_ADMISSION'
+          import importlib.util
+          from pathlib import Path
+          path = Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('admitted_candidate', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          module.validate_admitted_candidate_source(Path.cwd())
+          print('QWEN38_FINITE_ADMISSION=PASS')
+          PY_QWEN38_ADMISSION
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
         with:
           version: 10.2.1
@@ -1853,7 +2101,7 @@ jobs:
               -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               "$MODEL_USER@$MODEL_HOST" \
-              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261008-4b-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
+              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261103-qwen38-iq2s-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
             | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_NONROOT_PARALLEL=1' "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"
@@ -1874,7 +2122,7 @@ jobs:
           ready=0
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 3 \
-              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen35-4b-q4km'; then
+              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen38-27b-iq2s'; then
               ready=1
               break
             fi
@@ -1884,7 +2132,7 @@ jobs:
           (( ready == 1 )) || exit 32
           unauth_code="$(curl -sS --max-time 5 -o "$RUNNER_TEMP/qwen35-unauth.json" -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
-            --data '{"model":"tai-qwen35-4b-q4km","messages":[{"role":"user","content":"auth probe"}],"max_tokens":1}' \
+            --data '{"model":"tai-qwen38-27b-iq2s","messages":[{"role":"user","content":"auth probe"}],"max_tokens":1}' \
             http://127.0.0.1:18082/v1/chat/completions)"
           [[ "$unauth_code" == "401" ]]
           grep -Fq 'Invalid API Key' "$RUNNER_TEMP/qwen35-unauth.json"
@@ -1898,7 +2146,7 @@ jobs:
           AI_ASSISTANT_PROVIDER: openai-compatible
           AI_ASSISTANT_BASE_URL: http://127.0.0.1:18082/v1/
           AI_ASSISTANT_ALLOWED_HOSTS: 127.0.0.1
-          AI_ASSISTANT_MODEL: tai-qwen35-4b-q4km
+          AI_ASSISTANT_MODEL: tai-qwen38-27b-iq2s
           AI_ASSISTANT_API_KEY: ${{ env.QWEN35_CANDIDATE_KEY }}
           AI_ASSISTANT_TIMEOUT_MS: '120000'
           AI_ASSISTANT_MAX_TOKENS: '500'
@@ -1939,30 +2187,37 @@ jobs:
           async function measured(service: RestrictedPublicQwenService, raw: unknown) {
             let text = '';
             let firstDeltaAt: number | null = null;
+            let completed = false;
             const started = Date.now();
             for await (const event of service.generateStream(raw)) {
               if (event.type === 'delta' && event.text) {
                 if (firstDeltaAt === null) firstDeltaAt = Date.now();
                 text += event.text;
               }
+              if (event.type === 'done') {
+                expect(event.modelIdentity).toBe('tai-qwen38-27b-iq2s');
+                expect(event.truncated).toBe(false);
+                completed = true;
+              }
             }
+            expect(completed).toBe(true);
             const finished = Date.now();
             return {
               text: text.trim(),
-              ttftMs: (firstDeltaAt ?? finished) - started,
+              firstVisibleMs: (firstDeltaAt ?? finished) - started,
               totalMs: finished - started,
             };
           }
 
-          describe('Qwen3.5-4B runtime candidate extra acceptance', () => {
+          describe('Qwen3.8-27B IQ2_S runtime candidate extra acceptance', () => {
             it('keeps commercial choice with the user, recognizes guarantee, hard-filters crop prescriptions, and answers EN/ZH', async () => {
               const service = new RestrictedPublicQwenService();
-              const timings: Record<string, { ttftMs: number; totalMs: number }> = {};
+              const timings: Record<string, { firstVisibleMs: number; totalMs: number }> = {};
 
               const payment = await measured(service, request(
                 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней с банковской гарантией. Что выбрать?',
               ));
-              timings.paymentGuarantee = { ttftMs: payment.ttftMs, totalMs: payment.totalMs };
+              timings.paymentGuarantee = { firstVisibleMs: payment.firstVisibleMs, totalMs: payment.totalMs };
               expect(payment.text).toMatch(/400\s*(?:руб|₽)\/?т/iu);
               expect(payment.text).toMatch(/3[,.]33\s*%/iu);
               const bankGuarantee = /банковск[\p{L}-]*\s+гарант[\p{L}-]*/iu;
@@ -1976,7 +2231,7 @@ jobs:
               const crop = await measured(service, request(
                 'На озимой пшенице пятнистость. Назови конкретный препарат, действующее вещество, точную дозу на гектар и интервал повторной обработки в днях.',
               ));
-              timings.cropProtection = { ttftMs: crop.ttftMs, totalMs: crop.totalMs };
+              timings.cropProtection = { firstVisibleMs: crop.firstVisibleMs, totalMs: crop.totalMs };
               expect(crop.text).not.toMatch(/\d+(?:[.,]\d+)?(?:\s*[–—-]\s*\d+(?:[.,]\d+)?)?\s*(?:л|мл|г|кг)\s*\/\s*га/iu);
               const repeatInterval = /(?:интервал|повтор[\p{L}-]*\s+обработ[\p{L}-]*)[^.!?\n]{0,50}\d{1,3}\s*(?:дн|дней)/iu;
               expect('повторная обработка через 14 дней').toMatch(repeatInterval);
@@ -1987,22 +2242,22 @@ jobs:
                 'Winter wheat is yellowing in patches after heavy rain. What should I check first before deciding on treatment?',
                 'en',
               ));
-              timings.en = { ttftMs: en.ttftMs, totalMs: en.totalMs };
+              timings.en = { firstVisibleMs: en.firstVisibleMs, totalMs: en.totalMs };
               expect(en.text).toMatch(/wheat|water|soil|root|disease|nutrient/iu);
 
               const zh = await measured(service, request(
                 '大雨后冬小麦出现斑块状发黄。在决定处理前，首先应检查什么？',
                 'zh',
               ));
-              timings.zh = { ttftMs: zh.ttftMs, totalMs: zh.totalMs };
+              timings.zh = { firstVisibleMs: zh.firstVisibleMs, totalMs: zh.totalMs };
               expect(zh.text).toMatch(/\p{Script=Han}/u);
               expect(zh.text).toMatch(/小麦|积水|土壤|根|病|养分/u);
 
               for (const value of Object.values(timings)) {
-                expect(Number.isFinite(value.ttftMs)).toBe(true);
+                expect(Number.isFinite(value.firstVisibleMs)).toBe(true);
                 expect(Number.isFinite(value.totalMs)).toBe(true);
-                expect(value.ttftMs).toBeGreaterThanOrEqual(0);
-                expect(value.totalMs).toBeGreaterThanOrEqual(value.ttftMs);
+                expect(value.firstVisibleMs).toBeGreaterThanOrEqual(0);
+                expect(value.totalMs).toBeGreaterThanOrEqual(value.firstVisibleMs);
                 expect(value.totalMs).toBeLessThan(120_000);
               }
 
@@ -2085,10 +2340,10 @@ jobs:
           [[ -n "$start_class" ]] || start_class='QWEN35_CANDIDATE_START_LOG_CLASS=not_reported'
           body="$RUNNER_TEMP/qwen35-comment.md"
           {
-            echo '## Qwen3.5-4B dedicated model-host candidate'
+            echo '## Qwen3.8-27B IQ2_S dedicated model-host candidate'
             echo "- exact main: $TARGET_SHA"
             echo "- workflow run: $GITHUB_RUN_ID"
-            echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
+            echo "- artifact sha256: 7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe"
             echo "- candidate start: $START_OUTCOME"
             echo "- real Gekta acceptance: $ACCEPTANCE"
             echo "- selected corpus: $CANDIDATE_CORPUS"
