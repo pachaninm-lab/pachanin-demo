@@ -13602,9 +13602,9 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
 ```
 
 
-## Bank rejected-contract projection — prospective six-path source admission
+## Bank rejected-contract projection — prospective eight-path source admission
 
-Purpose `bank-rejected-contract-projection-6093-20261103`. Existing source ref is retained. This metadata admits the exact six before/after payloads below and does not publish or execute them. Three adjacent403 fixtures now exercise the supported reserve-confirmation command with the same forbidden driver/no-execution assertions; removed commands must keep400. This is a correction to the web diagnostic projection, with no canonical financial authority expansion. The overlapping private five-test proposal is not accepted by this purpose and must not overwrite the new money regression matrix.
+Purpose `bank-rejected-contract-projection-6093-20261103`. Existing source ref is retained. Metadata admits the exact eight before/after payloads below and does not publish or execute them. The two application files fix contradictory rejected-contract response projection. Four test files preserve supported-boundary denial/non-finality and add four unknown/removed-command regressions. CI adds exactly four paths to the original48; registry removes only those four failed exclusions, yielding52executed/880excluded,932total,657passed/223failed exclusions. No test exclusion or check waiver is introduced. The overlapping private five-test proposal is not accepted and must not overwrite the new money regression matrix. Unaccepted six-path metadata bf0539c is superseded by this complete eight-path record.
 
 ```json
 {
@@ -13661,10 +13661,26 @@ Purpose `bank-rejected-contract-projection-6093-20261103`. Existing source ref i
       "afterBlob": "9faa92a704e68536d2d60050d28efd99b75cd3a2",
       "beforeSha256": "2739e189e07cb318ac4aad9e83f5b56843a19db4cd243c23600c87f5e6efb22f",
       "afterSha256": "3c61022551bcf01a2ea42b7f2ed97691bf416d1c3dcee2ca6637ebb9f6fdb4ea"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "009c464449e93e775389a6a3646ae9ee1c546b4b",
+      "afterBlob": "699c3a35bcb9b65b9d2f590ef7abbdb3d4a356b2",
+      "beforeSha256": "810dd6c2d0b4c8d83a6dce08ff073dda48b52592019fc05387ab63d56c8fcfd5",
+      "afterSha256": "168b0b9d9204e9800c055db299bf92d34ec3f044add5e7bfca9558f4088bc3fe"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "f40d43c65e0f1c6b48bfb0da522381f9fc833c94",
+      "afterBlob": "7f5037e1dcadc1884c7b8d89d994c688bceb5b45",
+      "beforeSha256": "291993931b42318b2442977cfc7ce1a8fc5420e6e819bf0445334d199b4da9de",
+      "afterSha256": "3187dc089939814701ce3aa62393246f2f3ae04c508646ed2cd43214e7d1517c"
     }
   ],
-  "sourcePatchSha256": "59f7764bee3fc66ecf839dbb2cd9b93ffbd8a52627c3f60962fc59f2b6649e5a",
-  "sourcePatchBytes": 8977,
+  "sourcePatchSha256": "85adb48ba09bcb46e9f8147fd838ddc926757e45f9657516cc5be574d0898b76",
+  "sourcePatchBytes": 17774,
   "semanticBoundary": "Web contract/readiness response projection only; rejected contract cannot advertise accepted manual review or runtime boundary access.",
   "preserved": [
     "all original four source paths remain admitted",
@@ -13698,7 +13714,22 @@ Purpose `bank-rejected-contract-projection-6093-20261103`. Existing source ref i
     "scopedRoots": 6,
     "diagnostics": 0
   },
-  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance."
+  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance.",
+  "nativeSelection": {
+    "oldFiles": 48,
+    "newFiles": 52,
+    "added": [
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts"
+    ],
+    "discovered": 932,
+    "excluded": 880,
+    "failedExclusions": 223,
+    "passedExclusions": 657
+  },
+  "supersedesOnlyUnaccepted": "Unaccepted metadata bf0539c had six prospective paths without CI wiring; this complete eight-path purpose supersedes that unaccepted proposal. Original history and test failures remain."
 }
 ```
 
@@ -13898,4 +13929,72 @@ Complete immutable prospective source patch:
        serviceName: 'money',
        status: 'not_accepted',
        canClaimExecuted: false,
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -49,7 +49,7 @@
+       - name: Platform-v7 unit checks
+         run: |
+           set -o pipefail
+-          pnpm --filter @pc/web exec vitest run tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx tests/unit/uploadContentSignature.spec.ts tests/unit/uploadImagePixelBudget.spec.ts tests/unit/uploadDecompressionBudget.spec.ts tests/unit/uploadBodyBound.spec.ts tests/unit/routeBodyBounds.spec.ts tests/unit/sessionMintingSurface.spec.ts tests/unit/mfaRecoveryMailLifetime.spec.ts tests/unit/tokenPurposeBinding.spec.ts tests/unit/platformV7ControlledTestOrganizations.test.ts tests/unit/platformV7BrowserAcceptanceRepairs.test.ts tests/unit/platformV7FinalAcceptanceContract.test.ts tests/unit/platformV7LogisticsDriverBoundary.test.ts tests/unit/fixtureTokenAudience.spec.ts tests/unit/taiSemanticRelevanceRouter.test.ts tests/unit/settlementMoneyCsrf.spec.ts tests/unit/logoutClearsClientState.spec.ts tests/unit/cabinetSessionCsrf.spec.ts tests/unit/platformV7FounderRoleModeSessionBff.test.ts tests/unit/platformV7MobileTrustAndGektaReturn.test.ts tests/unit/publicFarmerStarterQuestions.test.ts tests/unit/platformV7AssistantQuestionUnderstanding.test.ts tests/unit/taiPublicAssistantRetryRegenerate.test.tsx tests/unit/taiInternalStreamRelay.test.ts tests/unit/publicQaPresentationRecovery.test.tsx tests/unit/platformV7LoginFailureClassification.test.ts tests/unit/bffUpstreamPathEncoding.test.ts tests/unit/requestCookieParsing.spec.ts tests/unit/authDemoOpenRedirect.test.ts tests/unit/serverRequestSecurity.test.ts tests/unit/emailCheckBoundedBeforePattern.test.ts tests/unit/cspReportingAndCrossOriginHeaders.spec.ts tests/unit/gektaRegistrationSecurity.test.ts tests/unit/gektaConsentEvidence.test.ts tests/unit/gektaEntitlement.test.ts tests/unit/gektaVoiceAndLegal.test.ts tests/unit/gektaAnonymousDocumentEvidence.test.ts tests/unit/gektaAnonymousLegalRoutes.test.ts tests/unit/gektaDocumentContext.test.ts tests/unit/platformV7AgroChatModelFirstRoute.test.ts tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts tests/unit/platformV7BankReadinessGuard.test.ts 2>&1 | tee /tmp/ci-web-unit.log
++          pnpm --filter @pc/web exec vitest run tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx tests/unit/uploadContentSignature.spec.ts tests/unit/uploadImagePixelBudget.spec.ts tests/unit/uploadDecompressionBudget.spec.ts tests/unit/uploadBodyBound.spec.ts tests/unit/routeBodyBounds.spec.ts tests/unit/sessionMintingSurface.spec.ts tests/unit/mfaRecoveryMailLifetime.spec.ts tests/unit/tokenPurposeBinding.spec.ts tests/unit/platformV7ControlledTestOrganizations.test.ts tests/unit/platformV7BrowserAcceptanceRepairs.test.ts tests/unit/platformV7FinalAcceptanceContract.test.ts tests/unit/platformV7LogisticsDriverBoundary.test.ts tests/unit/fixtureTokenAudience.spec.ts tests/unit/taiSemanticRelevanceRouter.test.ts tests/unit/settlementMoneyCsrf.spec.ts tests/unit/logoutClearsClientState.spec.ts tests/unit/cabinetSessionCsrf.spec.ts tests/unit/platformV7FounderRoleModeSessionBff.test.ts tests/unit/platformV7MobileTrustAndGektaReturn.test.ts tests/unit/publicFarmerStarterQuestions.test.ts tests/unit/platformV7AssistantQuestionUnderstanding.test.ts tests/unit/taiPublicAssistantRetryRegenerate.test.tsx tests/unit/taiInternalStreamRelay.test.ts tests/unit/publicQaPresentationRecovery.test.tsx tests/unit/platformV7LoginFailureClassification.test.ts tests/unit/bffUpstreamPathEncoding.test.ts tests/unit/requestCookieParsing.spec.ts tests/unit/authDemoOpenRedirect.test.ts tests/unit/serverRequestSecurity.test.ts tests/unit/emailCheckBoundedBeforePattern.test.ts tests/unit/cspReportingAndCrossOriginHeaders.spec.ts tests/unit/gektaRegistrationSecurity.test.ts tests/unit/gektaConsentEvidence.test.ts tests/unit/gektaEntitlement.test.ts tests/unit/gektaVoiceAndLegal.test.ts tests/unit/gektaAnonymousDocumentEvidence.test.ts tests/unit/gektaAnonymousLegalRoutes.test.ts tests/unit/gektaDocumentContext.test.ts tests/unit/platformV7AgroChatModelFirstRoute.test.ts tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts tests/unit/platformV7BankReadinessGuard.test.ts tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts tests/unit/platformV7ServerActionContractWrapper.test.ts tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts tests/unit/platformV7ServerActionRouteHandler.test.ts 2>&1 | tee /tmp/ci-web-unit.log
+ 
+       - name: Upload web unit log
+         if: failure()
+--- a/docs/platform-v7/qa/web-unit-coverage-registry.json
++++ b/docs/platform-v7/qa/web-unit-coverage-registry.json
+@@ -2,11 +2,11 @@
+   "schemaVersion": "platform-v7.web-unit-coverage.v1",
+   "issue": 4786,
+   "purpose": "Every unit test file under apps/web/tests/unit must either run in CI or appear here with a reason. A file in neither state is what #4786 found: present in the repository, reading as a guarantee, checked by nothing. This registry is a work queue, not a permanent exemption list - the count is meant to reach zero.",
+-  "executedCount": 48,
++  "executedCount": 52,
+   "discoveredCount": 932,
+   "exclusionCounts": {
+     "passed": 657,
+-    "failed": 227
++    "failed": 223
+   },
+   "exclusions": [
+     {
+@@ -3415,11 +3415,6 @@
+       "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+     },
+     {
+-      "file": "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+-      "status": "failed",
+-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+-    },
+-    {
+       "file": "apps/web/tests/unit/platformV7ServerActionRouteAudit.test.ts",
+       "status": "passed",
+       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+@@ -3440,16 +3435,6 @@
+       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+     },
+     {
+-      "file": "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+-      "status": "failed",
+-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+-    },
+-    {
+-      "file": "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+-      "status": "failed",
+-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+-    },
+-    {
+       "file": "apps/web/tests/unit/platformV7ServerActionRouteHttpMeaning.test.ts",
+       "status": "passed",
+       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+@@ -3468,11 +3453,6 @@
+       "file": "apps/web/tests/unit/platformV7ServerActionRouteInvalidBody.test.ts",
+       "status": "passed",
+       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+-    },
+-    {
+-      "file": "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+-      "status": "failed",
+-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+     },
+     {
+       "file": "apps/web/tests/unit/platformV7ServerActionRouteMoneyKey.test.ts",
 ```

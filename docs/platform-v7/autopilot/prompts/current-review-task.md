@@ -7246,7 +7246,7 @@ Canonical complete queue record bank-acceptance-preflight-budget-6089 SHA25672bd
 
 ## Independent review task — bank-rejected-contract-projection-6093-20261103
 
-Review this metadata on its actual exact head. Exactly three already-allowed governance paths change. The retained source scope appends the exact six listed paths; its original four paths remain unchanged. Removing only the six appended strings and the two appended document sections must reconstruct the entire previous tree. State must remain below3145728bytes and review carrier below2097152bytes. No new manifest, guard, exclusion, budget, primary/current/next/owner/progress change.
+Review this metadata on its actual exact head. Exactly three already-allowed governance paths change. The retained scope preserves its original four paths and appends six precisely enumerated paths; the two CI paths in the future eight-path source were already admitted. Removing only the six appended strings and both document appendices must reconstruct all previous bytes. Keep state below3145728bytes and review below2097152bytes. No new manifest, guard/budget/exclusion waiver, primary/current/next/owner/progress change. Unacceptedbf six-path admission is replaced, not counted accepted.
 
 ```json
 {
@@ -7303,10 +7303,26 @@ Review this metadata on its actual exact head. Exactly three already-allowed gov
       "afterBlob": "9faa92a704e68536d2d60050d28efd99b75cd3a2",
       "beforeSha256": "2739e189e07cb318ac4aad9e83f5b56843a19db4cd243c23600c87f5e6efb22f",
       "afterSha256": "3c61022551bcf01a2ea42b7f2ed97691bf416d1c3dcee2ca6637ebb9f6fdb4ea"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "009c464449e93e775389a6a3646ae9ee1c546b4b",
+      "afterBlob": "699c3a35bcb9b65b9d2f590ef7abbdb3d4a356b2",
+      "beforeSha256": "810dd6c2d0b4c8d83a6dce08ff073dda48b52592019fc05387ab63d56c8fcfd5",
+      "afterSha256": "168b0b9d9204e9800c055db299bf92d34ec3f044add5e7bfca9558f4088bc3fe"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "f40d43c65e0f1c6b48bfb0da522381f9fc833c94",
+      "afterBlob": "7f5037e1dcadc1884c7b8d89d994c688bceb5b45",
+      "beforeSha256": "291993931b42318b2442977cfc7ce1a8fc5420e6e819bf0445334d199b4da9de",
+      "afterSha256": "3187dc089939814701ce3aa62393246f2f3ae04c508646ed2cd43214e7d1517c"
     }
   ],
-  "sourcePatchSha256": "59f7764bee3fc66ecf839dbb2cd9b93ffbd8a52627c3f60962fc59f2b6649e5a",
-  "sourcePatchBytes": 8977,
+  "sourcePatchSha256": "85adb48ba09bcb46e9f8147fd838ddc926757e45f9657516cc5be574d0898b76",
+  "sourcePatchBytes": 17774,
   "semanticBoundary": "Web contract/readiness response projection only; rejected contract cannot advertise accepted manual review or runtime boundary access.",
   "preserved": [
     "all original four source paths remain admitted",
@@ -7340,8 +7356,23 @@ Review this metadata on its actual exact head. Exactly three already-allowed gov
     "scopedRoots": 6,
     "diagnostics": 0
   },
-  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance."
+  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance.",
+  "nativeSelection": {
+    "oldFiles": 48,
+    "newFiles": 52,
+    "added": [
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts"
+    ],
+    "discovered": 932,
+    "excluded": 880,
+    "failedExclusions": 223,
+    "passedExclusions": 657
+  },
+  "supersedesOnlyUnaccepted": "Unaccepted metadata bf0539c had six prospective paths without CI wiring; this complete eight-path purpose supersedes that unaccepted proposal. Original history and test failures remain."
 }
 ```
 
-The complete8977-byte source patch is in the matching execution-queue purpose. A later source must match all six after blobs/modes and preserve every other accepted-main leaf. Private82 and independent108 checks are not fresh source/native/production evidence. Metadata acceptance precedes source publication; source requires its own genuine exact-head independent review, owner audit, complete native/security/Kubernetes/cleanup/readiness and manual expected-full-SHA merge. Actual application release remains separate. Full UX/FGIS/bank and MASTER5/100 remain open.
+Full17774-byte source patch lives in the matching queue purpose. The future source must match all eight after blobs/modes and preserve every other accepted-main leaf. CI must preserve all48old arguments, add exactly4, remove only4old failed exclusions and account for932files=52executed+880excluded; no other workflow/registry semantics change. Private six-core82/independent108 results remain separate from new eight-path CI-wiring review and native52 acceptance. Metadata acceptance precedes source publication. Source requires genuine exact-head independent review, owner audit, complete native/security/Kubernetes/cleanup/readiness and manual expected-full-SHA acceptance. Application release is separate. Full block andMASTER5/100 remain open.
