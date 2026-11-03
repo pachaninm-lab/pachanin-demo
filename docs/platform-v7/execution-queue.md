@@ -13600,3 +13600,146 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   ]
 }
 ```
+
+
+## Bank rejected-contract projection — prospective eight-path source admission
+
+Purpose `bank-rejected-contract-projection-6093-20261103`. Existing source ref is retained. Metadata admits the exact eight before/after payloads below and does not publish or execute them. The two application files fix contradictory rejected-contract response projection. Four test files preserve supported-boundary denial/non-finality and add four unknown/removed-command regressions. CI adds exactly four paths to the original48; registry removes only those four failed exclusions, yielding52executed/880excluded,932total,657passed/223failed exclusions. No test exclusion or check waiver is introduced. The overlapping private five-test proposal is not accepted and must not overwrite the new money regression matrix. Unaccepted six-path metadata bf0539c is superseded by this complete eight-path record.
+
+```json
+{
+  "id": "bank-rejected-contract-projection-6093-20261103",
+  "kind": "SOURCE_PREPARATION_ONLY",
+  "existingOwner": "ACCOUNT_2_PRODUCT",
+  "metadataBaseExactSha": "8b5eadcd7939eb47b037dbf5e3d6670c00e17e13",
+  "sourceProposalCapturedOnMain": "27864386e15f18daf3fe1817dbb1ae43ba3c6f85",
+  "supersededMetadataHead": "e752676072ace70060679861bd0eb484e51d7f44",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "sourcePaths": [
+    {
+      "path": "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "mode": "100644",
+      "beforeBlob": "ae449907be8e14e888aa7d2c9a41b965273969d7",
+      "afterBlob": "73576d72e23ac95a5a492ab08fa09770dcb21721",
+      "beforeSha256": "90470705e8d56aef5df4fac337d84796344c142d17fa93509a1fdc13ddd44f4f",
+      "afterSha256": "d1036b36255c5d51cb77bb550dc60b39aedc7980a5a6bf00a29f099bdb6b7632"
+    },
+    {
+      "path": "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "mode": "100644",
+      "beforeBlob": "496236f558a0d0e957bb555913e5534672cbd68f",
+      "afterBlob": "f294282a09a620bbe16f8499d41c5b23301c27b0",
+      "beforeSha256": "ddfbbd2fe31ff4364b41ffa7342045264174aa39b19d54d6e6c52912bd3632ea",
+      "afterSha256": "e52a44b4084b3685e44c3ecff5fd53a5005a0c2a7cc6a9ba94ab071d8f2c69bf"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "66a48b46dbdb632f2f85e67f234199f8f886d708",
+      "afterBlob": "fc6cc6139e7be77655aea515762fae8baeb924a8",
+      "beforeSha256": "d555e809a00523436503e094cd00009fce2a7ff564b9fef236db950759d5e5f4",
+      "afterSha256": "c4e06083a5ce1696d5bcf4a8ac857484a91f329a19509ca98f0a33bffb03d587"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "mode": "100644",
+      "beforeBlob": "4c0286c609b975294ad5bfc1f835c919bce7daa2",
+      "afterBlob": "4ad5186ac04fee3f8c82a4e3ea4fe949cc4143f9",
+      "beforeSha256": "57794b14ed38ee5471cc32d856ea33eb159c6f0302feda121bc88208a6adcaf7",
+      "afterSha256": "93bc1f61f15d812022a91a020a814885e3caef9e84214e52fa06e05f82acb7ca"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "mode": "100644",
+      "beforeBlob": "a4724d0138f9507a4a09ea78e0238a0cd2e21b99",
+      "afterBlob": "dab246419ff9bd7c92a97eff21770766d7150f1a",
+      "beforeSha256": "c8107a9371697cd7da7a0b1eea2677b0742aa2f349cba05493a1a1a0ab0f9611",
+      "afterSha256": "7c441a2500a8d930c31c9b5f919e005af4da1302007a48f0fe582210bd0a1720"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "mode": "100644",
+      "beforeBlob": "3c63e0635a501e449bda3417acd62bd2626620ca",
+      "afterBlob": "9faa92a704e68536d2d60050d28efd99b75cd3a2",
+      "beforeSha256": "2739e189e07cb318ac4aad9e83f5b56843a19db4cd243c23600c87f5e6efb22f",
+      "afterSha256": "3c61022551bcf01a2ea42b7f2ed97691bf416d1c3dcee2ca6637ebb9f6fdb4ea"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "009c464449e93e775389a6a3646ae9ee1c546b4b",
+      "afterBlob": "699c3a35bcb9b65b9d2f590ef7abbdb3d4a356b2",
+      "beforeSha256": "810dd6c2d0b4c8d83a6dce08ff073dda48b52592019fc05387ab63d56c8fcfd5",
+      "afterSha256": "168b0b9d9204e9800c055db299bf92d34ec3f044add5e7bfca9558f4088bc3fe"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "f40d43c65e0f1c6b48bfb0da522381f9fc833c94",
+      "afterBlob": "7f5037e1dcadc1884c7b8d89d994c688bceb5b45",
+      "beforeSha256": "291993931b42318b2442977cfc7ce1a8fc5420e6e819bf0445334d199b4da9de",
+      "afterSha256": "3187dc089939814701ce3aa62393246f2f3ae04c508646ed2cd43214e7d1517c"
+    }
+  ],
+  "sourcePatchSha256": "85adb48ba09bcb46e9f8147fd838ddc926757e45f9657516cc5be574d0898b76",
+  "sourcePatchBytes": 17774,
+  "semanticBoundary": "Web contract/readiness response projection only; rejected contract cannot advertise accepted manual review or runtime boundary access.",
+  "preserved": [
+    "all original four source paths remain admitted",
+    "all other state bytes inverse-identical",
+    "current/next/PRIMARY/owners/5/100 unchanged",
+    "all existing guards/native/security/Kubernetes/readiness/manual expected-SHA gates",
+    "no canonical permission, money, provider, SQL, dispatch, credential or host authority"
+  ],
+  "acceptance": [
+    "metadata normal independent review/native/owner/readiness/manual acceptance before source publication",
+    "fresh whole-eight actual-published-head independent review and separate owner audit",
+    "full source native52/security/Kubernetes/cleanup and canonical readiness before ordinary full-SHA manual merge",
+    "separate exact-SHA application release and live acceptance before any production claim"
+  ],
+  "privateEvidenceOnly": {
+    "authorCohort": {
+      "passed": 82,
+      "failed": 0
+    },
+    "sameTestsOnBase": {
+      "passed": 78,
+      "failed": 4
+    },
+    "independent": {
+      "passed": 108,
+      "failed": 0,
+      "extraAdverse": 26,
+      "notSummedWithAuthor": true
+    },
+    "typescriptVersion": "5.9.3",
+    "scopedRoots": 6,
+    "diagnostics": 0
+  },
+  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance.",
+  "nativeSelection": {
+    "oldFiles": 48,
+    "newFiles": 52,
+    "added": [
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts"
+    ],
+    "discovered": 932,
+    "excluded": 880,
+    "failedExclusions": 223,
+    "passedExclusions": 657
+  },
+  "supersedesOnlyUnaccepted": "Unaccepted metadata bf0539c had six prospective paths without CI wiring; this complete eight-path purpose supersedes that unaccepted proposal. Original history and test failures remain.",
+  "sourcePatchEncoding": "json-string-utf8"
+}
+```
+
+Complete immutable prospective source patch:
+
+Lossless source-patch capture as a JSON string. Parse this string to recover the exact17774 UTF-8 bytes; source SHA256 remains85adb48ba09bcb46e9f8147fd838ddc926757e45f9657516cc5be574d0898b76. JSON escaping preserves the significant blank context-line prefixes without trailing whitespace in this document.
+
+```json
+"--- a/apps/web/lib/platform-v7/server-action-route-handler.ts\n+++ b/apps/web/lib/platform-v7/server-action-route-handler.ts\n@@ -153,6 +153,7 @@\n   });\n   const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);\n   const routeSummary = buildPlatformV7ServerActionRouteSummary({\n+    contractResponse: response,\n     idempotencyBoundary,\n     auditBoundary,\n     documentGate,\n--- a/apps/web/lib/platform-v7/server-action-route-result.ts\n+++ b/apps/web/lib/platform-v7/server-action-route-result.ts\n@@ -103,6 +103,7 @@\n };\n \n export type PlatformV7ServerActionRouteSummaryInput = {\n+  readonly contractResponse?: Pick<PlatformV7ServerActionContractResponse, 'status' | 'message'>;\n   readonly idempotencyBoundary: IdempotencySnapshot;\n   readonly auditBoundary: AuditSnapshot;\n   readonly documentGate: RuntimeGateSnapshot;\n@@ -174,6 +175,9 @@\n   input: PlatformV7ServerActionRouteSummaryInput,\n ): PlatformV7ServerActionRouteSummary {\n   const issues = [\n+    input.contractResponse?.status === 'not_accepted'\n+      ? routeIssue('contract', input.contractResponse.status, input.contractResponse.message)\n+      : undefined,\n     !input.idempotencyBoundary.canProceed\n       ? routeIssue('idempotency', input.idempotencyBoundary.status, input.idempotencyBoundary.reason)\n       : undefined,\n--- a/apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts\n+++ b/apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts\n@@ -155,46 +155,59 @@\n     });\n   });\n \n-  it('accepts external confirmation readiness from payload for bank money confirmation compatibility', () => {\n-    const idempotencyKey = buildPlatformV7IdempotencyKey({\n-      boundaryId: 'confirm_money_released',\n-      actorId: 'bank-1',\n-      entityId: 'money-1',\n-      dealId: 'deal-1',\n-      amountMinor: 100_000,\n-      currency: 'RUB',\n-      attemptId: 'attempt-1',\n-    });\n-\n-    const result = handlePlatformV7ServerActionRouteBody({\n-      boundaryId: 'confirm_money_released',\n-      actorId: 'bank-1',\n-      actorRole: 'bank',\n-      entityId: 'money-1',\n-      entityType: 'money_record',\n-      dealId: 'deal-1',\n-      amountMinor: 100_000,\n-      currency: 'RUB',\n-      idempotencyKey,\n-      occurredAt: '2026-05-08T03:20:00.000Z',\n-      summary: 'Bank release confirmation boundary checked.',\n-      payload: {\n-        externalConfirmationReady: true,\n-        dealId: 'deal-1',\n-        amountMinor: 100_000,\n-        currency: 'RUB',\n-        bankReferenceId: 'bank-evt-1',\n-        confirmedAt: '2026-05-08T05:00:00.000Z',\n-      },\n-    });\n-\n-    expect(result.ok).toBe(true);\n-    expect(result.status).toBe(202);\n-    expect(result.body.moneyGuardSummary).toMatchObject({\n-      status: 'ready_for_money_runtime_boundary',\n-      canReachMoneyRuntimeBoundary: true,\n-      canClaimMoneyMoved: false,\n-      requiresBankOrExternalConfirmation: true,\n-    });\n-  });\n+  it.each([\n+    ['confirm_money_released', false], ['confirm_money_released', true],\n+    ['unregistered_money_operation', false], ['unregistered_money_operation', true],\n+  ] as const)('rejects %s with readiness=%s without a contradictory review or runtime claim', (boundaryId, ready) => {\n+    const result = handlePlatformV7ServerActionRouteBody({\n+      boundaryId, actorId: 'bank-1', actorRole: 'bank',\n+      entityId: 'money-1', entityType: 'money_record', dealId: 'deal-1',\n+      amountMinor: 100_000, currency: 'RUB',\n+      idempotencyKey: 'rejected-contract-regression-intent',\n+      occurredAt: '2026-05-08T03:20:00.000Z', summary: 'Rejected contract regression.',\n+      payload: { externalConfirmationReady: ready, dealId: 'deal-1', amountMinor: 100_000,\n+        currency: 'RUB', bankReferenceId: 'bank-evt-1', confirmedAt: '2026-05-08T05:00:00.000Z' },\n+    });\n+    expect(result).toMatchObject({ ok: false, status: 400, httpMeaning: 'not_accepted' });\n+    expect(result.body).toMatchObject({\n+      ok: false, acceptedForReview: false,\n+      response: { status: 'not_accepted', canClaimExecuted: false, persisted: false, attemptedRuntimeWrite: false },\n+      executionClaim: { executed: false, persisted: false, moneyMoved: false, externalConfirmed: false,\n+        stage: 'stopped_by_server_boundary' },\n+      routeSummary: { status: 'stopped_by_server_boundary', runtimeStage: 'stopped_by_server_boundary',\n+        canReachRuntimeBoundary: false, canAttemptRuntimeWrite: false, canClaimExecuted: false, persisted: false },\n+      persistenceSummary: { canAttemptRuntimeWrite: false, persisted: false, attemptedRuntimeWrite: false },\n+    });\n+    const summary = result.body.routeSummary as { issueCount: number; issues: readonly { boundary: string; status: string }[] };\n+    expect(summary.issueCount).toBeGreaterThan(0);\n+    expect(summary.issueCount).toBe(summary.issues.length);\n+    expect(summary.issues).toContainEqual(expect.objectContaining({ boundary: 'contract', status: 'not_accepted' }));\n+  });\n+\n+  it('preserves payload readiness compatibility for the supported reserve confirmation without claiming execution', () => {\n+    const result = handlePlatformV7ServerActionRouteBody({\n+      boundaryId: 'confirm_money_reserved', actorId: 'bank-1', actorRole: 'bank',\n+      entityId: 'money-1', entityType: 'money_record', dealId: 'deal-1',\n+      amountMinor: 100_000, currency: 'RUB',\n+      idempotencyKey: buildPlatformV7IdempotencyKey({\n+        boundaryId: 'confirm_money_reserved', actorId: 'bank-1', entityId: 'money-1',\n+        dealId: 'deal-1', amountMinor: 100_000, currency: 'RUB', attemptId: 'payload-compatibility',\n+      }),\n+      occurredAt: '2026-05-08T03:20:00.000Z', summary: 'Reserve readiness contract only.',\n+      payload: { externalConfirmationReady: true, dealId: 'deal-1', amountMinor: 100_000,\n+        currency: 'RUB', bankReferenceId: 'bank-evt-1', confirmedAt: '2026-05-08T05:00:00.000Z' },\n+    });\n+    expect(result).toMatchObject({ ok: true, status: 202, httpMeaning: 'accepted_for_manual_review' });\n+    expect(result.body.moneyGuardSummary).toMatchObject({\n+      status: 'ready_for_money_runtime_boundary', canReachMoneyRuntimeBoundary: true,\n+      canClaimMoneyMoved: false, requiresBankOrExternalConfirmation: true,\n+    });\n+    expect(result.body.executionClaim).toMatchObject({\n+      executed: false, persisted: false, moneyMoved: false, externalConfirmed: false,\n+    });\n+    expect(result.body.routeSummary).toMatchObject({\n+      canClaimExecuted: false, persisted: false, canAttemptRuntimeWrite: false,\n+    });\n+  });\n+\n });\n--- a/apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts\n+++ b/apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts\n@@ -14,7 +14,7 @@\n   it('returns 403 for a role-forbidden boundary without claiming execution', () => {\n     const response = buildPlatformV7ServerActionContractResponse(\n       {\n-        boundaryId: 'confirm_money_released',\n+        boundaryId: 'confirm_money_reserved',\n         actorId: 'driver-1',\n         actorRole: 'driver',\n         entityId: 'money-1',\n--- a/apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts\n+++ b/apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts\n@@ -4,7 +4,7 @@\n describe('platform-v7 server action route forbidden role response meaning', () => {\n   it('marks forbidden role responses as not accepted without execution claims', () => {\n     const result = handlePlatformV7ServerActionRouteBody({\n-      boundaryId: 'confirm_money_released',\n+      boundaryId: 'confirm_money_reserved',\n       actorId: 'driver-1',\n       actorRole: 'driver',\n       entityId: 'money-1',\n@@ -17,7 +17,7 @@\n         confirmedAt: '2026-05-07T10:00:00.000Z',\n       },\n       occurredAt: '2026-05-07T10:00:00.000Z',\n-      summary: 'Release boundary checked.',\n+      summary: 'Reserve confirmation boundary checked.',\n     });\n \n     expect(result).toMatchObject({\n--- a/apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts\n+++ b/apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts\n@@ -228,7 +228,7 @@\n \n   it('rejects forbidden role through server route handler', () => {\n     const result = handlePlatformV7ServerActionRouteBody({\n-      boundaryId: 'confirm_money_released',\n+      boundaryId: 'confirm_money_reserved',\n       actorId: 'driver-1',\n       actorRole: 'driver',\n       entityId: 'money-1',\n@@ -241,13 +241,13 @@\n         confirmedAt: '2026-05-07T10:00:00.000Z',\n       },\n       occurredAt: '2026-05-07T10:00:00.000Z',\n-      summary: 'Release boundary checked.',\n+      summary: 'Reserve confirmation boundary checked.',\n     });\n \n     expect(result.status).toBe(403);\n     expect(result.body.response).toMatchObject({\n-      boundaryId: 'confirm_money_released',\n-      actionId: 'bank.confirm_money_released',\n+      boundaryId: 'confirm_money_reserved',\n+      actionId: 'bank.confirm_money_reserved',\n       serviceName: 'money',\n       status: 'not_accepted',\n       canClaimExecuted: false,\n--- a/.github/workflows/ci.yml\n+++ b/.github/workflows/ci.yml\n@@ -49,7 +49,7 @@\n       - name: Platform-v7 unit checks\n         run: |\n           set -o pipefail\n-          pnpm --filter @pc/web exec vitest run tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx tests/unit/uploadContentSignature.spec.ts tests/unit/uploadImagePixelBudget.spec.ts tests/unit/uploadDecompressionBudget.spec.ts tests/unit/uploadBodyBound.spec.ts tests/unit/routeBodyBounds.spec.ts tests/unit/sessionMintingSurface.spec.ts tests/unit/mfaRecoveryMailLifetime.spec.ts tests/unit/tokenPurposeBinding.spec.ts tests/unit/platformV7ControlledTestOrganizations.test.ts tests/unit/platformV7BrowserAcceptanceRepairs.test.ts tests/unit/platformV7FinalAcceptanceContract.test.ts tests/unit/platformV7LogisticsDriverBoundary.test.ts tests/unit/fixtureTokenAudience.spec.ts tests/unit/taiSemanticRelevanceRouter.test.ts tests/unit/settlementMoneyCsrf.spec.ts tests/unit/logoutClearsClientState.spec.ts tests/unit/cabinetSessionCsrf.spec.ts tests/unit/platformV7FounderRoleModeSessionBff.test.ts tests/unit/platformV7MobileTrustAndGektaReturn.test.ts tests/unit/publicFarmerStarterQuestions.test.ts tests/unit/platformV7AssistantQuestionUnderstanding.test.ts tests/unit/taiPublicAssistantRetryRegenerate.test.tsx tests/unit/taiInternalStreamRelay.test.ts tests/unit/publicQaPresentationRecovery.test.tsx tests/unit/platformV7LoginFailureClassification.test.ts tests/unit/bffUpstreamPathEncoding.test.ts tests/unit/requestCookieParsing.spec.ts tests/unit/authDemoOpenRedirect.test.ts tests/unit/serverRequestSecurity.test.ts tests/unit/emailCheckBoundedBeforePattern.test.ts tests/unit/cspReportingAndCrossOriginHeaders.spec.ts tests/unit/gektaRegistrationSecurity.test.ts tests/unit/gektaConsentEvidence.test.ts tests/unit/gektaEntitlement.test.ts tests/unit/gektaVoiceAndLegal.test.ts tests/unit/gektaAnonymousDocumentEvidence.test.ts tests/unit/gektaAnonymousLegalRoutes.test.ts tests/unit/gektaDocumentContext.test.ts tests/unit/platformV7AgroChatModelFirstRoute.test.ts tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts tests/unit/platformV7BankReadinessGuard.test.ts 2>&1 | tee /tmp/ci-web-unit.log\n+          pnpm --filter @pc/web exec vitest run tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx tests/unit/uploadContentSignature.spec.ts tests/unit/uploadImagePixelBudget.spec.ts tests/unit/uploadDecompressionBudget.spec.ts tests/unit/uploadBodyBound.spec.ts tests/unit/routeBodyBounds.spec.ts tests/unit/sessionMintingSurface.spec.ts tests/unit/mfaRecoveryMailLifetime.spec.ts tests/unit/tokenPurposeBinding.spec.ts tests/unit/platformV7ControlledTestOrganizations.test.ts tests/unit/platformV7BrowserAcceptanceRepairs.test.ts tests/unit/platformV7FinalAcceptanceContract.test.ts tests/unit/platformV7LogisticsDriverBoundary.test.ts tests/unit/fixtureTokenAudience.spec.ts tests/unit/taiSemanticRelevanceRouter.test.ts tests/unit/settlementMoneyCsrf.spec.ts tests/unit/logoutClearsClientState.spec.ts tests/unit/cabinetSessionCsrf.spec.ts tests/unit/platformV7FounderRoleModeSessionBff.test.ts tests/unit/platformV7MobileTrustAndGektaReturn.test.ts tests/unit/publicFarmerStarterQuestions.test.ts tests/unit/platformV7AssistantQuestionUnderstanding.test.ts tests/unit/taiPublicAssistantRetryRegenerate.test.tsx tests/unit/taiInternalStreamRelay.test.ts tests/unit/publicQaPresentationRecovery.test.tsx tests/unit/platformV7LoginFailureClassification.test.ts tests/unit/bffUpstreamPathEncoding.test.ts tests/unit/requestCookieParsing.spec.ts tests/unit/authDemoOpenRedirect.test.ts tests/unit/serverRequestSecurity.test.ts tests/unit/emailCheckBoundedBeforePattern.test.ts tests/unit/cspReportingAndCrossOriginHeaders.spec.ts tests/unit/gektaRegistrationSecurity.test.ts tests/unit/gektaConsentEvidence.test.ts tests/unit/gektaEntitlement.test.ts tests/unit/gektaVoiceAndLegal.test.ts tests/unit/gektaAnonymousDocumentEvidence.test.ts tests/unit/gektaAnonymousLegalRoutes.test.ts tests/unit/gektaDocumentContext.test.ts tests/unit/platformV7AgroChatModelFirstRoute.test.ts tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts tests/unit/platformV7BankReadinessGuard.test.ts tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts tests/unit/platformV7ServerActionContractWrapper.test.ts tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts tests/unit/platformV7ServerActionRouteHandler.test.ts 2>&1 | tee /tmp/ci-web-unit.log\n \n       - name: Upload web unit log\n         if: failure()\n--- a/docs/platform-v7/qa/web-unit-coverage-registry.json\n+++ b/docs/platform-v7/qa/web-unit-coverage-registry.json\n@@ -2,11 +2,11 @@\n   \"schemaVersion\": \"platform-v7.web-unit-coverage.v1\",\n   \"issue\": 4786,\n   \"purpose\": \"Every unit test file under apps/web/tests/unit must either run in CI or appear here with a reason. A file in neither state is what #4786 found: present in the repository, reading as a guarantee, checked by nothing. This registry is a work queue, not a permanent exemption list - the count is meant to reach zero.\",\n-  \"executedCount\": 48,\n+  \"executedCount\": 52,\n   \"discoveredCount\": 932,\n   \"exclusionCounts\": {\n     \"passed\": 657,\n-    \"failed\": 227\n+    \"failed\": 223\n   },\n   \"exclusions\": [\n     {\n@@ -3415,11 +3415,6 @@\n       \"reason\": \"Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run.\"\n     },\n     {\n-      \"file\": \"apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts\",\n-      \"status\": \"failed\",\n-      \"reason\": \"Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run.\"\n-    },\n-    {\n       \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteAudit.test.ts\",\n       \"status\": \"passed\",\n       \"reason\": \"Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps.\"\n@@ -3440,16 +3435,6 @@\n       \"reason\": \"Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps.\"\n     },\n     {\n-      \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts\",\n-      \"status\": \"failed\",\n-      \"reason\": \"Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run.\"\n-    },\n-    {\n-      \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts\",\n-      \"status\": \"failed\",\n-      \"reason\": \"Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run.\"\n-    },\n-    {\n       \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteHttpMeaning.test.ts\",\n       \"status\": \"passed\",\n       \"reason\": \"Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps.\"\n@@ -3468,11 +3453,6 @@\n       \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteInvalidBody.test.ts\",\n       \"status\": \"passed\",\n       \"reason\": \"Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps.\"\n-    },\n-    {\n-      \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts\",\n-      \"status\": \"failed\",\n-      \"reason\": \"Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run.\"\n     },\n     {\n       \"file\": \"apps/web/tests/unit/platformV7ServerActionRouteMoneyKey.test.ts\",\n"
+```

@@ -7242,3 +7242,140 @@ Review the complete three-leaf diff against 032e9c6ea686f86d15d46f5c05d832c894ab
 ## Independent review — bank acceptance preflight budget6089
 
 Canonical complete queue record bank-acceptance-preflight-budget-6089 SHA25672bdcad3b49ec22f362bd51dc72ee93f224df22f078bb2ae25531e7a76f1503d. Inspect all3alreadyallowed metadata leaves, full byteinverse of only new scope entry, everyoldstatefield and fulloldqueue/reviewprefix. Inspect entire pinned one-workflow future patch: exactly2same-repo refs420/435/10min, existinggeneric/fork180/195/8min and branch-scope180/195 retained; all old guards/TAP/cleanup/artifact boundaries, all old tests plus new negative identity cases retained. Actual source229 timeout124 remainsFAIL; ten local controlled Python unit methods are not native guard PASS or proof420s sufficient. Fresh independent actual-head review + own audit + native/security/canonical/manualfullSHA gates, then separately source1 and later recomposed source4 each require all fresh gates. No application/provider/production/live13/MASTER claim.
+
+
+## Independent review task — bank-rejected-contract-projection-6093-20261103
+
+Review this metadata on its actual exact head. Exactly three already-allowed governance paths change. The retained scope preserves its original four paths and appends six precisely enumerated paths; the two CI paths in the future eight-path source were already admitted. Removing only the six appended strings and both document appendices must reconstruct all previous bytes. Keep state below3145728bytes and review below2097152bytes. No new manifest, guard/budget/exclusion waiver, primary/current/next/owner/progress change. Unacceptedbf six-path admission is replaced, not counted accepted.
+
+```json
+{
+  "id": "bank-rejected-contract-projection-6093-20261103",
+  "kind": "SOURCE_PREPARATION_ONLY",
+  "existingOwner": "ACCOUNT_2_PRODUCT",
+  "metadataBaseExactSha": "8b5eadcd7939eb47b037dbf5e3d6670c00e17e13",
+  "sourceProposalCapturedOnMain": "27864386e15f18daf3fe1817dbb1ae43ba3c6f85",
+  "supersededMetadataHead": "e752676072ace70060679861bd0eb484e51d7f44",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "sourcePaths": [
+    {
+      "path": "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "mode": "100644",
+      "beforeBlob": "ae449907be8e14e888aa7d2c9a41b965273969d7",
+      "afterBlob": "73576d72e23ac95a5a492ab08fa09770dcb21721",
+      "beforeSha256": "90470705e8d56aef5df4fac337d84796344c142d17fa93509a1fdc13ddd44f4f",
+      "afterSha256": "d1036b36255c5d51cb77bb550dc60b39aedc7980a5a6bf00a29f099bdb6b7632"
+    },
+    {
+      "path": "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "mode": "100644",
+      "beforeBlob": "496236f558a0d0e957bb555913e5534672cbd68f",
+      "afterBlob": "f294282a09a620bbe16f8499d41c5b23301c27b0",
+      "beforeSha256": "ddfbbd2fe31ff4364b41ffa7342045264174aa39b19d54d6e6c52912bd3632ea",
+      "afterSha256": "e52a44b4084b3685e44c3ecff5fd53a5005a0c2a7cc6a9ba94ab071d8f2c69bf"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "66a48b46dbdb632f2f85e67f234199f8f886d708",
+      "afterBlob": "fc6cc6139e7be77655aea515762fae8baeb924a8",
+      "beforeSha256": "d555e809a00523436503e094cd00009fce2a7ff564b9fef236db950759d5e5f4",
+      "afterSha256": "c4e06083a5ce1696d5bcf4a8ac857484a91f329a19509ca98f0a33bffb03d587"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "mode": "100644",
+      "beforeBlob": "4c0286c609b975294ad5bfc1f835c919bce7daa2",
+      "afterBlob": "4ad5186ac04fee3f8c82a4e3ea4fe949cc4143f9",
+      "beforeSha256": "57794b14ed38ee5471cc32d856ea33eb159c6f0302feda121bc88208a6adcaf7",
+      "afterSha256": "93bc1f61f15d812022a91a020a814885e3caef9e84214e52fa06e05f82acb7ca"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "mode": "100644",
+      "beforeBlob": "a4724d0138f9507a4a09ea78e0238a0cd2e21b99",
+      "afterBlob": "dab246419ff9bd7c92a97eff21770766d7150f1a",
+      "beforeSha256": "c8107a9371697cd7da7a0b1eea2677b0742aa2f349cba05493a1a1a0ab0f9611",
+      "afterSha256": "7c441a2500a8d930c31c9b5f919e005af4da1302007a48f0fe582210bd0a1720"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "mode": "100644",
+      "beforeBlob": "3c63e0635a501e449bda3417acd62bd2626620ca",
+      "afterBlob": "9faa92a704e68536d2d60050d28efd99b75cd3a2",
+      "beforeSha256": "2739e189e07cb318ac4aad9e83f5b56843a19db4cd243c23600c87f5e6efb22f",
+      "afterSha256": "3c61022551bcf01a2ea42b7f2ed97691bf416d1c3dcee2ca6637ebb9f6fdb4ea"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "009c464449e93e775389a6a3646ae9ee1c546b4b",
+      "afterBlob": "699c3a35bcb9b65b9d2f590ef7abbdb3d4a356b2",
+      "beforeSha256": "810dd6c2d0b4c8d83a6dce08ff073dda48b52592019fc05387ab63d56c8fcfd5",
+      "afterSha256": "168b0b9d9204e9800c055db299bf92d34ec3f044add5e7bfca9558f4088bc3fe"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "f40d43c65e0f1c6b48bfb0da522381f9fc833c94",
+      "afterBlob": "7f5037e1dcadc1884c7b8d89d994c688bceb5b45",
+      "beforeSha256": "291993931b42318b2442977cfc7ce1a8fc5420e6e819bf0445334d199b4da9de",
+      "afterSha256": "3187dc089939814701ce3aa62393246f2f3ae04c508646ed2cd43214e7d1517c"
+    }
+  ],
+  "sourcePatchSha256": "85adb48ba09bcb46e9f8147fd838ddc926757e45f9657516cc5be574d0898b76",
+  "sourcePatchBytes": 17774,
+  "semanticBoundary": "Web contract/readiness response projection only; rejected contract cannot advertise accepted manual review or runtime boundary access.",
+  "preserved": [
+    "all original four source paths remain admitted",
+    "all other state bytes inverse-identical",
+    "current/next/PRIMARY/owners/5/100 unchanged",
+    "all existing guards/native/security/Kubernetes/readiness/manual expected-SHA gates",
+    "no canonical permission, money, provider, SQL, dispatch, credential or host authority"
+  ],
+  "acceptance": [
+    "metadata normal independent review/native/owner/readiness/manual acceptance before source publication",
+    "fresh whole-eight actual-published-head independent review and separate owner audit",
+    "full source native52/security/Kubernetes/cleanup and canonical readiness before ordinary full-SHA manual merge",
+    "separate exact-SHA application release and live acceptance before any production claim"
+  ],
+  "privateEvidenceOnly": {
+    "authorCohort": {
+      "passed": 82,
+      "failed": 0
+    },
+    "sameTestsOnBase": {
+      "passed": 78,
+      "failed": 4
+    },
+    "independent": {
+      "passed": 108,
+      "failed": 0,
+      "extraAdverse": 26,
+      "notSummedWithAuthor": true
+    },
+    "typescriptVersion": "5.9.3",
+    "scopedRoots": 6,
+    "diagnostics": 0
+  },
+  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance.",
+  "nativeSelection": {
+    "oldFiles": 48,
+    "newFiles": 52,
+    "added": [
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts"
+    ],
+    "discovered": 932,
+    "excluded": 880,
+    "failedExclusions": 223,
+    "passedExclusions": 657
+  },
+  "supersedesOnlyUnaccepted": "Unaccepted metadata bf0539c had six prospective paths without CI wiring; this complete eight-path purpose supersedes that unaccepted proposal. Original history and test failures remain.",
+  "sourcePatchEncoding": "json-string-utf8"
+}
+```
+
+Full17774-byte source patch lives in the matching queue purpose. The future source must match all eight after blobs/modes and preserve every other accepted-main leaf. CI must preserve all48old arguments, add exactly4, remove only4old failed exclusions and account for932files=52executed+880excluded; no other workflow/registry semantics change. Private six-core82/independent108 results remain separate from new eight-path CI-wiring review and native52 acceptance. Metadata acceptance precedes source publication. Source requires genuine exact-head independent review, owner audit, complete native/security/Kubernetes/cleanup/readiness and manual expected-full-SHA acceptance. Application release is separate. Full block andMASTER5/100 remain open.
