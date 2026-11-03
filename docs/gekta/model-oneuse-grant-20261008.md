@@ -1,3 +1,66 @@
+# Finite Qwen3.8 candidate, 2026-11-03
+
+The current owner instruction to finish Gekta covers preparing a current-host
+candidate. This is a private source proposal until the exact new purpose and
+source pass separate admission, independent actual-head review, native checks,
+canonical readiness and manual SHA-bound acceptance. No runtime command is
+permitted merely because this file exists.
+
+New purpose: `gekta-qwen38-iq2s-finite-canary-20261103`.
+New finite grant: `gekta-finish-20261103-qwen38-iq2s-oneuse`.
+Both `gekta-critical-5974230017` and `gekta-finish-20261008-4b-oneuse`
+remain retired/spent. Preserve all old critical/extra reservation/exec markers
+in the same OS-account state directory. Neither failure nor a changed source,
+model filename or grant argument refunds any old or new slot.
+
+The exact candidate is `tai-qwen38-27b-iq2s`, immutable GGUF revision
+`4ca720788d1e01f1bff70c033e0d0028fd02e502`, file
+`Qwen3.8-27B-UD-IQ2_S.gguf`, 8,371,970,048 bytes, SHA256
+`7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe`.
+An artifact header or size estimate is not full SHA, load, RAM, speed or quality
+acceptance. Low quantization makes real output checks especially necessary.
+
+The grant has one critical slot and, only after actual same-SHA critical PASS,
+cleanup PASS and unchanged healthy8B are inspected, one extra slot. Each has
+the existing 420-second hard lease, same non-root identity, pinned host key,
+loopback-only listener, durable exclusive markers, pidfd watchdog and positive
+cleanup. The exact existing runtime aedb2a5 and threads16/parallel1/ctx8192/
+batch512/ubatch128 remain. The8B baseline stays active and unchanged.
+
+For this8.37GB artifact only, maximum candidateRSS is9GiB and staging requires
+the artifact bytes plus3GB free disk for a new download. Reuse of the owned,
+exact-size, full-SHA-verified cached artifact requires only the same3GB reserve;
+it must not demand the artifact allocation a second time. Unsafe, corrupt or
+insufficient-reserve cache entries fail without repair or grant refund. Existing8GiB prelaunch,3GiB ready and2GiB
+runtime available-memory thresholds and zero-swap checks are retained. These
+bounds do not assert fit; the candidate must stop on actual capacity loss or
+lease expiry. No new hardware, paid provider or recurring cost is authorized.
+
+Before credentials, the default-branch resolver checks its exact full current
+main SHA and the separately accepted unique queue purpose, full four after
+payload hashes/Git blobs/modes, exact artifact/resource/grant identities and
+fixed two-slot limit. The source's four-path owner cannot add its own queue
+admission. Prepare source and its complete review first; accept the separate
+purpose before source publication/acceptance and before any command.
+
+Only after all those steps, exact sole-body commands on owner journal#3896:
+
+```
+/gekta qwen38-27b-iq2s critical FULL_40_HEX_MAIN_SHA gekta-finish-20261103-qwen38-iq2s-oneuse
+/gekta qwen38-27b-iq2s extra FULL_40_HEX_MAIN_SHA gekta-finish-20261103-qwen38-iq2s-oneuse
+```
+
+There is no automatic retry, standing execution budget, production routing
+change, baseline service control or permanent activation authority. Preserve
+any capacity/load/semantic/timeout failure and cleanup proof. Extra output's
+`firstVisibleMs` is visible pipeline text, not modelTTFT. A selected corpus is
+partial evidence; full candidate evidence requires both unchanged10 and4
+cases and cleanup on one SHA. It does not establish broad1000-case quality.
+The historical QWEN35 env/protocol/file names remain solely for compatibility
+with the unchanged critical corpus; artifact and model identity are explicit.
+
+## Previous grant record — retired, no current command authority
+
 # Gekta bounded model candidate grant, 2026-10-08
 
 The owner renewed the instruction to finish Gekta on 2026-10-08. This proposal
