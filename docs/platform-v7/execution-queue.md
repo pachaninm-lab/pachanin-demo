@@ -13691,8 +13691,8 @@ Purpose `bank-rejected-contract-projection-6093-20261103`. Existing source ref i
   ],
   "acceptance": [
     "metadata normal independent review/native/owner/readiness/manual acceptance before source publication",
-    "fresh whole-six actual-published-head independent review and separate owner audit",
-    "full source native/security/Kubernetes/cleanup and canonical readiness before ordinary full-SHA manual merge",
+    "fresh whole-eight actual-published-head independent review and separate owner audit",
+    "full source native52/security/Kubernetes/cleanup and canonical readiness before ordinary full-SHA manual merge",
     "separate exact-SHA application release and live acceptance before any production claim"
   ],
   "privateEvidenceOnly": {
