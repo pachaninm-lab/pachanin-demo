@@ -210,6 +210,7 @@ function consentGate() {
 
 async function installConsentFixture(page: Page, options: {
   holdProbe?: boolean; holdFirstReserve?: boolean; consentFails?: boolean; reserveFails?: boolean;
+  generationFailsOnce?: boolean;
 } = {}) {
   const probeGate = consentGate();
   const reserveGate = consentGate();
@@ -217,7 +218,8 @@ async function installConsentFixture(page: Page, options: {
   let reserveCount = 0;
   let probeCount = 0;
   let consentCount = 0;
-  const generations: Array<{ message: string }> = [];
+  const generations: Array<{ message: string; documents?: unknown; ticket: string }> = [];
+  const completions: string[] = [];
   const failures: string[] = [];
   const canceled: string[] = [];
   const unexpected: string[] = [];
@@ -270,7 +272,7 @@ async function installConsentFixture(page: Page, options: {
       }
       if (body.action === 'reserve') {
         reserveCount += 1;
-        const result = accepted ? { ...envelope(true), allowed: true, ticket: 'synthetic-browser-ticket' }
+        const result = accepted ? { ...envelope(true), allowed: true, ticket: `synthetic-browser-ticket-${reserveCount}` }
           : { ...envelope(false), allowed: false, reason: 'consent_required' };
         if (options.holdFirstReserve && reserveCount === 1) {
           attempts.push(releaseLate(route, reserveGate.promise, result, 'stale-reserve'));
@@ -278,10 +280,14 @@ async function installConsentFixture(page: Page, options: {
         }
         await json(options.reserveFails ? {} : result, options.reserveFails ? 503 : 200); return;
       }
-      if (body.action === 'complete') { await json(envelope(accepted)); return; }
+      if (body.action === 'complete') { completions.push(String(body.ticket)); await json(envelope(accepted)); return; }
     }
     if (url.pathname === '/api/agro-chat') {
-      generations.push(route.request().postDataJSON());
+      generations.push({ ...route.request().postDataJSON(), ticket: route.request().headers()['x-gekta-answer-ticket'] });
+      if (options.generationFailsOnce && generations.length === 1) {
+        await route.abort('connectionreset');
+        return;
+      }
       const streamId = 'synthetic-browser-stream';
       const frames = [
         { event: 'meta', streamId, mode: 'public', modelIdentity: null },
@@ -313,7 +319,7 @@ async function installConsentFixture(page: Page, options: {
     }
   }
   return {
-    generations, failures, canceled, unexpected,
+    generations, completions, failures, canceled, unexpected,
     get probes() { return probeCount; }, get reserves() { return reserveCount; }, get consents() { return consentCount; },
     releaseProbe: probeGate.release,
     async releaseAll() { probeGate.release(); reserveGate.release(); await Promise.all(attempts); },
@@ -454,6 +460,57 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         expect(server.generations).toHaveLength(0);
         expect(server.consents).toBe(0);
         expect(server.reserves).toBe(1);
+        expect(server.failures).toEqual([]);
+        expect(server.unexpected).toEqual([]);
+      } finally { await server.releaseAll(); }
+    });
+  });
+}
+
+for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+  test.describe(`G-A14 explicit recovery ${viewport.width}px`, () => {
+    test.use({ viewport });
+
+    test('lost generation is sent once; explicit Retry reserves a fresh ticket and retains the document', async ({ page, baseURL }, testInfo) => {
+      const origin = new URL(baseURL!);
+      expect(['127.0.0.1', 'localhost'].includes(origin.hostname), 'Synthetic recovery acceptance requires loopback').toBe(true);
+      const server = await installConsentFixture(page, { holdProbe: true, generationFailsOnce: true });
+      try {
+        await page.goto('/gekta?chat=new', { waitUntil: 'load' });
+        await expect.poll(() => server.probes).toBe(1);
+        const question = 'Как подготовить почву под пшеницу?';
+        const composer = page.locator('#gekta-composer-input');
+        await composer.fill(question);
+        await page.locator('[data-gekta-drop-target] input[type=file]').setInputFiles({
+          name: 'soil.txt', mimeType: 'text/plain', buffer: Buffer.from('Почва суглинок. QA_BROWSER_SOIL_754.'),
+        });
+        await expect(page.getByText('soil.txt').first()).toBeVisible();
+        await page.getByRole('button', { name: 'Отправить', exact: true }).click();
+        await expect(page.locator('[data-gekta-consent="true"]')).toBeVisible();
+        expect(server.generations).toHaveLength(0);
+        expect(server.consents).toBe(0);
+        await page.getByRole('button', { name: 'Понятно, начать', exact: true }).click();
+        const retry = page.getByRole('button', { name: 'Повторить', exact: true });
+        await expect(retry).toBeVisible();
+        expect(server.generations).toHaveLength(1);
+        expect(server.completions).toEqual([]);
+        await expectNoHorizontalOverflow(page);
+        await testInfo.attach('recovery-before-retry', { body: await page.screenshot(), contentType: 'image/png' });
+        await retry.click();
+        await expect(page.getByText('QA_BROWSER_ANSWER: проверь тип почвы.', { exact: true })).toBeVisible();
+        await expect.poll(() => server.completions.length).toBe(1);
+        expect(server.generations).toHaveLength(2);
+        expect(server.generations[0].ticket).toBeTruthy();
+        expect(server.generations[1].ticket).toBeTruthy();
+        expect(server.generations[1].ticket).not.toBe(server.generations[0].ticket);
+        expect(server.completions).toEqual([server.generations[1].ticket]);
+        for (const generation of server.generations) {
+          expect(generation.message).toBe(question);
+          expect(generation.documents).toEqual([{ name: 'soil.txt', text: 'Почва суглинок. QA_BROWSER_SOIL_754.', truncated: false }]);
+        }
+        expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('QA_BROWSER_SOIL_754');
+        await expectNoHorizontalOverflow(page);
+        await testInfo.attach('recovery-after-retry', { body: await page.screenshot(), contentType: 'image/png' });
         expect(server.failures).toEqual([]);
         expect(server.unexpected).toEqual([]);
       } finally { await server.releaseAll(); }
