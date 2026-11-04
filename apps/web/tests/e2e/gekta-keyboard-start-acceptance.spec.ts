@@ -470,6 +470,15 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test.describe(`G-A14 explicit recovery ${viewport.width}px`, () => {
     test.use({ viewport });
+    test.beforeEach(async ({}, testInfo) => {
+      const baseURL = testInfo.project.use.baseURL;
+      const loopback = typeof baseURL === 'string'
+        && ['127.0.0.1', 'localhost'].includes(new URL(baseURL).hostname);
+      const liveProfile = /(?:^|[/\\])playwright\.production-mobile\.config\.ts$/u.test(testInfo.config.configFile);
+      test.skip(liveProfile && !loopback, 'Synthetic recovery fixtures apply only to the loopback PR server; live tests remain unmocked.');
+      // A misconfigured PR origin must fail, not silently skip acceptance.
+      expect(loopback, 'Synthetic G-A14 PR browser acceptance requires loopback').toBe(true);
+    });
 
     test('lost generation is sent once; explicit Retry reserves a fresh ticket and retains the document', async ({ page, baseURL }, testInfo) => {
       const origin = new URL(baseURL!);
