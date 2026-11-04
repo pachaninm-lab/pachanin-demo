@@ -14336,3 +14336,236 @@ The complete literal source patch remains above. The linked complete reports ret
 ## Delivery replacement of unaccepted PR6108 — 2026-11-04
 
 This proposal replaces only the never-accepted metadata delivery in https://github.com/pachaninm-lab/pachanin-demo/pull/6108. That original PR, its90b2/807 commits, complete reviews and genuine red native evidence remain retained in their original branch and PR; no history/ref is rewritten or deleted. The two historical generic-api-key findings were independently established as an HTTP-status case list, not credentials. 807 corrected the current text but the normal historical scan still includes90b2; a new independent proposal starts at the actual accepted main instead of importing those unaccepted report-storage commits. No parent-order trick, ignore, allowlist, scanner/config/range change, review transfer, rerun waiver or bypass is introduced. All normal exact-head native/security/review/readiness/manual gates must pass on this new proposal. The complete current-main queue prefix, including accepted6107, is retained; the reviewed state transformation and frozen source2 afters/patch stay byte-identical. The retained SOURCE branch remains test/bank-acceptance-contract-6085; no implementation or host operation is published by this metadata. Prior/private/6108 green results are historical support only; original failures remain failures. Full bank navigation/13 cabinets/CORE5525/5526/API/DB/original19/external providers and whole block stay OPEN; official5/100 is unchanged.
+
+
+## PC-CROP completed-owned bank shared-navigation phase — 2026-11-04
+
+```json
+{
+  "schemaVersion": "pc.product-completed-owned-phase.v1",
+  "purposeId": "bank-shared-navigation-owned-phase-6093-20261104",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "metadataBranch": "governance/bank-shared-navigation-phase-6093",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "authorityBaseExactMain": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+  "claim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621764711",
+  "previousSourceEpoch": {
+    "admissionPr": 6110,
+    "admissionAcceptedMain": "01667dc9ccdfccab0665ed72c436913c0eb3d7f5",
+    "sourcePr": 6112,
+    "sourceHead": "d51b310850a6e96a9d0ffe9521da141ee92ff910",
+    "sourceAcceptedMain": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+    "sourceEpochClosedBy": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+    "installationAccepted": false
+  },
+  "semanticScope": "Remove denied bank-only parent navigation and secondary bank-root returns from the already shared buyer/seller payment-basis presentation. Existing reactive client pathname selects fixed shared/public-home escape; exact bank-only contexts retain existing bank navigation. Server-page context is actual middleware-written request pathname, never access authority. Same canonical read-only renderer/data/projection and authenticated server/cabinet guards remain.",
+  "whyFiveSources": "Private155 whole-four review found genuine P2: 22 of45 existing canonical page cases failed versus accepted-base123PASS. Add only that maintained canonical-page test loader as fifth file, keeping all45 cases, actual route-module loading and explicit next/headers request boundary. Keep failed155/report/red/baseline history. No skipped/deleted cases or global resolver/runtime test detection.",
+  "stateOnlyTransition": {
+    "proposal_only": true,
+    "source_epoch_closed_by": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+    "branch": "test/bank-acceptance-contract-6085",
+    "field": [
+      "approvedConcurrentScopes",
+      "test/bank-acceptance-contract-6085"
+    ],
+    "beforeBytes": 3145727,
+    "afterBytes": 3145323,
+    "acceptedCeiling": 3145728,
+    "spareBytes": 405,
+    "delta": -404,
+    "oldValueBytes": 673,
+    "newValueBytes": 269,
+    "oldVector": [
+      "apps/web/tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts",
+      "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "apps/web/app/platform-v7/bank/payment-basis/page.tsx"
+    ],
+    "newVector": [
+      "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "retiredFutureWritePaths": [
+      "apps/web/tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "apps/web/app/platform-v7/bank/payment-basis/page.tsx"
+    ],
+    "retainedPaths": [
+      "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+    ],
+    "newPaths": [
+      "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "beforeSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "afterSha256": "8bc2bd9d6ff4735337b865723a8dbafbea3d4e910985947b19d6f811345732d8",
+    "beforeBlob": "5597a223c0a8bdf38f1d2f299c729f59c483ce3c",
+    "afterBlob": "f1f27ca799be5509c632c0b8b2e1d972ae292c92",
+    "scopeVectorCount": 228,
+    "allOtherBytesExact": true,
+    "allOtherValuesExact": true,
+    "inverseRestoresEveryByte": true,
+    "stateGrowthAuthorized": false,
+    "guardOwnerTransferred": false,
+    "sourcePublicationAuthorized": false
+  },
+  "explicitNarrowProspectiveSupersession": {
+    "effectiveOnlyAfter": "Fresh exact published whole-three metadata independent review, distinct owner audit, all applicable actual native/security/readiness and ordinary full-expected-head manual acceptance of THIS purpose; current proposal is not a source grant.",
+    "replacesOnly": "Completed own6110/6112 future code-write phase on retained test/bank-acceptance-contract-6085. Replace its ordered11-path vector with the exact5 above. This expressly supersedes the prior scope-deletion prohibition ONLY insofar as it would forbid retirement of these completed future-write permissions, and the blanket new-product admission hold ONLY for THIS negative404-byte replacement. It never authorizes deletion of source/tests/evidence/history.",
+    "precedentNotAutomaticGrant": "Accepted queue completed own ROOT-vector phase at8614 and retained CORE19-to18 renewal at12090/12141 establish the ordinary proposal mechanism. They do not authorize this product proposal or reuse Han/math/CORE exceptions.",
+    "preserved": "Keep complete orderedold11 above, every existing queue/review prefix, all135 historical admissions and228 vectors, every other raw state byte/value, every accepted source/test/CI argument and all owners. Protected CLAUDE_PC_CROP_EXECUTOR consumer/ref/owner/CAP1 and fixed3145728 ceiling stay untouched; all other holds remain.",
+    "noCurrentMechanicalRetirementClaim": "Unchanged generic scope guard unions accepted historical manifests/global paths. GuardPASS alone cannot prove exclusive5 scope, exact after bytes or permission retirement. Accepted finite purpose/pins plus independent actual whole-diff/full-tree/owner/native/security/manual gates enforce only this5; no retired manifest/global path grants a new source purpose."
+  },
+  "privateSourceIdentity": {
+    "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+    "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+    "tree": "31af225eb4871b5b8c23ea28b764bf7a6f720c4b",
+    "patchBytes": 28069,
+    "patchSha256": "df70aad631118fb2310f945267da106e54886ce723b8d3b562b05025adc2452e",
+    "sourcePayloads": [
+      {
+        "path": "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "mode": "100644",
+        "before_blob": "b67a3452e05ad97082ccfbcc0c4975302cb62df9",
+        "before_bytes": 42426,
+        "before_sha256": "b61df1af32f2252f88cd7757f1819328894db8bb4627745098ce4ae87a4f682e",
+        "after_blob": "d231407afb9930d1e22a1f4d925a53c1ae987fda",
+        "after_bytes": 42819,
+        "after_sha256": "79544b148d46ceff84bab9f7a8ecf82e0513ff32f535e724852276539ea3031d"
+      },
+      {
+        "path": "apps/web/components/platform-v7/BankSectionNav.tsx",
+        "mode": "100644",
+        "before_blob": "1e38f3fac9bf9402cc3a97394afc96824ef1a82c",
+        "before_bytes": 3536,
+        "before_sha256": "7eb9d1c6362ac742d957b0751b3289942339a5e8aad61cb7f72db6758dd8e4c9",
+        "after_blob": "6611acc941e969405069ff1fe700934370d8c9d8",
+        "after_bytes": 5278,
+        "after_sha256": "3233a376fb603d0f893623a017623eee34bbb6d086b836065a35c1e0f56f3288"
+      },
+      {
+        "path": "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "mode": "100644",
+        "before_blob": "630599ff7ff0ca4338445fc8bba50d61cf07f4f6",
+        "before_bytes": 19423,
+        "before_sha256": "847e84249f505341ad83fbcc1a47bfd1e27f25c0c28c9adf76d4693d71ca1bd0",
+        "after_blob": "cf50b0767cf7cf78626ca3873400ad54ecad96b2",
+        "after_bytes": 19703,
+        "after_sha256": "96b433762eec64b504d2d3ae46a1d0014ce9eb2beba066a44c2a0a28ff0f0b0e"
+      },
+      {
+        "path": "apps/web/tests/unit/bankSectionNav.test.tsx",
+        "mode": "100644",
+        "before_blob": "b77c0392c20debc8965edd182ff1bb05f190c1ee",
+        "before_bytes": 2621,
+        "before_sha256": "2d9f436f0f9210d9d2f3b1e81fdbe228a442f8247d7d9b5f455fbbca8fbe8797",
+        "after_blob": "ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7",
+        "after_bytes": 4401,
+        "after_sha256": "b6b67769a730433e9e352d064e2d929ce60ae1a140920957a0ee47a72187c997"
+      },
+      {
+        "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+        "mode": "100644",
+        "before_blob": "52d68700a2653f76b59f9a624ee31538845cca40",
+        "before_bytes": 20664,
+        "before_sha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5",
+        "after_blob": "2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748",
+        "after_bytes": 29715,
+        "after_sha256": "64c17c6b1e94b662aad3a3cadd5473166ab457a2ab2a98b5b99b8411140ca26a"
+      }
+    ],
+    "foreignLeavesExact": 7096
+  },
+  "genuineIndependentPrivateReports": [
+    {
+      "context": "Historical failed private whole4",
+      "head": "155f044a93c49a93e5fdf85da1d978be610f7b8f",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CHANGES_REQUESTED_P2_1",
+      "bytes": 13143,
+      "sha256": "a566497dd61f317505cd1055de88a105b114f5fed432b8db1b57e2652caee7e7",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621771795",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    },
+    {
+      "context": "Fresh corrected private whole5",
+      "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CLEAN_PRIVATE_WHOLE5_ONLY",
+      "bytes": 13697,
+      "sha256": "835271572aead2b6847c11e2884a410760b304f244885ddc7da89d1c6c0b9da0",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621841234",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    }
+  ],
+  "authorPrivateChecks": {
+    "closestExistingAndNewCases": {
+      "files": 4,
+      "passed": 218,
+      "failed": 0,
+      "skipped": 0
+    },
+    "unchangedActualCi52": {
+      "passed": 2068,
+      "failed": 0,
+      "skipped": 0
+    },
+    "wholeWorkspaceTypecheckExit": 0,
+    "old44ReadinessCases": "Retained unchanged; prior10rawtestcalls exact",
+    "canonical45Cases": "Retained; one source-signature assertion updated semantically and explicit routes/request-only headers unit boundaries added",
+    "failed155": "Private closest95 and selected52 passed while adjacent canonical45 failed22; genuine whole4CHANGES_REQUESTED retained",
+    "receiptCorrection": "Old nav4 typecheck receipt still records initial runner refusal; nav5 new pinned npm/pnpm10 receipt truthfully records exit0. No old receipt or runner failure deleted.",
+    "nativeOrSourceAcceptance": false
+  },
+  "requiredGates": [
+    "Metadata changes exactly these3GOV regular files. State change only one qualified compact array; exact inverse restores every byte. Queue/review append only; every foreign leaf preserved. Full actual registry-loader/capacity/dispatcher/scope/hosting/review/native/security/readiness/manual gates remain.",
+    "Only AFTER this metadata is genuinely accepted recheck live main/Hub/owner and all five before blobs, compose these exact afters on then-current main and normal retained source ancestry. No private commit/review/count is native acceptance.",
+    "Fresh actual published whole5 independent nonauthor review and distinct owner audit, with fresh closest218 local author and nonauthor cases including existing canonical45+adjacent Nav5+server78. Actual unchanged52 selected native CI including all90 readiness/allold44, full applicable guard/security/type/build/browser/Kubernetes/deepoutbox/storage/positivecleanup/readiness and manual full-expected-head merge remain required. No skip/exclusion/budget/threshold alteration.",
+    "Genuine canonical main web image/digest/fullOCIrevision and fresh bounded audit/DNS/operational serialization/exact rollback/nonwebIDs/healthy/live RUENZH and authenticated acceptance remain separate before installation claims."
+  ],
+  "truthBoundaries": [
+    "No shell/root/banklayout/middleware/cabinet/profile/role/tenant/RLS/server action/API/DB/migration/provider/money/finality change. Existing middleware overwrites x-pc-pathname in both protected realms; request context controls only presentation.",
+    "Same mounted client reacts bank-to-shared-to-bank; existing root locale provider and existing full-page locale switching remain. No new actor/profile fetch or role inference. Known bank paths finite; shared/null/unknown/lookalike use only allowed shared/public-home links. Bank-role primary Deals/selected-clean existing policy gap remains OPEN.",
+    "Retain all44 readiness cases, current52 CI arguments and all45 canonical page cases; only explicit loader boundary/signature correction in fifth test. No CI/registry/guard/security/skip change. Source unit doubles are not production identities or external evidence.",
+    "Private physical-browser/mobile/contrast/hydration acceptance is not established by unit/static detector results. Actual published head browser/native evidence remains mandatory.",
+    "Previous source6112 is accepted270 but not installed; separate build dependency6621357227 remains. No MASTER/whole-block credit; sourceQA6/CORE5525/5526/full13/API/DB/restore/original19/external bank-FGIS contracts/access/exchange/freshness/conflicts/reconciliation stay OPEN5/100."
+  ],
+  "forbiddenAuthority": [
+    "Other owner/guard/consumer transfer or4MiB limit/state growth/new ref/vector/admission",
+    "Accepted source/test/history deletion or blanket hold lifting",
+    "Parallel RLS/tenant/role/payment/provider authority",
+    "CI/security/independent-review/readiness weakening, force/automatic merge, forged status or retry waiver",
+    "Host/model/API/DB/restore/original19/cost/installation/MASTER credit"
+  ],
+  "productionInvocationAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0
+}
+```
+
+Complete frozen five-source patch, losslessly JSON-encoded (no omission):
+
+```json
+"diff --git a/apps/web/app/platform-v7/bank/release-safety/page.tsx b/apps/web/app/platform-v7/bank/release-safety/page.tsx\nindex b67a3452e05ad97082ccfbcc0c4975302cb62df9..d231407afb9930d1e22a1f4d925a53c1ae987fda 100644\n--- a/apps/web/app/platform-v7/bank/release-safety/page.tsx\n+++ b/apps/web/app/platform-v7/bank/release-safety/page.tsx\n@@ -1,6 +1,8 @@\n import type { Metadata } from 'next';\n import Link from 'next/link';\n+import { headers } from 'next/headers';\n import { getLocale } from 'next-intl/server';\n+import { PLATFORM_V7_BANK_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from '@/lib/platform-v7/routes';\n import { InlineNotice, StatusChip } from '@pc/design-system-v8';\n import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';\n import {\n@@ -156,20 +158,21 @@ export async function generateMetadata(): Promise<Metadata> {\n export default async function BankReleaseSafetyPage(props: { searchParams?: Promise<PageSearchParams> }) {\n   const searchParams = await props.searchParams;\n   const locale = normalizeLocale(await getLocale());\n+  const showBankReturn = (await headers()).get('x-pc-pathname') === PLATFORM_V7_RELEASE_SAFETY_ROUTE;\n   const dealId = firstParam(searchParams?.dealId);\n   const shipmentId = firstParam(searchParams?.shipmentId);\n-  if (!dealId) return renderRegistry(locale);\n+  if (!dealId) return renderRegistry(locale, showBankReturn);\n \n   const workspace = await getCanonicalBankReleaseWorkspace(dealId);\n   const projection = workspace ? buildBankReleaseProjection(workspace, shipmentId) : null;\n-  return projection ? renderSelected(projection, locale) : renderUnavailable(locale);\n+  return projection ? renderSelected(projection, locale) : renderUnavailable(locale, showBankReturn);\n }\n \n-function renderRegistry(locale: Locale) {\n+function renderRegistry(locale: Locale, showBankReturn: boolean) {\n   const copy = COPY[locale];\n   return (\n     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={copy.eyebrow} title={copy.title} description={copy.description} statusLabel={copy.status} statusTone='warning' labels={copy.labels}\n-      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{copy.bankAction}</Link> }}\n+      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{copy.bankAction}</Link> : undefined }}\n       facts={[{ label: copy.reserveLabel, value: copy.reserveValue, hint: copy.reserveHint }, { label: copy.evidenceLabel, value: copy.evidenceValue, hint: copy.evidenceHint }, { label: copy.requestLabel, value: copy.requestValue, hint: copy.requestHint }, { label: copy.callbackLabel, value: copy.callbackValue, hint: copy.callbackHint }]}\n     >\n       <MoneyBoundary>{copy.boundary}</MoneyBoundary>\n@@ -365,12 +368,12 @@ function renderSelected(projection: BankReleaseProjection, locale: Locale) {\n   );\n }\n \n-function renderUnavailable(locale: Locale) {\n+function renderUnavailable(locale: Locale, showBankReturn: boolean) {\n   const common = COPY[locale];\n   const copy = SELECTED_COPY[locale];\n   return (\n     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={common.eyebrow} title={copy.unavailableTitle} description={copy.unavailableDescription} statusLabel={copy.values.blocked} statusTone='critical' labels={common.labels}\n-      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{common.bankAction}</Link> }} facts={[]}\n+      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{common.bankAction}</Link> : undefined }} facts={[]}\n     ><MoneyBoundary>{copy.boundary}</MoneyBoundary></MoneyObligationCockpit>\n   );\n }\ndiff --git a/apps/web/components/platform-v7/BankSectionNav.tsx b/apps/web/components/platform-v7/BankSectionNav.tsx\nindex 1e38f3fac9bf9402cc3a97394afc96824ef1a82c..6611acc941e969405069ff1fe700934370d8c9d8 100644\n--- a/apps/web/components/platform-v7/BankSectionNav.tsx\n+++ b/apps/web/components/platform-v7/BankSectionNav.tsx\n@@ -2,6 +2,16 @@\n \n import Link from 'next/link';\n import { usePathname } from 'next/navigation';\n+import { useLocale } from 'next-intl';\n+import {\n+  PLATFORM_V7_BANK_CLEAN_ROUTE,\n+  PLATFORM_V7_BANK_ESCROW_ROUTE,\n+  PLATFORM_V7_BANK_EVENTS_ROUTE,\n+  PLATFORM_V7_BANK_FACTORING_ROUTE,\n+  PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,\n+  PLATFORM_V7_BANK_ROUTE,\n+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,\n+} from '@/lib/platform-v7/routes';\n \n type BankSectionLink = {\n   href: string;\n@@ -12,19 +22,46 @@ type BankSectionNavProps = {\n   links: readonly BankSectionLink[];\n };\n \n+const NAV_COPY = {\n+  ru: { navigation: 'Банковские действия', bank: 'Банковый контур', review: 'Проверка выплаты', basis: 'Основание выплаты', home: 'На главную' },\n+  en: { navigation: 'Bank navigation', bank: 'Bank workspace', review: 'Payout review', basis: 'Payment basis', home: 'Platform home' },\n+  zh: { navigation: '银行导航', bank: '银行工作区', review: '付款检查', basis: '付款依据', home: '平台首页' },\n+} as const;\n+\n+// Presentation only: the existing server cabinet and bank guards own access.\n+// Unknown paths cannot opt into bank-only navigation by sharing a prefix.\n+const BANK_ONLY_PATHS: ReadonlySet<string> = new Set([\n+  PLATFORM_V7_BANK_ROUTE,\n+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,\n+  PLATFORM_V7_BANK_CLEAN_ROUTE,\n+  PLATFORM_V7_BANK_EVENTS_ROUTE,\n+  PLATFORM_V7_BANK_FACTORING_ROUTE,\n+  PLATFORM_V7_BANK_ESCROW_ROUTE,\n+  '/platform-v7/bank/grain',\n+]);\n+\n export function BankSectionNav({ links }: BankSectionNavProps) {\n   const pathname = usePathname() ?? '';\n-  const exactMatch = links.find((link) => link.href === pathname);\n-  const activeHref =\n-    exactMatch?.href ??\n-    links\n-      .filter((link) => link.href !== '/platform-v7/bank')\n-      .sort((left, right) => right.href.length - left.href.length)\n-      .find((link) => pathname.startsWith(link.href))?.href;\n+  const locale = useLocale();\n+  const copy = NAV_COPY[locale.startsWith('en') ? 'en' : locale.startsWith('zh') ? 'zh' : 'ru'];\n+  const bankOnlyPath = BANK_ONLY_PATHS.has(pathname)\n+    || /^\\/platform-v7\\/bank\\/events\\/[A-Za-z0-9_-]+$/.test(pathname);\n+  const labels: Readonly<Record<string, string>> = {\n+    [PLATFORM_V7_BANK_ROUTE]: copy.bank,\n+    [PLATFORM_V7_RELEASE_SAFETY_ROUTE]: copy.review,\n+    [PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE]: copy.basis,\n+  };\n+  const visibleLinks = bankOnlyPath\n+    ? links.map(link => ({ ...link, label: labels[link.href] ?? link.label }))\n+    : [\n+      { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: copy.basis },\n+      { href: '/platform-v7', label: copy.home },\n+    ];\n+  const activeHref = visibleLinks.find(link => link.href === pathname)?.href;\n \n   return (\n-    <nav aria-label='Банковские действия' className='p7-bank-section-nav'>\n-      {links.map((link) => {\n+    <nav aria-label={copy.navigation} className='p7-bank-section-nav'>\n+      {visibleLinks.map((link) => {\n         const isActive = link.href === activeHref;\n \n         return (\n@@ -57,14 +94,14 @@ export function BankSectionNav({ links }: BankSectionNavProps) {\n         }\n \n         .p7-bank-section-nav__link {\n-          min-height: 34px;\n+          min-height: 44px;\n           display: inline-flex;\n           align-items: center;\n           justify-content: center;\n           border-radius: 14px;\n           padding: 7px 12px;\n           color: var(--pc-text-secondary, #5F6873);\n-          font-size: 12px;\n+          font-size: 14px;\n           font-weight: 850;\n           letter-spacing: -0.01em;\n           line-height: 1;\n@@ -103,7 +140,7 @@ export function BankSectionNav({ links }: BankSectionNavProps) {\n \n           .p7-bank-section-nav__link {\n             flex: 1 1 132px;\n-            min-height: 38px;\n+            min-height: 44px;\n             padding-inline: 10px;\n           }\n         }\ndiff --git a/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx b/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx\nindex 630599ff7ff0ca4338445fc8bba50d61cf07f4f6..cf50b0767cf7cf78626ca3873400ad54ecad96b2 100644\n--- a/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx\n+++ b/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx\n@@ -9,6 +9,7 @@ import type { BankReleaseProjection } from '../../lib/bank-release-server';\n \n const pageBoundary = {\n   locale: vi.fn(),\n+  headers: vi.fn(),\n   workspace: vi.fn(),\n   projection: vi.fn(),\n };\n@@ -32,6 +33,8 @@ function loadPage() {\n     const module = { exports: {} as Record<string, any> };\n     const boundRequire = (specifier: string): unknown => {\n       if (specifier === 'next-intl/server') return { getLocale: pageBoundary.locale };\n+      if (specifier === 'next/headers') return { headers: pageBoundary.headers };\n+      if (specifier === '@/lib/platform-v7/routes') return load('apps/web/lib/platform-v7/routes.ts');\n       if (specifier === '@/lib/bank-release-server') return {\n         getCanonicalBankReleaseWorkspace: pageBoundary.workspace,\n         buildBankReleaseProjection: pageBoundary.projection,\n@@ -53,6 +56,7 @@ describe('selected bank payout page reason copy', () => {\n   let projection: BankReleaseProjection;\n   beforeEach(() => {\n     vi.clearAllMocks();\n+    pageBoundary.headers.mockResolvedValue(new Headers());\n     projection = {\n       dealId: 'deal-copy', tenantId: 'tenant-copy', dealVersion: '7', dealStatus: 'RELEASE_REQUESTED',\n       shipmentId: 'shipment-copy', amountKopecks: '12000', currency: 'RUB', viewerRole: 'BANK',\n@@ -183,7 +187,7 @@ describe('BankReleaseSafetyPage', () => {\n     expect(page).toContain('getCanonicalBankReleaseWorkspace');\n     expect(page).toContain('buildBankReleaseProjection');\n     expect(page).toContain('searchParams?: Promise<PageSearchParams>');\n-    expect(page).toContain('if (!dealId) return renderRegistry(locale)');\n+    expect(page).toContain('if (!dealId) return renderRegistry(locale, showBankReturn)');\n     expect(authority).toContain(\"serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)\");\n     expect(authority).toContain('await serverAuthHeaders()');\n     expect(authority).toContain(\"cache: 'no-store'\");\ndiff --git a/apps/web/tests/unit/bankSectionNav.test.tsx b/apps/web/tests/unit/bankSectionNav.test.tsx\nindex b77c0392c20debc8965edd182ff1bb05f190c1ee..ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7 100644\n--- a/apps/web/tests/unit/bankSectionNav.test.tsx\n+++ b/apps/web/tests/unit/bankSectionNav.test.tsx\n@@ -9,10 +9,12 @@ import {\n } from '@/lib/platform-v7/routes';\n \n const usePathnameMock = vi.fn();\n+const useLocaleMock = vi.fn();\n \n vi.mock('next/navigation', () => ({\n   usePathname: () => usePathnameMock(),\n }));\n+vi.mock('next-intl', () => ({ useLocale: () => useLocaleMock() }));\n \n const bankLinks = [\n   { href: PLATFORM_V7_BANK_ROUTE, label: 'Банковый контур' },\n@@ -23,25 +25,26 @@ const bankLinks = [\n describe('BankSectionNav', () => {\n   beforeEach(() => {\n     usePathnameMock.mockReset();\n+    useLocaleMock.mockReturnValue('ru');\n   });\n \n-  it('renders compact bank navigation with active payment-basis state', () => {\n+  it('renders only permitted shared navigation with active payment-basis state', () => {\n     usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n \n     render(<BankSectionNav links={bankLinks} />);\n \n-    const bankLink = screen.getByRole('link', { name: 'Банковый контур' });\n-    const releaseSafetyLink = screen.getByRole('link', { name: 'Проверка выплаты' });\n-    const paymentBasisLink = screen.getByRole('link', { name: 'Передать основание банку' });\n+    const paymentBasisLink = screen.getByRole('link', { name: 'Основание выплаты' });\n+    const homeLink = screen.getByRole('link', { name: 'На главную' });\n \n     expect(screen.getByRole('navigation', { name: 'Банковские действия' })).toBeInTheDocument();\n-    expect(bankLink).toHaveAttribute('href', PLATFORM_V7_BANK_ROUTE);\n-    expect(releaseSafetyLink).toHaveAttribute('href', PLATFORM_V7_RELEASE_SAFETY_ROUTE);\n+    expect(screen.queryByRole('link', { name: 'Банковый контур' })).not.toBeInTheDocument();\n+    expect(screen.queryByRole('link', { name: 'Проверка выплаты' })).not.toBeInTheDocument();\n+    expect(screen.getAllByRole('link')).toHaveLength(2);\n     expect(paymentBasisLink).toHaveAttribute('href', PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n     expect(paymentBasisLink).toHaveAttribute('aria-current', 'page');\n     expect(paymentBasisLink).toHaveAttribute('data-active', 'true');\n-    expect(bankLink).toHaveAttribute('data-active', 'false');\n-    expect(releaseSafetyLink).toHaveAttribute('data-active', 'false');\n+    expect(homeLink).toHaveAttribute('href', '/platform-v7');\n+    expect(homeLink).toHaveAttribute('data-active', 'false');\n   });\n \n   it('keeps the main bank tab active only on the exact bank route', () => {\n@@ -51,6 +54,32 @@ describe('BankSectionNav', () => {\n \n     expect(screen.getByRole('link', { name: 'Банковый контур' })).toHaveAttribute('aria-current', 'page');\n     expect(screen.getByRole('link', { name: 'Банковый контур' })).toHaveAttribute('data-active', 'true');\n-    expect(screen.getByRole('link', { name: 'Передать основание банку' })).toHaveAttribute('data-active', 'false');\n+    expect(screen.getByRole('link', { name: 'Основание выплаты' })).toHaveAttribute('data-active', 'false');\n+    expect(screen.getAllByRole('link')).toHaveLength(3);\n+  });\n+\n+  it('changes the visible link set on sibling navigation without remounting', () => {\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_ROUTE);\n+    const mounted = render(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getAllByRole('link')).toHaveLength(3);\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n+    mounted.rerender(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getAllByRole('link').map(link => link.getAttribute('href'))).toEqual([PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, '/platform-v7']);\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_RELEASE_SAFETY_ROUTE);\n+    mounted.rerender(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getByRole('link', { name: 'Проверка выплаты' })).toHaveAttribute('aria-current', 'page');\n+    expect(screen.getAllByRole('link')).toHaveLength(3);\n+  });\n+\n+  it.each([\n+    { locale: 'en', nav: 'Bank navigation', basis: 'Payment basis', home: 'Platform home' },\n+    { locale: 'zh', nav: '银行导航', basis: '付款依据', home: '平台首页' },\n+  ])('localizes the shared safe links in $locale', copy => {\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n+    useLocaleMock.mockReturnValue(copy.locale);\n+    render(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getByRole('navigation', { name: copy.nav })).toBeInTheDocument();\n+    expect(screen.getByRole('link', { name: copy.basis })).toHaveAttribute('href', PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n+    expect(screen.getByRole('link', { name: copy.home })).toHaveAttribute('href', '/platform-v7');\n   });\n });\ndiff --git a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\nindex 52d68700a2653f76b59f9a624ee31538845cca40..2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748 100644\n--- a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n+++ b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n@@ -3,6 +3,7 @@ import path from 'node:path';\n import { createRequire } from 'node:module';\n import { createElement, type ReactNode } from 'react';\n import { renderToStaticMarkup } from 'react-dom/server';\n+import { cleanup, render, screen } from '@testing-library/react';\n import ts from 'typescript';\n import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\n import {\n@@ -142,6 +143,9 @@ describe('platform-v7 bank readiness guard', () => {\n // this fixture does not certify a live session, PostgreSQL access or payment.\n const readEntryBoundary = {\n   locale: vi.fn(),\n+  headers: vi.fn(),\n+  pathname: vi.fn(),\n+  clientLocale: vi.fn(),\n   workspace: vi.fn(),\n   projection: vi.fn(),\n   profile: vi.fn(),\n@@ -163,6 +167,10 @@ function loadReadEntry() {\n     const boundRequire = (specifier: string): unknown => {\n       if (specifier === '../release-safety/page') return load('app/platform-v7/bank/release-safety/page.tsx');\n       if (specifier === 'next-intl/server') return { getLocale: readEntryBoundary.locale };\n+      if (specifier === 'next/headers') return { headers: readEntryBoundary.headers };\n+      if (specifier === 'next/navigation') return { ...requireFromWeb(specifier), usePathname: readEntryBoundary.pathname };\n+      if (specifier === 'next-intl') return { useLocale: readEntryBoundary.clientLocale };\n+      if (specifier === '@/lib/platform-v7/routes') return load('lib/platform-v7/routes.ts');\n       if (specifier === '@/lib/bank-release-server') return {\n         getCanonicalBankReleaseWorkspace: readEntryBoundary.workspace,\n         buildBankReleaseProjection: readEntryBoundary.projection,\n@@ -189,6 +197,8 @@ function loadReadEntry() {\n     Page: load('app/platform-v7/bank/payment-basis/page.tsx').default,\n     Guard: load('components/platform-v7/RbacGuard.tsx').RbacGuard,\n     metadata: load('app/platform-v7/bank/payment-basis/page.tsx').metadata,\n+    Nav: load('components/platform-v7/BankSectionNav.tsx').BankSectionNav,\n+    CanonicalPage: load('app/platform-v7/bank/release-safety/page.tsx').default,\n   };\n }\n \n@@ -206,6 +216,7 @@ describe('shared bank payment-basis read entry', () => {\n       releaseOperation: null, releaseOutbox: null, blockers: [], warnings: [],\n     };\n     readEntryBoundary.locale.mockResolvedValue('ru');\n+    readEntryBoundary.headers.mockResolvedValue(new Headers());\n     readEntryBoundary.workspace.mockResolvedValue(workspace);\n     readEntryBoundary.projection.mockReturnValue(projection);\n     readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });\n@@ -368,3 +379,147 @@ describe('shared bank payment-basis read entry', () => {\n     );\n   });\n });\n+\n+describe('shared bank navigation presentation', () => {\n+  const shared = '/platform-v7/bank/payment-basis';\n+  const bank = '/platform-v7/bank';\n+  const canonical = '/platform-v7/bank/release-safety';\n+  const home = '/platform-v7';\n+  const bankLinks = [\n+    { href: bank, label: 'Банковый контур' },\n+    { href: canonical, label: 'Проверка выплаты' },\n+    { href: shared, label: 'Передать основание банку' },\n+  ];\n+  const copies = [\n+    { locale: 'ru', navigation: 'Банковские действия', basis: 'Основание выплаты', home: 'На главную' },\n+    { locale: 'en', navigation: 'Bank navigation', basis: 'Payment basis', home: 'Platform home' },\n+    { locale: 'zh', navigation: '银行导航', basis: '付款依据', home: '平台首页' },\n+  ];\n+  function hrefs(html: string) {\n+    return [...html.matchAll(/href=\"([^\"]*)\"/g)].map(match => match[1]);\n+  }\n+  beforeEach(() => {\n+    vi.clearAllMocks();\n+    readEntryBoundary.locale.mockResolvedValue('ru');\n+    readEntryBoundary.clientLocale.mockReturnValue('ru');\n+    readEntryBoundary.pathname.mockReturnValue(shared);\n+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': shared }));\n+    readEntryBoundary.workspace.mockResolvedValue(null);\n+    readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });\n+  });\n+  afterEach(cleanup);\n+\n+  for (const reader of [{ cabinet: 'buyer', apiRole: 'BUYER' }, { cabinet: 'seller', apiRole: 'FARMER' }] as const) {\n+    it.each(copies)(`${reader.cabinet} has only permitted shared navigation in $locale`, async copy => {\n+      readEntryBoundary.clientLocale.mockReturnValue(copy.locale);\n+      readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: reader.apiRole });\n+      const { Nav, Guard } = loadReadEntry();\n+      const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: createElement(Nav, { links: bankLinks }) }));\n+      expect(hrefs(html)).toEqual([shared, home]);\n+      for (const href of hrefs(html)) expect(canRoleAccessCabinet(reader.cabinet, href)).toBe(true);\n+      expect(html).toContain(copy.navigation);\n+      expect(html).toContain(copy.basis);\n+      expect(html).toContain(copy.home);\n+      expect(html).not.toContain('platform-v7-rbac-denied');\n+      expect(readEntryBoundary.profile).toHaveBeenCalledTimes(1);\n+      expect(readEntryBoundary.workspace).not.toHaveBeenCalled();\n+    });\n+  }\n+\n+  it.each(copies)('keeps a permitted escape for a bank reader at the same shared URI in $locale', copy => {\n+    readEntryBoundary.clientLocale.mockReturnValue(copy.locale);\n+    const { Nav } = loadReadEntry();\n+    const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));\n+    expect(hrefs(html)).toEqual([shared, home]);\n+    for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);\n+    expect(canRoleAccessCabinet('bank', '/platform-v7/deals')).toBe(false);\n+    expect(html).not.toContain('href=\"/platform-v7/deals\"');\n+    expect(html).toContain(copy.home);\n+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+  });\n+\n+  it.each([bank, canonical, `${bank}/clean`, `${bank}/events`, `${bank}/events/event-1`, `${bank}/factoring`, `${bank}/escrow`, `${bank}/grain`])(\n+    'preserves the existing full navigation at the known bank-only route %s', pathname => {\n+      readEntryBoundary.pathname.mockReturnValue(pathname);\n+      const { Nav } = loadReadEntry();\n+      const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));\n+      expect(hrefs(html)).toEqual([bank, canonical, shared]);\n+      for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);\n+      expect(canRoleAccessCabinet('buyer', pathname)).toBe(false);\n+      expect(canRoleAccessCabinet('seller', pathname)).toBe(false);\n+      expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+    },\n+  );\n+\n+  it.each([null, undefined, '', `${bank}/`, `${bank}/unknown`, `${shared}/`, `${shared}/child`, `${shared}-extra`, `${canonical}/child`, `${bank}/events/a/b`, `${bank}/events/%2f`, `${bank}/events/..`, `${bank}?role=bank`, '/ru/platform-v7/bank'])(\n+    'uses fixed safe navigation for missing or unknown path context %j', pathname => {\n+      readEntryBoundary.pathname.mockReturnValue(pathname);\n+      const { Nav } = loadReadEntry();\n+      const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));\n+      expect(hrefs(html)).toEqual([shared, home]);\n+      expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+      expect(readEntryBoundary.workspace).not.toHaveBeenCalled();\n+    },\n+  );\n+\n+  it.each(copies)('updates the same mounted navigation bank → shared → bank in $locale', copy => {\n+    readEntryBoundary.clientLocale.mockReturnValue(copy.locale);\n+    readEntryBoundary.pathname.mockReturnValue(bank);\n+    const { Nav } = loadReadEntry();\n+    const mounted = render(createElement(Nav, { links: bankLinks }));\n+    const currentHrefs = () => screen.getAllByRole('link').map(link => link.getAttribute('href'));\n+    expect(currentHrefs()).toEqual([bank, canonical, shared]);\n+    expect(screen.getAllByRole('link')[0]).toHaveAttribute('aria-current', 'page');\n+    readEntryBoundary.pathname.mockReturnValue(shared);\n+    mounted.rerender(createElement(Nav, { links: bankLinks }));\n+    expect(currentHrefs()).toEqual([shared, home]);\n+    expect(screen.getByRole('link', { name: copy.basis })).toHaveAttribute('aria-current', 'page');\n+    readEntryBoundary.pathname.mockReturnValue(canonical);\n+    mounted.rerender(createElement(Nav, { links: bankLinks }));\n+    expect(currentHrefs()).toEqual([bank, canonical, shared]);\n+    expect(screen.getAllByRole('link')[1]).toHaveAttribute('aria-current', 'page');\n+  });\n+\n+  it.each(copies)('omits the bank-only backlink from shared registry and unavailable views in $locale', async copy => {\n+    readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+    const { Page } = loadReadEntry();\n+    const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));\n+    const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));\n+    for (const html of [registry, unavailable]) {\n+      expect(hrefs(html)).not.toContain(bank);\n+      expect(hrefs(html)).toContain('/platform-v7/deals');\n+      for (const role of ['buyer', 'seller'] as const) {\n+        for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);\n+      }\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+    }\n+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('unavailable-deal');\n+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+  });\n+\n+  it.each([null, '', `${bank}/unknown`, `${canonical}/`, `${canonical}/child`, `${canonical}-extra`])(\n+    'does not infer a bank-only backlink from absent or unknown request header %j', async pathname => {\n+      readEntryBoundary.headers.mockResolvedValue(new Headers(pathname === null ? undefined : { 'x-pc-pathname': pathname }));\n+      const { Page } = loadReadEntry();\n+      for (const query of [{}, { dealId: 'unavailable-deal' }]) {\n+        const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));\n+        expect(hrefs(html)).not.toContain(bank);\n+      }\n+    },\n+  );\n+\n+  it.each(copies)('preserves the bank return link on the canonical bank-only page in $locale', async copy => {\n+    readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': canonical }));\n+    const { Page, CanonicalPage } = loadReadEntry();\n+    expect(Page).toBe(CanonicalPage);\n+    expect(canRoleAccessCabinet('bank', canonical)).toBe(true);\n+    expect(canRoleAccessCabinet('buyer', canonical)).toBe(false);\n+    expect(canRoleAccessCabinet('seller', canonical)).toBe(false);\n+    for (const query of [{}, { dealId: 'unavailable-deal' }]) {\n+      const html = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(query) }));\n+      expect(hrefs(html)).toContain(bank);\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+    }\n+  });\n+});\n"
+```
