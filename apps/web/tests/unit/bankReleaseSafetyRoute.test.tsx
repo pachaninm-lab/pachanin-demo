@@ -9,6 +9,7 @@ import type { BankReleaseProjection } from '../../lib/bank-release-server';
 
 const pageBoundary = {
   locale: vi.fn(),
+  headers: vi.fn(),
   workspace: vi.fn(),
   projection: vi.fn(),
 };
@@ -32,6 +33,8 @@ function loadPage() {
     const module = { exports: {} as Record<string, any> };
     const boundRequire = (specifier: string): unknown => {
       if (specifier === 'next-intl/server') return { getLocale: pageBoundary.locale };
+      if (specifier === 'next/headers') return { headers: pageBoundary.headers };
+      if (specifier === '@/lib/platform-v7/routes') return load('apps/web/lib/platform-v7/routes.ts');
       if (specifier === '@/lib/bank-release-server') return {
         getCanonicalBankReleaseWorkspace: pageBoundary.workspace,
         buildBankReleaseProjection: pageBoundary.projection,
@@ -53,6 +56,7 @@ describe('selected bank payout page reason copy', () => {
   let projection: BankReleaseProjection;
   beforeEach(() => {
     vi.clearAllMocks();
+    pageBoundary.headers.mockResolvedValue(new Headers());
     projection = {
       dealId: 'deal-copy', tenantId: 'tenant-copy', dealVersion: '7', dealStatus: 'RELEASE_REQUESTED',
       shipmentId: 'shipment-copy', amountKopecks: '12000', currency: 'RUB', viewerRole: 'BANK',
@@ -183,7 +187,7 @@ describe('BankReleaseSafetyPage', () => {
     expect(page).toContain('getCanonicalBankReleaseWorkspace');
     expect(page).toContain('buildBankReleaseProjection');
     expect(page).toContain('searchParams?: Promise<PageSearchParams>');
-    expect(page).toContain('if (!dealId) return renderRegistry(locale)');
+    expect(page).toContain('if (!dealId) return renderRegistry(locale, showBankReturn)');
     expect(authority).toContain("serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)");
     expect(authority).toContain('await serverAuthHeaders()');
     expect(authority).toContain("cache: 'no-store'");
