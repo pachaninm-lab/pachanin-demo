@@ -7449,3 +7449,96 @@ Current metadata base9e accepts only two Gekta API service/spec changes; preserv
 ## Delivery replacement of unaccepted PR6108 — 2026-11-04
 
 This proposal replaces only the never-accepted metadata delivery in https://github.com/pachaninm-lab/pachanin-demo/pull/6108. That original PR, its90b2/807 commits, complete reviews and genuine red native evidence remain retained in their original branch and PR; no history/ref is rewritten or deleted. The two historical generic-api-key findings were independently established as an HTTP-status case list, not credentials. 807 corrected the current text but the normal historical scan still includes90b2; a new independent proposal starts at the actual accepted main instead of importing those unaccepted report-storage commits. No parent-order trick, ignore, allowlist, scanner/config/range change, review transfer, rerun waiver or bypass is introduced. All normal exact-head native/security/review/readiness/manual gates must pass on this new proposal. The complete current-main queue prefix, including accepted6107, is retained; the reviewed state transformation and frozen source2 afters/patch stay byte-identical. The retained SOURCE branch remains test/bank-acceptance-contract-6085; no implementation or host operation is published by this metadata. Prior/private/6108 green results are historical support only; original failures remain failures. Full bank navigation/13 cabinets/CORE5525/5526/API/DB/original19/external providers and whole block stay OPEN; official5/100 is unchanged.
+
+
+## Bank shared-navigation completed-own phase proposal — 2026-11-04
+
+```json
+{
+  "purposeId": "bank-shared-navigation-owned-phase-6093-20261104",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "claim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621764711",
+  "acceptedPreviousSource": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+  "closedEpoch": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "privateHead": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+  "privateTree": "31af225eb4871b5b8c23ea28b764bf7a6f720c4b",
+  "sourcePatchBytes": 28069,
+  "sourcePatchSha256": "df70aad631118fb2310f945267da106e54886ce723b8d3b562b05025adc2452e",
+  "exactSource5": [
+    {
+      "path": "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "before_blob": "b67a3452e05ad97082ccfbcc0c4975302cb62df9",
+      "after_blob": "d231407afb9930d1e22a1f4d925a53c1ae987fda",
+      "after_bytes": 42819,
+      "after_sha256": "79544b148d46ceff84bab9f7a8ecf82e0513ff32f535e724852276539ea3031d"
+    },
+    {
+      "path": "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "before_blob": "1e38f3fac9bf9402cc3a97394afc96824ef1a82c",
+      "after_blob": "6611acc941e969405069ff1fe700934370d8c9d8",
+      "after_bytes": 5278,
+      "after_sha256": "3233a376fb603d0f893623a017623eee34bbb6d086b836065a35c1e0f56f3288"
+    },
+    {
+      "path": "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "before_blob": "630599ff7ff0ca4338445fc8bba50d61cf07f4f6",
+      "after_blob": "cf50b0767cf7cf78626ca3873400ad54ecad96b2",
+      "after_bytes": 19703,
+      "after_sha256": "96b433762eec64b504d2d3ae46a1d0014ce9eb2beba066a44c2a0a28ff0f0b0e"
+    },
+    {
+      "path": "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "before_blob": "b77c0392c20debc8965edd182ff1bb05f190c1ee",
+      "after_blob": "ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7",
+      "after_bytes": 4401,
+      "after_sha256": "b6b67769a730433e9e352d064e2d929ce60ae1a140920957a0ee47a72187c997"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "before_blob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "after_blob": "2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748",
+      "after_bytes": 29715,
+      "after_sha256": "64c17c6b1e94b662aad3a3cadd5473166ab457a2ab2a98b5b99b8411140ca26a"
+    }
+  ],
+  "stateTransition": {
+    "beforeBytes": 3145727,
+    "afterBytes": 3145323,
+    "beforeBlob": "5597a223c0a8bdf38f1d2f299c729f59c483ce3c",
+    "afterBlob": "f1f27ca799be5509c632c0b8b2e1d972ae292c92",
+    "beforeSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "afterSha256": "8bc2bd9d6ff4735337b865723a8dbafbea3d4e910985947b19d6f811345732d8",
+    "delta": -404,
+    "spareBytes": 405
+  },
+  "completePurposeAndBothVectorsAndFullPatch": "execution-queue final bank shared-navigation phase section; all existing prefixes/history retained",
+  "genuineIndependentPrivateReports": [
+    {
+      "context": "Historical failed private whole4",
+      "head": "155f044a93c49a93e5fdf85da1d978be610f7b8f",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CHANGES_REQUESTED_P2_1",
+      "bytes": 13143,
+      "sha256": "a566497dd61f317505cd1055de88a105b114f5fed432b8db1b57e2652caee7e7",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621771795",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    },
+    {
+      "context": "Fresh corrected private whole5",
+      "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CLEAN_PRIVATE_WHOLE5_ONLY",
+      "bytes": 13697,
+      "sha256": "835271572aead2b6847c11e2884a410760b304f244885ddc7da89d1c6c0b9da0",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621841234",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    }
+  ],
+  "narrowFuturePermissionSupersession": "Explicit only completed own11→5 future permissions and relevant blankethold, effective only after this exact3GOV actual acceptance; no source/evidence deletion or guard/CAP1 transfer",
+  "required": "actualwhole3review/owneraudit/native/security/READY/manual THEN actualsource5 freshwhole5/native52/localclosest218/browser/KIND/outbox/storage/cleanup/readiness/manual; old/private evidence never transfers",
+  "limits": "UNCHANGED3MiB consumer;405B spare,227other vectors/135admissions/allotherbytes exact; no role/RLS/API/provider/money/host/score change; installation270 pending and full13/CORE/original19/blockOPEN5/100"
+}
+```
