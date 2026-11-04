@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { cleanup, render, screen } from '@testing-library/react';
 import ts from 'typescript';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -142,6 +143,9 @@ describe('platform-v7 bank readiness guard', () => {
 // this fixture does not certify a live session, PostgreSQL access or payment.
 const readEntryBoundary = {
   locale: vi.fn(),
+  headers: vi.fn(),
+  pathname: vi.fn(),
+  clientLocale: vi.fn(),
   workspace: vi.fn(),
   projection: vi.fn(),
   profile: vi.fn(),
@@ -163,6 +167,10 @@ function loadReadEntry() {
     const boundRequire = (specifier: string): unknown => {
       if (specifier === '../release-safety/page') return load('app/platform-v7/bank/release-safety/page.tsx');
       if (specifier === 'next-intl/server') return { getLocale: readEntryBoundary.locale };
+      if (specifier === 'next/headers') return { headers: readEntryBoundary.headers };
+      if (specifier === 'next/navigation') return { ...requireFromWeb(specifier), usePathname: readEntryBoundary.pathname };
+      if (specifier === 'next-intl') return { useLocale: readEntryBoundary.clientLocale };
+      if (specifier === '@/lib/platform-v7/routes') return load('lib/platform-v7/routes.ts');
       if (specifier === '@/lib/bank-release-server') return {
         getCanonicalBankReleaseWorkspace: readEntryBoundary.workspace,
         buildBankReleaseProjection: readEntryBoundary.projection,
@@ -189,6 +197,8 @@ function loadReadEntry() {
     Page: load('app/platform-v7/bank/payment-basis/page.tsx').default,
     Guard: load('components/platform-v7/RbacGuard.tsx').RbacGuard,
     metadata: load('app/platform-v7/bank/payment-basis/page.tsx').metadata,
+    Nav: load('components/platform-v7/BankSectionNav.tsx').BankSectionNav,
+    CanonicalPage: load('app/platform-v7/bank/release-safety/page.tsx').default,
   };
 }
 
@@ -206,6 +216,7 @@ describe('shared bank payment-basis read entry', () => {
       releaseOperation: null, releaseOutbox: null, blockers: [], warnings: [],
     };
     readEntryBoundary.locale.mockResolvedValue('ru');
+    readEntryBoundary.headers.mockResolvedValue(new Headers());
     readEntryBoundary.workspace.mockResolvedValue(workspace);
     readEntryBoundary.projection.mockReturnValue(projection);
     readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });
@@ -366,5 +377,149 @@ describe('shared bank payment-basis read entry', () => {
         expect(html).not.toMatch(/<form|<button|method=["']post/i);
       },
     );
+  });
+});
+
+describe('shared bank navigation presentation', () => {
+  const shared = '/platform-v7/bank/payment-basis';
+  const bank = '/platform-v7/bank';
+  const canonical = '/platform-v7/bank/release-safety';
+  const home = '/platform-v7';
+  const bankLinks = [
+    { href: bank, label: 'Банковый контур' },
+    { href: canonical, label: 'Проверка выплаты' },
+    { href: shared, label: 'Передать основание банку' },
+  ];
+  const copies = [
+    { locale: 'ru', navigation: 'Банковские действия', basis: 'Основание выплаты', home: 'На главную' },
+    { locale: 'en', navigation: 'Bank navigation', basis: 'Payment basis', home: 'Platform home' },
+    { locale: 'zh', navigation: '银行导航', basis: '付款依据', home: '平台首页' },
+  ];
+  function hrefs(html: string) {
+    return [...html.matchAll(/href="([^"]*)"/g)].map(match => match[1]);
+  }
+  beforeEach(() => {
+    vi.clearAllMocks();
+    readEntryBoundary.locale.mockResolvedValue('ru');
+    readEntryBoundary.clientLocale.mockReturnValue('ru');
+    readEntryBoundary.pathname.mockReturnValue(shared);
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': shared }));
+    readEntryBoundary.workspace.mockResolvedValue(null);
+    readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });
+  });
+  afterEach(cleanup);
+
+  for (const reader of [{ cabinet: 'buyer', apiRole: 'BUYER' }, { cabinet: 'seller', apiRole: 'FARMER' }] as const) {
+    it.each(copies)(`${reader.cabinet} has only permitted shared navigation in $locale`, async copy => {
+      readEntryBoundary.clientLocale.mockReturnValue(copy.locale);
+      readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: reader.apiRole });
+      const { Nav, Guard } = loadReadEntry();
+      const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: createElement(Nav, { links: bankLinks }) }));
+      expect(hrefs(html)).toEqual([shared, home]);
+      for (const href of hrefs(html)) expect(canRoleAccessCabinet(reader.cabinet, href)).toBe(true);
+      expect(html).toContain(copy.navigation);
+      expect(html).toContain(copy.basis);
+      expect(html).toContain(copy.home);
+      expect(html).not.toContain('platform-v7-rbac-denied');
+      expect(readEntryBoundary.profile).toHaveBeenCalledTimes(1);
+      expect(readEntryBoundary.workspace).not.toHaveBeenCalled();
+    });
+  }
+
+  it.each(copies)('keeps a permitted escape for a bank reader at the same shared URI in $locale', copy => {
+    readEntryBoundary.clientLocale.mockReturnValue(copy.locale);
+    const { Nav } = loadReadEntry();
+    const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));
+    expect(hrefs(html)).toEqual([shared, home]);
+    for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);
+    expect(canRoleAccessCabinet('bank', '/platform-v7/deals')).toBe(false);
+    expect(html).not.toContain('href="/platform-v7/deals"');
+    expect(html).toContain(copy.home);
+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();
+  });
+
+  it.each([bank, canonical, `${bank}/clean`, `${bank}/events`, `${bank}/events/event-1`, `${bank}/factoring`, `${bank}/escrow`, `${bank}/grain`])(
+    'preserves the existing full navigation at the known bank-only route %s', pathname => {
+      readEntryBoundary.pathname.mockReturnValue(pathname);
+      const { Nav } = loadReadEntry();
+      const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));
+      expect(hrefs(html)).toEqual([bank, canonical, shared]);
+      for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);
+      expect(canRoleAccessCabinet('buyer', pathname)).toBe(false);
+      expect(canRoleAccessCabinet('seller', pathname)).toBe(false);
+      expect(readEntryBoundary.profile).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([null, undefined, '', `${bank}/`, `${bank}/unknown`, `${shared}/`, `${shared}/child`, `${shared}-extra`, `${canonical}/child`, `${bank}/events/a/b`, `${bank}/events/%2f`, `${bank}/events/..`, `${bank}?role=bank`, '/ru/platform-v7/bank'])(
+    'uses fixed safe navigation for missing or unknown path context %j', pathname => {
+      readEntryBoundary.pathname.mockReturnValue(pathname);
+      const { Nav } = loadReadEntry();
+      const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));
+      expect(hrefs(html)).toEqual([shared, home]);
+      expect(readEntryBoundary.profile).not.toHaveBeenCalled();
+      expect(readEntryBoundary.workspace).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(copies)('updates the same mounted navigation bank → shared → bank in $locale', copy => {
+    readEntryBoundary.clientLocale.mockReturnValue(copy.locale);
+    readEntryBoundary.pathname.mockReturnValue(bank);
+    const { Nav } = loadReadEntry();
+    const mounted = render(createElement(Nav, { links: bankLinks }));
+    const currentHrefs = () => screen.getAllByRole('link').map(link => link.getAttribute('href'));
+    expect(currentHrefs()).toEqual([bank, canonical, shared]);
+    expect(screen.getAllByRole('link')[0]).toHaveAttribute('aria-current', 'page');
+    readEntryBoundary.pathname.mockReturnValue(shared);
+    mounted.rerender(createElement(Nav, { links: bankLinks }));
+    expect(currentHrefs()).toEqual([shared, home]);
+    expect(screen.getByRole('link', { name: copy.basis })).toHaveAttribute('aria-current', 'page');
+    readEntryBoundary.pathname.mockReturnValue(canonical);
+    mounted.rerender(createElement(Nav, { links: bankLinks }));
+    expect(currentHrefs()).toEqual([bank, canonical, shared]);
+    expect(screen.getAllByRole('link')[1]).toHaveAttribute('aria-current', 'page');
+  });
+
+  it.each(copies)('omits the bank-only backlink from shared registry and unavailable views in $locale', async copy => {
+    readEntryBoundary.locale.mockResolvedValue(copy.locale);
+    const { Page } = loadReadEntry();
+    const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
+    const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));
+    for (const html of [registry, unavailable]) {
+      expect(hrefs(html)).not.toContain(bank);
+      expect(hrefs(html)).toContain('/platform-v7/deals');
+      for (const role of ['buyer', 'seller'] as const) {
+        for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);
+      }
+      expect(html).not.toMatch(/<form|<button|method=["']post/i);
+    }
+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('unavailable-deal');
+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();
+  });
+
+  it.each([null, '', `${bank}/unknown`, `${canonical}/`, `${canonical}/child`, `${canonical}-extra`])(
+    'does not infer a bank-only backlink from absent or unknown request header %j', async pathname => {
+      readEntryBoundary.headers.mockResolvedValue(new Headers(pathname === null ? undefined : { 'x-pc-pathname': pathname }));
+      const { Page } = loadReadEntry();
+      for (const query of [{}, { dealId: 'unavailable-deal' }]) {
+        const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));
+        expect(hrefs(html)).not.toContain(bank);
+      }
+    },
+  );
+
+  it.each(copies)('preserves the bank return link on the canonical bank-only page in $locale', async copy => {
+    readEntryBoundary.locale.mockResolvedValue(copy.locale);
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': canonical }));
+    const { Page, CanonicalPage } = loadReadEntry();
+    expect(Page).toBe(CanonicalPage);
+    expect(canRoleAccessCabinet('bank', canonical)).toBe(true);
+    expect(canRoleAccessCabinet('buyer', canonical)).toBe(false);
+    expect(canRoleAccessCabinet('seller', canonical)).toBe(false);
+    for (const query of [{}, { dealId: 'unavailable-deal' }]) {
+      const html = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(query) }));
+      expect(hrefs(html)).toContain(bank);
+      expect(html).not.toMatch(/<form|<button|method=["']post/i);
+    }
   });
 });

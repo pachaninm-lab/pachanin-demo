@@ -2,6 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useLocale } from 'next-intl';
+import {
+  PLATFORM_V7_BANK_CLEAN_ROUTE,
+  PLATFORM_V7_BANK_ESCROW_ROUTE,
+  PLATFORM_V7_BANK_EVENTS_ROUTE,
+  PLATFORM_V7_BANK_FACTORING_ROUTE,
+  PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+} from '@/lib/platform-v7/routes';
 
 type BankSectionLink = {
   href: string;
@@ -12,19 +22,46 @@ type BankSectionNavProps = {
   links: readonly BankSectionLink[];
 };
 
+const NAV_COPY = {
+  ru: { navigation: 'Банковские действия', bank: 'Банковый контур', review: 'Проверка выплаты', basis: 'Основание выплаты', home: 'На главную' },
+  en: { navigation: 'Bank navigation', bank: 'Bank workspace', review: 'Payout review', basis: 'Payment basis', home: 'Platform home' },
+  zh: { navigation: '银行导航', bank: '银行工作区', review: '付款检查', basis: '付款依据', home: '平台首页' },
+} as const;
+
+// Presentation only: the existing server cabinet and bank guards own access.
+// Unknown paths cannot opt into bank-only navigation by sharing a prefix.
+const BANK_ONLY_PATHS: ReadonlySet<string> = new Set([
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+  PLATFORM_V7_BANK_CLEAN_ROUTE,
+  PLATFORM_V7_BANK_EVENTS_ROUTE,
+  PLATFORM_V7_BANK_FACTORING_ROUTE,
+  PLATFORM_V7_BANK_ESCROW_ROUTE,
+  '/platform-v7/bank/grain',
+]);
+
 export function BankSectionNav({ links }: BankSectionNavProps) {
   const pathname = usePathname() ?? '';
-  const exactMatch = links.find((link) => link.href === pathname);
-  const activeHref =
-    exactMatch?.href ??
-    links
-      .filter((link) => link.href !== '/platform-v7/bank')
-      .sort((left, right) => right.href.length - left.href.length)
-      .find((link) => pathname.startsWith(link.href))?.href;
+  const locale = useLocale();
+  const copy = NAV_COPY[locale.startsWith('en') ? 'en' : locale.startsWith('zh') ? 'zh' : 'ru'];
+  const bankOnlyPath = BANK_ONLY_PATHS.has(pathname)
+    || /^\/platform-v7\/bank\/events\/[A-Za-z0-9_-]+$/.test(pathname);
+  const labels: Readonly<Record<string, string>> = {
+    [PLATFORM_V7_BANK_ROUTE]: copy.bank,
+    [PLATFORM_V7_RELEASE_SAFETY_ROUTE]: copy.review,
+    [PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE]: copy.basis,
+  };
+  const visibleLinks = bankOnlyPath
+    ? links.map(link => ({ ...link, label: labels[link.href] ?? link.label }))
+    : [
+      { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: copy.basis },
+      { href: '/platform-v7', label: copy.home },
+    ];
+  const activeHref = visibleLinks.find(link => link.href === pathname)?.href;
 
   return (
-    <nav aria-label='Банковские действия' className='p7-bank-section-nav'>
-      {links.map((link) => {
+    <nav aria-label={copy.navigation} className='p7-bank-section-nav'>
+      {visibleLinks.map((link) => {
         const isActive = link.href === activeHref;
 
         return (
@@ -57,14 +94,14 @@ export function BankSectionNav({ links }: BankSectionNavProps) {
         }
 
         .p7-bank-section-nav__link {
-          min-height: 34px;
+          min-height: 44px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           border-radius: 14px;
           padding: 7px 12px;
           color: var(--pc-text-secondary, #5F6873);
-          font-size: 12px;
+          font-size: 14px;
           font-weight: 850;
           letter-spacing: -0.01em;
           line-height: 1;
@@ -103,7 +140,7 @@ export function BankSectionNav({ links }: BankSectionNavProps) {
 
           .p7-bank-section-nav__link {
             flex: 1 1 132px;
-            min-height: 38px;
+            min-height: 44px;
             padding-inline: 10px;
           }
         }
