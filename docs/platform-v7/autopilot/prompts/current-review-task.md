@@ -7542,3 +7542,40 @@ This proposal replaces only the never-accepted metadata delivery in https://gith
   "limits": "UNCHANGED3MiB consumer;405B spare,227other vectors/135admissions/allotherbytes exact; no role/RLS/API/provider/money/host/score change; installation270 pending and full13/CORE/original19/blockOPEN5/100"
 }
 ```
+
+
+## PC-CROP bank primary action links — exact metadata2 review request — 2026-11-05
+
+```json
+{
+  "purposeId": "bank-primary-action-links-owned-phase-6093-20261105",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "base": "38bdca854f4fd94b0f533bac6ecd41b25b9dba29",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "sourceHead": "e4d25a0eef17a47240186de14a1df456a3430ddc",
+  "sourceTree": "0c5cfeb149b5adb0c44050b03b8b3a310d47c458",
+  "sourcePatchBytes": 13062,
+  "sourcePatchSha256": "7b189b79b3f762ffc0ad41d27d649583b722f1438936257c3815fdd9bfe9add9",
+  "sourcePathsAndAfters": [
+    {
+      "path": "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "afterBlob": "edafe4a50ddf5da3be0aafa3c3c9842efd7eb86d"
+    },
+    {
+      "path": "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "afterBlob": "a518a7f8665405d823b924946b75a5e06b144381"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "afterBlob": "0a64cb4888c64e479b4b58971cf66b23754f5692"
+    }
+  ],
+  "stateDeltaBytes": 0,
+  "stateSpareBytes": 405,
+  "fullPurposeBothVectorsPinsPatchAndReview": "Append-only execution-queue section PC-CROP bank primary action links — completed-owned zero-state-growth metadata proposal — 2026-11-05",
+  "independentReviewSha256": "5bcb3ef6f2538f4d59fa7970cafeab0acf4a8562a73ffe465f2158692e258c26",
+  "supersession": "After actual acceptance of this exact metadata only, renew the completed own bank payload for the frozen three-file action-link correction within its unchanged five-path vector. Supersede only the prior completed source5 exact-payload restriction and the blanket new-product admission hold insofar as it would bar this same-owner, zero-state-growth, frozen three-file renewal. The other two source5 files and every state byte remain unchanged; no new path, role, provider or command authority is created. All unrelated holds survive.",
+  "required": "Fresh actual whole-metadata independent review/owner/native/security/READY/manual, then separately fresh actual-source review and all native gates/manual. Generic scope/private evidence gives no acceptance.",
+  "limits": "Unchanged 3MiB state/queue and 2MiB review caps; all unrelated owners/bytes/history/gates preserved. No CORE/role/tenant/provider/money/host/model/DB/original19/restore/real13/full-block credit."
+}
+```
