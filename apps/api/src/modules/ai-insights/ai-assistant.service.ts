@@ -438,6 +438,7 @@ export class AiAssistantService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
+        redirect: 'error',
         headers,
         body: JSON.stringify({
           model,
@@ -510,6 +511,7 @@ export class AiAssistantService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
+        redirect: 'error',
         headers,
         body: JSON.stringify({
           model,

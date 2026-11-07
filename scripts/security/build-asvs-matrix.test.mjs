@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -11,6 +13,7 @@ import {
   buildSummary,
   csvCell,
   evaluateCondition,
+  isOpaqueDataModule,
   validateStandard,
   verifyPinnedSourceDigest,
 } from './build-asvs-matrix.mjs';
@@ -133,6 +136,77 @@ test('PRESENT_AT_PATH holds only when every named path carries the control', () 
   assert.equal(one.holds, true);
 });
 
+test('PRESENT_AT_PATH treats several patterns as alternatives, PRESENT_ALL_AT_PATH as combined evidence', () => {
+  // The real case this came from: a condition claiming a verifier both checks a
+  // signature and rejects an invalid one. With .some(), deleting the rejection
+  // leaves the decision standing on the half that remains.
+  const halfGone = { 'a/verify.ts': 'const valid = await crypto.subtle.verify(alg, key, sig, body);\nreturn payload;' };
+  const intact = { 'a/verify.ts': 'const valid = await crypto.subtle.verify(alg, key, sig, body);\nif (!valid) return null;\nreturn payload;' };
+  const patterns = ['crypto.subtle.verify', 'if (!valid) return null'];
+
+  const anyOf = { condition: 'verified and rejected', check: 'PRESENT_AT_PATH', paths: ['a/verify.ts'], patterns };
+  assert.equal(evaluateCondition(anyOf, pathContext(intact)).holds, true);
+  assert.equal(
+    evaluateCondition(anyOf, pathContext(halfGone)).holds,
+    true,
+    'PRESENT_AT_PATH is an OR: this is why a condition meaning AND must not use it',
+  );
+
+  const allOf = { ...anyOf, check: 'PRESENT_ALL_AT_PATH' };
+  assert.equal(evaluateCondition(allOf, pathContext(intact)).holds, true);
+  assert.equal(
+    evaluateCondition(allOf, pathContext(halfGone)).holds,
+    false,
+    'PRESENT_ALL_AT_PATH revokes the decision as soon as one of the named facts goes',
+  );
+});
+
+test('PRESENT_ALL_AT_PATH needs every pattern in every named path, not one each', () => {
+  // The other half of the same defect: with .some() and two paths, each file
+  // matching a different pattern satisfies the condition, so a claim of "both
+  // facts on both paths" is only ever checked along the diagonal.
+  const split = {
+    'a/one.ts': "if (session_status === 'revoked') throw new Error();",
+    'b/two.ts': "if (session_status === 'expired') throw new Error();",
+  };
+  const patterns = ["session_status === 'revoked'", "session_status === 'expired'"];
+  const paths = ['a/one.ts', 'b/two.ts'];
+
+  assert.equal(
+    evaluateCondition({ condition: 'both statuses on both paths', check: 'PRESENT_AT_PATH', paths, patterns }, pathContext(split)).holds,
+    true,
+    'the OR check is satisfied by a diagonal, which is what makes it misleading here',
+  );
+  assert.equal(
+    evaluateCondition({ condition: 'both statuses on both paths', check: 'PRESENT_ALL_AT_PATH', paths, patterns }, pathContext(split)).holds,
+    false,
+  );
+
+  const complete = {
+    'a/one.ts': "if (session_status === 'revoked' || session_status === 'expired') throw new Error();",
+    'b/two.ts': "if (session_status === 'expired' || session_status === 'revoked') throw new Error();",
+  };
+  assert.equal(
+    evaluateCondition({ condition: 'both statuses on both paths', check: 'PRESENT_ALL_AT_PATH', paths, patterns }, pathContext(complete)).holds,
+    true,
+  );
+});
+
+test('PRESENT_ALL_AT_PATH keeps the missing-path and empty-pattern guards', () => {
+  const gone = evaluateCondition({
+    condition: 'control lives here', check: 'PRESENT_ALL_AT_PATH',
+    paths: ['apps/gone/route.ts'], patterns: ['a', 'b'],
+  }, pathContext({ 'apps/here/route.ts': 'ab' }));
+  assert.equal(gone.holds, false);
+  assert.match(gone.evidence, /path not tracked/u);
+
+  const noPatterns = evaluateCondition({
+    condition: 'declares nothing', check: 'PRESENT_ALL_AT_PATH',
+    paths: ['a/route.ts'], patterns: [],
+  }, pathContext({ 'a/route.ts': 'anything' }));
+  assert.equal(noPatterns.holds, false);
+});
+
 test('a decision pointing at a path that no longer exists stops holding', () => {
   const moved = evaluateCondition({
     condition: 'control lives here', check: 'PRESENT_AT_PATH',
@@ -225,4 +299,123 @@ test('NO_RUNTIME_CALLER does not count the defining module as its own caller', (
     'apps/api/src/auth/authority.policy.ts': 'export function evaluateGrant() {} evaluateGrant();',
   }));
   assert.equal(selfOnly.holds, true);
+});
+
+// The unit tests above prove the primitive. This one proves the register that
+// uses it: every conjunctive condition must actually hold today, and must stop
+// holding if any single fact it names disappears. Both defects that produced
+// this check - patterns joined by .some(), and a pattern matching an import
+// rather than a call - were invisible to reading the condition and only showed
+// up when a fact was removed, so the property is asserted rather than reviewed.
+test('every PRESENT_ALL_AT_PATH condition in the register holds and is revocable', () => {
+  const register = JSON.parse(readFileSync('docs/security/asvs-applicability-decisions.json', 'utf8'));
+  const tracked = execFileSync('git', ['ls-files']).toString().split('\n').filter(Boolean);
+  const real = (path) => { try { return readFileSync(path, 'utf8'); } catch { return null; } };
+
+  const stripAll = (text, needle) => {
+    const hay = text.toLowerCase();
+    const pin = needle.toLowerCase();
+    let out = '';
+    let cursor = 0;
+    for (;;) {
+      const at = hay.indexOf(pin, cursor);
+      if (at === -1) return out + text.slice(cursor);
+      out += `${text.slice(cursor, at)}__FACT_REMOVED__`;
+      cursor = at + pin.length;
+    }
+  };
+
+  const conjunctive = register.decisions.flatMap((decision) => (decision.conditions ?? [])
+    .filter((condition) => condition.check === 'PRESENT_ALL_AT_PATH')
+    .map((condition) => [decision.requirementId, condition]));
+
+  assert.ok(conjunctive.length > 0, 'the register should carry conjunctive conditions once they are migrated');
+
+  for (const [requirementId, condition] of conjunctive) {
+    assert.equal(
+      evaluateCondition(condition, { tracked, readFile: real }).holds,
+      true,
+      `${requirementId}: conjunctive condition does not hold against the live tree`,
+    );
+
+    for (const pattern of condition.patterns) {
+      for (const path of condition.paths) {
+        const source = real(path);
+        if (!source || !source.toLowerCase().includes(pattern.toLowerCase())) continue;
+        const readFile = (candidate) => (candidate === path ? stripAll(source, pattern) : real(candidate));
+        assert.equal(
+          evaluateCondition(condition, { tracked, readFile }).holds,
+          false,
+          `${requirementId}: removing ${JSON.stringify(pattern)} from ${path} left the condition holding`,
+        );
+      }
+    }
+  }
+});
+
+/**
+ * #4764. A committed base64 payload is data, and substring-scanning it revoked
+ * two unrelated decisions by chance: `jwks` inside the presentation PDF's
+ * part-12, `sgx` inside parts 04, 07 and 08. Both sides are lowercased, so every
+ * case variant collides and a four-character pattern is near certain to hit
+ * 265 KB of base64.
+ */
+const PAYLOAD = 'export const PRESENTATION_PART_12 =\n  "LAxMldwA24cqaOJWKS4LTSqnAl7OyXSGX7uTC";\n';
+
+test('a tree scan ignores a file proven to be one opaque exported literal', () => {
+  const result = evaluateCondition(
+    { condition: 'no JWKS verifier', check: 'ABSENT_IN_TREE', roots: ['apps'], patterns: ['jwks', 'sgx'] },
+    { tracked: ['apps/web/lib/presentation-pdf/part-12.ts'], readFile: () => PAYLOAD },
+  );
+  assert.equal(result.holds, true, 'base64 payload must not revoke a decision');
+});
+
+test('a tree scan still reports the same patterns when they appear in real code', () => {
+  const code = 'import { createRemoteJWKSet } from "jose";\nexport const verifier = createRemoteJWKSet(url);\n';
+  const result = evaluateCondition(
+    { condition: 'no JWKS verifier', check: 'ABSENT_IN_TREE', roots: ['apps'], patterns: ['jwks'] },
+    { tracked: ['apps/api/src/verify.ts'], readFile: () => code },
+  );
+  assert.equal(result.holds, false, 'a real JWKS verifier must still revoke the decision');
+});
+
+test('the data-payload exemption cannot hide executable code', () => {
+  for (const smuggled of [
+    'export const X = "AAAA";\nimport fs from "node:fs";\n',
+    'export const X = "AAAA"; doThing();\n',
+    'export const X = "AAAA";\nexport function jwksVerify() {}\n',
+  ]) {
+    assert.equal(isOpaqueDataModule(smuggled), false, `must not exempt: ${smuggled}`);
+    const result = evaluateCondition(
+      { condition: 'no caller', check: 'ABSENT_IN_TREE', roots: ['apps'], patterns: ['import', 'dothing', 'jwks'] },
+      { tracked: ['apps/web/lib/payload.ts'], readFile: () => smuggled },
+    );
+    assert.equal(result.holds, false, 'a file with any code in it must still be scanned');
+  }
+});
+
+test('NO_RUNTIME_CALLER is exempted on the same proven-data basis', () => {
+  const result = evaluateCondition(
+    {
+      condition: 'no runtime caller',
+      check: 'NO_RUNTIME_CALLER',
+      roots: ['apps'],
+      definedAt: ['apps/api/src/policy.ts'],
+      patterns: ['sgx'],
+    },
+    { tracked: ['apps/web/lib/presentation-pdf/part-04.ts'], readFile: () => PAYLOAD },
+  );
+  assert.equal(result.holds, true, 'base64 must not read as a runtime caller');
+});
+
+test('a payload holding // inside its base64 is still recognised as data', () => {
+  // base64 uses '/', so a payload can contain '//'. Stripping line comments
+  // before string literals would eat the rest of that line and the file would
+  // stop reducing to a data skeleton - it would be scanned as code and the
+  // false revocations would come back for that part only, silently.
+  assert.equal(isOpaqueDataModule('export const P = "AA//BBcc==";\n'), true);
+});
+
+test('the detector reduces a documented, concatenated payload', () => {
+  assert.equal(isOpaqueDataModule('/** doc */\nexport const P: string =\n  "AAAA" +\n  "BBBB";\n'), true);
 });

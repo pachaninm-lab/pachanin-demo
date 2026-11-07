@@ -85,10 +85,11 @@ jobs:
           src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
 
-      - name: Verify radar evidence and topic-planning contracts
+      - name: Verify radar evidence, cadence and topic-planning contracts
         run: >-
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
           src/modules/marketing/marketing-editorial-core.spec.ts
+          src/modules/marketing/marketing-content-planner.spec.ts
 
       - name: Verify signed attribution HMAC authority
         run: >-

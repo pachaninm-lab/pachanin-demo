@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-direct-evidence-validator-20260911",
+  "status": "active",
+  "purpose": "Bounded reviewer-contract repair after canonical Qwen3-8B exact-head review run 34580396222 completed all six remote inference requests and canonical validation successfully, then published five blocking findings whose own reasons violate the already-pinned trusted direct-evidence policy. The policy explicitly forbids speculative findings and states that words such as could, may, might, likely, or potentially do not establish a defect; it also explicitly forbids classifying route/path/test-only strings as secrets, PII, or authorization bypasses merely because they exist. Add deterministic policy-admissibility enforcement plus one bounded model repair pass for an inadmissible candidate. An inadmissible candidate is never silently converted to PASS: it must be replaced by a fresh schema-valid, policy-admissible model response for the same exact chunk, otherwise the provider fails closed.",
+  "authorityBaseExactMain": "2582c067727cb1c881f16353ec72472f8c4abe0b",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewRunId": 34580396222,
+    "reviewJobId": 103202428793,
+    "reviewedExactHead": "2e35f7451c2badc9fd1803a3a3566fc9f56f3766",
+    "diffSha256": "eb061c171a97339411a397cfdf9904ee60a8107f7afd5175ea1b956c92b7abfa",
+    "responseSha256": "129df855f6273025239dcb0b5c9bb9206438cd7ff84fac93fef26b3b12274be5",
+    "inferenceResult": "QWEN3_REMOTE_REVIEW_OK=6",
+    "validatorResult": "BLOCK_5_POLICY_INADMISSIBLE_CANDIDATES",
+    "observedViolations": [
+      "The handoff finding says length validation was removed although the changed code adds explicit 32..4096 secret and 1..8192 token bounds.",
+      "Two findings classify hardcoded test route paths or route assertions as secret/PII or information leakage, which the pinned policy expressly disallows merely because such strings exist.",
+      "The published candidate reasons rely on speculative could/may/potentially language that the pinned policy expressly says does not establish a defect."
+    ]
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "Enforce the existing trusted direct-evidence policy deterministically. Validate every model candidate before canonical aggregation. If a candidate is policy-inadmissible, perform exactly one bounded repair inference for that same exact chunk using the same pinned model/runtime, full trusted policy, exact chunk bytes/hashes and deterministic settings, with the rejected candidate supplied only as untrusted data and a concise trusted explanation of the violated policy rule. Accept only the repaired response if it is schema-valid and policy-admissible; otherwise fail the provider closed. Never silently drop an inadmissible finding into PASS.",
+    "policyAdmissibility": {
+      "forbiddenSpeculationWordsWholeWordCaseInsensitive": [
+        "could",
+        "may",
+        "might",
+        "likely",
+        "potentially"
+      ],
+      "routePathTestOnlySecretClassificationWithoutConcreteMechanism": "inadmissible",
+      "unchangedContextAsIntroducedDefect": "inadmissible",
+      "repairAttemptsPerChunk": 1,
+      "invalidAfterRepair": "FAIL_CLOSED"
+    }
+  },
+  "requiredInvariants": [
+    "Canonical Qwen3-8B revision 895c8d171bc03c30e113cd7a28c02494b5e068b7, model SHA-256 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814, served identity tai-qwen3-8b-q4km, llama source commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 and the existing trusted policy text remain unchanged.",
+    "The direct-evidence policy is tightened in enforcement only; no security/reliability review category, severity, changed path, chunk, finding or concrete mechanism is exempted from review.",
+    "A model-authored concrete policy-admissible finding remains blocking exactly as before; its severity/title/reason/path/line are preserved unchanged.",
+    "An inadmissible first candidate cannot create PASS by deletion. It triggers one fresh deterministic repair inference over the same exact chunk; if that response is not admissible, provider status is failure and no clean-review authority is published.",
+    "Repair inference may return findings=[] only as a fresh model-authored response under the same trusted policy after being told why the prior candidate was policy-inadmissible.",
+    "Exact changed-path set, full-diff SHA-256, chunk hashes, manifest hash, prompt bundle hash, response/canonical evidence hash, exact-head revalidation and status publication remain bound to the run.",
+    "SSH/SCP pinned-host transport, model file size/hash verification, service/user verification, protected API-key discovery without logging, thinking disabled, temperature 0, top_p 1, deterministic seed, bounded max_tokens, 400000-byte full-diff bound, 8000-byte chunk bound, 96-chunk bound and fail-closed behavior remain unchanged.",
+    "Regression coverage must prove: speculative hedge-word candidates are not admitted; route/test-only secrecy claims without a concrete mechanism are not admitted; one repair attempt is bounded; failed repair fails closed; a concrete non-speculative finding still blocks; clean findings=[] still passes.",
+    "The provider-maintenance implementation itself does not claim independent semantic-review PASS. After merge, PR #5184 must forward-sync exact current main and obtain a completely fresh genuine canonical Qwen3 exact-head review; no stale evidence transfers.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is included.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes only the two allowed provider/test paths.",
+    "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
+    "Owner exact-head self-audit is present and verifies the bounded governance/provider scope; it does not substitute for the fresh #5184 semantic review after provider repair.",
+    "Unresolved review threads and active CHANGES_REQUESTED are zero.",
+    "Live main must match each PR base immediately before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

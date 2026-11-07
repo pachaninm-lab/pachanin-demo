@@ -13,7 +13,7 @@
 /*
  * One-for-one replacement for `js/insufficient-password-hash`.
  *
- * Derived from the upstream query at codeql-cli/v2.26.3,
+ * Derived from the upstream query at codeql-cli/v2.26.4,
  * javascript/ql/src/Security/CWE-916/InsufficientPasswordHash.ql, together with
  * its flow configuration at
  * javascript/ql/lib/semmle/javascript/security/dataflow/InsufficientPasswordHashQuery.qll.

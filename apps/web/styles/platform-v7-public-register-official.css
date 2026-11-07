@@ -1,0 +1,204 @@
+.p0-register-page {
+  background: #f5f7f5;
+}
+
+.p0-register-shell {
+  gap: 18px;
+}
+
+.p0-register-hero {
+  gap: 8px;
+  padding: 24px 26px;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.p0-register-hero small {
+  color: #176b3a;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.p0-register-hero h1 {
+  max-width: 780px;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.1;
+  letter-spacing: -.035em;
+}
+
+.p0-register-hero p {
+  max-width: 820px;
+  color: #4b5f53;
+  font-size: 15px;
+}
+
+.p0-register-required-note {
+  margin: 0 2px;
+  color: #5d7065;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.p0-register-section-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.p0-register-section-heading h2 {
+  margin: 0;
+}
+
+.p0-register-section-heading p {
+  margin: 0;
+  max-width: 780px;
+  color: #64766c;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.p0-register-grid label > span,
+.p0-register-additional-form label > span {
+  color: #2d4337;
+}
+
+.p0-register-grid input,
+.p0-register-grid select,
+.p0-register-additional-form textarea {
+  font-size: 16px;
+}
+
+.p0-register-grid input::placeholder,
+.p0-register-additional-form textarea::placeholder {
+  color: #87978e;
+  opacity: 1;
+}
+
+.p0-register-grid input:focus-visible,
+.p0-register-grid select:focus-visible,
+.p0-register-additional-form textarea:focus-visible,
+.p0-register-primary:focus-visible,
+.p0-register-secondary:focus-visible,
+.p0-register-password-toggle:focus-visible,
+.p0-register-header-actions a:focus-visible,
+.p0-register-brand:focus-visible,
+.p0-register-help-links a:focus-visible,
+.p0-register-consents a:focus-visible {
+  outline: 3px solid rgba(8, 122, 59, .22);
+  outline-offset: 2px;
+}
+
+.p0-register-grid input:user-invalid,
+.p0-register-grid select:user-invalid {
+  border-color: #b42318;
+}
+
+.p0-register-password-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: center;
+}
+
+.p0-register-password-control input {
+  min-width: 0;
+}
+
+.p0-register-password-toggle {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid #cbd9d0;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #315343;
+  cursor: pointer;
+}
+
+.p0-register-consents {
+  gap: 12px;
+}
+
+.p0-register-consents label {
+  min-height: 44px;
+  align-items: flex-start;
+}
+
+.p0-register-consents input {
+  flex: 0 0 auto;
+}
+
+.p0-register-reference {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #dbe7df;
+  border-radius: 10px;
+  background: #f7faf8;
+  color: #52665a;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.p0-register-reference strong {
+  color: #344b3e;
+}
+
+.p0-register-actions {
+  width: 100%;
+}
+
+.p0-register-submit {
+  min-height: 52px;
+  font-size: 15px;
+}
+
+@media (max-width: 680px) {
+  .p0-register-page {
+    padding-inline: 10px;
+  }
+
+  .p0-register-shell {
+    gap: 12px;
+  }
+
+  .p0-register-header {
+    border-radius: 14px;
+  }
+
+  .p0-register-hero {
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+
+  .p0-register-hero h1 {
+    font-size: clamp(26px, 9vw, 34px);
+  }
+
+  .p0-register-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .p0-register-password-control {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+}
+
+@media (max-width: 360px) {
+  .p0-register-brand span {
+    max-width: 132px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .p0-register-hero h1 {
+    font-size: 27px;
+  }
+}

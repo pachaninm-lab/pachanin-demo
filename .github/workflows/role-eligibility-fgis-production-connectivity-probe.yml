@@ -1,0 +1,218 @@
+name: Role Eligibility FGIS Production Connectivity Probe
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  ISSUE_NUMBER: 4922
+  COMMAND: /role-eligibility fgis connectivity current-main
+  EVIDENCE_DIR: artifacts/role-eligibility-fgis-production-connectivity
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+concurrency:
+  group: role-eligibility-fgis-production-connectivity
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe FGIS from production API network namespace
+    if: >-
+      github.event.issue.number == 4922 &&
+      github.event.comment.body == '/role-eligibility fgis connectivity current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Bind observation to current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          api_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$api_main" ]]
+          [[ "$target" == "$GITHUB_SHA" ]] || { echo ROLE_ELIGIBILITY_FGIS_PROBE_MAIN_DRIFT >&2; exit 14; }
+          printf '%s\n' "$target" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo ROLE_ELIGIBILITY_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo ROLE_ELIGIBILITY_PRODUCTION_PRINCIPAL_INVALID >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 22
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo ROLE_ELIGIBILITY_PINNED_HOST_FINGERPRINT_REQUIRED >&2; exit 23; }
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo ROLE_ELIGIBILITY_NO_VALID_PROTECTED_PRIVATE_KEY >&2
+            exit 24
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo ROLE_ELIGIBILITY_PINNED_HOST_KEY_MISMATCH >&2; exit 25; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Observe official FGIS transport from production API network namespace
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$HOST" \
+            'set -euo pipefail
+             test "$(id -u)" -eq 0
+             mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.service=api")
+             (( ${#api_ids[@]} == 1 )) || { echo ROLE_ELIGIBILITY_FGIS_PROBE_API_AUTHORITY_AMBIGUOUS >&2; exit 30; }
+             api_id="${api_ids[0]}"
+             docker exec -i "$api_id" /nodejs/bin/node -' \
+            > "$EVIDENCE_DIR/production-api-network.json" <<'NODE'
+          'use strict';
+          const publicVerificationUrl = 'https://zerno.mcx.gov.ru/opendata/organization/search';
+          const targets = [
+            publicVerificationUrl,
+            'https://opendata.mcx.ru/opendata/7708075454-zerno',
+            'http://opendata.mcx.ru/opendata/7708075454-zerno',
+            'https://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml',
+            'http://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml',
+          ];
+          const results = [];
+          for (const url of targets) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            try {
+              const response = await fetch(url, {
+                redirect: 'manual',
+                signal: controller.signal,
+                headers: { 'user-agent': 'pc-crop-role-eligibility-prod-connectivity/1.1', accept: 'text/html,application/xml,text/xml,application/json,*/*;q=0.1' },
+              });
+              results.push({
+                url,
+                status: response.status,
+                location: response.headers.get('location'),
+                contentType: String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase(),
+              });
+              try { await response.body?.cancel(); } catch {}
+            } catch (error) {
+              const cause = error && typeof error === 'object' ? error.cause : null;
+              results.push({
+                url,
+                errorName: error instanceof Error ? error.name : null,
+                errorCode: error instanceof Error ? error.message : 'UNKNOWN',
+                causeCode: cause && typeof cause === 'object' ? String(cause.code || '') || null : null,
+                causeMessage: cause && typeof cause === 'object' ? String(cause.message || '') || null : null,
+              });
+            } finally {
+              clearTimeout(timeout);
+            }
+          }
+          const httpsReachable = results.filter((r) => r.url.startsWith('https:')).some((r) => Number.isInteger(r.status));
+          const publicVerification = results.find((r) => r.url === publicVerificationUrl) || null;
+          const publicVerificationReachable = Boolean(publicVerification && Number.isInteger(publicVerification.status));
+          process.stdout.write(`${JSON.stringify({
+            schemaVersion: 'role-eligibility-fgis-production-connectivity.v2',
+            mode: 'READ_ONLY_EXTERNAL_OBSERVATION',
+            productionDatabaseMutation: 0,
+            registrationTouched: false,
+            enforcementChanged: false,
+            publicVerificationUrl,
+            publicVerificationReachable,
+            httpsReachable,
+            results,
+          }, null, 2)}\n`);
+          NODE
+
+          node - "$EVIDENCE_DIR/production-api-network.json" <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (report.schemaVersion !== 'role-eligibility-fgis-production-connectivity.v2') throw new Error('FGIS_PROD_PROBE_SCHEMA_INVALID');
+          if (report.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || report.productionDatabaseMutation !== 0 || report.registrationTouched !== false || report.enforcementChanged !== false) throw new Error('FGIS_PROD_PROBE_BOUNDARY_INVALID');
+          if (!Array.isArray(report.results) || report.results.length !== 5) throw new Error('FGIS_PROD_PROBE_MATRIX_INVALID');
+          if (report.publicVerificationUrl !== 'https://zerno.mcx.gov.ru/opendata/organization/search' || typeof report.publicVerificationReachable !== 'boolean') throw new Error('FGIS_PROD_PROBE_PUBLIC_VERIFICATION_INVALID');
+          console.log(`FGIS_PUBLIC_VERIFICATION_REACHABLE=${report.publicVerificationReachable}`);
+          console.log(`FGIS_PRODUCTION_HTTPS_REACHABLE=${report.httpsReachable}`);
+          NODE
+
+      - name: Upload immutable production-connectivity evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-fgis-production-connectivity-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Cleanup bounded credentials
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"

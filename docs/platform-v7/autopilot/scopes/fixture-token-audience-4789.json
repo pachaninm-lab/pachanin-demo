@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4789,
+  "branch": "security/fixture-token-audience-4789",
+  "status": "active",
+  "purpose": "Close ASVS V9.2.3 by giving each of the four fixture-contour consumers its own audience and requiring it, so a token minted for one is refused by the others. Reachability was established first: nothing in this repository mints these tokens, and nothing in it sets the variables that enable the contour. No minting helper is added. No production deploy.",
+  "authorityBaseExactMain": "c4f2ebc71a1952c4e597248ed80308ee1307eeed",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fixture-token-audience-4789.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "apps/web/lib/platform-v7/fixture-token.ts",
+    "apps/web/app/auth/me/route.ts",
+    "apps/web/app/staff/[...path]/route.ts",
+    "apps/web/app/platform-v7/staff/page.tsx",
+    "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+    "apps/web/tests/unit/fixtureTokenAudience.spec.ts",
+    ".github/workflows/ci.yml",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Reachability was established before anything was changed, and it produced two facts the record did not have: nothing in this repository mints a token carrying testAccess, owner or tokenType - every occurrence is a consumer - and the three variables that enable the contour are set nowhere in the tree. Both are stated in the evidence rather than used to argue the requirement away.",
+    "The env gate is not treated as compliance. Being switched off by default bounds exposure; it does not make a service accept only tokens intended for it, which is what the requirement asks.",
+    "No control is loosened. Every existing purpose claim each consumer checked - testAccess, owner, sub, email, role, tokenType - is still checked; the audience requirement is added alongside, never instead.",
+    "Audience and type are checked together, so a token carrying the right audience under the wrong type is refused rather than inspected further, and a mutation of either is caught on its own.",
+    "No minting helper is added. Introducing a first-party way to issue a credential that four surfaces trust would be a larger decision than the one this closes; the negative cases mint their own claims inline and need nothing in the tree.",
+    "Signature and algorithm stay with each caller, because each surface resolves its own secret. A test asserts the arrangement instead of re-testing the crypto: all four consumers still go through the shared verifier, which refuses any header algorithm other than HS256.",
+    "The named cost: a fixture token minted before this, by whatever mints them, stops being accepted, because it carries no audience. This is the fail-closed direction the owner accepted for cabinet cookies in #4787 and no transitional window is offered, for the same reason - a check that accepts tokens without an audience is not checking.",
+    "No database schema change, no migration, no new dependency. No production, REG.RU, DNS or credential mutation. The 1C, marketing and presentation contours are not touched.",
+    "The cryptographic inventory moves by exactly one scanned file and zero call sites, which is what adding a module that contains no cryptography should do. It is regenerated rather than edited, and the diff was checked rather than assumed."
+  ],
+  "acceptance": [
+    "The full replay matrix in both directions across all four services: a token for any one is refused by each of the other three, nine of nine assertions.",
+    "A missing audience, a foreign audience and an empty audience are each refused at every service.",
+    "The right audience under four wrong types is refused at every service.",
+    "The RFC 7519 list form of aud is accepted only when it names the service, and an empty list is refused.",
+    "Absent claims are refused rather than treated as unconstrained.",
+    "Four mutations are caught: removing the audience check, removing the type check, giving two services the same audience, and one consumer ceasing to require its own.",
+    "Removing one consumer's audience requirement revokes V9.2.3 at the matrix level - applied 331 / rejected 1, PASS back to 104 - so the PASS is held by condition rather than asserted.",
+    "The matrix rebuilds at applied 332 / rejected 0: PASS 104 to 105, FAIL 115 to 114, NOT_ASSESSED unchanged at 38.",
+    "The new spec runs in CI and is registered as executed, not excluded; web tsc --noEmit exit 0."
+  ]
+}

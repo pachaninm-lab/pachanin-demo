@@ -36,7 +36,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
         github.actor == github.repository_owner &&
@@ -175,7 +175,7 @@ jobs:
           PY
           if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
             git fetch --no-tags origin main
-            GITHUB_HEAD_REF='fix/p0-staff-api-base-root-cause-4559' bash scripts/p7-autopilot-guard.sh
+            bash scripts/p7-autopilot-guard.sh
             git diff --check "origin/main...HEAD"
           fi
 
@@ -186,7 +186,7 @@ jobs:
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner &&
@@ -649,7 +649,7 @@ jobs:
     if: >-
       always() &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner &&
@@ -665,11 +665,13 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       EVIDENCE_JSON: ${{ needs.repair.outputs.evidence_json }}
+      RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}
     steps:
       - name: Publish bounded result
         shell: bash
         run: |
           set -Eeuo pipefail
+          [[ "$RELEASE_ISSUE_NUMBER" == 3072 || "$RELEASE_ISSUE_NUMBER" == 4637 ]]
           python3 - "$EVIDENCE_JSON" > "$RUNNER_TEMP/body.md" <<'PY'
           import json, sys
           v=json.loads(sys.argv[1])

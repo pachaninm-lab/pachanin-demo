@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-2b-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the second inert segment of the future Local Mistral review runner without activating executable review behavior. authorityBaseExactMain is the public Git commit identity of the trusted base, never a credential or secret.",
+  "authorityBaseExactMain": "b91481086fb1f938124741dfa1a2870349d0fa62",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runner.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-2b-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert file is not executed or referenced by any workflow.",
+    "This segment adds only bounded model/runtime identity checks, bounded review-input validation and fail-closed rejection of credential-like or PII-bearing review input before any future model inference.",
+    "authorityBaseExactMain is a public Git commit SHA used only for exact-base provenance and is not authentication material.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

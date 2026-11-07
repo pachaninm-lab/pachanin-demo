@@ -76,7 +76,8 @@ describe('platform-v7 P0 public intelligence layer', () => {
     expect(contextualPrompts).not.toContain('tenantId');
     expect(contextualPrompts).not.toContain('documentId');
     expect(assistant).toContain("window.addEventListener('pc:public-assistant-context'");
-    expect(assistant).toContain("window.dispatchEvent(new CustomEvent('pc:public-assistant-context-request'));");
+    // The shortcut now uses the single open operation of the assistant owner.
+    expect(assistant).toContain("openWith({ source: 'home_shortcut'");
     expect(assistant).toContain("trackEvent('contextual_ai_prompt_opened'");
   });
 

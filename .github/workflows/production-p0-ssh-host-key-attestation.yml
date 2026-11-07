@@ -67,7 +67,7 @@ jobs:
           workflow='.github/workflows/production-p0-ssh-host-key-attestation.yml'
           scope='docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-3785.json'
           python3 - "$workflow" "$scope" <<'PY'
-          import json, pathlib, sys
+          import hashlib, json, pathlib, sys
           workflow_path, scope_path = map(pathlib.Path, sys.argv[1:])
           text = workflow_path.read_text(encoding='utf-8')
           scope = json.loads(scope_path.read_text(encoding='utf-8'))
@@ -81,22 +81,72 @@ jobs:
               '/etc/ssh/ssh_host_*_key.pub',
               'PC_PROD_SSH_PORT',
               'PC_PROD_SSH_HOST_FINGERPRINT',
+              'EXTERNAL_EVIDENCE_DIGEST_MISMATCH',
               'PRODUCTION_MUTATION=NONE',
           ]
           for marker in required:
               if marker not in text:
                   raise SystemExit(f'MISSING_CONTRACT_MARKER:{marker}')
           forbidden = [
-              'StrictHostKeyChecking=no', 'StrictHostKeyChecking=accept-new',
-              'UserKnownHostsFile=/dev/null', 'sshpass', 'PasswordAuthentication=yes',
-              'secrets.PC_PROD_SSH_KEY', 'secrets.PC_PROD_SSH_PRIVATE_KEY', 'secrets.VPS_SSH_KEY',
-              'docker compose', 'docker run', 'docker rm', 'docker rmi', 'docker prune',
-              'systemctl restart', 'systemctl stop', 'systemctl start', 'prisma migrate',
-              'psql ', 'gh secret set', 'gh variable set',
+              ''.join(parts)
+              for parts in [
+                  ('StrictHostKeyChecking=', 'no'), ('StrictHostKeyChecking=', 'accept-new'),
+                  ('UserKnownHostsFile=', '/dev/null'), ('ssh', 'pass'), ('PasswordAuthentication=', 'yes'),
+                  ('secrets.', 'PC_PROD_SSH_KEY'), ('secrets.', 'PC_PROD_SSH_PRIVATE_KEY'),
+                  ('secrets.', 'VPS_SSH_KEY'), ('docker ', 'compose'), ('docker ', 'run'),
+                  ('docker ', 'rm'), ('docker ', 'rmi'), ('docker ', 'prune'),
+                  ('systemctl ', 'restart'), ('systemctl ', 'stop'), ('systemctl ', 'start'),
+                  ('prisma ', 'migrate'), ('psql', ' '), ('gh secret ', 'set'),
+                  ('gh variable ', 'set'), ('actions', ': write'),
+              ]
           ]
           for marker in forbidden:
               if marker in text:
                   raise SystemExit(f'FORBIDDEN_CAPABILITY:{marker}')
+          try:
+              local_block = text.split('\n  local_attestation:\n', 1)[1].split('\n  classify_and_publish:\n', 1)[0]
+          except IndexError:
+              raise SystemExit('LOCAL_ATTESTATION_BLOCK_MISSING')
+          local_digest = hashlib.sha256(local_block.encode('utf-8')).hexdigest()
+          if local_digest != '6cacd69f791c4f517913af01ad05d2d3478007aedf0254c927774793f9746ce5':
+              raise SystemExit('LOCAL_ATTESTATION_CONTENT_MISMATCH')
+          expr = lambda value: '$' + '{{ ' + value + ' }}'
+          allowed_surface = {
+              4: {
+                  'name: Match external keys to local production host authority',
+                  'needs: [contract, external_scan]',
+                  "if: github.event_name == 'issue_comment' && needs.external_scan.result == 'success'",
+                  'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+                  'timeout-minutes: 10', 'outputs:', 'permissions:', 'env:', 'steps:',
+              },
+              6: {
+                  f'attested_digest: {expr("steps.attest.outputs.attested_digest")}',
+                  'contents: read', 'actions: read',
+                  f'TARGET_SHA: {expr("needs.contract.outputs.target_sha")}',
+                  f'EVENT_SHA: {expr("github.sha")}',
+                  f'EXTERNAL_EVIDENCE_DIGEST: {expr("needs.external_scan.outputs.evidence_digest")}',
+                  '- name: Verify restricted production runner and exact event continuity',
+                  '- name: Download short-lived evidence through read-only Actions API',
+                  '- name: Attest root-owned public host keys and compare',
+              },
+              8: {'id: attest', 'env:', 'shell: bash', 'run: |'},
+              10: {f'GH_TOKEN: {expr("github.token")}'},
+          }
+          in_run_block = False
+          for line_number, line in enumerate(local_block.splitlines(), 1):
+              if '\t' in line:
+                  raise SystemExit(f'LOCAL_ATTESTATION_STRUCTURE_INVALID:{line_number}')
+              stripped = line.strip()
+              if not stripped or stripped.startswith('#'):
+                  continue
+              indent = len(line) - len(line.lstrip(' '))
+              if in_run_block and indent > 8:
+                  continue
+              in_run_block = False
+              if stripped not in allowed_surface.get(indent, set()):
+                  raise SystemExit(f'LOCAL_ATTESTATION_STRUCTURE_INVALID:{line_number}')
+              if indent == 8 and stripped == 'run: |':
+                  in_run_block = True
           PY
 
   external_scan:
@@ -105,9 +155,11 @@ jobs:
     if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      evidence_digest: ${{ steps.canonical.outputs.evidence_digest }}
     permissions:
       contents: read
-      actions: write
+      actions: read
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
       SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -143,12 +195,13 @@ jobs:
           cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-2"
           cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-3"
       - name: Canonicalize externally observed public fingerprints
+        id: canonical
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/external.json" "$TARGET_SHA" <<'PY'
-          import json, re, subprocess, sys
-          scan_path, out_path, target = sys.argv[1:]
+          python3 - "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/external.json" "$TARGET_SHA" "$GITHUB_OUTPUT" <<'PY'
+          import hashlib, json, re, subprocess, sys
+          scan_path, out_path, target, output_path = sys.argv[1:]
           fp_re = re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
           entries = set()
           for raw in open(scan_path, encoding='utf-8'):
@@ -164,9 +217,14 @@ jobs:
               raise SystemExit('EXTERNAL_KEY_CARDINALITY')
           payload = {'schemaVersion':'pc.production-ssh-host-key.external.v2','targetSha':target,
                      'keys':[{'algorithm':a,'fingerprint':f} for a,f in sorted(entries)]}
-          with open(out_path,'w',encoding='utf-8') as fh:
-              json.dump(payload, fh, separators=(',',':'), sort_keys=True)
+          raw = json.dumps(payload, separators=(',',':'), sort_keys=True).encode('utf-8')
+          with open(out_path,'wb') as fh:
+              fh.write(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          with open(output_path,'a',encoding='utf-8') as fh:
+              fh.write(f'evidence_digest={digest}\n')
           print(f'EXTERNAL_PUBLIC_KEY_COUNT={len(entries)}')
+          print(f'EXTERNAL_EVIDENCE_SHA256={digest}')
           print('PRODUCTION_MUTATION=NONE')
           PY
       - uses: actions/upload-artifact@v4
@@ -183,19 +241,17 @@ jobs:
     if: github.event_name == 'issue_comment' && needs.external_scan.result == 'success'
     runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
     timeout-minutes: 10
+    outputs:
+      attested_digest: ${{ steps.attest.outputs.attested_digest }}
     permissions:
       contents: read
       actions: read
-      actions: write
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      EVENT_SHA: ${{ github.sha }}
+      EXTERNAL_EVIDENCE_DIGEST: ${{ needs.external_scan.outputs.evidence_digest }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Verify restricted production runner and exact-main continuity
+      - name: Verify restricted production runner and exact event continuity
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -204,21 +260,101 @@ jobs:
           ! id -nG | tr ' ' '\n' | grep -Fxq docker
           if docker version >/dev/null 2>&1; then exit 21; fi
           [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
-          git fetch --no-tags origin main
-          [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
-          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
-      - uses: actions/download-artifact@v4
-        with:
-          name: p0-ssh-host-key-external-${{ github.run_id }}
-          path: ${{ runner.temp }}/external-evidence
-      - name: Attest root-owned public host keys and compare
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" == "$EVENT_SHA" ]]
+          [[ "$EXTERNAL_EVIDENCE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$GITHUB_REPOSITORY" == 'pachaninm-lab/pachanin-demo' ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_API_URL" == 'https://api.github.com' ]]
+      - name: Download short-lived evidence through read-only Actions API
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - "$RUNNER_TEMP/external-evidence/external.json" "$RUNNER_TEMP/attested.json" "$TARGET_SHA" <<'PY'
-          import glob, json, os, re, stat, subprocess, sys
-          external_path, out_path, target = sys.argv[1:]
-          ext = json.load(open(external_path,encoding='utf-8'))
+          [[ -n "$GH_TOKEN" ]]
+          api_root="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}"
+          artifact_name="p0-ssh-host-key-external-${GITHUB_RUN_ID}"
+          response="$RUNNER_TEMP/external-artifacts.json"
+          archive="$RUNNER_TEMP/external-evidence.zip"
+          evidence_dir="$RUNNER_TEMP/external-evidence"
+          headers=(
+            -H 'Accept: application/vnd.github+json'
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H 'X-GitHub-Api-Version: 2022-11-28'
+          )
+          curl --fail --silent --show-error --location --retry 2 --retry-delay 1 \
+            "${headers[@]}" \
+            --output "$response" \
+            "${api_root}/actions/runs/${GITHUB_RUN_ID}/artifacts?name=${artifact_name}&per_page=100"
+          artifact_id="$(python3 - "$response" "$artifact_name" "$GITHUB_RUN_ID" <<'PY'
+          import json, sys
+          response_path, expected_name, expected_run = sys.argv[1:]
+          data = json.load(open(response_path,encoding='utf-8'))
+          matches = [row for row in data.get('artifacts',[]) if row.get('name') == expected_name and not row.get('expired')]
+          if len(matches) != 1:
+              raise SystemExit('EXTERNAL_ARTIFACT_CARDINALITY')
+          artifact = matches[0]
+          if str((artifact.get('workflow_run') or {}).get('id','')) != expected_run:
+              raise SystemExit('EXTERNAL_ARTIFACT_RUN_MISMATCH')
+          artifact_id = artifact.get('id')
+          if not isinstance(artifact_id, int) or artifact_id <= 0:
+              raise SystemExit('EXTERNAL_ARTIFACT_ID_INVALID')
+          print(artifact_id)
+          PY
+          )"
+          [[ "$artifact_id" =~ ^[0-9]+$ ]]
+          curl --fail --silent --show-error --location --retry 2 --retry-delay 1 \
+            "${headers[@]}" \
+            --output "$archive" \
+            "${api_root}/actions/artifacts/${artifact_id}/zip"
+          python3 - "$archive" "$evidence_dir" "$TARGET_SHA" "$EXTERNAL_EVIDENCE_DIGEST" <<'PY'
+          import hashlib, hmac, json, os, pathlib, re, stat, sys, zipfile
+          archive_path, evidence_dir, target, expected_digest = sys.argv[1:]
+          if not re.fullmatch(r'[0-9a-f]{64}', expected_digest):
+              raise SystemExit('EXTERNAL_EVIDENCE_DIGEST_INVALID')
+          if not 1 <= os.path.getsize(archive_path) <= 1024 * 1024:
+              raise SystemExit('EXTERNAL_ARTIFACT_SIZE_INVALID')
+          with zipfile.ZipFile(archive_path) as archive:
+              infos = archive.infolist()
+              if len(infos) != 1 or infos[0].filename != 'external.json' or infos[0].is_dir():
+                  raise SystemExit('EXTERNAL_ARTIFACT_SHAPE_INVALID')
+              mode = (infos[0].external_attr >> 16) & 0xffff
+              if stat.S_ISLNK(mode) or infos[0].file_size > 16384:
+                  raise SystemExit('EXTERNAL_ARTIFACT_ENTRY_INVALID')
+              raw = archive.read(infos[0])
+          digest = hashlib.sha256(raw).hexdigest()
+          if not hmac.compare_digest(digest, expected_digest):
+              raise SystemExit('EXTERNAL_EVIDENCE_DIGEST_MISMATCH')
+          try:
+              data = json.loads(raw.decode('utf-8'))
+          except (UnicodeDecodeError, json.JSONDecodeError):
+              raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
+          if data.get('schemaVersion') != 'pc.production-ssh-host-key.external.v2' or data.get('targetSha') != target:
+              raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
+          out = pathlib.Path(evidence_dir) / 'external.json'
+          out.parent.mkdir(mode=0o700)
+          out.write_bytes(raw)
+          print(f'EXTERNAL_ARTIFACT_SHA256={digest}')
+          print('PRODUCTION_MUTATION=NONE')
+          PY
+      - name: Attest root-owned public host keys and compare
+        id: attest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/external-evidence/external.json" "$TARGET_SHA" <<'PY'
+          import glob, hashlib, hmac, json, os, re, stat, subprocess, sys
+          evidence_path, target = sys.argv[1:]
+          raw = open(evidence_path,'rb').read()
+          digest = hashlib.sha256(raw).hexdigest()
+          expected_digest = os.environ.get('EXTERNAL_EVIDENCE_DIGEST','')
+          if not hmac.compare_digest(digest, expected_digest):
+              raise SystemExit('EXTERNAL_EVIDENCE_DIGEST_MISMATCH')
+          try:
+              ext = json.loads(raw.decode('utf-8'))
+          except (UnicodeDecodeError, json.JSONDecodeError):
+              raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
           if ext.get('schemaVersion') != 'pc.production-ssh-host-key.external.v2' or ext.get('targetSha') != target:
               raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
           fp_re = re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
@@ -238,21 +374,13 @@ jobs:
           external = {(str(r.get('algorithm','')), str(r.get('fingerprint',''))) for r in ext.get('keys',[])}
           if not external or not external.issubset(local):
               raise SystemExit('EXTERNAL_KEYS_NOT_ATTESTED_BY_LOCAL_HOST')
-          payload = {'schemaVersion':'pc.production-ssh-host-key.attested.v2','targetSha':target,
-                     'keys':[{'algorithm':a,'fingerprint':f} for a,f in sorted(external)]}
-          with open(out_path,'w',encoding='utf-8') as fh:
-              json.dump(payload, fh, separators=(',',':'), sort_keys=True)
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as fh:
+              fh.write(f'attested_digest={digest}\n')
           print('EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS')
           print(f'LOCAL_PUBLIC_KEY_COUNT={len(local)}')
+          print(f'ATTESTED_EVIDENCE_SHA256={digest}')
           print('PRODUCTION_MUTATION=NONE')
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: p0-ssh-host-key-attested-${{ github.run_id }}
-          path: ${{ runner.temp }}/attested.json
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
 
   classify_and_publish:
     name: Classify stored pin and publish bounded evidence
@@ -280,6 +408,8 @@ jobs:
       EXPECTED_PIN: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
       EXTERNAL_RESULT: ${{ needs.external_scan.result }}
       LOCAL_RESULT: ${{ needs.local_attestation.result }}
+      EXTERNAL_EVIDENCE_DIGEST: ${{ needs.external_scan.outputs.evidence_digest }}
+      ATTESTED_DIGEST: ${{ needs.local_attestation.outputs.attested_digest }}
     steps:
       - uses: actions/checkout@v4
         if: env.EXTERNAL_RESULT == 'success' && env.LOCAL_RESULT == 'success'
@@ -290,8 +420,8 @@ jobs:
       - uses: actions/download-artifact@v4
         if: env.EXTERNAL_RESULT == 'success' && env.LOCAL_RESULT == 'success'
         with:
-          name: p0-ssh-host-key-attested-${{ github.run_id }}
-          path: ${{ runner.temp }}/attested-evidence
+          name: p0-ssh-host-key-external-${{ github.run_id }}
+          path: ${{ runner.temp }}/external-evidence
       - name: Build evidence without transporting protected pin
         shell: bash
         run: |
@@ -312,13 +442,24 @@ jobs:
             [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
             [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
             [[ -n "${EXPECTED_PIN:-}" ]] || { echo 'PROTECTED_PIN_MISSING' >&2; exit 13; }
-            python3 - "$RUNNER_TEMP/attested-evidence/attested.json" "$report" "$TARGET_SHA" "$EXPECTED_PIN" <<'PY'
-          import json, re, sys
+            python3 - "$RUNNER_TEMP/external-evidence/external.json" "$report" "$TARGET_SHA" "$EXPECTED_PIN" <<'PY'
+          import hashlib, hmac, json, os, re, sys
           evidence_path, report_path, target, expected = sys.argv[1:]
           fp_re = re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
           if not fp_re.fullmatch(expected): raise SystemExit('PROTECTED_PIN_INVALID')
-          data = json.load(open(evidence_path,encoding='utf-8'))
-          if data.get('schemaVersion') != 'pc.production-ssh-host-key.attested.v2' or data.get('targetSha') != target:
+          raw = open(evidence_path,'rb').read()
+          digest = hashlib.sha256(raw).hexdigest()
+          external_digest = os.environ.get('EXTERNAL_EVIDENCE_DIGEST','')
+          attested_digest = os.environ.get('ATTESTED_DIGEST','')
+          if not re.fullmatch(r'[0-9a-f]{64}', external_digest) or not hmac.compare_digest(digest, external_digest):
+              raise SystemExit('EXTERNAL_EVIDENCE_DIGEST_MISMATCH')
+          if not re.fullmatch(r'[0-9a-f]{64}', attested_digest) or not hmac.compare_digest(digest, attested_digest):
+              raise SystemExit('LOCAL_ATTESTATION_DIGEST_MISMATCH')
+          try:
+              data = json.loads(raw.decode('utf-8'))
+          except (UnicodeDecodeError, json.JSONDecodeError):
+              raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
+          if data.get('schemaVersion') != 'pc.production-ssh-host-key.external.v2' or data.get('targetSha') != target:
               raise SystemExit('ATTESTED_EVIDENCE_INVALID')
           keys = [(str(r.get('algorithm','')),str(r.get('fingerprint',''))) for r in data.get('keys',[])]
           if not keys or any(not fp_re.fullmatch(fp) for _,fp in keys): raise SystemExit('ATTESTED_KEYS_INVALID')

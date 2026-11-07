@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { GEKTA_LEGAL_DOCUMENTS, GEKTA_LEGAL_VERSION, getGektaLegalDocument, renderLegalDocument } from '@/lib/gekta/legal';
 import { getMerchantProfile } from '@/lib/gekta/merchant';
+import { legalContentHash, renderedLegalDocumentHash } from '../../../../../packages/domain-core/src/gekta-consent-evidence';
 
 export const dynamicParams = false;
+export const dynamic = 'force-dynamic';
 
-type PageProps = Readonly<{ params: Promise<{ slug: string }> }>;
+type PageProps = Readonly<{ params: Promise<{ slug: string }>; searchParams?: Promise<{ v?: string; h?: string; p?: string }> }>;
 
 export function generateStaticParams() {
   return GEKTA_LEGAL_DOCUMENTS.map(({ slug }) => ({ slug }));
@@ -25,12 +27,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function GektaLegalDocumentPage({ params }: PageProps) {
+export default async function GektaLegalDocumentPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const found = getGektaLegalDocument(slug);
   if (!found) notFound();
   // Реквизиты исполнителя приходят из профиля продавца, а не из текста документа.
-  const document = renderLegalDocument(found, getMerchantProfile());
+  const profile = getMerchantProfile();
+  const document = renderLegalDocument(found, profile);
+  const commitment = await searchParams;
+  if (commitment && (commitment.v !== undefined || commitment.h !== undefined || commitment.p !== undefined)) {
+    const profileHash = legalContentHash(profile);
+    if (commitment.v !== GEKTA_LEGAL_VERSION || commitment.p !== profileHash.slice(7)
+      || commitment.h !== renderedLegalDocumentHash(GEKTA_LEGAL_VERSION, profileHash, document).slice(7)) notFound();
+  }
 
   return (
     <main className='min-h-screen bg-[#fbfaf5] text-slate-950'>

@@ -53,16 +53,17 @@ export async function prepareAnonymousPage(browser, baseUrl, label = 'speed') {
     if (!current.ok) return { ok: false, error: `entitlement_${current.status}` };
     const payload = await current.json().catch(() => null);
     if (!payload || typeof payload.legalVersion !== 'string') return { ok: false, error: 'legal_version_missing' };
-    if (payload.consent?.version !== payload.legalVersion) {
+    if (payload.consentCurrent !== true) {
+      if (typeof payload.legalPresentation?.snapshot !== 'string' || payload.legalPresentation?.locale !== 'ru') return { ok: false, error: 'legal_presentation_missing' };
       const accepted = await fetch('/api/gekta/entitlement', {
         method: 'POST',
         cache: 'no-store',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'consent' }),
+        body: JSON.stringify({ action: 'consent', noticeSnapshot: payload.legalPresentation.snapshot, locale: payload.legalPresentation.locale }),
       });
       const body = await accepted.json().catch(() => null);
-      if (!accepted.ok || body?.consent?.version !== payload.legalVersion) {
+      if (!accepted.ok || body?.consentCurrent !== true) {
         return { ok: false, error: `consent_${accepted.status}` };
       }
     }

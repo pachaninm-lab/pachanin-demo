@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "3a8d7efe07097d78f70e6bba714f8daba7d1c1e2",
+  "authorization": "Owner instruction on 2026-09-21 to continue the bank/finance lane continuously, combined with the earlier staged W6-A authority. This governance PR changes no product behavior and grants no implementation authority until exact-head review, CI and merge.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-multi-bank-sber-scope-4997",
+  "purpose": "W6-A staged governance: provider-neutral bank adapter/capability/receipt boundary with Sber as primary reference mapping and Alfa-Bank/T-Bank as additional conformance targets, zero live-success claim, and explicit separation between transport acknowledgement and settlement finality.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-multi-bank-sber-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-multi-bank-sber-authority-4997.json"
+  ],
+  "dependencies": {
+    "w5aSettlementPlanRequiredForLiveConsumer": true,
+    "realProviderCredentialsExternal": true,
+    "secondRealBankRequiredForTerminalMultiBank": true,
+    "regRuProductionAcceptanceRequired": true,
+    "canonicalBankSettlementReadContract": "PRODUCT-MULTIBANK-CANONICAL-READ-CONTRACT-20260921",
+    "threeProviderPublicSpecDiscoveryComplete": true,
+    "liveProviderEvidenceStillExternal": true
+  },
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "roleEligibilityChange": false,
+    "federalAccountingLock4321Change": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "externalSuccessClaim": false,
+    "credentialOrSecretChange": false,
+    "providerSpecificCoreState": false,
+    "publicDocsAreLiveEvidence": false,
+    "httpAckEqualsFinality": false,
+    "productRuntimeBindingBeforeCanonicalReadContract": false,
+    "implementationAuthorityBeforeGovernanceMerge": false,
+    "implementationAuthorityAfterAcceptedMainMerge": true
+  },
+  "historicalStagedBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "targetProviderFamilies": [
+    "SBER",
+    "ALFA_BANK",
+    "T_BANK"
+  ],
+  "sourceDiscovery": "Official public developer documentation was re-verified on 2026-09-21; this only informs adapter/conformance planning and does not advance canonical IntegrationCapability maturity.",
+  "effectiveAfter": "Merged to main after exact-head CI, independent review and owner self-audit. The PR head itself is not authority for the future implementation branch."
+}

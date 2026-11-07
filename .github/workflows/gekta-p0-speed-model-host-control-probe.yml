@@ -128,9 +128,9 @@ jobs:
             return 1
           }
           host="$(trim "${MODEL_HOST_SECRET:-}")"
-          user="$(trim "${MODEL_USER_SECRET:-root}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
           port="$(trim "${MODEL_PORT_SECRET:-22}")"
-          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$user" != root ]]
           [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
           mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
           key="$(trim "${MODEL_KEY_SECRET:-}")"
@@ -172,6 +172,9 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "$MODEL_USER@$MODEL_HOST" /bin/bash -s > "$RUNNER_TEMP/raw-control-probe" <<'REMOTE_PROBE'
           set -Eeuo pipefail
+          real_uid="$(/usr/bin/id -ru)"
+          effective_uid="$(/usr/bin/id -u)"
+          [[ "$real_uid" =~ ^[1-9][0-9]*$ && "$effective_uid" =~ ^[1-9][0-9]*$ ]]
           service=tai-qwen3-8b.service
           systemctl is-active --quiet "$service"
           pid="$(systemctl show "$service" --property=MainPID --value)"
@@ -266,20 +269,44 @@ jobs:
           polkit = 'UNAVAILABLE'
           pkcheck = shutil.which('pkcheck')
           if pkcheck:
-              result = subprocess.run(
-                  [pkcheck, '--action-id', 'org.freedesktop.systemd1.manage-units', '--process', str(os.getpid()), '--allow-user-interaction=false'],
-                  stdout=subprocess.DEVNULL,
-                  stderr=subprocess.DEVNULL,
-                  timeout=5,
-                  check=False,
-                  env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
-              )
-              if result.returncode == 0:
-                  polkit = 'AUTHORIZED'
-              elif result.returncode in {1, 2, 3}:
-                  polkit = 'DENIED'
+              try:
+                  subject_pid = os.getpid()
+                  subject_stat = pathlib.Path('/proc/self/stat').read_text()
+                  subject_start = int(subject_stat.rsplit(')', 1)[1].split()[19])
+                  if int(subject_stat.split(' ', 1)[0]) != subject_pid or subject_start <= 0:
+                      raise ValueError('process subject mismatch')
+                  subject = f'{subject_pid},{subject_start},{os.getuid()}'
+              except (OSError, ValueError, IndexError):
+                  polkit = 'SUBJECT_UNVERIFIED'
               else:
-                  polkit = 'ERROR'
+                  try:
+                      result = subprocess.run(
+                          [pkcheck, '--action-id', 'org.freedesktop.systemd1.manage-units', '--process', subject],
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL,
+                          timeout=5,
+                          check=False,
+                          env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
+                      )
+                  except subprocess.TimeoutExpired:
+                      polkit = 'CHECK_TIMEOUT'
+                  except OSError:
+                      polkit = 'CHECK_ERROR'
+                  else:
+                      if result.returncode == 0:
+                          polkit = 'AUTHORIZED'
+                      elif result.returncode == 1:
+                          polkit = 'DENIED'
+                      elif result.returncode == 2:
+                          polkit = 'INTERACTION_REQUIRED'
+                      elif result.returncode == 3:
+                          polkit = 'DISMISSED'
+                      elif result.returncode == 126:
+                          polkit = 'INVALID_INVOCATION'
+                      elif result.returncode == 127:
+                          polkit = 'CHECK_ERROR'
+                      else:
+                          polkit = 'ERROR'
 
           print('CONTROL_PROBE_SERVICE_USER_MATCH=' + str(int(service_user == current_user)))
           print('CONTROL_PROBE_RESTART_POLICY=' + (restart_policy if re.fullmatch(r'[A-Za-z0-9_.:-]+', restart_policy) else 'INVALID'))

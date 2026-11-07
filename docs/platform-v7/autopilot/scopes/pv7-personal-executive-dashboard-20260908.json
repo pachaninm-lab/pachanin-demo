@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/pv7-personal-executive-dashboard-20260908",
+  "status": "active",
+  "purpose": "Bound the personal executive dashboard change to the existing read-only executive page.",
+  "authorityBaseExactMain": "a5448538cd1bbfdac2ce37b9bccc6f9fba807ecd",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pv7-personal-executive-dashboard-20260908.json",
+    "apps/web/app/platform-v7/executive/page.tsx",
+    "apps/web/lib/deals-server.ts",
+    "apps/web/lib/disputes-server.ts",
+    "apps/web/lib/outbox-server.ts",
+    "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+  ]
+}

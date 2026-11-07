@@ -1,10 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthService } from '../../modules/auth/auth.service';
+import { AuthService, requiresRoleMfa } from '../../modules/auth/auth.service';
 import { ProductSessionService } from '../../modules/auth/product-session.service';
 import { StaffAccessService } from '../../modules/staff-access/staff-access.service';
 import { FINANCIAL_MFA_THRESHOLD_KOPECKS } from '../types/request-user';
-import { PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
+import { PASSWORD_SESSION_AUTH_ACTION, PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
 import { PRODUCT_SESSION_ROUTE } from '../decorators/product-session.decorator';
 
 const FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA = new Set([
@@ -67,6 +67,20 @@ export class AppAuthGuard implements CanActivate {
     }
 
     req.user = await this.authService.verifyAccessToken(token);
+
+    const passwordSessionAuthAction = this.reflector.getAllAndOverride<boolean>(PASSWORD_SESSION_AUTH_ACTION, [
+      context.getHandler(), context.getClass(),
+    ]) === true;
+    const method = String(req.method || 'GET').toUpperCase();
+    // Formerly the role/org-admin MFA gate blocked the whole session, including
+    // sign-in and READ. Keep its command protection at the action boundary:
+    // this also covers legacy commands whose financial amount is server-owned.
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)
+      && !passwordSessionAuthAction
+      && (requiresRoleMfa(req.user.role) || req.user.isOrgAdmin === true)
+      && req.user.mfaVerified !== true) {
+      throw new ForbiddenException('MFA verification is required for this action');
+    }
 
     const staffHeader = req.headers['x-staff-access-session'];
     if (Array.isArray(staffHeader)) throw new UnauthorizedException('Multiple staff access session headers are not allowed');

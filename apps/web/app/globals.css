@@ -1,7 +1,3 @@
-/* Tailwind utilities (no preflight — our custom base reset below) */
-@tailwind components;
-@tailwind utilities;
-
 @import '../styles/typography-tokens.css';
 
 /* ============================================================

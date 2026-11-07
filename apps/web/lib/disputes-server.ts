@@ -29,18 +29,30 @@ export type DisputeServerItem = {
  * an unavailable source; owning workspaces use their independent availability
  * signals before presenting an all-clear state.
  */
-export async function getDisputes(): Promise<DisputeServerItem[]> {
+export type DisputesSnapshot = Readonly<{
+  disputes: DisputeServerItem[];
+  isApiAvailable: boolean;
+}>;
+
+export async function getDisputesSnapshot(): Promise<DisputesSnapshot> {
   try {
     const res = await fetch(serverApiUrl('/disputes'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { disputes: [], isApiAvailable: false };
     const data: unknown = await res.json();
-    return Array.isArray(data) ? data.map(parseDispute) : [];
+    if (!Array.isArray(data)) return { disputes: [], isApiAvailable: false };
+    return { disputes: data.map(parseDispute), isApiAvailable: true };
   } catch {
-    return [];
+    return { disputes: [], isApiAvailable: false };
   }
+}
+
+export async function getDisputes(): Promise<DisputeServerItem[]> {
+  const snapshot = await getDisputesSnapshot();
+  if (!snapshot.isApiAvailable) return [];
+  return snapshot.disputes;
 }
 
 export async function getDispute(id: string): Promise<DisputeServerItem | null> {
@@ -65,6 +77,16 @@ export function disputeTotalHeldRub(disputes: DisputeServerItem[]): number {
 
 export function openDisputeCount(disputes: DisputeServerItem[]): number {
   return disputes.filter((dispute) => dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW').length;
+}
+
+/**
+ * Fail-closed executive lifecycle count. A dispute is not operationally closed
+ * until the authority reaches CLOSED: DECISION/APPEALED are pending lifecycle
+ * work, and RESOLVED still requires settlement confirmation before close_case.
+ * Unknown future statuses also remain unresolved by default.
+ */
+export function unresolvedDisputeCount(disputes: DisputeServerItem[]): number {
+  return disputes.filter((dispute) => dispute.status !== 'CLOSED').length;
 }
 
 function parseDispute(value: unknown): DisputeServerItem {

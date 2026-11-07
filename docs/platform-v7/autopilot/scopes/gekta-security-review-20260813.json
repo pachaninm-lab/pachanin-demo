@@ -8,7 +8,7 @@
     "branch": "claude/gekta-server-search",
     "commit": "97ddfe7ee77f3055d8bb94307a54c5f519e4fa78"
   },
-  "purpose": "Закрыть подтверждённые замечания security review перед production: принимать IP для auth rate-limit только от ближайшего Caddy hop, атомарно потреблять одноразовую reservation и полную квоту анонимной сессии через EXECUTE-only PostgreSQL authority и координировать вращающийся refresh token между вкладками через Web Locks.",
+  "purpose": "Закрыть подтверждённые замечания security review перед production: принимать IP для auth rate-limit только от ближайшего Caddy hop, атомарно потреблять одноразовую reservation и полную квоту анонимной сессии через EXECUTE-only PostgreSQL authority и координировать вращающийся refresh token между вкладками через Web Locks. Продолжение по поручению пользователя от 2026-10-08: требовать текущее подписанное согласие до резервирования и генерации, различать отказ согласия и исчерпание квоты в клиенте, а в каноническом smoke явно принять и проверить согласие перед резервированием.",
   "allowedPaths": [
     "apps/api/prisma/migrations/20260813110000_gekta_anonymous_answer_admission/migration.sql",
     "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.spec.ts",
@@ -18,6 +18,7 @@
     "apps/api/src/modules/gekta/gekta.module.ts",
     "apps/web/app/api/agro-chat/route.ts",
     "apps/web/app/api/gekta/entitlement/route.ts",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
     "apps/web/lib/gekta/anonymous-session.ts",
     "apps/web/lib/gekta/entitlement.ts",
     "apps/web/lib/gekta/server-workspace.ts",
@@ -25,7 +26,9 @@
     "apps/web/tests/unit/gektaEntitlement.test.ts",
     "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
     "apps/web/tests/unit/gektaServerHistory.test.ts",
-    "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json"
+    "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-gekta-first-user-acceptance.mjs"
   ],
   "forbiddenChanges": [
     "process-memory или module-level replay authority",

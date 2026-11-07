@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
+import { csvRow } from '../../common/security/csv-cell';
 
 const COMPLIANCE_ROLES: Role[] = [Role.COMPLIANCE_OFFICER, Role.ADMIN];
 
@@ -20,6 +21,25 @@ export class ComplianceService {
     if (!COMPLIANCE_ROLES.includes(user.role as Role)) {
       throw new ForbiddenException('Compliance cockpit requires COMPLIANCE_OFFICER or ADMIN role');
     }
+  }
+
+  /**
+   * Тенант вызывающего — обязателен, а не желателен.
+   *
+   * Область применения названа узко и намеренно: этим ограничивается чтение
+   * СДЕЛОК. Остальные чтения этого сервиса (очередь KYC, журнал аудита,
+   * санкционные флаги) идут по другим таблицам, и их границы здесь не
+   * заявляются и не закрываются — измеренный остаток записан в #4839.
+   *
+   * Отсутствующий tenantId — отказ, а не чтение без границы. Та же форма стоит
+   * в exports.service.ts и analytics.service.ts.
+   */
+  private assertTenantScope(user: RequestUser): string {
+    const tenantId = user.tenantId;
+    if (typeof tenantId !== 'string' || tenantId.length === 0) {
+      throw new ForbiddenException('Compliance tenant scope unavailable');
+    }
+    return tenantId;
   }
 
   async getKycQueue(user: RequestUser, status?: string) {
@@ -143,11 +163,29 @@ export class ComplianceService {
       take: 10000,
     });
     const header = 'id,action,actorUserId,actorRole,objectType,objectId,outcome,reason,hash,createdAt\n';
-    const rows = events.map(e =>
-      [e.id, e.action, e.actorUserId, e.actorRole, e.objectType ?? '', e.objectId ?? '', e.outcome, e.reason ?? '', e.hash, e.createdAt.toISOString()]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
-    ).join('\n');
+    // Ячейка собиралась здесь вручную: кавычки удваивались, и на этом всё.
+    // Строка получалась корректной по RFC 4180 и при этом исполняемой в
+    // программе, которая её откроет: ячейка, начинающаяся с =, +, - или @,
+    // трактуется Excel и LibreOffice как формула. Поля этого отчёта — action,
+    // reason, objectType, objectId — приходят из аудируемых операций, а reason
+    // объявлен в контроллере инлайновым телом и не проверяется, то есть это
+    // свободный текст вызывающего. Читает файл другой человек: комплаенс-офицер
+    // или регулятор. csvCell закрывает обе задачи разом и уже используется
+    // регуляторными отчётами — ровно тот случай, который его комментарий и
+    // называет: один отчёт удваивал кавычки правильно и не имел защиты от
+    // второй задачи.
+    const rows = events.map((event) => csvRow([
+      event.id,
+      event.action,
+      event.actorUserId,
+      event.actorRole,
+      event.objectType,
+      event.objectId,
+      event.outcome,
+      event.reason,
+      event.hash,
+      event.createdAt.toISOString(),
+    ])).join('\n');
     return header + rows;
   }
 
@@ -157,14 +195,24 @@ export class ComplianceService {
       orderBy: { createdAt: 'desc' },
       take: 50,
     }).catch(() => []);
-    const byAdapter: Record<string, { ok: number; error: number; lastAt?: string }> = {};
+    // Ключ — имя адаптера из записи события, поэтому накопитель Map, а не
+    // литерал: у литерала `!byAdapter['toString']` ложно, потому что там лежит
+    // унаследованная функция, ветка инициализации не отрабатывает, и счётчик
+    // пишется в член прототипа. Object.fromEntries на выходе создаёт
+    // СОБСТВЕННОЕ свойство даже для `__proto__`, поэтому форма ответа API не
+    // меняется, а данные перестают теряться.
+    const byAdapter = new Map<string, { ok: number; error: number; lastAt?: string }>();
     for (const e of recent) {
-      if (!byAdapter[e.adapterName]) byAdapter[e.adapterName] = { ok: 0, error: 0 };
-      if (e.status === 'SUCCESS') byAdapter[e.adapterName].ok++;
-      else byAdapter[e.adapterName].error++;
-      if (!byAdapter[e.adapterName].lastAt) byAdapter[e.adapterName].lastAt = e.createdAt.toISOString();
+      let entry = byAdapter.get(e.adapterName);
+      if (!entry) {
+        entry = { ok: 0, error: 0 };
+        byAdapter.set(e.adapterName, entry);
+      }
+      if (e.status === 'SUCCESS') entry.ok++;
+      else entry.error++;
+      if (!entry.lastAt) entry.lastAt = e.createdAt.toISOString();
     }
-    return byAdapter;
+    return Object.fromEntries(byAdapter);
   }
 
   /**
@@ -205,14 +253,23 @@ export class ComplianceService {
     user: RequestUser,
   ): Promise<{ reportId: string; type: string; generatedAt: string; rowCount: number; format: string; downloadUrl: string | null }> {
     this.assertComplianceRole(user);
+    const tenantId = this.assertTenantScope(user);
 
     const from = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 86_400_000);
     const to = params.to ? new Date(params.to) : new Date();
 
+    // Предиката тенанта не было: отчёт регулятору собирался по сделкам ВСЕЙ
+    // платформы. Соседний exportRegulatoryReport в exports.service.ts делает
+    // ровно то же самое и тенантом ограничен — для тех же COMPLIANCE_OFFICER и
+    // ADMIN. Две функции, один класс артефакта, разные границы; расхождение и
+    // есть доказательство, а не довод.
+    //
+    // Без .catch(() => []) отказ базы давал rowCount: 0 - отчёт регулятору за
+    // период «без операций», не помеченный как недостоверный.
     const deals = await this.prisma.deal.findMany({
-      where: { createdAt: { gte: from, lte: to } },
+      where: { tenantId, createdAt: { gte: from, lte: to } },
       select: { id: true, status: true, culture: true, region: true, volumeTons: true, totalKopecks: true, totalRub: true, createdAt: true },
-    }).catch(() => []);
+    });
 
     const reportId = `rpt-${reportType.toLowerCase()}-${Date.now()}`;
     const generatedAt = new Date().toISOString();

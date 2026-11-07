@@ -104,6 +104,7 @@ function distance(a: string, b: string): number {
 
 function bestDictionaryMatch(token: string): { value: string; confidence: number } | null {
   if (token.length < 4 || /^\d+$/u.test(token)) return null;
+  if ((DOMAIN_DICTIONARY as readonly string[]).includes(token)) return null;
   let best = token;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const candidate of DOMAIN_DICTIONARY) {
@@ -129,13 +130,20 @@ export function understandAssistantQuestion(input: string, fallbackLocale: Assis
   const normalized = chooseKeyboardVariant(normalize(original));
   const sourceTokens = normalized.split(' ').filter(Boolean).slice(0, 120);
   const corrections: Array<{ from: string; to: string; confidence: number }> = [];
+  // Request-local memo: repeated words never repeat the dictionary distance scan.
+  const fuzzyMatches = new Map<string, ReturnType<typeof bestDictionaryMatch>>();
   const correctedTokens = sourceTokens.flatMap((token) => {
     const explicit = COMMON_CORRECTIONS[token];
     if (explicit) { corrections.push({ from: token, to: explicit, confidence: 0.99 }); return explicit.split(' '); }
     const synonym = SYNONYMS[token];
     if (synonym) return [synonym];
-    const fuzzy = bestDictionaryMatch(token);
-    if (fuzzy) { corrections.push({ from: token, to: fuzzy.value, confidence: fuzzy.confidence }); return [fuzzy.value]; }
+    if (!fuzzyMatches.has(token)) fuzzyMatches.set(token, bestDictionaryMatch(token));
+    const fuzzy = fuzzyMatches.get(token);
+    if (fuzzy) {
+      const value = COMMON_CORRECTIONS[fuzzy.value] ?? fuzzy.value;
+      corrections.push({ from: token, to: value, confidence: fuzzy.confidence });
+      return value.split(' ');
+    }
     return [token];
   });
   const corrected = correctedTokens.join(' ');

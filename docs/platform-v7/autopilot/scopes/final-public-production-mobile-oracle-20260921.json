@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-production-mobile-oracle-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-finish-final-public-experience-20260921",
+  "purpose": "Bounded post-production acceptance-oracle synchronization for FINAL PUBLIC EXPERIENCE v1. Align stale Playwright selectors with the already deployed canonical public DOM proven by exact-SHA REG.RU revision evidence, without changing runtime product code, acceptance thresholds, browser coverage, security authority or production release semantics.",
+  "authorityBaseExactMain": "3375d6b668eb1425f197c2f5adb3c22efb4a1970",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/final-public-production-mobile-oracle-20260921.json"
+  ],
+  "requiredInvariants": [
+    "No runtime product, API, database, middleware, RBAC, tenant, Deal, money, Gekta model/runtime or production topology code may change.",
+    "Chromium and WebKit coverage, all configured viewports, zero-retry policy, horizontal-overflow threshold and >=44px mobile target threshold remain unchanged.",
+    "Canonical role assertions remain exact and are scoped to the authoritative #participants role-tag surface rather than matching duplicate explanatory text elsewhere.",
+    "Desktop navigation asserts the six canonical primary nav links while separately rendered mobile-only login/register links are excluded from the desktop primary-nav count.",
+    "Trust linked-page acceptance binds to the current four canonical trust pillars and does not remove RU/EN/ZH checks.",
+    "The public-home mobile navigation target assertion binds to the visible canonical bottom navigation and explicitly requires the canonical footer to be hidden at mobile width, preserving the no-double-reserve invariant.",
+    "Manual expected-head merge remains conditional on exact-head technical gates and zero unresolved threads."
+  ],
+  "acceptance": [
+    "Platform V7 production-mobile Playwright source remains zero-retry and retains all existing viewport/browser/overflow/touch-target checks.",
+    "Relevant exact-head CI/security/governance gates are terminal green.",
+    "After merge, exact-current-main REG.RU release is completed and Platform V7 + Gekta production mobile acceptance is PASS on the exact deployed SHA."
+  ]
+}

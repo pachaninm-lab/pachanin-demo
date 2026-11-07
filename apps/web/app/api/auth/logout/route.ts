@@ -18,7 +18,27 @@ function response(
 ) {
   const result = NextResponse.json(body, {
     status,
-    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      // V14.3.1: выход обрывал сессию, но не убирал за ней. Куки снимаются
+      // ниже точечно; всё, что сессия оставила в localStorage, sessionStorage
+      // и IndexedDB, переживало выход - история ассистента, списки документов
+      // и чек-листы по сделкам, профиль поддержки.
+      //
+      // "cookies" сознательно НЕ запрашивается: браузер снял бы куки по всему
+      // registrable domain, а у платформы есть отдельный control-host, и его
+      // сессию этот выход трогать не должен. Куки остаются за
+      // clearAuthenticatedSession, который снимает ровно свои.
+      //
+      // "cache" запрошен намеренно: часть маршрутов ещё не ставит no-store
+      // (это открытый V14.3.2), поэтому аутентифицированные ответы могут
+      // лежать в дисковом кэше браузера и после выхода.
+      //
+      // Заголовок действует только в защищённом контексте - по http браузер
+      // его игнорирует. Поэтому он не единственный механизм: clearClientSessionState
+      // делает то же самое на клиенте, включая случай недоступного сервера.
+      'Clear-Site-Data': '"cache", "storage"',
+    },
   });
   clearAuthenticatedSession(result, { controlPlane });
   return result;

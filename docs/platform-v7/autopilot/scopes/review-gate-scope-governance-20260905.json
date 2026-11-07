@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/review-gate-scope-20260905",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "purpose": "Establish prior source-controlled authority for the repository exact-head review and terminal-green-CI merge gate.",
+  "authorityBaseExactMain": "3b76d0f3473b986b6354aaac528994f7ac343df2",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/review-gate-scope-governance-20260905.json",
+    "docs/platform-v7/autopilot/scopes/review-gate-20260905.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

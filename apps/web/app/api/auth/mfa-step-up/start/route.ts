@@ -66,9 +66,18 @@ export async function POST(request: Request) {
       return response;
     }
 
+    const enrollmentRequired = payload.enrollmentRequired === true;
+    const setupSecret = typeof payload.setupSecret === 'string' ? payload.setupSecret : '';
+    const otpAuthUri = typeof payload.otpAuthUri === 'string' ? payload.otpAuthUri : '';
+    if (enrollmentRequired && (!/^[A-Z2-7]{16,128}$/.test(setupSecret) || !otpAuthUri.startsWith('otpauth://totp/') || otpAuthUri.length > 1024)) {
+      const response = json({ ok: false, code: 'MFA_STEP_UP_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 502);
+      response.cookies.set(MFA_STEP_UP_COOKIE, '', clearMfaStepUpCookieOptions());
+      return response;
+    }
     const response = json({
       ok: true,
-      methods: ['totp', 'backup_code'],
+      methods: enrollmentRequired ? ['totp'] : ['totp', 'backup_code'],
+      ...(enrollmentRequired ? { enrollmentRequired: true, setupSecret, otpAuthUri } : {}),
       expiresAt: typeof payload.expiresAt === 'string' ? payload.expiresAt : null,
       correlationId,
     });

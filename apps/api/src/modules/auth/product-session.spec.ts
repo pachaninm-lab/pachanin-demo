@@ -38,6 +38,9 @@ function productSession(overrides: Partial<ProductSessionContextRow> = {}): Prod
     mfa_level: 'TOTP',
     mfa_verified_at: new Date('2026-08-13T05:00:00.000Z'),
     session_expires_at: new Date(Date.now() + 60_000),
+    // Fresh by default: these fixtures exercise other reasons a session can be
+    // invalid, and an idle one would mask them.
+    session_last_seen_at: new Date(),
     revoked_at: null,
     revocation_reason: null,
     current_credential_version: 1,

@@ -1,4 +1,4 @@
-export const CURRENT_CONSENT_VERSION = '2026-07-31';
+export const CURRENT_CONSENT_VERSION = '2026-09-03';
 
 /**
  * SHA-256 digests of the exact versioned policy source artifacts presented by
@@ -9,12 +9,12 @@ export const CURRENT_CONSENT_EVIDENCE = Object.freeze({
   terms: {
     version: CURRENT_CONSENT_VERSION,
     source: '/platform-v7/terms',
-    contentHash: 'sha256:fdef352223071fb8c92ba5cd188060abeb56f6c4baa091cf119c59e694dac2e8',
+    contentHash: 'sha256:7249d807e7df5e71a255947c2425882c5698e39133e112cd534dfb5dea701c18',
   },
   privacy: {
     version: CURRENT_CONSENT_VERSION,
     source: '/platform-v7/privacy',
-    contentHash: 'sha256:5a221082693b1e863523d1aca9b0f5478ca634f6f16890521ef3267814e18c6e',
+    contentHash: 'sha256:c68e3d50bf3a984207a961882bb4e0564057303a180fe4c95af65d9f74798e85',
   },
 });
 

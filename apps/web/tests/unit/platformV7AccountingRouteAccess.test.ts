@@ -48,3 +48,37 @@ describe('platform-v7 accounting route access', () => {
     }
   });
 });
+
+describe('canonical Deal execution route registration', () => {
+  const dealId = 'dsv8-ready-bank-046f2994-08e4-4f67-8958-533c4c03bf5d';
+  const route = `/platform-v7/deals/${dealId}/execution`;
+
+  it('admits the real protected execution destination before the layout role check', () => {
+    for (const locale of ['ru', 'en', 'zh']) {
+      expect(isDesignSystemV8Route(`${route}?lang=${locale}`)).toBe(true);
+    }
+    expect(isDesignSystemV8Route(route + '/')).toBe(true);
+    expect(isDesignSystemV8Route('/platform-v7/deals/D-2026-1/execution')).toBe(true);
+  });
+
+  it('preserves existing bank and participant cabinet permissions', () => {
+    for (const role of ['bank', 'seller', 'buyer'] as const) {
+      expect(platformV7RoleCanOpenHref(role, route)).toBe(true);
+      expect(canRoleAccessCabinet(role, route)).toBe(true);
+    }
+    for (const role of ['driver', 'lab', 'surveyor'] as const) {
+      expect(canRoleAccessCabinet(role, DEAL_ACCOUNTING)).toBe(false);
+    }
+  });
+
+  it('does not admit sibling, missing-id or longer execution paths', () => {
+    for (const unknown of [
+      '/platform-v7/deals/execution',
+      '/platform-v7/deals//execution',
+      route + '/unknown',
+      route + '-unknown',
+      '/platform-v7/deals/D-2026-1/unknown',
+      '/platform-v7/deals/D-2026-1/execution/commands',
+    ]) expect(isDesignSystemV8Route(unknown)).toBe(false);
+  });
+});

@@ -1,9 +1,14 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { hashPassword, verifyPassword } from './password-hashing';
+import { hashPassword, upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
+import {
+  isStrongPassword,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from '../../common/validators/strong-password.validator';
 import { randomUUID } from 'crypto';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
-import { CURRENT_CONSENT_EVIDENCE } from './consent-policy';
+import { isGektaLegalEvidence, verifyGektaConsentSnapshot } from '../../../../../packages/domain-core/src/gekta-consent-evidence';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import {
@@ -44,14 +49,18 @@ export type GektaRegistrationInput = {
   phone: string;
   acceptedServiceTerms: boolean;
   acceptedPersonalData: boolean;
+  consentSnapshot?: unknown;
+  consentEvidence?: unknown;
 };
 
 function assertPasswordPolicy(password: string): void {
-  const classes = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^A-Za-z0-9]/u].filter((pattern) => pattern.test(password)).length;
-  if (password.length < 12 || password.length > 128 || classes < 3) {
+  // Delegates to the one policy in strong-password.validator.ts. This used to
+  // be a private copy, and the copy had already lost the all-same and
+  // sequential checks the shared rule applies.
+  if (!isStrongPassword(password)) {
     throw new BadRequestException({
       code: 'PASSWORD_POLICY_FAILED',
-      message: 'Пароль должен быть от 12 до 128 символов и содержать минимум три класса символов.',
+      message: `Пароль должен быть от ${MIN_PASSWORD_LENGTH} до ${MAX_PASSWORD_LENGTH} символов, содержать минимум три класса символов и не быть простой последовательностью.`,
     });
   }
 }
@@ -115,6 +124,13 @@ export class GektaRegistrationService {
     assertPasswordPolicy(String(input.password ?? ''));
     const phone = normalizeDeclaredPhone(input.phone);
 
+    const consentEvidence = input.consentEvidence;
+    const consentProof = deliveryAuthorized(deliveryKey)
+      ? verifyGektaConsentSnapshot(input.consentSnapshot, consentEvidence, String(deliveryKey).trim()) : null;
+    if (!consentProof || !isGektaLegalEvidence(consentEvidence)) {
+      throw new BadRequestException({ code: 'CONSENT_REFRESH_REQUIRED' });
+    }
+
     const passwordHash = await hashPassword(input.password);
     const userId = `usr_${randomUUID()}`;
     const emailToken = issueRegistrationEmailToken();
@@ -141,7 +157,7 @@ export class GektaRegistrationService {
       await this.repository.ensureCredentialState(
         tx,
         prepared.user_id,
-        `${CURRENT_CONSENT_EVIDENCE.terms.version}|${CURRENT_CONSENT_EVIDENCE.privacy.version}`,
+        `${consentEvidence.terms.version}|${consentEvidence.privacy.version}`,
         now,
       );
       await this.repository.createGektaEmailChallenge(tx, {
@@ -155,7 +171,9 @@ export class GektaRegistrationService {
         action: 'auth.gekta.register',
         outcome: 'SUCCESS',
         metadata: this.clientMetadata(userAgent, ip, {
-          consent: CURRENT_CONSENT_EVIDENCE,
+          consent: consentEvidence,
+          consentPresentation: { evidenceHash: consentProof.evidenceHash,
+            issuedAt: new Date(consentProof.issuedAt).toISOString(), acceptedAt: now.toISOString() },
           acceptedServiceTerms: true,
           acceptedPersonalData: true,
           phoneState: 'DECLARED',
@@ -339,6 +357,9 @@ export class GektaRegistrationService {
     const email = String(emailInput ?? '').trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
     const credential = await this.repository.findGektaLoginCredential(this.repository.prisma, email);
+    // Same opportunistic upgrade as the platform pathway, from the same
+    // function. Two login paths with two different rehash rules would leave one
+    // population truncated at 72 bytes forever.
     const validPassword = await verifyPassword(String(password ?? ''), credential?.password_hash);
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
@@ -418,6 +439,24 @@ export class GektaRegistrationService {
       });
       return { kind: 'mfa' as const, enrollment };
     });
+
+    // Перезапись legacy-хеша — после решения о входе и только при успехе.
+    // Между доказательством пароля и перечитыванием в транзакции её быть не
+    // может: перечитывание для того и существует, чтобы отказать, если хеш
+    // изменился, а перезапись — это ровно такое изменение. Так первый же вход
+    // каждой учётной записи с bcrypt-хешем и получал отказ.
+    if (credential && validPassword && result.kind !== 'invalid') {
+      await upgradePasswordHashIfNeeded(
+        String(password ?? ''),
+        credential.password_hash,
+        (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          credential.user_id,
+          next,
+          conditionalOn,
+        ),
+      );
+    }
 
     if (result.kind === 'invalid') throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
     return {

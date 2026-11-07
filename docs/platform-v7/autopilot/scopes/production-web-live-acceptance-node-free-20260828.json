@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-web-live-acceptance-node-free-20260828",
+  "status": "active",
+  "allowedPaths": [
+    "scripts/production-web-exact-sha.sh",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-web-hardening.mjs"
+  ],
+  "notes": [
+    "Replace the undeclared host Node.js dependency in exact-SHA web acceptance with a strict JSON parser and verify its runtime before any production mutation.",
+    "Preserve allowed === true semantics, entitlement ticket format validation, real SSE verification, fail-closed rollback, exact-image authority, and every existing live gate.",
+    "Do not change application runtime, production topology, secrets, databases, API services, volumes, networks, or the presentation PDF payload."
+  ]
+}

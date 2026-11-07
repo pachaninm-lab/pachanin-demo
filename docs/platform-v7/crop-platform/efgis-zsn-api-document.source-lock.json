@@ -1,0 +1,30 @@
+{
+  "$schema": "./efgis-zsn-api-document.source-lock.schema.json",
+  "schemaVersion": "pc-crop.efgis-zsn-api-document-source-lock.v1",
+  "systemCode": "EFGIS_ZSN",
+  "status": "PUBLIC_DOCUMENT_HASH_PINNED_CONTRACT_VERSION_UNKNOWN",
+  "operator": "ФГБУ «Россельхозземмониторинг»",
+  "operatorInstructionsUrl": "https://rshzm.ru/instructions",
+  "operatorLinkLabel": "Описание API интерфейса",
+  "publicArtifactUrl": "https://disk.yandex.ru/i/blNZsdLcAxJsHg",
+  "retrievalMethod": "Yandex Disk public resources/download API resolved from the operator-linked public item; temporary downloader URL is not a durable source locator",
+  "retrievedAt": "2026-09-24T13:38:26Z",
+  "documentTitle": "Инструкция по работе с API в ЕФГИС ЗСН",
+  "declaredDocumentYear": 2025,
+  "declaredContractVersion": null,
+  "pdfPages": 39,
+  "artifactSizeBytes": 906732,
+  "artifactSha256": "8d9b2fdd8a5c560347e08b8bd5bfd118a163b3f1636dbe4ff63bfc9a5742cdd7",
+  "existingRegistryVersion": "1.0.0",
+  "registryHandoffStatus": "PENDING_GOVERNED_SUCCESSOR",
+  "boundaries": {
+    "sourceDocumentationOnly": true,
+    "apiVersionInferredFromPath": false,
+    "organizationAccessAttested": false,
+    "credentialsOrSignaturePresent": false,
+    "platformReadEnabled": false,
+    "platformWriteEnabled": false,
+    "externalE2eAccepted": false,
+    "productionAttested": false
+  }
+}

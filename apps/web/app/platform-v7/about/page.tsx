@@ -1,163 +1,118 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowRight, CheckCircle2, FileText, ShieldCheck, UsersRound } from 'lucide-react';
+import { getLocale } from 'next-intl/server';
+import {
+  CANONICAL_ROLES,
+  CanonicalBottomNav,
+  CanonicalDealSpine,
+  CanonicalFooter,
+  CanonicalGektaStrip,
+  CanonicalPublicHeader,
+  CanonicalTrustLedger,
+  canonicalPublicLocale,
+} from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-export const metadata: Metadata = {
-  title: 'О проекте — Прозрачная Цена на домене Процент-Агро.рф',
-  description:
-    'Прозрачная Цена на домене Процент-Агро.рф — controlled pilot / pre-integration контур исполнения зерновой сделки: цена, логистика, приёмка, документы, расчёт, спор и доказательства.',
-  alternates: {
-    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
-  },
-  openGraph: {
-    title: 'О проекте — Прозрачная Цена / Процент Агро',
-    description:
-      'Проект на домене Процент-Агро.рф не является обычной доской объявлений: фокус — исполнение сделки после цены, документный след, расчёт и доказательства.',
-    url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
-    siteName: 'Прозрачная Цена / Процент Агро',
-    locale: 'ru_RU',
-    type: 'website',
-  },
-};
+const COPY={
+ru:{
+ title:'О платформе — Прозрачная Цена',
+ description:'Для продавцов, покупателей и участников исполнения агросделки: предложения, условия, доставка, качество, документы и расчёт в одном рабочем пространстве.',
+ eyebrow:'О платформе',heading:'Продажа, закупка и исполнение — в одной сделке',
+ lead:'Продавец и покупатель согласуют условия. Участники доставки, приёмки и проверки качества выполняют свои задачи. В сделке сохраняются документы, ответственные и следующий шаг.',
+ what:'Что объединяет платформа',cards:[
+ ['Одна сделка','Товар, торги, обязательства, доставка, качество, документы, расчёт и закрытие остаются связанными.'],
+ ['9 ролей','Участник видит только данные и действия, доступные его роли и организации.'],
+ ['7 этапов','От предложения до закрытия или разбора расхождений — с понятной задачей на каждом этапе.'],
+ ['История решений','Важные действия связаны с участником, условием или документом. Можно вернуться к их основанию.'],
+ ],
+ roles:'Кто участвует в сделке',trust:'Понятно, что согласовано и кто отвечает',legal:'Правила и документы',
+ legalText:'Условия использования платформы, обработка персональных данных и документы для ознакомления.',
+ register:'Подать заявку',contact:'Связаться с нами',how:'Как проходит сделка',
+ application:'Подайте заявку на подключение организации. После проверки заявки мы сообщим о доступе.'
+},
+en:{
+ title:'About the platform — Transparent Price',
+ description:'For sellers, buyers and agricultural Deal participants: offers, terms, delivery, quality, documents and settlement in one workspace.',
+ eyebrow:'About the platform',heading:'Selling, buying and execution — in one Deal',
+ lead:'The seller and buyer agree terms. Delivery, acceptance and quality participants handle their tasks. The Deal keeps documents, responsibilities and the next step together.',
+ what:'What the platform connects',cards:[
+ ['One Deal','Product, trading, commitments, delivery, quality, documents, settlement and closure remain connected.'],
+ ['9 roles','A participant sees only the data and actions allowed for their role and organisation.'],
+ ['7 stages','From an offer to closure or a review of discrepancies, with a clear task at each stage.'],
+ ['Decision history','Important actions are linked to a participant, condition or document, so their basis can be checked.'],
+ ],
+ roles:'Who participates in the Deal',trust:'Know what is agreed and who is responsible',legal:'Rules and documents',
+ legalText:'Platform terms, personal data handling and documents to review.',
+ register:'Apply for access',contact:'Contact us',how:'How the Deal works',
+ application:'Apply to connect your organisation. We will let you know about access after reviewing the application.'
+},
+zh:{
+ title:'关于平台 — 透明价格',
+ description:'面向卖方、买方及农业交易履约参与方：报价、条款、交付、质量、文件与结算汇集于同一工作区。',
+ eyebrow:'关于平台',heading:'销售、采购与履约，贯穿同一笔交易',
+ lead:'卖方与买方约定条款，交付、验收和质量检查参与方完成各自的任务。交易中保留相关文件、责任分工及下一步。',
+ what:'平台连接什么',cards:[
+ ['一笔交易','商品、交易、义务、交付、质量、文件、结算和关闭保持关联。'],
+ ['9 个角色','参与方只看到其角色和机构允许的数据与操作。'],
+ ['7 个阶段','从供求信息到交易关闭或差异处理，每个阶段都有明确的任务。'],
+ ['决定历史','重要操作关联到参与方、条件或文件，以便核查其依据。'],
+ ],
+ roles:'谁参与交易',trust:'了解已约定的事项及责任分工',legal:'规则与文件',
+ legalText:'查阅平台使用条款、个人数据处理规则及相关文件。',
+ register:'申请接入',contact:'联系我们',how:'交易如何进行',
+ application:'请提交机构接入申请。审核申请后，我们会通知您访问权限的情况。'
+}} as const;
 
-const TRUST_LINKS = [
-  {
-    title: 'Демонстрационная сделка',
-    note: 'Публичный proof-of-flow без доступа к рабочим кабинетам и реальным данным.',
-    href: '/platform-v7/demo',
-  },
-  {
-    title: 'Документный контур',
-    note: 'СДИЗ, ЭДО, транспортные документы, акты, приёмка, качество и доказательства.',
-    href: '/platform-v7/docs',
-  },
-  {
-    title: 'Статус сервисов',
-    note: 'Честная граница текущей готовности: controlled pilot / pre-integration.',
-    href: '/platform-v7/status',
-  },
-  {
-    title: 'Обратная связь',
-    note: 'Единый публичный канал для вопросов по пилоту, банку, региону и подключению.',
-    href: '/platform-v7/contact',
-  },
-];
-
-const SEO_LINKS = [
-  { title: 'Безопасная зерновая сделка', note: 'Исполнение после цены: рейс, приёмка, документы, расчёт, спор и доказательства.', href: '/platform-v7/secure-grain-deal' },
-  { title: 'Логистика зерна', note: 'Рейс, водитель, маршрут, элеватор, контрольные точки и отклонения.', href: '/platform-v7/grain-logistics' },
-  { title: 'Качество и приёмка', note: 'Вес, лабораторные показатели, допуски, расхождения и доказательный слой.', href: '/platform-v7/grain-quality' },
-  { title: 'Документы сделки', note: 'СДИЗ, ЭДО, транспортные документы, акты и комплектность до расчёта.', href: '/platform-v7/grain-documents' },
-  { title: 'Расчёты по сделке', note: 'Основание для оплаты после подтверждённых событий, документов и качества.', href: '/platform-v7/grain-payment' },
-  { title: 'ФГИС Зерно и СДИЗ', note: 'Целевой pre-integration контур регуляторного следа и прослеживаемости партии.', href: '/platform-v7/fgis-zerno' },
-];
-
-const LEGAL_LINKS = [
-  { label: 'Privacy', href: '/platform-v7/privacy' },
-  { label: 'Terms', href: '/platform-v7/terms' },
-  { label: 'Oferta', href: '/platform-v7/oferta' },
-  { label: 'Docs', href: '/platform-v7/docs' },
-];
-
-export default function AboutPage() {
-  return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>О проекте</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Прозрачная Цена — это не витрина объявлений, а цифровой контур исполнения внебиржевой зерновой сделки: от цены и допуска до логистики, приёмки, документов, основания для расчёта, спора и доказательств.
-        </div>
-        <div style={{ marginTop: 10, fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>
-          Процент Агро и Процент-Агро.рф используются как публичная доменная связка проекта Прозрачная Цена.
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Что делает система</div>
-        <Bullet text='Держит сделку в одном контуре, а не разносит её по чатам, звонкам и разрозненным файлам.' />
-        <Bullet text='Показывает следующий шаг, владельца действия и причину блокировки расчёта.' />
-        <Bullet text='Связывает логистику, документы, приёмку, качество, банковское основание и спор в одну цепочку.' />
-        <Bullet text='Собирает доказательную базу для оператора, банка, комплаенса и разбора расхождений.' />
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Доверие и прозрачность</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Здесь собраны публичные поверхности, которые помогают понять контур без доступа к личным кабинетам и без заявления неподтверждённых live-интеграций.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          {TRUST_LINKS.map((item) => (
-            <PublicLink key={item.href} item={item} />
-          ))}
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Публичные разделы для поиска</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Эти страницы объясняют поисковикам и рынку, что Процент-Агро — это контур исполнения зерновой сделки, а не обычная доска объявлений.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          {SEO_LINKS.map((item) => (
-            <PublicLink key={item.href} item={item} />
-          ))}
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Публичный канал связи</div>
-        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Для вопросов по платформе, controlled pilot, банковскому контуру, региональному запуску или техническому взаимодействию используется форма обращения. Неподтверждённые реквизиты, демо-email и тестовые телефоны на публичной странице не публикуются.
-        </div>
-        <Link href='/platform-v7/contact' style={{ width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Задать вопрос
-        </Link>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Юридический и документный контур</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {LEGAL_LINKS.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '8px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800 }}>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Эти поверхности нужны не для витрины, а для понятного внешнего контура: право, безопасность, условия работы и документы платформы.
-        </div>
-      </section>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          На главную
-        </Link>
-        <Link href='/platform-v7/status' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-          Статус сервисов
-        </Link>
-      </div>
-    </div>
-  );
+export async function generateMetadata():Promise<Metadata>{
+ const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
+ return {title:c.title,description:c.description,alternates:{canonical:'/platform-v7/about',languages:{ru:'/platform-v7/about?lang=ru',en:'/platform-v7/about?lang=en',zh:'/platform-v7/about?lang=zh'}},robots:{index:true,follow:true}};
 }
 
-function PublicLink({ item }: { item: { title: string; note: string; href: string } }) {
-  return (
-    <Link href={item.href} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
-      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
-      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
-      <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
-    </Link>
-  );
-}
-
-function Bullet({ text }: { text: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
-      <span style={{ fontWeight: 900 }}>•</span>
-      <span>{text}</span>
+export default async function AboutPage(){
+ const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
+ return <main className='pc-canonical-public p7-about-page'>
+  <CanonicalPublicHeader locale={locale} activePath='/platform-v7/about'/>
+  <section className='pc-cp-hero' style={{minHeight:'auto'}}>
+   <div className='pc-cp-container pc-cp-hero-grid'>
+    <div className='pc-cp-hero-copy' style={{minHeight:'auto'}}>
+      <span className='pc-cp-eyebrow'>{c.eyebrow}</span><h1>{c.heading}</h1><p>{c.lead}</p>
+      <div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16} aria-hidden='true'/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div>
+      <p>{c.application}</p>
     </div>
-  );
+    <aside className='pc-cp-card pc-cp-state-shell'><CanonicalDealSpine locale={locale} currentIndex={null}/></aside>
+   </div>
+  </section>
+
+  <section className='pc-cp-section'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><h2>{c.what}</h2></div>
+    <div className='pc-cp-trust-grid'>
+      {c.cards.map(([title,text],index)=>{const Icon=[CheckCircle2,UsersRound,FileText,ShieldCheck][index]!;return <article className='pc-cp-card pc-cp-trust-card' key={title}><i><Icon size={16} aria-hidden='true'/></i><strong>{title}</strong><p>{text}</p></article>})}
+    </div>
+  </div></section>
+
+  <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><h2>{c.roles}</h2></div>
+    <div className='pc-cp-hero-proof'>{CANONICAL_ROLES[locale].map(role=><span key={role}>{role}</span>)}</div>
+  </div></section>
+
+  <section className='pc-cp-section'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><h2>{c.trust}</h2></div>
+    <CanonicalTrustLedger locale={locale}/>
+  </div></section>
+
+  <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
+
+  <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><h2>{c.legal}</h2><p>{c.legalText}</p></div>
+    <div className='pc-cp-actions'>
+      <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/privacy?lang=${locale}`}>{locale==='ru'?'Конфиденциальность':locale==='en'?'Privacy':'隐私'}</Link>
+      <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/terms?lang=${locale}`}>{locale==='ru'?'Условия':locale==='en'?'Terms':'条款'}</Link>
+      <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/docs?lang=${locale}`}>{locale==='ru'?'Документы':locale==='en'?'Documents':'文件'}</Link>
+      <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/contact?lang=${locale}`}>{c.contact}</Link>
+    </div>
+  </div></section>
+
+  <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale}/>
+ </main>;
 }

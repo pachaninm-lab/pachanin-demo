@@ -11,6 +11,12 @@ type StaffRequest = {
 export class StaffCapabilitiesController {
   constructor(private readonly capabilities: StaffCapabilitiesService) {}
 
+  @Get('home')
+  @RateLimit({ name: 'staff_capabilities_home', scope: 'user', limit: 120, windowSeconds: 60 })
+  getHome(@Req() request: StaffRequest) {
+    return this.capabilities.getHome(request.user);
+  }
+
   @Get('me')
   @RateLimit({ name: 'staff_capabilities_me', scope: 'user', limit: 120, windowSeconds: 60 })
   getMine(@Req() request: StaffRequest) {

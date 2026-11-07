@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-crop-field-photos-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-18: replace three inconsistent crop category photos with pinned CC0 field originals.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-18.",
+  "coordination": "Team Hub #5469 checkpoint 5797999648; source correction for visual verification PR #5548.",
+  "allowedPaths": [
+    "apps/web/scripts/materialize-public-crops.mjs",
+    "apps/web/scripts/public-crop-photos.json",
+    "docs/platform-v7/autopilot/scopes/public-crop-field-photos-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Three changed originals are field photographs with CC0 source pages, pinned SHA-256 and local WebP build output.",
+    "Fixed Wikimedia host, JPEG validation, size and digest guards remain enabled.",
+    "Integrated 390/1280 screenshot review, exact-head CI and independent review remain required before UX-18 PASS."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

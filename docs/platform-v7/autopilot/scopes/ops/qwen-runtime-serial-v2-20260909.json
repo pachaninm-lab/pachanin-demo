@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/qwen-runtime-serial-v2-20260909",
+  "status": "active",
+  "purpose": "Serialize the shared Local Qwen exact-head review provider inference after repeated bounded timeouts under concurrent llama processes, preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
+  "authorityBaseExactMain": "c78e6539e9c133e84960d0483a892a45b4813caf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
+    "docs/platform-v7/autopilot/scopes/ops/qwen-runtime-serial-v2-20260909.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "securityGateWeakening": false,
+    "reviewGateWeakening": false,
+    "diffCoverageReduced": false,
+    "providerPinsChanged": false,
+    "failClosedPublicationPreserved": true
+  }
+}

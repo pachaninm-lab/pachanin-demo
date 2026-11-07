@@ -1,13 +1,48 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { NextRequest } from 'next/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+
+vi.mock('@/lib/server-request-security', () => ({
+  assertCsrf: vi.fn(() => ({ ok: true })),
+}));
 
 const root = process.cwd().endsWith(path.join('apps', 'web'))
   ? path.resolve(process.cwd(), '..', '..')
   : process.cwd();
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
+function employeeJoinDecisionRequest() {
+  const request = new NextRequest(
+    'https://app.example.test/api/auth/organization-join-requests/reg_employee/decision',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'p0-employee-join-http-contract',
+        'x-correlation-id': 'p0-employee-join-http-contract',
+        cookie: `${ACCESS_COOKIE}=seller-access-token`,
+      },
+      body: JSON.stringify({
+        decision: 'APPROVE',
+        reason: 'Production employee organization join approval',
+        locale: 'ru',
+      }),
+    },
+  );
+  request.cookies.set(ACCESS_COOKIE, 'seller-access-token');
+  return request;
+}
+
 describe('P0 first-customer completion boundaries', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
   it('keeps invitation delivery secrets and raw tokens inside server-only routes', () => {
     const api = read('apps/api/src/modules/auth/organization-invitation.service.ts');
     const bff = read('apps/web/app/api/auth/organization-invitations/route.ts');
@@ -82,6 +117,187 @@ describe('P0 first-customer completion boundaries', () => {
     expect(decisions).toContain('ROLE_PERMISSION_CEILING_EXCEEDED');
   });
 
+  it('keeps organization join decisions inside coherent API, mail and browser time budgets', () => {
+    const api = read('apps/api/src/modules/auth/registration-decision.service.ts');
+    const bff = read('apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts');
+    const client = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
+    const acceptance = read('scripts/production-p0-all-role-registration.sh');
+    const decideJoin = client.slice(
+      client.indexOf('async function decideJoin'),
+      client.indexOf('async function memberCommand'),
+    );
+
+    expect(api).toContain('timeout: 15_000, maxWait: 5_000');
+    expect(bff).toContain('export const maxDuration = 100;');
+    expect(bff).toContain('const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;');
+    expect(bff).toContain('signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS)');
+    expect(bff).toContain('let upstreamResponse: Response;');
+    expect(api).toContain('queueRegistrationDecisionNotification');
+    expect(api).toContain("kind: 'REGISTRATION_DECISION'");
+    expect(api).toContain('waitForRegistrationDecisionDelivery');
+    expect(bff).toContain("notification?.status === 'SENT'");
+    expect(bff).toContain("provider: 'auth-mail-outbox'");
+    expect(decideJoin).toContain('signal: AbortSignal.timeout(120_000)');
+    expect(decideJoin).not.toContain('signal: AbortSignal.timeout(15_000)');
+    expect(acceptance).toContain("'HTTP_REQUEST_TIMEOUT_ENVELOPE'");
+    expect(acceptance).toContain("'--max-time 110'");
+
+    expect(bff).toContain('assertCsrf(request)');
+    expect(bff).toContain('request.cookies.get(ACCESS_COOKIE)?.value');
+    expect(bff).toContain("'Idempotency-Key': idempotencyKey");
+    expect(bff).toContain("'X-Registration-Delivery-Key': deliveryKey");
+    expect(bff).toContain("code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503");
+    expect(bff).toContain('return json({ ...payload, notificationDelivered, correlationId }, 200);');
+
+    expect(bff).toContain("error instanceof Error && error.name === 'TimeoutError'");
+    expect(bff).toContain("? 'UPSTREAM_TIMEOUT'");
+    expect(bff).toContain(": 'UPSTREAM_TRANSPORT'");
+    expect(bff).toMatch(/console\.warn\('organization_join_decision_upstream_failure', JSON\.stringify\(\{\s*correlationId,\s*failureClass,\s*\}\)\);/);
+    expect(bff).not.toContain('error.message');
+    expect(bff).not.toContain('String(error)');
+  });
+
+  it('normalizes a successful upstream join decision to the public HTTP 200 contract', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      notificationDelivery: { status: 'SENT' },
+    }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      notificationDelivered: true,
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+  });
+
+  it('accepts an exact join replay only after durable SENT evidence', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: true,
+      notificationDelivery: { status: 'SENT' },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: true,
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(payload).not.toHaveProperty('notificationDelivered');
+  });
+
+  it('fails closed when an upstream join replay omits durable SENT evidence', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: true,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      replayed: true,
+      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(payload).not.toHaveProperty('notificationDelivered');
+  });
+
+  it('preserves an unsuccessful upstream join decision status', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'REGISTRATION_STATE_CONFLICT',
+      status: 'ACTIVATED',
+    }), {
+      status: 409,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(409);
+    expect(payload).toMatchObject({
+      code: 'REGISTRATION_STATE_CONFLICT',
+      correlationId: 'p0-employee-join-http-contract',
+    });
+  });
+
+  it('preserves the API fail-closed durable notification status after a committed decision', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      correlationId: 'p0-employee-join-durable-pending',
+    }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(payload).toMatchObject({
+      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+      status: 'ACTIVATED',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivered');
+  });
+
   it('offers an authenticated one-time MFA step-up instead of requiring a new login', () => {
     const api = read('apps/api/src/modules/auth/auth.service.ts');
     const start = read('apps/web/app/api/auth/mfa-step-up/start/route.ts');
@@ -147,10 +363,10 @@ describe('P0 first-customer completion boundaries', () => {
 
   it('does not render the staff control plane for an ordinary authenticated business user', () => {
     const staffPage = read('apps/web/app/platform-v7/staff/page.tsx');
-    expect(staffPage).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(staffPage).toContain('fetch(`${API_BASE_URL}/staff/capabilities/me`');
     expect(staffPage).toContain('parseStaffCapabilitiesContract(');
     expect(staffPage).toContain('capabilities.identity.id !== identity.id');
-    expect(staffPage).not.toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
+    expect(staffPage).not.toContain('fetch(`${API_BASE_URL}/staff/assignments/me`');
     expect(staffPage).not.toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
     expect(staffPage).toContain("capabilitiesResponse.status === 403");
     expect(staffPage).toContain("verification.status === 'forbidden'");

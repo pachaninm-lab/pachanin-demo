@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-production-api-base-3048-20260828",
+  "branch": "fix/gekta-production-api-base-3048-20260828",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "66441d712d6c83650a31f533465204ed39651aee"
+  },
+  "purpose": "Repair the proven Gekta stream blocker in the bounded web-only exact-SHA release without weakening live acceptance. Release run 33194982129 proved the target web image became healthy, exact manifest and RU/EN/ZH public routes passed, but all 12 Gekta stream attempts failed closed with HTTP 503 and GEKTA_SERVICE_UNAVAILABLE after a valid anonymous reservation. Gekta server routes still used raw API_URL/NEXT_PUBLIC_API_URL instead of the canonical server-side API base authority introduced for production, while the production web hardening override did not pin the canonical Nest /api base. Reuse the existing fail-closed resolver and pin only the web API_URL to the exact Compose API base.",
+  "allowedPaths": [
+    "apps/web/lib/server/gekta-auth-route.ts",
+    "apps/web/tests/unit/gektaApiBaseAuthority.test.ts",
+    "infra/compose/production-web-hardening.override.yml",
+    "docs/platform-v7/autopilot/scopes/gekta-production-api-base-3048-20260828.json"
+  ],
+  "evidence": {
+    "failedReleaseRun": 33194982129,
+    "targetSha": "66441d712d6c83650a31f533465204ed39651aee",
+    "rollbackBaselineSha": "c296db42428f91eaeec71d1ee50bf5a0c6ed2927",
+    "targetWebState": "healthy",
+    "manifest": "exact SHA match",
+    "publicRoutes": "RU/EN/ZH platform, Deal and Gekta routes HTTP 200; crawler, indexation and compatibility checks passed",
+    "streamFailure": "12/12 attempts reserve_http=200, ticket=valid, stream_http=503, body_bytes=36, GEKTA_SERVICE_UNAVAILABLE",
+    "historicalStreamPass": "Production Gekta Stream Diagnostic run 32091265631 passed before the production API-base authority changes",
+    "productionApiBase": "http://api:3001/api",
+    "mutationBoundary": "web application and web-only Compose hardening only; no API, database, migration, model, auth-state, user, role, tenant or business-state mutation"
+  },
+  "forbiddenChanges": [
+    "Gekta stream admission semantics, anonymous quota, ticket format, model runtime, prompts or safety policy",
+    "production API code, API image, database, migrations, PostgreSQL data or registration delivery secret",
+    "authentication, MFA, RBAC, RLS, tenant, organization, user or membership state",
+    "release-gate relaxation, removal of Gekta stream acceptance, synthetic SSE events, hidden retries or acceptance bypass",
+    "DNS, Caddy, external integrations, new secrets, credentials, SaaS, hosting providers or recurring costs"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "Gekta API-base authority unit test",
+    "existing server API-base authority unit test",
+    "existing Gekta registration and anonymous-admission security tests",
+    "production web hardening contract",
+    "exact-SHA web image and OCI revision checks",
+    "all existing manifest, route, crawler, indexation, compatibility and Gekta stream gates remain fail-closed"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This remediation only repairs the proven web-to-API authority path required by the existing Gekta stream production gate. It does not claim unrelated Gekta product, model, mobile or full-stack completion."
+}

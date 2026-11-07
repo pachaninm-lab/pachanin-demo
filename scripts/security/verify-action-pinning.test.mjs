@@ -8,7 +8,7 @@ import test from 'node:test';
 const SCRIPT = 'scripts/security/verify-action-pinning.mjs';
 const SHA = '0'.repeat(40);
 
-function fixture({ workflows, ceiling }) {
+function fixture({ workflows, ceiling, pinnedFloor = 0, baselineOverride }) {
   const root = mkdtempSync(join(tmpdir(), 'action-pin-'));
   const dir = join(root, 'workflows');
   mkdirSync(dir, { recursive: true });
@@ -16,7 +16,9 @@ function fixture({ workflows, ceiling }) {
     writeFileSync(join(dir, name), body);
   }
   const baseline = join(root, 'baseline.json');
-  writeFileSync(baseline, JSON.stringify({ schemaVersion: 1, maxFloatingReferences: ceiling, pinnedReferences: 0 }));
+  const body = baselineOverride
+    ?? { schemaVersion: 1, maxFloatingReferences: ceiling, pinnedReferences: pinnedFloor };
+  writeFileSync(baseline, JSON.stringify(body));
   return { root, dir, baseline };
 }
 
@@ -131,4 +133,73 @@ test('a malformed baseline ceiling fails closed', () => {
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
+});
+
+
+/**
+ * The pinned count is a floor, the mirror of the floating ceiling.
+ *
+ * It used to be written by --update-baseline and read by nothing, so it
+ * asserted nothing at all. These cases bind it, and the fourth is the reason
+ * it exists: the ceiling alone does not cover every shape of unpinning.
+ */
+
+const PINNED = `jobs:\n  x:\n    steps:\n      - uses: actions/checkout@${SHA}\n`;
+const FLOATING = 'jobs:\n  y:\n    steps:\n      - uses: actions/setup-node@v4\n';
+
+test('pinned references at the floor pass', () => {
+  withFixture({ workflows: { 'a.yml': PINNED }, ceiling: 0, pinnedFloor: 1 }, ({ status, out }) => {
+    assert.equal(status, 0);
+    assert.match(out, /ACTION_PINNING: WITHIN_BASELINE/u);
+  });
+});
+
+test('pinned references below the floor fail', () => {
+  withFixture({ workflows: { 'a.yml': PINNED }, ceiling: 0, pinnedFloor: 2 }, ({ status, out }) => {
+    assert.equal(status, 1);
+    assert.match(out, /pinned references fell from 2 to 1/u);
+    assert.match(out, /must not be unpinned/u);
+  });
+});
+
+test('pinned references above the floor are reported as slack to tighten', () => {
+  withFixture({ workflows: { 'a.yml': PINNED }, ceiling: 0, pinnedFloor: 0 }, ({ status, out }) => {
+    assert.equal(status, 0);
+    assert.match(out, /pinned references rose to 1/u);
+  });
+});
+
+test('unpinning stays caught when a floating reference is deleted in the same change', () => {
+  // The case the ceiling alone misses. One action was pinned and one floating
+  // reference existed: ceiling 1, floor 1. Now the pinned one is a tag and the
+  // other is gone, so floating is still exactly 1 - on the ceiling, passing -
+  // while pinned has fallen to 0.
+  withFixture({ workflows: { 'a.yml': FLOATING }, ceiling: 1, pinnedFloor: 1 }, ({ status, out }) => {
+    assert.equal(status, 1);
+    assert.match(out, /pinned references fell from 1 to 0/u);
+    // And it must not be the ceiling reporting it: floating is within budget.
+    assert.doesNotMatch(out, /floating references rose/u);
+  });
+});
+
+test('a missing pinnedReferences fails closed rather than skipping the floor', () => {
+  withFixture({
+    workflows: { 'a.yml': PINNED },
+    ceiling: 0,
+    baselineOverride: { schemaVersion: 1, maxFloatingReferences: 0 },
+  }, ({ status, out }) => {
+    assert.equal(status, 1);
+    assert.match(out, /pinnedReferences is not a non-negative integer/u);
+  });
+});
+
+test('a non-integer pinnedReferences fails closed', () => {
+  withFixture({
+    workflows: { 'a.yml': PINNED },
+    ceiling: 0,
+    baselineOverride: { schemaVersion: 1, maxFloatingReferences: 0, pinnedReferences: 'many' },
+  }, ({ status, out }) => {
+    assert.equal(status, 1);
+    assert.match(out, /pinnedReferences is not a non-negative integer/u);
+  });
 });

@@ -1,8 +1,11 @@
 services:
   web:
     container_name: !reset null
+    labels: !reset {}
     init: true
     restart: unless-stopped
+    environment:
+      API_URL: http://api:3001/api
     stop_grace_period: 30s
     healthcheck:
       test:

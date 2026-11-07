@@ -11,7 +11,8 @@ const steps = [
   ['preintegration_pack', 'node ./scripts/build-preintegration-evidence-pack.mjs'],
   ['critical_flow_audit', 'node ./scripts/audit-critical-flows.mjs'],
   ['role_contract_audit', 'node ./scripts/audit-role-contract-consistency.mjs'],
-  ['fallback_audit', 'node ./scripts/audit-fallback-surfaces.mjs']
+  ['fallback_audit', 'node ./scripts/audit-fallback-surfaces.mjs'],
+  ['posthog_public_analytics_runtime', 'node ./scripts/check-production-posthog-public-analytics-provision.mjs']
 ];
 
 const results = [];

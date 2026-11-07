@@ -78,6 +78,10 @@ export class StaffAccessRequestService {
     input: RequestStaffAccessInput,
     correlationId?: string,
   ) {
+    if (input.createIntentId) {
+      const replay = await this.access.replayAccessRequest(user, input);
+      if (replay) return replay;
+    }
     if (!input.targetDealId) {
       return this.access.requestAccess(user, input, correlationId);
     }
@@ -111,9 +115,10 @@ export class StaffAccessRequestService {
       throw new ForbiddenException('Target organization is not a participant in the target deal');
     }
 
-    return this.access.requestAccess(user, {
-      ...input,
-      targetTenantId: scope.tenant_id,
-    }, correlationId);
+    const resolved = { ...input, targetTenantId: scope.tenant_id };
+    // Fingerprint the original command, not the current mutable resolver result.
+    return input.createIntentId
+      ? this.access.requestAccess(user, resolved, correlationId, undefined, undefined, input)
+      : this.access.requestAccess(user, resolved, correlationId);
   }
 }

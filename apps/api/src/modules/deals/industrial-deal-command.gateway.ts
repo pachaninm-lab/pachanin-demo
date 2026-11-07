@@ -137,10 +137,15 @@ export class IndustrialDealCommandGateway {
         });
         const truncated = entries.length > MAX_INTEGRATION_ENTRIES;
         const bounded = truncated ? entries.slice(0, MAX_INTEGRATION_ENTRIES) : entries;
-        const countsByStatus: Record<string, number> = {};
+        // Статус приходит из группировки по колонке БД и сегодня ограничен
+        // перечислением, поэтому здесь это не эксплуатируемый дефект, а тот же
+        // класс. Map снимает зависимость от того, останется ли колонка
+        // перечислением; Object.fromEntries сохраняет форму ответа.
+        const statusCounts = new Map<string, number>();
         for (const group of grouped) {
-          countsByStatus[group.status] = group._count._all;
+          statusCounts.set(group.status, group._count._all);
         }
+        const countsByStatus = Object.fromEntries(statusCounts);
         return {
           dealId,
           // Timestamps are rendered here rather than left to a serializer, so the shape

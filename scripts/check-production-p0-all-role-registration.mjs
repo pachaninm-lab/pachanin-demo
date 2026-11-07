@@ -1,173 +1,126 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const paths = {
-  workflow: '.github/workflows/production-p0-all-role-registration.yml',
-  runner: 'scripts/production-p0-all-role-registration.sh',
-  checker: 'scripts/check-production-p0-all-role-registration.mjs',
-  runbook: 'docs/ops/production-p0-all-role-registration.md',
-  scope: 'docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json',
-};
+const PREVIOUS_CHECKER_BLOB = '6cf81bdb7f598eb7f45792b4169bf480611083b7';
+const DECISION_BFF = 'apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts';
+const RUNNER = 'scripts/production-p0-all-role-registration.sh';
+const EMPLOYEE_REPLAY_OVERLAY = 'scripts/p0-employee-join-replay-contract-overlay.py';
 
-const sources = Object.fromEntries(
-  Object.entries(paths).map(([name, path]) => [name, readFileSync(path, 'utf8')]),
-);
-const scope = JSON.parse(sources.scope);
-const failures = [];
-
-function requireAll(sourceName, fragments) {
-  for (const fragment of fragments) {
-    if (!sources[sourceName].includes(fragment)) {
-      failures.push(`${paths[sourceName]}: missing ${JSON.stringify(fragment)}`);
-    }
-  }
-}
-
-function forbid(sourceName, pattern, message) {
-  if (pattern.test(sources[sourceName])) failures.push(`${paths[sourceName]}: ${message}`);
-}
-
-requireAll('workflow', [
-  'name: Production P0 All-Role Registration',
-  "github.event.issue.number == 3072",
-  "github.event.comment.body == '/production p0-all-role-registration current-main'",
-  'actions/workflows/production-p0-first-customer-acceptance.yml/runs',
-  'production-p0-first-customer-$TARGET_SHA-$deep_run_id',
-  'production.p0.first-customer.acceptance.v1',
-  'PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH',
-  "pnpm install --filter @pc/web... --frozen-lockfile --ignore-scripts",
-  'playwright install --with-deps chromium',
-  'PC_P0_PLAYWRIGHT_MODULE',
-  'PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE',
-  'PC_PROD_P0_MAILBOX_IMAP_PASSWORD',
-  'PC_PROD_SSH_HOST_FINGERPRINT',
-  'host="$(trim "${SSH_HOST_SECRET:-}")"',
-  'mapfile -t dns_ipv4 < <(',
-  'getent ahostsv4 "$LIVE_DOMAIN"',
-  '(( ${#dns_ipv4[@]} >= 1 ))',
-  'printf \'%s\\n\' "${dns_ipv4[@]}" | grep -Fxq "$host"',
-  'StrictHostKeyChecking=yes',
-  "bash scripts/production-p0-all-role-registration.sh",
-  'P0_ALL_ROLE_REGISTRATION=PASS',
-  'actions/upload-artifact@v4',
-  'Remove protected runner credentials',
-]);
-
-requireAll('runner', [
-  'PLATFORM_LABELS=(seller buyer logistics driver elevator lab surveyor bank)',
-  'ALL_LABELS=(seller buyer logistics driver elevator lab surveyor bank employee)',
-  "EXPECTED_ROLE[seller]='FARMER'",
-  "EXPECTED_ROLE[buyer]='BUYER'",
-  "EXPECTED_ROLE[logistics]='LOGISTICIAN'",
-  "EXPECTED_ROLE[driver]='DRIVER'",
-  "EXPECTED_ROLE[elevator]='ELEVATOR'",
-  "EXPECTED_ROLE[lab]='LAB'",
-  "EXPECTED_ROLE[surveyor]='SURVEYOR'",
-  "EXPECTED_ROLE[bank]='ACCOUNTING'",
-  "EXPECTED_ROLE[employee]='GUEST'",
-  "CABINET_ROUTE[seller]='/platform-v7/seller'",
-  "CABINET_ROUTE[buyer]='/platform-v7/buyer'",
-  "CABINET_ROUTE[logistics]='/platform-v7/logistics'",
-  "CABINET_ROUTE[driver]='/platform-v7/driver/field'",
-  "CABINET_ROUTE[elevator]='/platform-v7/elevator'",
-  "CABINET_ROUTE[lab]='/platform-v7/lab'",
-  "CABINET_ROUTE[surveyor]='/platform-v7/surveyor'",
-  "CABINET_ROUTE[bank]='/platform-v7/bank'",
-  "CABINET_ROUTE[employee]='/platform-v7/profile'",
-  'P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN',
-  'wait_for_reviewer_rate_window',
-  'wait_for_platform_approvals',
-  'P0_HUMAN_REVIEW_REQUIRED=8',
-  'p0_human_reviewer_ceremony',
-  'notificationSuppressed',
-  'register_and_verify employee',
-  'approve_employee_join',
-  '$LIVE_BASE/api/auth/organization-join-requests/',
-  'ORGANIZATION_ADMIN_DECISION_REQUIRED',
-  '$LIVE_BASE/api/auth/login',
-  '$LIVE_BASE/api/auth/mfa-login',
-  '$LIVE_BASE/api/auth/me',
-  "fetch('/api/proxy/auth/organization-team'",
-  '$LIVE_BASE/api/auth/logout',
-  "require(process.env.PC_P0_PLAYWRIGHT_MODULE)",
-  "kind === 'desktop'",
-  "kind === 'mobile'",
-  'page.goto',
-  'context.addCookies',
-  'assert_topology',
-  'P0_ALL_ROLE_REGISTRATION_COUNT=9/9',
-  'P0_ALL_ROLE_TOPOLOGY=8_ORGS_8_TENANTS_9_MEMBERSHIPS',
-  'P0_ALL_ROLE_DESKTOP_CHROMIUM=PASS',
-  'P0_ALL_ROLE_MOBILE_CHROMIUM=PASS',
-  'P0_ALL_ROLE_LOGOUT_RELOGIN=PASS',
-  'P0_ALL_ROLE_REGISTRATION=PASS',
-]);
-
-requireAll('runbook', [
-  '/production p0-all-role-registration current-main',
-  'Production P0 First-Customer Acceptance',
-  'ORGANIZATION_ADMIN_DECISION_REQUIRED',
-  'eight distinct organizations and tenants',
-  'live desktop Chromium',
-  'live mobile Chromium',
-  'P0_ALL_ROLE_REGISTRATION_COUNT=9/9',
-]);
-
-for (const name of ['workflow', 'runner']) {
-  forbid(name, /PC_P0_REVIEWER_(?:EMAIL|PASSWORD|TOTP_SECRET)|PC_PROD_P0_REVIEWER_/u,
-    'reviewer credential input is forbidden');
-  forbid(name, /pull_request_target:/u, 'pull_request_target is forbidden');
-  forbid(name, /continue-on-error:\s*true/u, 'continue-on-error is forbidden');
-  forbid(name, /StrictHostKeyChecking=(?:no|accept-new)/u, 'unpinned SSH host acceptance is forbidden');
-  forbid(name, /set\s+-[^\n]*x/u, 'shell tracing is forbidden');
-  forbid(name, /(?:demo\.|@demo\.|localStorage|role-preview)/iu, 'demo or client-selected role authority is forbidden');
-  forbid(name, /(?:netlify|vercel|railway)/iu, 'non-canonical production hosting is forbidden');
-}
-
-forbid('workflow', /\bDEFAULT_HOST\b/u,
-  'a historical production host constant is forbidden; protected host must match current DNS');
-forbid('workflow', /\b195[.]19[.]12[.]120\b/u,
-  'a historical REG.RU address is forbidden; resolve current DNS at execution time');
-
-forbid('runner', /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\s+(?:INTO\s+)?auth\./iu,
-  'direct production auth SQL mutation is forbidden');
-forbid('runner', /\/api\/staff\/registration\/applications\//u,
-  'CI must not call the staff decision endpoint');
-forbid('runner', /curl[^\n]+(?:127[.]0[.]0[.]1:3001|\/auth\/registration\/applications)/u,
-  'direct API approval or activation is forbidden');
-
-const expectedPaths = [
-  paths.workflow,
-  paths.runner,
-  paths.checker,
-  paths.runbook,
-  paths.scope,
-];
-if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schema mismatch`);
-if (scope.branch !== 'p0/production-all-role-registration-3785') failures.push(`${paths.scope}: branch mismatch`);
-if (scope.status !== 'active') failures.push(`${paths.scope}: scope is not active`);
-if (!/^[0-9a-f]{40}$/.test(scope.authorityBaseExactMain || '')) failures.push(`${paths.scope}: exact authority base missing`);
-if (scope.productionHosting !== 'REG_RU_VPS_ONLY') failures.push(`${paths.scope}: hosting mismatch`);
-if (scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must remain zero`);
-if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(expectedPaths)) failures.push(`${paths.scope}: exact path allowlist mismatch`);
-
-const syntax = spawnSync('bash', ['-n', paths.runner], { encoding: 'utf8' });
-if (syntax.status !== 0) failures.push(`${paths.runner}: bash syntax failed: ${syntax.stderr.trim()}`);
-
-const roleAssignments = [...sources.runner.matchAll(/EXPECTED_ROLE\[([a-z]+)\]='([A-Z_]+)'/gu)];
-const cabinetAssignments = [...sources.runner.matchAll(/CABINET_ROUTE\[([a-z]+)\]='([^']+)'/gu)];
-if (roleAssignments.length !== 9 || new Set(roleAssignments.map((match) => match[1])).size !== 9) {
-  failures.push(`${paths.runner}: role matrix must contain exactly nine distinct labels`);
-}
-if (cabinetAssignments.length !== 9 || new Set(cabinetAssignments.map((match) => match[1])).size !== 9) {
-  failures.push(`${paths.runner}: cabinet matrix must contain exactly nine distinct labels`);
-}
-
-if (failures.length) {
-  console.error('Production P0 all-role registration contract failed:');
-  for (const failure of failures) console.error(`- ${failure}`);
+function fail(message) {
+  console.error(`P0_ALL_ROLE_CHECKER_OVERLAY_ERROR=${String(message)
+    .toUpperCase()
+    .replace(/[^A-Z0-9_=|:-]/g, '_')
+    .slice(0, 300)}`);
   process.exit(1);
 }
 
-console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, one tenant-authoritative employee join, nine first-TOTP identities, eight tenants, desktop/mobile Chromium, protected read and logout/relogin.');
+const bff = readFileSync(DECISION_BFF, 'utf8');
+for (const marker of [
+  "const notificationDelivered = notification?.status === 'SENT';",
+  "code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+  "if (payload.replayed === true) return json({ ...payload, correlationId }, 200);",
+  "return json({ ...payload, notificationDelivered, correlationId }, 200);",
+]) {
+  if (!bff.includes(marker)) fail(`durable decision BFF marker missing: ${marker}`);
+}
+if (bff.includes('let notificationDelivered = false;')) {
+  fail('legacy synchronous decision notification marker remains');
+}
+
+const runner = readFileSync(RUNNER, 'utf8');
+const replayOverlay = readFileSync(EMPLOYEE_REPLAY_OVERLAY, 'utf8');
+for (const marker of [
+  'python3 scripts/p0-employee-join-replay-contract-overlay.py "$tmp"',
+  'P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS',
+]) {
+  if (!runner.includes(marker)) fail(`employee replay runner marker missing: ${marker}`);
+}
+for (const marker of [
+  "p.get('nextAction') != 'LOGIN'",
+  "p.get('replayed') is not True",
+  "or 'notificationDelivered' in p",
+  "p.get('notificationDelivered') is not True",
+  'P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS',
+]) {
+  if (!replayOverlay.includes(marker)) fail(`employee replay overlay marker missing: ${marker}`);
+}
+
+const replayDir = mkdtempSync(path.join(tmpdir(), 'pc-p0-employee-replay-overlay-'));
+const replayFixture = path.join(replayDir, 'executor.sh');
+const freshDecisionAssertion = `if p.get('status') != 'ACTIVATED' or p.get('nextAction') != 'LOGIN' or p.get('replayed') is not False or p.get('notificationDelivered') is not True:\n    raise SystemExit(1)\n`;
+const staleReplayAssertion = `if p.get('status') != 'ACTIVATED' or p.get('replayed') is not True or p.get('notificationDelivered') is not False:\n    raise SystemExit(1)\n`;
+try {
+  writeFileSync(replayFixture, `${freshDecisionAssertion}${staleReplayAssertion}`, {
+    encoding: 'utf8',
+    mode: 0o700,
+  });
+  const overlayResult = spawnSync('python3', [EMPLOYEE_REPLAY_OVERLAY, replayFixture], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  if (overlayResult.status !== 0) {
+    fail(`employee replay overlay execution failed: ${overlayResult.stderr.trim()}`);
+  }
+  if (!overlayResult.stdout.includes('P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS')) {
+    fail('employee replay overlay success marker missing');
+  }
+  const replayPatched = readFileSync(replayFixture, 'utf8');
+  if (replayPatched.includes(staleReplayAssertion)) {
+    fail('stale employee replay assertion remains');
+  }
+  for (const marker of [
+    "p.get('status') != 'ACTIVATED'",
+    "p.get('nextAction') != 'LOGIN'",
+    "p.get('replayed') is not True",
+    "or 'notificationDelivered' in p",
+  ]) {
+    if (!replayPatched.includes(marker)) fail(`patched employee replay assertion missing: ${marker}`);
+  }
+  if (!replayPatched.includes(freshDecisionAssertion)) {
+    fail('fresh employee join delivery assertion was not preserved');
+  }
+} finally {
+  rmSync(replayDir, { recursive: true, force: true });
+}
+
+const blob = spawnSync('git', ['cat-file', 'blob', PREVIOUS_CHECKER_BLOB], {
+  encoding: 'utf8',
+});
+if (blob.status !== 0 || !blob.stdout) {
+  fail('previous checker blob unavailable');
+}
+const actualBlob = spawnSync('git', ['hash-object', '--stdin'], {
+  input: blob.stdout,
+  encoding: 'utf8',
+});
+if (actualBlob.status !== 0 || actualBlob.stdout.trim() !== PREVIOUS_CHECKER_BLOB) {
+  fail('previous checker blob mismatch');
+}
+
+const oldLine =
+  "const decisionNotification = decisionBff.indexOf('let notificationDelivered = false;', decisionErrorPassthrough);";
+const newLine =
+  "const decisionNotification = decisionBff.indexOf(\"const notificationDelivered = notification?.status === 'SENT';\", decisionErrorPassthrough);";
+const count = blob.stdout.split(oldLine).length - 1;
+if (count !== 1) fail(`checker patch cardinality=${count}`);
+
+const patched = blob.stdout.replace(oldLine, newLine);
+const dir = mkdtempSync(path.join(tmpdir(), 'pc-p0-all-role-checker-overlay-'));
+const target = path.join(dir, 'checker.mjs');
+try {
+  writeFileSync(target, patched, { encoding: 'utf8', mode: 0o700 });
+  const result = spawnSync(process.execPath, [target], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.status !== 0) process.exit(result.status ?? 1);
+  console.log('P0_ALL_ROLE_DURABLE_DECISION_CHECKER_COMPATIBILITY=PASS');
+  console.log('P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_CHECKER=PASS');
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}

@@ -43,7 +43,6 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
 ]);
 
 const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
-  '/platform-v7/deals/',
   '/platform-v7/commodity-profiles',
   '/platform-v7/integrations',
   '/platform-v7/auction',
@@ -59,6 +58,7 @@ const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
 // ends so a longer path is not admitted by accident.
 const DESIGN_SYSTEM_V8_DYNAMIC_ROUTES = [
   /^\/platform-v7\/deals\/[^/]+\/accounting$/,
+  /^\/platform-v7\/deals\/[^/]+\/execution$/,
 ] as const;
 
 function normalizePath(value: string | null | undefined): string {

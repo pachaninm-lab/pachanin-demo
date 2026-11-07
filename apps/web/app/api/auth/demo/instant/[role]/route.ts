@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { demoLoginAllowed } from '../../../../../../lib/platform-v7/demo-login-policy';
+import {
+  resolveSameOriginRedirectTarget,
+  toPathAbsoluteReference,
+} from '../../../../../../lib/server-request-security';
 
 type DemoTarget = {
   role: string;
@@ -27,11 +31,6 @@ const ROLE_TARGETS: Record<string, DemoTarget> = {
   admin: { role: 'ADMIN', email: 'admin@demo.ru', firstPage: '/cabinet' },
 };
 
-function sanitizeDestination(raw: string | null | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  return raw.startsWith('/') ? raw : fallback;
-}
-
 function htmlEscape(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -39,6 +38,16 @@ function htmlEscape(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// The destination is written into an inline <script>, whose content is raw
+// text: HTML entities are not decoded there. Encode it as a JavaScript string
+// literal instead, with `<` escaped so the value can never close the element.
+function scriptStringLiteral(value: string): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
 export async function GET(
@@ -53,11 +62,14 @@ export async function GET(
   }
   const slug = ((await context.params).role || 'farmer').toLowerCase();
   const target = ROLE_TARGETS[slug] ?? ROLE_TARGETS.farmer;
-  const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage);
+  const to = toPathAbsoluteReference(
+    resolveSameOriginRedirectTarget(request.nextUrl.searchParams.get('to'), target.firstPage, request),
+    target.firstPage,
+  );
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
   const sessionPayload = encodeURIComponent(JSON.stringify({ role: target.role, exp, email: target.email }));
   const csrf = `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const dest = htmlEscape(to);
+  const dest = scriptStringLiteral(to);
   const sessionValue = htmlEscape(sessionPayload);
   const csrfValue = htmlEscape(csrf);
   const accessValue = htmlEscape(`demo.${Buffer.from(JSON.stringify({ role: target.role, exp })).toString('base64')}`);
@@ -86,7 +98,7 @@ export async function GET(
     document.cookie = 'pc_csrf_token=${csrfValue}; Path=/; SameSite=Lax; Secure';
     document.cookie = 'pc_access_token=${accessValue}; Path=/; SameSite=Lax; Secure';
     document.cookie = 'pc_refresh_token=${refreshValue}; Path=/; SameSite=Lax; Secure';
-    window.location.replace('${dest}');
+    window.location.replace(${dest});
   </script>
 </body>
 </html>`;

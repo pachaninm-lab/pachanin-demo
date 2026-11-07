@@ -58,8 +58,9 @@ export async function POST(request: Request) {
   const locale = String(body.locale || 'ru');
   const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
   if (
-    !/^\S+@\S+\.\S+$/.test(email)
-    || email.length > 254
+    // Length before pattern, so the pattern only ever sees a bounded string.
+    email.length > 254
+    || !/^\S+@\S+\.\S+$/.test(email)
     || !HUMAN_ROLES.has(role)
     || idempotencyKey.length < 16
     || idempotencyKey.length > 128

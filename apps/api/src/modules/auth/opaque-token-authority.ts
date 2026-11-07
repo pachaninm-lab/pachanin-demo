@@ -286,10 +286,19 @@ export function issueRegistrationStatusCredential(
   };
 }
 
-/** Backup codes are human-transcribed, so they are short and normalised. */
-export function issueMfaBackupCodeCredential(): IssuedCredential {
-  const raw = randomBytes(6).toString('hex').toUpperCase();
-  const rawToken = `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
+/**
+ * Wrap an already-minted backup code as a credential.
+ *
+ * Backup codes are human-transcribed, so their alphabet and grouping are a
+ * usability decision, and it belongs beside the base32 alphabet in
+ * auth-crypto.ts rather than here. This issuer used to mint its own besides
+ * that one, from six bytes - 48 bits - with no runtime caller. Two generators
+ * for one purpose is how a stale number survives: raising entropy in the live
+ * one leaves the dormant one for whoever calls it next. The entropy decision
+ * is now made in exactly one place and this issuer takes its result, so the
+ * typed issuer for this purpose is the live path rather than a second one.
+ */
+export function issueMfaBackupCodeCredential(rawToken: string): IssuedCredential {
   return {
     credentialId: rawToken,
     rawToken,

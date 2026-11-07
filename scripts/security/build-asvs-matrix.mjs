@@ -115,6 +115,47 @@ export function buildMatrixCsv(records) {
 }
 
 /**
+ * A tracked .ts file can be data rather than code. The presentation PDF is
+ * committed as base64 string literals - 265 KB of them - and a substring scan
+ * over that is noise, not evidence: `jwks` occurs inside part-12 and `sgx`
+ * inside parts 04, 07 and 08 purely by chance, which silently revoked V9.1.3
+ * and V11.7.1 (#4764). Patterns and file text are both lowercased below, so
+ * every case variant collides; on a payload that size a four-character pattern
+ * is near certain to match something.
+ *
+ * Excluding such files by path would let anyone hide real code under a blessed
+ * directory. A file is skipped only when its entire body is proven to be one
+ * exported opaque literal - no import, no call, no logic, nothing executable -
+ * so this rule cannot be used as a hiding place. Anything else in the file and
+ * it is scanned like any other source.
+ */
+/**
+ * Written as successive single-pass strips rather than one pattern. An earlier
+ * head expressed this as a single regex whose literal group carried a nested
+ * quantifier; CodeQL rejected it, and rather than guess which alert fired -
+ * there is no way to read the alert text from here - the whole class is removed.
+ * Every expression below is one non-nested quantifier over a character class or
+ * a lazily bounded block, so none of them can backtrack super-linearly.
+ *
+ * Order matters and is not cosmetic. String literals are stripped before line
+ * comments because base64 contains `/`, so a payload can hold `//` inside a
+ * literal and stripping comments first would eat the rest of that line. Block
+ * comments go first so a documented payload still reduces cleanly.
+ */
+const DATA_SKELETON = /^exportconst[A-Za-z_$][\w$]*(?::string)?=;?$/u;
+
+export function isOpaqueDataModule(text) {
+  const skeleton = String(text ?? '')
+    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
+    .replace(/'[A-Za-z0-9+/=\s]*'/gu, ' ')
+    .replace(/"[A-Za-z0-9+/=\s]*"/gu, ' ')
+    .replace(/`[A-Za-z0-9+/=\s]*`/gu, ' ')
+    .replace(/\/\/[^\n]*/gu, ' ')
+    .replace(/[\s+]/gu, '');
+  return DATA_SKELETON.test(skeleton);
+}
+
+/**
  * Conditions are evaluated here rather than trusted from the decision file, so
  * a decision cannot keep standing on a fact that has since changed.
  */
@@ -129,7 +170,9 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       && /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(path)
     ));
     const hits = candidates.filter((path) => {
-      const text = (readFile(path) ?? '').toLowerCase();
+      const raw = readFile(path) ?? '';
+      if (isOpaqueDataModule(raw)) return false;
+      const text = raw.toLowerCase();
       return patterns.some((pattern) => text.includes(pattern));
     });
     return {
@@ -178,7 +221,9 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       && !definedAt.includes(path)
     ));
     const hits = candidates.filter((path) => {
-      const text = (readFile(path) ?? '').toLowerCase();
+      const raw = readFile(path) ?? '';
+      if (isOpaqueDataModule(raw)) return false;
+      const text = raw.toLowerCase();
       return patterns.some((pattern) => text.includes(pattern));
     });
     return {
@@ -196,7 +241,20 @@ export function evaluateCondition(condition, { tracked, readFile }) {
   // self-revoking - the moment somebody closes the gap, the condition stops
   // holding, the decision is rejected, and the requirement returns to
   // assessment. A FAIL cannot rust in the matrix after it has been fixed.
-  if (condition.check === 'PRESENT_AT_PATH' || condition.check === 'ABSENT_AT_PATH') {
+  // PRESENT_ALL_AT_PATH exists because the two checks above match their
+  // patterns with .some(): several patterns in one condition are alternatives,
+  // not combined evidence. That is right when the patterns are spellings of one
+  // control (a DI token and its class name), and wrong when a condition means
+  // "the check AND the rejection are both still here" - there, dropping the
+  // rejection leaves the other pattern matching and the decision standing on a
+  // control that is half gone. This check requires every pattern in every named
+  // path, so a condition can say which of the two it meant instead of leaving a
+  // reader to guess from the prose.
+  if (
+    condition.check === 'PRESENT_AT_PATH'
+    || condition.check === 'ABSENT_AT_PATH'
+    || condition.check === 'PRESENT_ALL_AT_PATH'
+  ) {
     const paths = condition.paths ?? [];
     if (paths.length === 0) {
       return { condition: condition.condition, holds: false, evidence: 'condition declares no paths' };
@@ -211,11 +269,14 @@ export function evaluateCondition(condition, { tracked, readFile }) {
         evidence: `path not tracked: ${missing.join(', ')}`,
       };
     }
+    const requireEveryPattern = condition.check === 'PRESENT_ALL_AT_PATH';
     const hits = paths.filter((path) => {
       const text = (readFile(path) ?? '').toLowerCase();
-      return patterns.some((pattern) => text.includes(pattern));
+      return requireEveryPattern
+        ? patterns.every((pattern) => text.includes(pattern))
+        : patterns.some((pattern) => text.includes(pattern));
     });
-    const wantPresent = condition.check === 'PRESENT_AT_PATH';
+    const wantPresent = condition.check !== 'ABSENT_AT_PATH';
     // PRESENT requires every named path to carry the control; ABSENT requires
     // none of them to. Neither is satisfied by a partial result.
     const holds = wantPresent ? hits.length === paths.length : hits.length === 0;
@@ -223,7 +284,7 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       condition: condition.condition,
       holds,
       evidence: wantPresent
-        ? `${hits.length}/${paths.length} paths carry the control`
+        ? `${hits.length}/${paths.length} paths carry ${requireEveryPattern ? 'every pattern' : 'the control'}`
         : (hits.length === 0 ? `${paths.length} paths scanned, gap still open` : `gap closed in ${hits.join(', ')}`),
     };
   }

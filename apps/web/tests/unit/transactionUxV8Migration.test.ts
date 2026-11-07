@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const root = path.resolve(__dirname, '../../../..');
+const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const appShell = read('apps/web/components/v7r/AppShellV4.tsx');
@@ -17,7 +18,7 @@ const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f
 describe('Transaction UX v8 shell and Deal Workspace migration', () => {
   it('keeps exactly one active protected App Shell', () => {
     expect(protectedShell).toContain("from '@/components/v7r/AppShellV4'");
-    expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
+    expect(protectedShell).toContain('<AppShellV4 initialRole={verifiedRole}>');
     expect(protectedShell).not.toContain('TransactionAppShell');
     expect(appShell).toContain("import styles from './AppShellV4.module.css'");
     expect(appShell).not.toMatch(/dangerouslySetInnerHTML|style\s*=\s*\{\{/);
@@ -49,7 +50,13 @@ describe('Transaction UX v8 shell and Deal Workspace migration', () => {
     expect(workspace).toContain("action?.source === 'BANK_CALLBACK'");
     expect(workspace).toContain("action?.waitingForRoles.includes('BANK_CALLBACK')");
     expect(workspace).toContain('Ручное подтверждение невозможно.');
-    expect(workspace).toContain('Действие не отправлено и не сохранено на устройстве');
+    expect(workspace).not.toContain('Действие не отправлено и не сохранено на устройстве');
+    expect(workspace).toContain("data-command-outcome='UNKNOWN'");
+    expect(workspace).toContain('unresolved.current.has(dealId)');
+    expect(workspace).toContain('result.commandId !== commandId');
+    expect(workspace).toContain('result.dealId !== dealId');
+    expect(workspace).toContain('result.actionId !== action.id');
+    expect(workspace).toContain('aggregate changes cannot settle UNKNOWN');
   });
 
   it('keeps the migrated workspace token-only and accessible across display modes', () => {

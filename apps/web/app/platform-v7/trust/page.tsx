@@ -1,81 +1,153 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { getLocale } from 'next-intl/server';
 import {
-  Children,
-  Fragment,
-  cloneElement,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
-import BaseTrustCenterPage from '../../trust/page';
+  CanonicalBottomNav,
+  CanonicalFooter,
+  CanonicalGektaStrip,
+  CanonicalPublicHeader,
+  TRUST_MODEL,
+  canonicalPublicLocale,
+} from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-type Locale = 'ru' | 'en' | 'zh';
-type ElementProps = Record<string, unknown> & { children?: ReactNode };
+const META={"ru":["Доверие — Прозрачная Цена","Кто вправе действовать, что согласовано, откуда получены данные и где посмотреть основания решений по сделке."],"en":["Trust — Transparent Price","Who can act, what has been agreed, where data comes from and how to review the basis for Deal decisions."],"zh":["信任 — 透明价格","了解谁有权操作、已约定的事项、数据来源，以及如何核查交易决定的依据。"]} as const;
 
-const METADATA: Record<Locale, Readonly<{ title: string; description: string }>> = {
-  ru: {
-    title: 'Trust Center — безопасность, данные и Гекта',
-    description: 'Публичные правила полномочий, доказательств, обработки данных, доступности и использования Гекты в платформе «Прозрачная Цена».',
-  },
-  en: {
-    title: 'Trust Center — security, data and Gekta',
-    description: 'Public authority, evidence, data-processing, availability and Gekta boundaries for the Transparent Price platform.',
-  },
-  zh: {
-    title: '信任中心 — 安全、数据与 Gekta',
-    description: '透明价格平台公开的权限、证据、数据处理、可用性与 Gekta 边界。',
-  },
-};
-
-function localeOf(value: string): Locale {
-  if (value.startsWith('en')) return 'en';
-  if (value.startsWith('zh')) return 'zh';
-  return 'ru';
-}
-
-function rebrandTrustCopy(node: ReactNode, locale: Locale): ReactNode {
-  if (typeof node === 'string') {
-    if (locale === 'ru') {
-      return node
-        .replaceAll('У TAI', 'У Гекты')
-        .replaceAll('TAI', 'Гекта');
-    }
-    return node.replaceAll('TAI', 'Gekta');
-  }
-  if (Array.isArray(node)) return Children.toArray(node).map((child) => rebrandTrustCopy(child, locale));
-  if (!isValidElement(node)) return node;
-
-  const element = node as ReactElement<ElementProps>;
-  const children = Children.toArray(element.props.children).map((child) => rebrandTrustCopy(child, locale));
-  return cloneElement(element, undefined, ...children);
-}
-
-export default async function PlatformV7TrustPage() {
-  const locale = localeOf(await getLocale());
-  const page = rebrandTrustCopy(await BaseTrustCenterPage(), locale);
-  return (
-    <Fragment>
-      <style>{'.p7-ai-trigger,.p7-support-chat-button{display:none!important}'}</style>
-      {page}
-    </Fragment>
-  );
-}
-
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = localeOf(await getLocale());
-  const copy = METADATA[locale];
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
   return {
-    title: copy.title,
-    description: copy.description,
-    alternates: {
-      canonical: '/platform-v7/trust',
-      languages: {
-        ru: '/platform-v7/trust?lang=ru',
-        en: '/platform-v7/trust?lang=en',
-        zh: '/platform-v7/trust?lang=zh',
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/trust',
+      languages:{
+        ru:'/platform-v7/trust?lang=ru',
+        en:'/platform-v7/trust?lang=en',
+        zh:'/platform-v7/trust?lang=zh',
       },
     },
-    robots: { index: true, follow: true },
+    robots:{index:true,follow:true},
   };
+}
+
+const COPY={
+ru:{
+ e:'Доверие',t:'Понятно, что согласовано и кто отвечает',p:'Для важного действия видно: кто может действовать, на каком основании, откуда получен факт и что решено.',
+ fact:'От факта к решению',factLead:'Перед важным действием проверьте источник, документ и полномочия участника. Если подтверждения нет, его нужно получить, а не заменять предположением.',
+ rail:['Проверьте факт','Уточните источник','Проверьте полномочия','Сверьте основание','Изучите решение','Определите следующий шаг'],
+ boundaries:'Границы доверия',boundariesLead:'Что интерфейс не может решить сам.',
+ boundary:[
+  ['Роль и организация','Выбор роли в публичном интерфейсе не даёт доступ. Права появляются только после проверки организации и полномочий.'],
+  ['Финансовое состояние','Статус расчёта меняется только по подтверждённым событиям.'],
+  ['Внешняя система','Интеграция или внешнее событие считаются подтверждёнными только после фактического подтверждения внешней системой.'],
+  ['Гекта','Гекта объясняет данные и варианты действий, но не принимает критические решения.'],
+ ],
+ faq:'Частые вопросы',
+ faqs:[
+  ['Можно ли увидеть закрытые данные лота без регистрации?','Нет. Публичный рынок показывает только разрешённые обезличенные данные.'],
+  ['Может ли интерфейс сам назначить роль?','Нет. Доступ появляется только после проверки роли, организации и полномочий.'],
+  ['Что происходит при недоступном источнике?','Интерфейс показывает, что источник недоступен или данные устарели. Примерные и старые значения не выдаются за актуальные.'],
+  ['Как фиксируется спор?','Спор остаётся связан с конкретной Сделкой, основаниями, документами и журналом действий.'],
+ ],
+ register:'Подать заявку',how:'Как проходит сделка'
+},
+en:{
+ e:'Trust',t:'Know what is agreed and who is responsible',p:'For every important action, users can see who may act, the basis, the source and the recorded decision.',
+ fact:'From fact to decision',factLead:'Before an important action, check the source, document and participant permissions. Missing confirmation needs to be obtained, not replaced with an assumption.',
+ rail:['Check the fact','Identify the source','Check permissions','Review the basis','Review the decision','Identify the next step'],
+ boundaries:'Trust boundaries',boundariesLead:'What the interface cannot decide on its own.',
+ boundary:[
+  ['Role and organisation','Choosing a role in the public interface grants no access. Rights appear only after organisation and authority checks.'],
+  ['Financial state','Settlement status changes only after confirmed events.'],
+  ['External system','An integration or external event is treated as confirmed only after the external system confirms it.'],
+  ['Gekta','Gekta explains data and options but does not make critical decisions.'],
+ ],
+ faq:'Frequently asked questions',
+ faqs:[
+  ['Can private lot data be viewed without registration?','No. The public market shows only permitted anonymised data.'],
+  ['Can the interface assign a role?','No. Access is granted only after role, organisation and authority verification.'],
+  ['What happens when a source is unavailable?','The interface says when a source is unavailable or data is stale. Sample and old values are never presented as current.'],
+  ['How is a dispute recorded?','The dispute remains linked to the specific Deal, evidence, documents and action log.'],
+ ],
+ register:'Apply for access',how:'How the Deal works'
+},
+zh:{
+ e:'信任',t:'了解已约定的事项及责任分工',p:'每个重要操作都会说明谁有权处理、依据是什么、事实来自哪里，以及已记录的决定。',
+ fact:'从事实到决定',factLead:'执行重要操作前，请核查来源、文件和参与方权限。缺少确认时，应先取得确认，而不是用假设代替。',
+ rail:['核查事实','确认来源','检查权限','核对依据','查看决定','明确下一步'],
+ boundaries:'信任边界',boundariesLead:'平台不会用界面假设替代以下权威事实。',
+ boundary:[
+  ['角色与机构','在公开界面选择角色不会获得访问权限。机构和权限审核通过后才会开放相应权利。'],
+  ['金融状态','结算状态只会根据已确认事件发生变化。'],
+  ['外部系统','只有外部系统确认后，集成或外部事件才被视为已确认。'],
+  ['Gekta','Gekta 解释数据和可选操作，但不替人做关键决定。'],
+ ],
+ faq:'常见问题',
+ faqs:[
+  ['未注册能查看批次私有数据吗？','不能。公开市场只展示获准公开的匿名数据。'],
+  ['界面能自行分配角色吗？','不能。角色、机构和权限审核通过后才会开放访问。'],
+  ['数据源不可用时怎么办？','界面会明确提示来源不可用或数据过期，不会把示例或旧数据当成最新数据。'],
+  ['争议如何记录？','争议始终与具体交易、依据、文件和操作日志关联。'],
+ ],
+ register:'申请接入',how:'交易如何进行'
+}} as const;
+
+const TRUST_DETAILS={
+  ru:[
+    ['Кто действует','От какой организации','Какие действия доступны'],
+    ['Какое условие выполняется','Какой документ это подтверждает','К какой версии условий относится'],
+    ['Откуда получен факт','Когда он был получен','Можно ли проверить источник'],
+    ['Кто принял решение','Что разрешено дальше','Что осталось в истории'],
+  ],
+  en:[
+    ['Who is acting','For which organisation','Which actions are available'],
+    ['Which condition is met','Which document supports it','Which version of the terms applies'],
+    ['Where the fact came from','When it was received','Whether the source can be checked'],
+    ['Who made the decision','What is allowed next','What remains in the history'],
+  ],
+  zh:[
+    ['谁在操作','代表哪个机构','可以执行哪些操作'],
+    ['满足哪个条件','由哪份文件证明','对应哪个条件版本'],
+    ['事实来自哪里','何时获得','来源是否可核验'],
+    ['谁作出决定','下一步允许什么','历史中保留什么'],
+  ],
+} as const;
+
+export default async function TrustPage(){
+ const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
+ return <main className='pc-canonical-public pc-cp-page-trust'>
+  <CanonicalPublicHeader locale={locale} activePath='/platform-v7/trust'/>
+  <section className='pc-cp-hero pc-cp-trust-hero'>
+   <div className='pc-cp-container pc-cp-hero-grid'>
+    <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16} aria-hidden='true'/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div></div>
+    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Факты, права и решения можно проверить.':locale==='en'?'Facts, authority and decisions can be verified.':'事实、权限和决定都可核验。'}</strong><span>{locale==='ru'?'Проверяемые факты и история действий.':locale==='en'?'Verifiable facts and an action history.':'可核验事实和操作记录。'}</span></aside>
+   </div>
+  </section>
+  <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Модель доверия':locale==='en'?'Trust model':'信任模型'}</span><h2>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'操作前的四项检查'}</h2><p>{locale==='ru'?'Кто действует, на каком основании, откуда данные и какое решение принято.':locale==='en'?'Who acts, on what basis, where the data comes from and what was decided.':'谁来操作、依据是什么、数据来自哪里，以及作出了什么决定。'}</p></div>
+    <div className='pc-cp-trust-pillars'>
+      {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
+        <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
+        <ul>{TRUST_DETAILS[locale][index].map(bullet=><li key={bullet}><CheckCircle2 size={12} aria-hidden='true'/><span>{bullet}</span></li>)}</ul>
+        <div className='pc-cp-trust-pillar-media' data-visual-index={index} aria-hidden='true'/>
+      </article>)}
+    </div>
+  </div></section>
+  <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
+   <div className='pc-cp-section-head'><h2>{c.fact}</h2><p>{c.factLead}</p></div>
+   <div className='pc-cp-card pc-cp-state-shell'>
+    <div role='list' aria-label={c.fact} data-testid='public-trust-checklist' style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,140px),1fr))',gap:16,minWidth:0}}>
+     {c.rail.map((label,index)=><div className='pc-cp-stage' role='listitem' key={label} data-state='unknown'><i>{index+1}</i><strong>{label}</strong></div>)}
+    </div>
+   </div>
+  </div></section>
+  <section className='pc-cp-section pc-cp-section--tight pc-cp-trust-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
+  <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
+   <div className='pc-cp-section-head'><h2>{c.faq}</h2></div>
+   <div className='pc-cp-faq-row'>{c.faqs.map(([q,a])=><details className='pc-cp-card pc-cp-faq-item' key={q}><summary>{q}<span aria-hidden='true'>↓</span></summary><p>{a}</p></details>)}</div>
+  </div></section>
+  <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/trust'/>
+ </main>
 }

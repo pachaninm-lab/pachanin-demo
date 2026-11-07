@@ -1,0 +1,432 @@
+name: Production API-only immutable release
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/release/verify-api-schema-source-parity.mjs
+      - scripts/release/test-api-schema-source-parity.mjs
+      - scripts/release/api-only-release-controller.py
+      - scripts/release/test-api-only-release-controller.py
+      - .github/workflows/production-api-only-release.yml
+      - docs/ops/production-api-only-release.md
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.body == '/production api-only-release current-main' && 'pc-crop-production-release-candidate' || format('api-only-contract-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4637 &&
+       github.event.comment.body == '/production api-only-release current-main' &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner &&
+       github.run_attempt == 1)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.8.0'
+      - name: Bind actual full source head and immutable trusted scope
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]]
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            trusted=$(mktemp)
+            git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$trusted"
+            BASE_REF="$BASE_SHA" HEAD_REF="$SOURCE_SHA" bash "$trusted"
+            rm -f "$trusted"
+          fi
+      - name: Execute real-Git and complete release fault-injection tests
+        run: |
+          set -euo pipefail
+          node --test scripts/release/test-api-schema-source-parity.mjs
+          git diff --no-ext-diff --exit-code
+          git diff --cached --no-ext-diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+          sudo env "PATH=$PATH" PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/release/test-api-only-release-controller.py
+          git diff --no-ext-diff --exit-code
+          git diff --cached --no-ext-diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+
+
+  native_oracle:
+    name: Actual isolated PostgreSQL oracle on the complete PR source head
+    needs: contract
+    if: github.event_name == 'pull_request' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build only disposable exact-head API and migration images
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          docker build --build-arg "GIT_COMMIT=$TARGET_SHA" -f infra/docker/Dockerfile.api -t "pc-api-oracle-api:$GITHUB_RUN_ID" .
+          docker build --build-arg "GIT_COMMIT=$TARGET_SHA" -f infra/docker/Dockerfile.migrations -t "pc-api-oracle-migration:$GITHUB_RUN_ID" .
+      - name: Execute real PostgreSQL positive and adverse cases with owned cleanup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PC_API_TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+          PC_API_ORACLE_LOCAL_NATIVE: '1'
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          pg=$(python3 -c 'import json;r=json.load(open(".github/container-images/postgres-16-alpine.v1.json"));assert r["verification_status"]=="VERIFIED" and r["mirrored_digest"]==r["upstream_digest"];print(r["mirrored_repository"]+"@"+r["mirrored_digest"])')
+          docker pull "$pg" >/dev/null
+          export PC_API_DIGEST=$(docker image inspect --format '{{.Id}}' "pc-api-oracle-api:$GITHUB_RUN_ID")
+          export PC_API_MIGRATION_DIGEST=$(docker image inspect --format '{{.Id}}' "pc-api-oracle-migration:$GITHUB_RUN_ID")
+          mkdir -p artifacts/api-only-native-oracle
+          python3 -B scripts/release/api-only-release-controller.py oracle > artifacts/api-only-native-oracle/reference.json
+          python3 -B - <<'PYORACLE'
+          import json,os,pathlib
+          r=json.loads(pathlib.Path('artifacts/api-only-native-oracle/reference.json').read_text())
+          assert r['schema']=='pc.api-only-native-oracle.v1' and r['status']=='VERIFIED'
+          assert r['target_sha']==os.environ['PC_API_TARGET_SHA'] and r['api_digest']==os.environ['PC_API_DIGEST']
+          assert r['migration_digest']==os.environ['PC_API_MIGRATION_DIGEST'] and r['isolated_cleanup']=='VERIFIED'
+          assert set(r['negative_cases'])=={'wrong_database','principal_bypass','policy_drift','function_grant_drift'}
+          assert all(v=='PASS' for v in r['negative_cases'].values())
+          print('API_ONLY_NATIVE_ORACLE=PASS')
+          PYORACLE
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: api-only-native-oracle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/api-only-native-oracle
+          if-no-files-found: error
+          retention-days: 90
+
+  source:
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      target: ${{ steps.source.outputs.target }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: source
+        name: Verify accepted exact source and unchanged current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          python3 -B - <<'PY'
+          import hashlib,json,pathlib,re,stat
+          state=json.loads(pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
+          expected={"owner":"ACCOUNT_1_CORE","base":"19c157cee4b598175401d3266856450788a8d8ae",
+           "sourceBranch":"ops/production-api-only-release-20261101",
+           "guardBranch":"governance/industrial-load-diagnostics-20260919",
+           "record":"docs/platform-v7/autopilot/prompts/current-review-task.md#ap2",
+           "sourcePublicationAuthorized":False,"productionInvocationAuthorized":False,
+           "productionAcceptance":False,"masterCredit":0}
+          assert state['coordinationAdmissions']['pc-api-only-20261101']==expected
+          paths=['scripts/release/verify-api-schema-source-parity.mjs','scripts/release/test-api-schema-source-parity.mjs',
+           'scripts/release/api-only-release-controller.py','scripts/release/test-api-only-release-controller.py',
+           '.github/workflows/production-api-only-release.yml','docs/ops/production-api-only-release.md']
+          assert state['approvedConcurrentScopes'][expected['sourceBranch']]==paths
+          guard=pathlib.Path('scripts/p7-autopilot-guard.sh').read_text()
+          pattern=r'^  // API_ONLY_RELEASE_SOURCE_PINS_V1_BEGIN\n  const apiOnlySourcePins = (.+);\n  // API_ONLY_RELEASE_SOURCE_PINS_V1_END$'
+          data=re.findall(pattern,guard,re.M);assert len(data)==1
+          pins=json.loads(data[0]);assert [v['path'] for v in pins]==paths
+          for v in pins:
+              f=pathlib.Path(v['path']);raw=f.read_bytes();info=f.lstat()
+              assert stat.S_ISREG(info.st_mode) and v['mode']=='100644' and not info.st_mode&0o111
+              assert len(raw)==v['bytes'] and hashlib.sha256(raw).hexdigest()==v['sha256']
+              assert hashlib.sha1(('blob '+str(len(raw))+'\0').encode()+raw).hexdigest()==v['afterBlob']
+          PY
+          echo "target=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: source
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      services: api migration
+
+  images:
+    needs: [source, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      api_digest: ${{ steps.images.outputs.api_digest }}
+      migration_digest: ${{ steps.images.outputs.migration_digest }}
+      image_bytes: ${{ steps.images.outputs.image_bytes }}
+    steps:
+      - id: images
+        name: Bind canonical image revisions and immutable digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.source.outputs.target }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          short=$(printf '%s' "$TARGET_SHA" | cut -c1-7)
+          for component in api migration; do
+            image="ghcr.io/pachaninm-lab/grainflow-$component:sha-$short"
+            docker pull "$image" >/dev/null
+            [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" == "$TARGET_SHA" ]]
+            value=$(docker image inspect --format '{{json .RepoDigests}}' "$image" |
+              COMPONENT="$component" python3 -c 'import json,os,re,sys;r=json.load(sys.stdin);p="ghcr.io/pachaninm-lab/grainflow-"+os.environ["COMPONENT"]+"@sha256:";v=[s for s in r if re.fullmatch(re.escape(p)+"[0-9a-f]{64}",s)];assert len(v)==1;print(v[0])')
+            printf '%s_digest=%s\n' "$component" "$value" >> "$GITHUB_OUTPUT"
+            if [[ "$component" == api ]]; then
+              bytes=$(docker image inspect --format '{{.Size}}' "$image")
+              [[ "$bytes" =~ ^[1-9][0-9]*$ ]] && (( bytes<=4294967296 ))
+              echo "image_bytes=$bytes" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
+  oracle:
+    needs: [source, images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      reference_b64: ${{ steps.oracle.outputs.reference_b64 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.source.outputs.target }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: oracle
+        name: Generate a fresh target catalog and principal contract on isolated PostgreSQL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PC_API_TARGET_SHA: ${{ needs.source.outputs.target }}
+          PC_API_DIGEST: ${{ needs.images.outputs.api_digest }}
+          PC_API_MIGRATION_DIGEST: ${{ needs.images.outputs.migration_digest }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker pull "$PC_API_DIGEST" >/dev/null
+          docker pull "$PC_API_MIGRATION_DIGEST" >/dev/null
+          pg=$(python3 -c 'import json;r=json.load(open(".github/container-images/postgres-16-alpine.v1.json"));assert r["verification_status"]=="VERIFIED" and r["mirrored_digest"]==r["upstream_digest"];print(r["mirrored_repository"]+"@"+r["mirrored_digest"])')
+          docker pull "$pg" >/dev/null
+          mkdir -p artifacts/api-only-oracle
+          python3 -B scripts/release/api-only-release-controller.py oracle > artifacts/api-only-oracle/reference.json
+          python3 -B - <<'PY' >> "$GITHUB_OUTPUT"
+          import base64,json,os,pathlib
+          raw=pathlib.Path('artifacts/api-only-oracle/reference.json').read_bytes();r=json.loads(raw)
+          assert r['schema']=='pc.api-only-target-oracle.v1' and r['status']=='VERIFIED'
+          assert r['target_sha']==os.environ['PC_API_TARGET_SHA'] and r['api_digest']==os.environ['PC_API_DIGEST']
+          assert r['migration_digest']==os.environ['PC_API_MIGRATION_DIGEST']
+          assert r['producer_run_id']==os.environ['GITHUB_RUN_ID'] and r['isolated_cleanup']=='VERIFIED'
+          print('reference_b64='+base64.b64encode(raw).decode())
+          PY
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: api-only-target-oracle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/api-only-oracle
+          if-no-files-found: error
+          retention-days: 90
+
+  production:
+    needs: [contract, source, images, oracle]
+    if: github.event_name == 'issue_comment' && needs.oracle.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: read
+      packages: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.source.outputs.target }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind a fresh finite OWNER disposition before protected transport
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.source.outputs.target }}
+          COMMAND_ID: ${{ github.event.comment.id }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          deadline=$((SECONDS+600))
+          while true; do
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+            gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMAND_ID" > "$RUNNER_TEMP/api-only-command.json"
+            gh api --paginate "repos/$GITHUB_REPOSITORY/issues/5469/comments?since=$(date -u -d '25 minutes ago' +%Y-%m-%dT%H:%M:%SZ)&per_page=100" --slurp > "$RUNNER_TEMP/api-only-authority.json"
+            set +e
+            python3 -B scripts/release/api-only-release-controller.py bind-window
+            status=$?
+            set -e
+            (( status==0 )) && break
+            (( status==75 && SECONDS<deadline )) || exit 1
+            echo "Waiting for one fresh finite OWNER claim; protected transport has not started."
+            sleep 15
+          done
+
+      - id: transport
+        name: Resolve protected SSH identity, DNS and the uniquely pinned host key
+        env:
+          PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+          PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+          PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+          PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+          PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          host=$(python3 -c 'import os;print(os.environ.get("PC_PROD_HOST") or "195.19.12.120")')
+          port=$(python3 -c 'import os;print(os.environ.get("PC_PROD_SSH_PORT") or "22")')
+          [[ "$host" =~ ^[0-9.]+$ && "$port" =~ ^[0-9]{1,5}$ && "$PC_PROD_SSH_USER" == root ]]
+          (( port>=1 && port<=65535 ))
+          domain=$(python3 -c 'print("процент-агро.рф".encode("idna").decode())')
+          [[ "$(getent ahostsv4 "$domain" | awk '{print $1}' | sort -u)" == "$host" ]]
+          [[ "$PC_PROD_SSH_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]
+          install -d -m 700 "$HOME/.ssh"
+          python3 -B - <<'PY'
+          import os,pathlib
+          key=next((os.environ.get(n) for n in ('PC_PROD_SSH_KEY','PC_PROD_SSH_PRIVATE_KEY','VPS_SSH_KEY') if os.environ.get(n)),None)
+          assert key
+          p=pathlib.Path(os.environ['HOME']+'/.ssh/pc_api_only');p.write_text(key.rstrip('\n')+'\n');p.chmod(0o600)
+          PY
+          ssh-keygen -y -P '' -f "$HOME/.ssh/pc_api_only" >/dev/null
+          ssh-keyscan -T 5 -p "$port" "$host" 2>/dev/null > "$RUNNER_TEMP/api-only-keyscan"
+          : > "$HOME/.ssh/known_hosts"
+          while IFS= read -r line; do
+            printf '%s\n' "$line" > "$RUNNER_TEMP/api-only-key"
+            actual=$(ssh-keygen -lf "$RUNNER_TEMP/api-only-key" -E sha256 | awk '{print $2}')
+            [[ "$actual" != "$PC_PROD_SSH_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$HOME/.ssh/known_hosts"
+          done < "$RUNNER_TEMP/api-only-keyscan"
+          [[ "$(wc -l < "$HOME/.ssh/known_hosts")" == 1 ]]
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - id: release
+        name: Bind the actual API, Git source equality and oracle into one authenticated release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.transport.outputs.host }}
+          PORT: ${{ steps.transport.outputs.port }}
+          TARGET_SHA: ${{ needs.source.outputs.target }}
+          API_DIGEST: ${{ needs.images.outputs.api_digest }}
+          IMAGE_BYTES: ${{ needs.images.outputs.image_bytes }}
+          ORACLE_B64: ${{ needs.oracle.outputs.reference_b64 }}
+          COMMAND_ID: ${{ github.event.comment.id }}
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          ssh_args=(-i "$HOME/.ssh/pc_api_only" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10)
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          ssh "${ssh_args[@]}" "root@$HOST" python3 -B - <<'PY' > "$RUNNER_TEMP/api-only-baseline.json"
+          import json,re,subprocess
+          d=['/usr/bin/docker','--host','unix:///var/run/docker.sock']
+          ids=subprocess.check_output(d+['ps','-q','--no-trunc','--filter','label=com.docker.compose.service=api'],timeout=15).decode().splitlines()
+          assert len(ids)==1 and re.fullmatch('[0-9a-f]{64}',ids[0])
+          r=json.loads(subprocess.check_output(d+['inspect',ids[0]],timeout=15))[0]
+          image=json.loads(subprocess.check_output(d+['image','inspect',r['Image']],timeout=15))[0]
+          revision=image['Config']['Labels']['org.opencontainers.image.revision'];assert re.fullmatch('[0-9a-f]{40}',revision)
+          volumes=sorted(subprocess.check_output(d+['volume','ls','-q'],timeout=15).decode().splitlines());assert len(set(volumes))==len(volumes)==19
+          print(json.dumps({'api_id':ids[0],'image_id':r['Image'],'revision':revision,'volumes':volumes,'registry_digests':image.get('RepoDigests')},sort_keys=True))
+          PY
+          baseline=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["revision"])' "$RUNNER_TEMP/api-only-baseline.json")
+          git cat-file -e "$baseline^{commit}"
+          # The authenticated main read above is authority; all Git objects were fetched by checkout.
+          git update-ref refs/remotes/origin/main "$TARGET_SHA"
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$TARGET_SHA" ]]
+          node scripts/release/verify-api-schema-source-parity.mjs "$baseline" "$TARGET_SHA" > "$RUNNER_TEMP/api-only-parity.json"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          python3 -B scripts/release/api-only-release-controller.py baseline-publication > "$RUNNER_TEMP/api-only-baseline-publication.json"
+          python3 -B scripts/release/api-only-release-controller.py build-intent > "$RUNNER_TEMP/api-only-intent.json"
+          audience=$(python3 -B scripts/release/api-only-release-controller.py identity-audience)
+          encoded=$(AUDIENCE="$audience" python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["AUDIENCE"],safe=""))')
+          identity=$(curl --fail --silent --show-error --max-time 10 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$encoded")
+          IDENTITY_RESPONSE="$identity" python3 -B scripts/release/api-only-release-controller.py envelope > "$RUNNER_TEMP/api-only-envelope.json"
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          stage="/run/pc-api-only-$GITHUB_RUN_ID"
+          mkdir -p "$RUNNER_TEMP/api-only-stage/scripts/release" "$RUNNER_TEMP/api-only-stage/registry"
+          cp scripts/release/api-only-release-controller.py scripts/release/ir20-api-database-binding.py scripts/release/ir20-restore-drill.sh "$RUNNER_TEMP/api-only-stage/scripts/release/"
+          REGISTRY_AUTH="$GITHUB_ACTOR:$GH_TOKEN" python3 -B - <<'PY' > "$RUNNER_TEMP/api-only-stage/registry/config.json"
+          import base64,json,os
+          print(json.dumps({'auths':{'ghcr.io':{'auth':base64.b64encode(os.environ['REGISTRY_AUTH'].encode()).decode()}}}))
+          PY
+          tar -C "$RUNNER_TEMP/api-only-stage" -czf - scripts registry | ssh "${ssh_args[@]}" "root@$HOST" "umask 077; mkdir -- '$stage'; tar --no-same-owner --no-same-permissions -xzf - -C '$stage'"
+          set +e
+          ssh "${ssh_args[@]}" "root@$HOST" "python3 -B '$stage/scripts/release/api-only-release-controller.py' deploy" < "$RUNNER_TEMP/api-only-envelope.json" > "$RUNNER_TEMP/api-only-result.json"
+          remote_status=$?
+          set -e
+          mkdir -p artifacts/api-only-release
+          if python3 -B scripts/release/api-only-release-controller.py validate-result; then
+            echo "terminal_observed=true" >> "$GITHUB_OUTPUT"
+            cp "$RUNNER_TEMP/api-only-result.json" artifacts/api-only-release/result.json
+          else
+            echo "UNKNOWN: remote result is not a complete terminal receipt; do not replay."
+            exit 1
+          fi
+          (( remote_status==0 ))
+          python3 -c 'import json,os,pathlib;r=json.loads(pathlib.Path(os.environ["RUNNER_TEMP"]+"/api-only-result.json").read_text());assert r["result"]=="API_IMAGE_RELEASE_VERIFIED";print(json.dumps(r,sort_keys=True))'
+          # The mandatory canonical public checks already passed under the host lock.
+          curl --fail --silent --show-error --max-time 20 --proto '=https' "https://процент-агро.рф/platform-v7" >/dev/null || echo 'Advisory repeated public observation failed; use the held-lock terminal receipt.'
+
+      - if: always()
+        name: Clean only known-complete ephemeral transport; retain unknown operations
+        env:
+          HOST: ${{ steps.transport.outputs.host }}
+          PORT: ${{ steps.transport.outputs.port }}
+          TERMINAL_OBSERVED: ${{ steps.release.outputs.terminal_observed }}
+        run: |
+          set -euo pipefail
+          set +x
+          if [[ "$TERMINAL_OBSERVED" == true && "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ && "$HOST" =~ ^[0-9.]+$ && "$PORT" =~ ^[0-9]{1,5}$ && -s "$HOME/.ssh/pc_api_only" && -s "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/pc_api_only" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 "root@$HOST" "rm -rf -- '/run/pc-api-only-$GITHUB_RUN_ID'" >/dev/null 2>&1 || true
+          fi
+          rm -f "$HOME/.ssh/pc_api_only" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP"/api-only-*.json "$RUNNER_TEMP"/api-only-key*
+          rm -rf "$RUNNER_TEMP/api-only-stage"
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: api-only-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/api-only-release
+          if-no-files-found: ignore
+          retention-days: 90

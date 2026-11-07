@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-registration-decision-durable-outbox-4858",
+  "status": "active",
+  "issue": 4858,
+  "title": "Atomically enqueue registration decision mail and wait for durable SENT evidence",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260831211500_p0_registration_decision_mail_status/migration.sql",
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts",
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.spec.ts",
+    "apps/api/src/modules/auth-mail/auth-mail-templates.ts",
+    "apps/api/src/modules/auth/registration-decision.service.ts",
+    "apps/api/src/modules/auth/registration-decision.service.spec.ts",
+    "apps/web/app/api/staff/[...path]/route.ts",
+    "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
+    "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
+    "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
+    "apps/web/tests/unit/p0HumanReviewerCeremony.test.ts",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+    "docs/ops/production-p0-first-customer-acceptance.md",
+    "docs/platform-v7/autopilot/scopes/p0-registration-decision-durable-outbox-4858.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "directProductionSqlMutation": false,
+    "identityBypass": false,
+    "mfaWeakening": false,
+    "rlsWeakening": false,
+    "csrfWeakening": false,
+    "secretOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

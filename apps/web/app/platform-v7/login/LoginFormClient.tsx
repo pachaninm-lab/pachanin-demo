@@ -23,6 +23,8 @@ type LoginResponse = {
   backupCodes?: string[];
   membershipSelectionRequired?: boolean;
   memberships?: Array<{ membershipId: string; organizationName: string; role: string; isOrgAdmin: boolean }>;
+  code?: string;
+  correlationId?: string;
 };
 
 export type LoginCopy = {
@@ -39,6 +41,11 @@ export type LoginCopy = {
   required: string;
   invalidEmail: string;
   unavailable: string;
+  rateLimited: string;
+  accessNotActive: string;
+  staleForm: string;
+  serviceUnavailable: string;
+  reference: string;
   capsLock: string;
   mfaError: string;
   email: string;
@@ -84,7 +91,37 @@ async function requestJson(url: string, init: RequestInit) {
   }
 }
 
-export function LoginFormClient({ copy }: { copy: LoginCopy }) {
+type LoginFormPresentationCopy = LoginCopy & { locale: 'ru' | 'en' | 'zh' };
+
+const CORRELATION_REFERENCE = /^[A-Za-z0-9-]{8,64}$/;
+
+/**
+ * Maps the BFF's refused-login code to a message. Only the password-not-proven
+ * class keeps the generic "check your details" text, so no account state is
+ * revealed before the password is proven. Classes that are not about the
+ * entered credentials say what actually happened, and carry a short reference
+ * that matches the redacted server log line for the same attempt.
+ */
+export function loginFailureMessage(copy: Pick<LoginCopy, 'unavailable' | 'rateLimited' | 'accessNotActive' | 'staleForm' | 'serviceUnavailable' | 'reference'>, payload: Pick<LoginResponse, 'code' | 'correlationId'>) {
+  const reference = typeof payload.correlationId === 'string' && CORRELATION_REFERENCE.test(payload.correlationId)
+    ? payload.correlationId.slice(0, 8)
+    : '';
+  const withReference = (message: string) => (reference ? `${message} ${copy.reference} ${reference}` : message);
+  switch (payload.code) {
+    case 'INVALID_CREDENTIALS':
+      return copy.unavailable;
+    case 'RATE_LIMITED':
+      return copy.rateLimited;
+    case 'CSRF_REJECTED':
+      return copy.staleForm;
+    case 'ACCESS_NOT_ACTIVE':
+      return withReference(copy.accessNotActive);
+    default:
+      return withReference(copy.serviceUnavailable);
+  }
+}
+
+export function LoginFormClient({ copy }: { copy: LoginFormPresentationCopy }) {
   const [step, setStep] = React.useState<LoginStep>('password');
   const [method, setMethod] = React.useState<MfaMethod>('totp');
   const [email, setEmail] = React.useState('');
@@ -158,7 +195,10 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
         body: JSON.stringify({ email: normalizedEmail, password }),
       });
 
-      if (!response.ok || !payload.ok) throw new Error('login_failed');
+      if (!response.ok || !payload.ok) {
+        fail(loginFailureMessage(copy, payload), 'form');
+        return;
+      }
 
       if (payload.membershipSelectionRequired && Array.isArray(payload.memberships) && payload.memberships.length > 1) {
         setMemberships(payload.memberships);
@@ -182,7 +222,9 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
       if (!payload.redirectTo?.startsWith('/platform-v7/')) throw new Error('invalid_redirect');
       globalThis.location.assign(payload.redirectTo);
     } catch {
-      fail(copy.unavailable, 'form');
+      // Network failure, timeout or an unusable success payload: the
+      // credentials were never judged, so do not ask the person to re-check them.
+      fail(copy.serviceUnavailable, 'form');
     } finally {
       setSubmitting(false);
     }
@@ -398,7 +440,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
             <p className='pc-auth-inline-hint' role='status'>{copy.capsLock}</p>
           ) : null}
 
-          <a className='pc-auth-recovery-link' href='/platform-v7/forgot-password'>
+          <a className='pc-auth-recovery-link' href={`/platform-v7/forgot-password?lang=${copy.locale}`}>
             {copy.forgot}
           </a>
 
@@ -420,7 +462,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
 
           <div className='pc-auth-register'>
             <span>{copy.registerPrompt}</span>
-            <a href='/platform-v7/register'>{copy.register}</a>
+            <a href={`/platform-v7/register?lang=${copy.locale}`}>{copy.register}</a>
           </div>
         </form>
       ) : null}

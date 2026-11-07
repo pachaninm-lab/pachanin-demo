@@ -539,6 +539,7 @@ with open(output_path, "w", encoding="utf-8") as output:
     output.write(f"DB_SERVICE={shlex.quote(database_host)}\n")
     output.write(f"DB_NAME={shlex.quote(database_name)}\n")
     output.write(f"DB_ADMIN={shlex.quote(postgres_user)}\n")
+    output.write(f"DB_APP_USER={shlex.quote(database_username or '')}\n")
 PY_POSTGRES_AUTHORITY
 # shellcheck disable=SC1090
 set_internal_deploy_stage TAI_DEPLOY_TOPOLOGY_ENV_IMPORT_FAILED
@@ -552,6 +553,7 @@ TOPOLOGY_ENV=""
 [[ "$DB_SERVICE" =~ ^[A-Za-z0-9._-]+$ ]]
 [[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
 [[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+[[ "$DB_APP_USER" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
 
 set_internal_deploy_stage TAI_DEPLOY_PREVIOUS_TAI_AUTHORITY_FAILED
 mapfile -t previous_tai_ids < <(
@@ -599,6 +601,70 @@ db_admin_authority="$(psql_admin -AtF $'\t' -c "SELECT rolsuper, rolcreaterole F
 [[ "$(printf '%s\n' "$db_admin_authority" | grep -c .)" == 1 ]]
 IFS=$'\t' read -r db_admin_super db_admin_createrole <<< "$db_admin_authority"
 [[ "$db_admin_super" == t || "$db_admin_createrole" == t ]]
+
+# The API's own database principal must not be able to bypass row level
+# security, because every RLS policy in this repository is only worth what this
+# principal cannot do. Nothing checked this before: the URL parser reads the
+# role name and only asserts it is non-empty, so an admin role would deploy
+# cleanly and every policy would be inert with no gate noticing (#4890).
+#
+# It runs here, before apply_tai_migrations, so a violation costs nothing: the
+# deploy stops with the database untouched.
+#
+# The four shapes are the ones measured on PostgreSQL 16, not the ones assumed.
+# rolsuper and rolbypassrls alone are NOT sufficient, and that was the reason
+# for measuring:
+#
+#   role granted a BYPASSRLS role  reads rolbypassrls=f, yet SET ROLE gives it
+#                                  the bypass on demand -> caught as MEMBER
+#   role granted a superuser role  same, via SET ROLE          -> caught as MEMBER
+#   owner of an RLS table without  reads f/f, yet sees every row, because an
+#   FORCE ROW LEVEL SECURITY       owner is exempt from its own policies
+#
+# Membership is tested with pg_has_role(..., 'MEMBER') rather than 'USAGE'
+# precisely because SET ROLE is the path that was measured to work: plain
+# inheritance does NOT carry BYPASSRLS or superuser, so 'USAGE' would clear a
+# role that can still take the privilege whenever it likes.
+#
+# The ownership clause keys on the missing FORCE and not on ownership itself:
+# an owner of a table that does force row level security is confined, measured
+# both ways.
+set_internal_deploy_stage TAI_DEPLOY_API_DATABASE_PRINCIPAL_CONFINEMENT_FAILED
+api_principal_findings="$(psql_admin -Atv principal="$DB_APP_USER" <<'SQL'
+SELECT coalesce(string_agg(reason, ',' ORDER BY reason), '')
+FROM (
+  SELECT 'SUPERUSER' AS reason
+    FROM pg_catalog.pg_roles WHERE rolname = :'principal' AND rolsuper
+  UNION ALL
+  SELECT 'BYPASSRLS'
+    FROM pg_catalog.pg_roles WHERE rolname = :'principal' AND rolbypassrls
+  UNION ALL
+  SELECT 'MEMBER_OF_PRIVILEGED_ROLE:' || granted.rolname
+    FROM pg_catalog.pg_roles AS granted
+    WHERE (granted.rolsuper OR granted.rolbypassrls)
+      AND granted.rolname <> :'principal'
+      AND pg_catalog.pg_has_role(:'principal', granted.oid, 'MEMBER')
+  UNION ALL
+  SELECT 'OWNS_UNFORCED_RLS_TABLE:' || schema.nspname || '.' || relation.relname
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS schema ON schema.oid = relation.relnamespace
+    JOIN pg_catalog.pg_roles AS owner ON owner.oid = relation.relowner
+    WHERE schema.nspname NOT IN ('pg_catalog','information_schema')
+      AND schema.nspname NOT LIKE 'pg_toast%'
+      AND relation.relkind IN ('r','p')
+      AND relation.relrowsecurity
+      AND NOT relation.relforcerowsecurity
+      AND owner.rolname = :'principal'
+) AS findings;
+SQL
+)"
+if [[ -n "$api_principal_findings" ]]; then
+  # Name the principal and every reason. A deploy blocked by this needs to know
+  # which of the four it is, because the remedies differ: three want a different
+  # DATABASE_URL role, the fourth wants FORCE ROW LEVEL SECURITY on the table.
+  echo "API_DATABASE_PRINCIPAL_NOT_CONFINED principal=${DB_APP_USER} reasons=${api_principal_findings}" >&2
+  exit 27
+fi
 
 set_internal_deploy_stage TAI_DEPLOY_STATE_AUTHORITY_PREPARATION_FAILED
 mkdir -- "$STATE_ROOT" || { echo "STATE_ROOT_ALREADY_EXISTS_OR_UNAVAILABLE" >&2; exit 14; }

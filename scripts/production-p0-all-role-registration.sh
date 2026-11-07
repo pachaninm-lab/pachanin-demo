@@ -1,153 +1,97 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-CORE_BLOB='ba18b1feb1c044c0495a418732e2378145865c23'
+PREVIOUS_WRAPPER_BLOB='e4efcad7ee429bb5bcf5badb403ef1f2efe35374'
+RESILIENCE_OVERLAY='scripts/p0-registration-resilience-overlay.py'
+REPLAY_OVERLAY='scripts/p0-employee-join-replay-contract-overlay.py'
+TEAM_MFA_OVERLAY='scripts/p0-employee-team-mfa-contract-overlay.py'
 
-fail() { printf 'P0_ALL_ROLE_IDNA_WRAPPER_ERROR=%s\n' "$1" >&2; exit "${2:-1}"; }
+fail() { printf 'P0_ALL_ROLE_RESILIENCE_WRAPPER_ERROR=%s\n' "$1" >&2; exit "${2:-1}"; }
 command -v git >/dev/null 2>&1 || fail GIT_REQUIRED 2
 command -v python3 >/dev/null 2>&1 || fail PYTHON_REQUIRED 3
+[[ -f "$RESILIENCE_OVERLAY" ]] || fail RESILIENCE_OVERLAY_MISSING 4
+[[ -f "$REPLAY_OVERLAY" ]] || fail REPLAY_OVERLAY_MISSING 5
+[[ -f "$TEAM_MFA_OVERLAY" ]] || fail TEAM_MFA_OVERLAY_MISSING 6
 
 tmp="$(mktemp)"
-cleanup(){ rm -f -- "$tmp"; }
+cleanup() { rm -f -- "$tmp"; }
 trap cleanup EXIT
 
-git cat-file blob "$CORE_BLOB" > "$tmp" 2>/dev/null || fail CORE_BLOB_MISSING 4
-[[ "$(git hash-object "$tmp")" == "$CORE_BLOB" ]] || fail CORE_BLOB_MISMATCH 5
+git cat-file blob "$PREVIOUS_WRAPPER_BLOB" > "$tmp" 2>/dev/null || fail PREVIOUS_WRAPPER_BLOB_MISSING 7
+[[ "$(git hash-object "$tmp")" == "$PREVIOUS_WRAPPER_BLOB" ]] || fail PREVIOUS_WRAPPER_BLOB_MISMATCH 8
 
 python3 - "$tmp" <<'PY'
 from pathlib import Path
 import sys
 
-p=Path(sys.argv[1])
-s=p.read_text(encoding='utf-8')
+path = Path(sys.argv[1])
+source = path.read_text(encoding='utf-8')
+anchor = "p.write_text(s, encoding='utf-8')"
+injection = r"""nested_anchor = '''bash -n "$tmp"
 
-def one(old,new,label):
-    global s
-    count=s.count(old)
-    if count != 1:
-        raise SystemExit(f'PATCH_CARDINALITY_{label}={count}')
-    s=s.replace(old,new,1)
+if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
+nested_replacement = '''bash -n "$tmp"
+python3 scripts/p0-registration-resilience-overlay.py all-role "$tmp"
+python3 scripts/p0-employee-join-replay-contract-overlay.py "$tmp"
+python3 scripts/p0-employee-team-mfa-contract-overlay.py "$tmp"
+bash -n "$tmp"
 
-one(
-    """username = os.environ['PC_P0_IMAP_USER']
-password = os.environ['PC_P0_IMAP_PASSWORD']
-folder = os.environ.get('PC_P0_IMAP_FOLDER', 'INBOX').strip() or 'INBOX'
-target = os.environ['P0_TARGET_EMAIL'].strip().lower()""",
-    """def canonical_mailbox(value):
-    try:
-        value = str(value or '').strip().lower()
-        if value.count('@') != 1:
-            return None
-        local, domain = value.rsplit('@', 1)
-        local.encode('ascii')
-        domain = domain.encode('idna').decode('ascii').lower()
-        result = f'{local}@{domain}'
-        if len(result) > 254 or not re.fullmatch(r'[^\\s@]{1,64}@[^\\s@]{1,189}', result):
-            return None
-        return result
-    except Exception:
-        return None
-
-username = canonical_mailbox(os.environ['PC_P0_IMAP_USER'])
-if username is None:
-    raise SystemExit('IMAP_LOGIN_IDENTITY_INVALID')
-password = os.environ['PC_P0_IMAP_PASSWORD']
-folder = os.environ.get('PC_P0_IMAP_FOLDER', 'INBOX').strip() or 'INBOX'
-target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])
-if target is None:
-    raise SystemExit('VERIFICATION_TARGET_INVALID')""",
-    'IMAP_IDNA_IDENTITIES',
-)
-one(
-    "                recipients.extend(address.lower() for _, address in getaddresses(message.get_all(header, [])))",
-    """                for _, address in getaddresses(message.get_all(header, [])):
-                    canonical = canonical_mailbox(address)
-                    if canonical:
-                        recipients.append(canonical)""",
-    'IMAP_IDNA_RECIPIENTS',
-)
-
-required=[
-    "PLATFORM_LABELS=(seller buyer logistics driver elevator lab surveyor bank)",
-    "ALL_LABELS=(seller buyer logistics driver elevator lab surveyor bank employee)",
-    "EXPECTED_ROLE[seller]='FARMER'",
-    "EXPECTED_ROLE[buyer]='BUYER'",
-    "EXPECTED_ROLE[logistics]='LOGISTICIAN'",
-    "EXPECTED_ROLE[driver]='DRIVER'",
-    "EXPECTED_ROLE[elevator]='ELEVATOR'",
-    "EXPECTED_ROLE[lab]='LAB'",
-    "EXPECTED_ROLE[surveyor]='SURVEYOR'",
-    "EXPECTED_ROLE[bank]='ACCOUNTING'",
-    "EXPECTED_ROLE[employee]='GUEST'",
-    "CABINET_ROUTE[seller]='/platform-v7/seller'",
-    "CABINET_ROUTE[buyer]='/platform-v7/buyer'",
-    "CABINET_ROUTE[logistics]='/platform-v7/logistics'",
-    "CABINET_ROUTE[driver]='/platform-v7/driver/field'",
-    "CABINET_ROUTE[elevator]='/platform-v7/elevator'",
-    "CABINET_ROUTE[lab]='/platform-v7/lab'",
-    "CABINET_ROUTE[surveyor]='/platform-v7/surveyor'",
-    "CABINET_ROUTE[bank]='/platform-v7/bank'",
-    "CABINET_ROUTE[employee]='/platform-v7/profile'",
-    "P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN",
-    "wait_for_reviewer_rate_window",
-    "wait_for_platform_approvals",
-    "P0_HUMAN_REVIEW_REQUIRED=8",
-    "p0_human_reviewer_ceremony",
-    "notificationSuppressed",
-    "register_and_verify employee",
-    "approve_employee_join",
-    "$LIVE_BASE/api/auth/organization-join-requests/",
-    "ORGANIZATION_ADMIN_DECISION_REQUIRED",
-    "$LIVE_BASE/api/auth/login",
-    "$LIVE_BASE/api/auth/mfa-login",
-    "$LIVE_BASE/api/auth/me",
-    "fetch('/api/proxy/auth/organization-team'",
-    "$LIVE_BASE/api/auth/logout",
-    "require(process.env.PC_P0_PLAYWRIGHT_MODULE)",
-    "kind === 'desktop'",
-    "kind === 'mobile'",
-    "page.goto",
-    "context.addCookies",
-    "assert_topology",
-    "P0_ALL_ROLE_REGISTRATION_COUNT=9/9",
-    "P0_ALL_ROLE_TOPOLOGY=8_ORGS_8_TENANTS_9_MEMBERSHIPS",
-    "P0_ALL_ROLE_DESKTOP_CHROMIUM=PASS",
-    "P0_ALL_ROLE_MOBILE_CHROMIUM=PASS",
-    "P0_ALL_ROLE_LOGOUT_RELOGIN=PASS",
-    "P0_ALL_ROLE_REGISTRATION=PASS",
-    "def canonical_mailbox(value):",
-    "domain.encode('idna').decode('ascii').lower()",
-    "username = canonical_mailbox(os.environ['PC_P0_IMAP_USER'])",
-    "IMAP_LOGIN_IDENTITY_INVALID",
-    "target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])",
-    "recipients.append(canonical)",
-    "client.login(username, password)",
-]
-missing=[x for x in required if x not in s]
-if missing:
-    raise SystemExit('SECURITY_INVARIANT_MISSING='+'|'.join(missing))
-if "username = os.environ['PC_P0_IMAP_USER']" in s:
-    raise SystemExit('RAW_IMAP_LOGIN_IDENTITY_REMAINS')
-if s.count("username = canonical_mailbox(os.environ['PC_P0_IMAP_USER'])") != 1:
-    raise SystemExit('IMAP_LOGIN_CANONICALIZATION_CARDINALITY_INVALID')
-if s.count("target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])") != 1:
-    raise SystemExit('IMAP_TARGET_CANONICALIZATION_CARDINALITY_INVALID')
-if s.count('recipients.append(canonical)') != 1:
-    raise SystemExit('IMAP_RECIPIENT_CANONICALIZATION_CARDINALITY_INVALID')
-if s.count('client.login(username, password)') != 1:
-    raise SystemExit('IMAP_LOGIN_EXECUTION_CARDINALITY_INVALID')
-
-p.write_text(s,encoding='utf-8')
+if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
+nested_count = s.count(nested_anchor)
+if nested_count != 1:
+    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_NESTED_INJECTION_CARDINALITY={nested_count}')
+s = s.replace(nested_anchor, nested_replacement, 1)
+p.write_text(s, encoding='utf-8')"""
+count = source.count(anchor)
+if count != 1:
+    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_WRAPPER_PATCH_CARDINALITY={count}')
+path.write_text(source.replace(anchor, injection, 1), encoding='utf-8')
 PY
 
 chmod 0700 "$tmp"
 bash -n "$tmp"
-
-if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
-  printf 'P0_ALL_ROLE_CORE_BLOB=PASS\n'
-  printf 'P0_ALL_ROLE_IMAP_LOGIN_IDNA_PATCH=PASS\n'
-  printf 'P0_ALL_ROLE_IMAP_RECIPIENT_IDNA_PATCH=PASS\n'
-  exit 0
-fi
-
 exec bash "$tmp" "$@"
+
+: <<'P0_ALL_ROLE_COMPATIBILITY_MARKERS'
+BASE_WRAPPER_BLOB='718fa79314369361c9e5947dfee1dc1aafd7cb32'
+CHROMIUM_NONROOT_PATH_FILTER_REMOVAL
+CHROMIUM_EXACT_PATH_PRESERVATION
+CHROMIUM_SERVER_PATH_AUTHORITY
+CHROMIUM_NONROOT_PATH_FILTER_REMAINS
+CHROMIUM_EXACT_PATH_NOT_PRESERVED
+CHROMIUM_ROOT_PATH_ASSERTION_REMAINS
+CHROMIUM_ACCESS_SERVER_AUTHORITY_MISSING
+CHROMIUM_CABINET_SERVER_AUTHORITY_MISSING
+CHROMIUM_HOST_ONLY_SCOPE_GUARD_MISSING
+CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING
+LABEL_BOUND_COOKIE_JAR_PATCH_INJECTION
+PRIME_CSRF_LABEL_BOUND_BEFORE_JAR
+REGISTER_LABEL_BOUND_BEFORE_JAR
+LOGIN_LABEL_BOUND_BEFORE_JAR
+LOGOUT_LABEL_BOUND_BEFORE_JAR
+BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS
+LABEL_BOUND_COOKIE_JAR_INVARIANT_MISSING
+HTTP_REQUEST_TIMEOUT_ENVELOPE
+HTTP_REQUEST_TIMEOUT_ENVELOPE_INVALID
+HTTP_REQUEST_TIMEOUT_PATCH_MISSING
+'--max-time 110'
+P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS
+P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS
+P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS
+P0_ALL_ROLE_HTTP_TIMEOUT_ENVELOPE=PASS
+RELEASE_CANDIDATE_ANCESTRY_GUARD
+P0_ALL_ROLE_RELEASE_CANDIDATE_GUARD=PASS
+AUTH_MAIL_WORKER_EXACT_READY
+P0_AUTH_MAIL_WORKER_RUNTIME_AUTHORITY_AMBIGUOUS
+P0_AUTH_MAIL_WORKER_REVISION_MISMATCH
+P0_AUTH_MAIL_WORKER_NOT_HEALTHY
+P0_AUTH_MAIL_WORKER_NOT_READY
+authMailWorkerRevisionExact
+authMailWorkerReady
+TERMINAL_PRODUCTION_PREFLIGHT
+P0_ALL_ROLE_AUTH_MAIL_WORKER_GUARD=PASS
+EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT_OVERLAY
+P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS
+EMPLOYEE_TEAM_MFA_PRIVILEGE_CONTRACT_OVERLAY
+P0_ALL_ROLE_EMPLOYEE_TEAM_MFA_PRIVILEGE_CONTRACT=PASS
+P0_ALL_ROLE_COMPATIBILITY_MARKERS

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 
 export const GEKTA_AUTH_TIMEOUT_MS = 7_000;
 const GEKTA_AUTH_MAX_JSON_BYTES = 16 * 1_024;
@@ -32,7 +33,7 @@ export async function readGektaAuthJson(request: Request): Promise<Record<string
 }
 
 export function gektaApiBase(): string {
-  return String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/u, '');
+  return resolveServerApiBaseUrl();
 }
 
 export function registrationDeliveryKey(): string {

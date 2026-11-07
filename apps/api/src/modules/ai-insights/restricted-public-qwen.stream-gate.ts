@@ -19,6 +19,7 @@
  * ended. Those run at flush, where they are appends rather than retractions.
  */
 import {
+  CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN,
   CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN,
   currentEvidenceVerdict,
   groundingAuthority,
@@ -30,12 +31,13 @@ import {
   SECRET_PATTERN,
   WRITE_CLAIM_PATTERN,
   type PublicAnswerMode,
+  type PublicLocale,
   type PublicGrounding,
 } from './restricted-public-qwen.safety';
 import { stripInternalModelTrace, undecidedTailStart } from './restricted-public-qwen.internal-trace';
 
 /** Why the gate refused the answer outright. Both are fail-closed. */
-export type GateViolation = 'WRITE_CLAIM' | 'SECRET';
+export type GateViolation = 'WRITE_CLAIM' | 'SECRET' | 'OUTPUT_LIMIT';
 
 export interface GateCommit {
   /** Text safe to put on the wire now. Empty when nothing became decidable. */
@@ -47,8 +49,10 @@ export interface GateCommit {
 
 export interface StreamingAnswerGateOptions {
   readonly answerMode: PublicAnswerMode;
+  readonly locale: PublicLocale;
   readonly currentDataRequired: boolean;
   readonly grounding: PublicGrounding;
+  readonly economicComparison?: EconomicComparison | null;
   /**
    * Bound on withheld text. A model that never emits a sentence terminator must
    * not grow an unbounded buffer, so beyond this the gate commits at the last
@@ -58,7 +62,7 @@ export interface StreamingAnswerGateOptions {
 }
 
 const DEFAULT_MAX_PENDING_CHARS = 3_000;
-const BLOCK_BOUNDARY = /(?:[.!?。！？][\s]|\n)\s*$/u;
+const BLOCK_BOUNDARY = /(?:[.!?]\s|[。！？]|\n)\s*$/u;
 /**
  * A progressive fragment shorter than this is rarely useful to a reader and
  * increases frame churn. 48 characters is deliberately independent of locale
@@ -66,14 +70,923 @@ const BLOCK_BOUNDARY = /(?:[.!?。！？][\s]|\n)\s*$/u;
  */
 const GENERAL_AGRO_PROGRESSIVE_MIN_CHARS = 48;
 /**
- * WRITE_CLAIM has at most 40 arbitrary characters between actor and action; all
- * secret signatures become decidable within far less than this. Keeping 96
- * published characters as lookbehind therefore preserves detection when one
- * sentence is released through several progressive fragments.
+ * WRITE_CLAIM has at most 40 arbitrary characters between actor and action.
+ * A 320-character lookbehind also covers the longest crop-prescription pattern
+ * across progressive fragments; secret signatures are shorter.
  */
-const PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS = 96;
+const PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS = 320;
+const HAN_CHARACTER = /\p{Script=Han}/u;
+const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！？\n]{0,200}$|[使施选推]$/u;
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
+
+/** Named references that can affect ASCII/Cyrillic safety tokens or whitespace.
+ * HTML5 names from Python's standard html.entities table; format controls are
+ * included because invisible characters must not split a safety signature.
+ * Unrelated Unicode
+ * references cannot form these signatures. Numeric references cover all scripts.
+ */
+const SALE_SAFETY_CHARACTER_REFERENCES: Readonly<Record<string, string>> = Object.freeze({
+  "af;": "\u2061",
+  "ApplyFunction;": "\u2061",
+  "ic;": "\u2063",
+  "InvisibleComma;": "\u2063",
+  "InvisibleTimes;": "\u2062",
+  "it;": "\u2062",
+  "lrm;": "\u200e",
+  "NegativeMediumSpace;": "\u200b",
+  "NegativeThickSpace;": "\u200b",
+  "NegativeThinSpace;": "\u200b",
+  "NegativeVeryThinSpace;": "\u200b",
+  "NoBreak;": "\u2060",
+  "rlm;": "\u200f",
+  "shy": "\u00ad",
+  "shy;": "\u00ad",
+  "ZeroWidthSpace;": "\u200b",
+  "zwj;": "\u200d",
+  "zwnj;": "\u200c",
+  "Acy;": "А",
+  "acy;": "а",
+  "AMP": "&",
+  "amp": "&",
+  "AMP;": "&",
+  "amp;": "&",
+  "apos;": "'",
+  "ast;": "*",
+  "Bcy;": "Б",
+  "bcy;": "б",
+  "bsol;": "\\",
+  "CHcy;": "Ч",
+  "chcy;": "ч",
+  "colon;": ":",
+  "comma;": ",",
+  "commat;": "@",
+  "Dcy;": "Д",
+  "dcy;": "д",
+  "DiacriticalGrave;": "`",
+  "DJcy;": "Ђ",
+  "djcy;": "ђ",
+  "dollar;": "$",
+  "DScy;": "Ѕ",
+  "dscy;": "ѕ",
+  "DZcy;": "Џ",
+  "dzcy;": "џ",
+  "Ecy;": "Э",
+  "ecy;": "э",
+  "emsp13;": " ",
+  "emsp14;": " ",
+  "emsp;": " ",
+  "ensp;": " ",
+  "equals;": "=",
+  "excl;": "!",
+  "Fcy;": "Ф",
+  "fcy;": "ф",
+  "fjlig;": "fj",
+  "Gcy;": "Г",
+  "gcy;": "г",
+  "GJcy;": "Ѓ",
+  "gjcy;": "ѓ",
+  "grave;": "`",
+  "GT": ">",
+  "gt": ">",
+  "GT;": ">",
+  "gt;": ">",
+  "hairsp;": " ",
+  "HARDcy;": "Ъ",
+  "hardcy;": "ъ",
+  "Hat;": "^",
+  "Icy;": "И",
+  "icy;": "и",
+  "IEcy;": "Е",
+  "iecy;": "е",
+  "IOcy;": "Ё",
+  "iocy;": "ё",
+  "Iukcy;": "І",
+  "iukcy;": "і",
+  "Jcy;": "Й",
+  "jcy;": "й",
+  "Jsercy;": "Ј",
+  "jsercy;": "ј",
+  "Jukcy;": "Є",
+  "jukcy;": "є",
+  "Kcy;": "К",
+  "kcy;": "к",
+  "KHcy;": "Х",
+  "khcy;": "х",
+  "KJcy;": "Ќ",
+  "kjcy;": "ќ",
+  "lbrace;": "{",
+  "lbrack;": "[",
+  "lcub;": "{",
+  "Lcy;": "Л",
+  "lcy;": "л",
+  "LJcy;": "Љ",
+  "ljcy;": "љ",
+  "lowbar;": "_",
+  "lpar;": "(",
+  "lsqb;": "[",
+  "LT": "<",
+  "lt": "<",
+  "LT;": "<",
+  "lt;": "<",
+  "Mcy;": "М",
+  "mcy;": "м",
+  "MediumSpace;": " ",
+  "midast;": "*",
+  "nbsp": " ",
+  "nbsp;": " ",
+  "Ncy;": "Н",
+  "ncy;": "н",
+  "NewLine;": "\n",
+  "NJcy;": "Њ",
+  "njcy;": "њ",
+  "NonBreakingSpace;": " ",
+  "num;": "#",
+  "numsp;": " ",
+  "Ocy;": "О",
+  "ocy;": "о",
+  "Pcy;": "П",
+  "pcy;": "п",
+  "percnt;": "%",
+  "period;": ".",
+  "plus;": "+",
+  "puncsp;": " ",
+  "quest;": "?",
+  "QUOT": "\"",
+  "quot": "\"",
+  "QUOT;": "\"",
+  "quot;": "\"",
+  "rbrace;": "}",
+  "rbrack;": "]",
+  "rcub;": "}",
+  "Rcy;": "Р",
+  "rcy;": "р",
+  "rpar;": ")",
+  "rsqb;": "]",
+  "Scy;": "С",
+  "scy;": "с",
+  "semi;": ";",
+  "SHCHcy;": "Щ",
+  "shchcy;": "щ",
+  "SHcy;": "Ш",
+  "shcy;": "ш",
+  "SOFTcy;": "Ь",
+  "softcy;": "ь",
+  "sol;": "/",
+  "Tab;": "\t",
+  "Tcy;": "Т",
+  "tcy;": "т",
+  "ThickSpace;": "  ",
+  "thinsp;": " ",
+  "ThinSpace;": " ",
+  "TScy;": "Ц",
+  "tscy;": "ц",
+  "TSHcy;": "Ћ",
+  "tshcy;": "ћ",
+  "Ubrcy;": "Ў",
+  "ubrcy;": "ў",
+  "Ucy;": "У",
+  "ucy;": "у",
+  "UnderBar;": "_",
+  "Vcy;": "В",
+  "vcy;": "в",
+  "verbar;": "|",
+  "vert;": "|",
+  "VerticalLine;": "|",
+  "VeryThinSpace;": " ",
+  "YAcy;": "Я",
+  "yacy;": "я",
+  "Ycy;": "Ы",
+  "ycy;": "ы",
+  "YIcy;": "Ї",
+  "yicy;": "ї",
+  "YUcy;": "Ю",
+  "yucy;": "ю",
+  "Zcy;": "З",
+  "zcy;": "з",
+  "ZHcy;": "Ж",
+  "zhcy;": "ж"
+});
+const SALE_SAFETY_LEGACY_REFERENCES = Object.freeze(Object.keys(SALE_SAFETY_CHARACTER_REFERENCES)
+  .filter((name) => !name.endsWith(';')).sort((left, right) => right.length - left.length));
+
+/** Preserve unfinished references across cuts; canonicalize numeric tails so
+ * arbitrarily many leading zeros cannot evict the safety lookbehind.
+ */
+function decodeSaleCharacterReferences(text: string, final: boolean): string {
+  return text.replace(/&#(?:[xX]([0-9a-fA-F]*)|([0-9]+))(;?)|&([A-Za-z][A-Za-z0-9]{0,31})(;?)/gu,
+    (reference: string, hex: string | undefined, decimal: string | undefined, numericSemicolon: string | undefined,
+      name: string | undefined, namedSemicolon: string | undefined, offset: number) => {
+      if (name !== undefined) {
+        const exactName = name + (namedSemicolon ?? '');
+        if (Object.hasOwn(SALE_SAFETY_CHARACTER_REFERENCES, exactName)) {
+          if (!namedSemicolon && !final && offset + reference.length === text.length) return reference;
+          return SALE_SAFETY_CHARACTER_REFERENCES[exactName];
+        }
+        const legacy = SALE_SAFETY_LEGACY_REFERENCES.find((prefix) => name.startsWith(prefix));
+        return legacy ? SALE_SAFETY_CHARACTER_REFERENCES[legacy] + name.slice(legacy.length) + (namedSemicolon ?? '') : reference;
+      }
+      const rawDigits = hex ?? decimal ?? '';
+      if (!rawDigits) return reference;
+      const base = hex !== undefined ? 16 : 10;
+      const digits = rawDigits.replace(/^0+/u, '') || '0';
+      const value = digits.length > 8 ? 0x110000 : Math.min(parseInt(digits, base), 0x110000);
+      if (!numericSemicolon && !final && offset + reference.length === text.length) {
+        return '&#' + (base === 16 ? 'x' : '') + value.toString(base);
+      }
+      return String.fromCodePoint(value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff) ? 0xfffd : value);
+    });
+}
+
+
+
+type SaleTagScanState = {
+  inside: boolean; quote: string; prefix: string; comment: boolean; declaration: boolean;
+  commentPhase: 'start' | 'startDash' | 'data' | 'endDash' | 'end' | 'endBang';
+  attribute: 'tag' | 'before' | 'name' | 'afterName' | 'value' | 'unquoted' | 'afterQuoted' | 'selfClosing';
+};
+function newSaleTagScanState(): SaleTagScanState {
+  return { inside: false, quote: '', prefix: '', comment: false, declaration: false, commentPhase: 'start', attribute: 'tag' };
+}
+
+/** One bounded lexical pass: quoted attribute delimiters and HTML comments
+ * cannot end a tag early or turn its contents into visible token fragments.
+ */
+function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, separate: boolean): string {
+  let result = '';
+  for (const character of text) {
+    if (!state.inside) {
+      if (character !== '<') { result += character; continue; }
+      Object.assign(state, newSaleTagScanState(), { inside: true });
+      if (separate) result += ' ';
+      continue;
+    }
+    if (state.prefix.length < 3) {
+      state.prefix += character;
+      if (state.prefix === '!--') { state.comment = true; state.commentPhase = 'start'; continue; }
+      if (state.prefix[0] === '!' || state.prefix[0] === '?') state.declaration = true;
+    }
+    if (state.comment) {
+      let closed = false;
+      switch (state.commentPhase) {
+        case 'start':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'startDash' : 'data';
+          break;
+        case 'startDash':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'end' : 'data';
+          break;
+        case 'data':
+          if (character === '-') state.commentPhase = 'endDash';
+          break;
+        case 'endDash':
+          state.commentPhase = character === '-' ? 'end' : 'data';
+          break;
+        case 'end':
+          closed = character === '>';
+          if (character === '!') state.commentPhase = 'endBang';
+          else if (character !== '-') state.commentPhase = 'data';
+          break;
+        case 'endBang':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'endDash' : 'data';
+          break;
+      }
+      if (closed) {
+        Object.assign(state, newSaleTagScanState());
+        if (separate) result += ' ';
+      }
+      continue;
+    }
+    // Non-element declarations cannot borrow attribute quote semantics. This
+    // private signature view conservatively ends them at >; nothing is published.
+    if (state.declaration) {
+      if (character === '>') {
+        Object.assign(state, newSaleTagScanState());
+        if (separate) result += ' ';
+      }
+      continue;
+    }
+    if (state.quote) {
+      if (character === state.quote) { state.quote = ''; state.attribute = 'afterQuoted'; }
+      continue;
+    }
+    if (character === '>') {
+      Object.assign(state, newSaleTagScanState());
+      if (separate) result += ' ';
+      continue;
+    }
+    // Quotes are delimiters only at the start of an attribute value. Quotes
+    // inside an unquoted value/name are literal data, so > still ends the tag.
+    const space = /[\t\n\f\r ]/u.test(character);
+    switch (state.attribute) {
+      case 'tag':
+        if (space) state.attribute = 'before';
+        else if (character === '/') state.attribute = 'selfClosing';
+        break;
+      case 'before': case 'afterQuoted': case 'selfClosing':
+        state.attribute = space ? 'before' : character === '/' ? 'selfClosing' : 'name';
+        break;
+      case 'name':
+        if (character === '=') state.attribute = 'value';
+        else if (space) state.attribute = 'afterName';
+        else if (character === '/') state.attribute = 'selfClosing';
+        break;
+      case 'afterName':
+        if (character === '=') state.attribute = 'value';
+        else if (!space) state.attribute = character === '/' ? 'selfClosing' : 'name';
+        break;
+      case 'value':
+        if (space) break;
+        if (character === '"' || character === "'") state.quote = character;
+        else state.attribute = 'unquoted';
+        break;
+      case 'unquoted':
+        if (space) state.attribute = 'before';
+        break;
+    }
+  }
+  return result;
+}
+
+
+type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; reference: boolean; destinationDepth: number; escaped: boolean; quote: string; titleSeparator: boolean; destinationStarted: boolean; angle: boolean };
+function newSaleMarkdownScanState(): SaleMarkdownScanState {
+  return { labelDepth: 0, afterLabel: false, reference: false, destinationDepth: 0, escaped: false, quote: '', titleSeparator: false, destinationStarted: false, angle: false };
+}
+
+/** Conservative link-text view: keep labels while omitting inline destinations
+ * and reference suffixes incrementally; no long link metadata is retained.
+ */
+function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): string {
+  let result = '';
+  for (const character of text) {
+    if (state.reference) {
+      if (state.escaped) { state.escaped = false; continue; }
+      if (character === '\\') { state.escaped = true; continue; }
+      if (character === ']') state.reference = false;
+      continue;
+    }
+    if (state.destinationDepth) {
+      if (state.escaped) { state.escaped = false; state.destinationStarted = true; continue; }
+      if (character === '\\') { state.escaped = true; continue; }
+      if (state.angle) { if (character === '>') state.angle = false; continue; }
+      if (state.quote) { if (character === state.quote) state.quote = ''; continue; }
+      if (!state.destinationStarted && character === '<') { state.angle = true; state.destinationStarted = true; continue; }
+      if (state.titleSeparator && state.destinationDepth === 1 && (character === '"' || character === "'")) { state.quote = character; continue; }
+      if (character === '(') state.destinationDepth += 1;
+      if (character === ')') state.destinationDepth -= 1;
+      state.titleSeparator = state.destinationDepth === 1 && /\s/u.test(character);
+      state.destinationStarted ||= !/\s/u.test(character);
+      continue;
+    }
+    if (state.afterLabel) {
+      state.afterLabel = false;
+      if (character === '[') { state.reference = true; state.escaped = false; continue; }
+      if (character === '(') { state.destinationDepth = 1; state.titleSeparator = false; state.destinationStarted = false; state.angle = false; continue; }
+    }
+    if (character === '[') { state.labelDepth += 1; continue; }
+    if (character === ']' && state.labelDepth) {
+      state.labelDepth -= 1;
+      state.afterLabel = state.labelDepth === 0;
+      continue;
+    }
+    result += character;
+  }
+  return result;
+}
+
+
+type SaleTagContentFrame = {
+  state: SaleTagScanState; closingQuote: string; pendingTagStart: boolean;
+  raw: string; formatted: string; originalRaw: string; originalFormatted: string;
+  renderedRaw: string; renderedFormatted: string; renderedOriginalRaw: string; renderedOriginalFormatted: string;
+};
+function newSaleTagContentFrame(closingQuote = ''): SaleTagContentFrame {
+  return {
+    state: newSaleTagScanState(), closingQuote, pendingTagStart: false,
+    raw: '', formatted: '', originalRaw: '', originalFormatted: '',
+    renderedRaw: '', renderedFormatted: '', renderedOriginalRaw: '', renderedOriginalFormatted: '',
+  };
+}
+
+
+export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'sale_proceeds' | 'qualitative';
+export type SaleProceedsInput = Readonly<{
+  quantityMilliTonnes: number;
+  priceMinorPerTonne: number;
+  deliveryMinor: number;
+  grossMinor: number;
+  proceedsMinor: number;
+}>;
+
+const SALE_PROCEEDS_TOPIC = /выручк|revenue|proceeds|销售收入|净收入|总收入/iu;
+const CHINESE_REVENUE_AMOUNT_QUESTION = /(?:净收入|销售收入|总收入|收入)\s*(?:的?\s*(?:金额|数额|总额|数目|数值)\s*)?(?:(?:总共|一共|合计|预计|预期|大约|大概|到底|应该|应当|可能)\s*)?(?:(?:会|将|能|可以)?\s*(?:是|为|有|达到|获得)\s*)?多少|多少\s*(?:净收入|销售收入|总收入|收入)(?=\s*(?:$|[，,。！？?：:\n]))/u;
+const SALE_NUMBER = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3})+|\\d{1,9})(?:[.,]\\d{1,3})?';
+const SALE_RUB = '(?:руб(?:лей|ля|ль)?\\.?|₽|RUB|卢布)';
+
+/** Same-turn, explicitly priced tonnes less one total delivery charge; never a profit forecast. */
+export function saleProceedsFromUser(question: string): SaleProceedsInput | null {
+  if (question.length > 1_200 || !SALE_PROCEEDS_TOPIC.test(question)) return null;
+  // Extra inputs, alternatives, negation and non-RUB currencies need clarification.
+  if (/[-−–—]\s*\d|%|процент|percent|税|налог|tax|НДС|VAT|USD|EUR|GBP|CNY|доллар|евро|юань|美元|欧元|[$€£]|(?:^|[^\p{L}])не(?:т)?(?=$|[^\p{L}])|\b(?:not|unknown|or)\b|неизвест|или|либо|不是|未知|或者/iu.test(question)) return null;
+  // English ton/tons can mean short or long tons; require explicit metric units.
+  const quantities = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*(?:тонн(?:а|ы|у|е)?|tonnes?|吨)(?![\\p{L}])`, 'giu'))];
+  const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|吨)|per\\s*tonne)(?![\\p{L}])`, 'giu'))];
+  const delivery = [...question.matchAll(new RegExp(`(?:доставка|(?:общ(?:ая|ую)\\s+)?стоимость\\s+доставки|(?:total\\s+)?delivery(?:\\s+(?:cost|charge))?|运输(?:总费用|费)|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
+  if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
+  // Three trailing digits after a comma/dot can be fractional tonnes or a
+  // thousands group. Without notation authority, ask for clarification. A
+  // single zero before the decimal dot is an explicit sub-tonne fraction.
+  const quantityNotation = quantities[0][1].replace(/[ \u00a0\u202f]/gu, '');
+  if (/[.,]\d{3}$/u.test(quantityNotation) && !/^0\.\d{3}$/u.test(quantityNotation)) return null;
+  const deliveryEnd = delivery[0].index! + delivery[0][0].length;
+  // Only the matched delivery charge is a cost input. Other cost-qualified
+  // quantities or quotes must not be promoted to commodity sale prices.
+  const saleContext = question.slice(0, delivery[0].index!) + question.slice(deliveryEnd);
+  if (/стоимост|себестоим|затрат|расход|хранени|тариф|погруз|перевоз|аренд|сушк|очистк|закуп|покуп|приобр|плата\s+за|\b(?:costs?|expenses?|storage|freight|transport(?:ation)?|haulage|loading|drying|rental|processing|purchase|buy(?:ing)?|procurement)\b|成本|费用|仓储|储存|装卸|租|烘干|采购/iu.test(saleContext)) return null;
+  const quantityEnd = quantities[0].index! + quantities[0][0].length;
+  const priceStart = prices[0].index!;
+  // Bind this price to this quantity, rather than borrowing another commodity's quote.
+  if (priceStart <= quantityEnd
+    || !/^\s*(?:по|at|(?:[,，;]\s*)?(?:цена|price|价格)\s*[:：]?)\s*$/iu.test(question.slice(quantityEnd, priceStart))) return null;
+  // Authoritative money output accepts a small declarative sale/input grammar,
+  // not arbitrary prose containing these three numbers. Unknown acquisition,
+  // expense or contextual wording requires clarification rather than a guessed
+  // sale-price interpretation. Keep the full delivery charge out of this grammar.
+  const priceEnd = priceStart + prices[0][0].length;
+  const quoteSpan = question.slice(quantities[0].index!, priceEnd);
+  const context = question.replace(quoteSpan, '').replace(delivery[0][0], '');
+  const saleWords = /(?<![\p{L}])(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?|итогов(?:ую|ая|ой)|чистую|выручк[ауи]|после\s+доставки|от\s+(?:пере)?продажи|расч[её]т|продаю|продам|прода[её]м|и|пшениц[ауые]|кукуруз[ауы]|ячмен[ьия]|рожь|рис|рапс|со[яюи]|подсолнечник[ау]?|calculate|compute|show|total|net|revenue|proceeds|after\s+delivery|calculation|result|sell|selling|and|wheat|corn|maize|barley|rye|rice|canola|soy(?:beans?)?|sunflower)(?![\p{L}])|小麦|玉米|大麦|黑麦|水稻|油菜|大豆|向日葵|计算|净收入|销售收入|总收入|结果|展示|出售|卖出/giu;
+  if (!/^[\s:：,.!？?。！;，]*$/u.test(context.replace(saleWords, ''))) return null;
+  // A delivery charge for one crop cannot be subtracted from another crop's
+  // sale. Repeated names/translations of the same crop are one identity.
+  const cropKinds = [
+    /(?<![\p{L}])(?:пшениц[ауые]|wheat)(?![\p{L}])|小麦/iu,
+    /(?<![\p{L}])(?:кукуруз[ауы]|corn|maize)(?![\p{L}])|玉米/iu,
+    /(?<![\p{L}])(?:ячмен[ьия]|barley)(?![\p{L}])|大麦/iu,
+    /(?<![\p{L}])(?:рожь|rye)(?![\p{L}])|黑麦/iu,
+    /(?<![\p{L}])(?:рис|rice)(?![\p{L}])|水稻/iu,
+    /(?<![\p{L}])(?:рапс|canola)(?![\p{L}])|油菜/iu,
+    /(?<![\p{L}])(?:со[яюи]|soy(?:beans?)?)(?![\p{L}])|大豆/iu,
+    /(?<![\p{L}])(?:подсолнечник[ау]?|sunflower)(?![\p{L}])|向日葵/iu,
+  ];
+  if (cropKinds.filter((crop) => crop.test(question)).length > 1) return null;
+  if (/примерн|около|приблиз|[~≈]|\b(?:about|approx(?:imately)?|roughly)\b|大约|约/iu.test(question)) return null;
+  const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
+  if (numbers.length !== 3) return null;
+  // Remove the explicit unit sale quote; every remaining recurring/per-unit
+  // qualifier needs a total charge, whether before or after delivery and
+  // whether separated from its amount by punctuation or a sentence boundary.
+  const deliveryContext = question.slice(0, priceStart) + question.slice(priceStart + prices[0][0].length);
+  if (/кажд|ежемесяч|ежеднев|еженедел|ежегод|\b(?:per|each|monthly|daily|weekly|yearly)\b|в\s+(?:месяц|день|неделю|год)|за\s+(?:один\s+)?(?:рейс|тонн|месяц|день|неделю|год)|на\s+(?:рейс|месяц)|\/|每|按(?:趟|车|月|天)/iu.test(deliveryContext)) return null;
+  const scaled = (raw: string, decimals: number): bigint | null => {
+    const value = raw.replace(/[ \u00a0\u202f]/gu, '').replace(',', '.');
+    if (!new RegExp(`^\\d{1,9}(?:\\.\\d{1,${decimals}})?$`, 'u').test(value)) return null;
+    const [whole, fraction = ''] = value.split('.');
+    return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0'));
+  };
+  const quantity = scaled(quantities[0][1], 3);
+  const price = scaled(prices[0][1], 2);
+  const cost = scaled(delivery[0][1], 2);
+  if (quantity === null || price === null || cost === null || quantity <= 0n || price <= 0n) return null;
+  const product = quantity * price;
+  // Do not silently round fractional kopecks or exceed the public safe-integer range.
+  if (product % 1_000n !== 0n) return null;
+  const gross = product / 1_000n;
+  const proceeds = gross - cost;
+  const values = [quantity, price, cost, gross, proceeds];
+  if (values.some((value) => value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER))) return null;
+  return Object.freeze({ quantityMilliTonnes: Number(quantity), priceMinorPerTonne: Number(price), deliveryMinor: Number(cost), grossMinor: Number(gross), proceedsMinor: Number(proceeds) });
+}
+
+/** Recognize an attempted calculation even when its inputs need clarification. */
+function saleCalculationRequested(question: string): boolean {
+  // Chinese sale amount questions can separate the sale verb and income noun
+  // with the commodity/quantity; do not treat unrelated income as sale proceeds.
+  const chineseConceptQuestion = /定义|概念|含[义意]|意[思义]|释义|解释|(?:确认|计量)(?:原则|条件|标准|方法)|会计(?:确认|计量)/u.test(question);
+  const chineseSaleIncome = /(?:销售|出售|卖出)[^。！？\n]{0,80}收入/u.test(question);
+  const chineseBareSaleAmount = chineseSaleIncome && /收入\s*[?？]\s*$/u.test(question)
+    && !/如何|怎么|怎样|提高|改善|增加|策略/u.test(question);
+  const chineseSaleAmount = !chineseConceptQuestion && (
+    /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question)
+    || chineseSaleIncome && CHINESE_REVENUE_AMOUNT_QUESTION.test(question) || chineseBareSaleAmount
+  );
+  if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleIncome && !chineseSaleAmount) return false;
+  // Without an article or sale/amount clause, "What is revenue?" asks for
+  // the concept. Optional articles must not turn that definition into a sum.
+  if (/^\s*what(?:'s|\s+(?:is|are))\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\s*[.!?。！？]*\s*$/iu.test(question)) return false;
+  const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
+  const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[:：]/iu.test(question);
+  if (chineseConceptQuestion && !intent.test(question)) return false;
+  const bareLabelQuestion = /^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[?？]\s*$/iu.test(question);
+  const labelClause = question.match(/^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))\s+(?:for|from|after|от|за|после)(?![\p{L}])\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
+  const labelQuestion = bareLabelQuestion || Boolean(labelClause && (
+    /\d/u.test(labelClause) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(labelClause)
+    || /\b(?:amount|sum)\b|сумм|размер|多少/iu.test(labelClause)
+  ));
+  const amountNounQuestion = /\bwhat\s+(?:(?:is|would|will)\s+(?:the|my|our|your|their|his|her|this|that)\s+)?(?:amount|sum)\s+of\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?<![\p{L}])(?:какова|какая|какую)\s+сумм[ау]\s+выручки(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|будет|составит)(?![\p{L}])))/iu.test(question);
+  const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
+  // Numeric sale/delivery inputs require checked calculation or clarification
+  // regardless of whether the question is imperative or interrogative. A
+  // contextual quantity alone does not suppress conceptual model answers.
+  const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
+  // Inspect the financial clause independently of its opener (HOW, EXPLAIN,
+  // SHOULD, or an IFRS preamble). Numeric examples do not turn a conceptual
+  // predicate into a requested amount.
+  const revenueClause = question.match(/\b(?:revenue|proceeds)\s+(.+)/iu)?.[1]?.trim() ?? '';
+  // Noun-front amount questions put the sale subject after the auxiliary:
+  // "What revenue will selling 100 tonnes generate?". Require an amount
+  // predicate, so the same numeric subject in an accounting question stays prose.
+  const nounFrontClause = question.match(/\b(?:what|how\s+much)\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b\s+(?:is|are|was|were|will|would|can|could|may|might|should|does|do|did|has|have|had)\s+(.+)/iu)?.[1] ?? '';
+  const nounFrontHead = nounFrontClause.split(/\b(?:when|while|if|because|although|unless|provided)\b/iu)[0].trim();
+  const amountVerb = '(?:generat(?:e|es|ed)|yield(?:s|ed)?|bring|brought|produc(?:e|es|ed)|earn(?:s|ed)?|receiv(?:e|es|ed)|get|got|make|made)';
+  // Attach the amount predicate to a subject in the primary question. An
+  // arbitrary later "generates" in an IFRS condition is not that predicate.
+  // Unsupported units/currencies still need clarification, not provider sums.
+  const pricedSubject = `(?:(?:selling|(?:the\\s+)?sale\\s+of)\\s+)?${SALE_NUMBER}\\s+(?:tonnes?|tons?)(?:\\s+at\\s+${SALE_NUMBER}\\s+(?:${SALE_RUB}|[A-Z]{3})\\s*(?:/\\s*(?:t|tonnes?)|per\\s+tonne))?`;
+  // Subject recognition also accepts possessives and numeric noun phrases;
+  // it does not validate sale units or amounts, which still require clarification.
+  const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}\\p{N}][\\p{L}\\p{N}\\x27’-]*(?:\\s+[\\p{L}\\p{N}][\\p{L}\\p{N}\\x27’-]*)*';
+  // A later direct object ("generate reports about revenue") is not the
+  // requested revenue amount. Accept the fronted object plus its adjuncts.
+  const amountAdverbs = '(?:\\s+(?:(?:very|quite|rather)\\s+)?(?:[A-Za-z][A-Za-z-]*ly|often|sometimes|always|never|already|still|well|fast|hard|more|less|again|once|twice))*';
+  const amountComplement = `${amountAdverbs}(?=\\s*(?:$|[.!?。！？,;:]|(?:from|for|after|before|by|with|without|in|on|at|during|over|through|via|per|today|now|tomorrow|yesterday)\\b|(?:this|last|next)\\s+(?:year|month|week|season)\\b))`;
+  const nounFrontAmountQuestion = new RegExp(`^(?:${pricedSubject}|${nominalSubject})\\s+${amountVerb}\\b${amountComplement}`, 'iu').test(nounFrontHead)
+    || new RegExp(`^(?:(?:have|has|had)\\s+)?(?:(?:be|been|being)\\s+)?(?:generated|yielded|brought|produced|earned|received|made)\\b${amountComplement}`, 'iu').test(nounFrontHead);
+  const revenueContinuation = revenueClause
+    .replace(/[.!?。！？]+\s*$/u, '')
+    .replace(/^(?:(?:is|are|was|were|do|does|did|will|would|can|could|should|may|might|must|has|have|had|be|been|being)(?:\s+|$)){0,3}/iu, '')
+    .trim();
+  const amountContinuation = !revenueContinuation
+    || /^(?:from|for|of|after)\b|^(?:amount(?:s|ed)?|come|came)\s+to\b|^(?:(?:about|around|approximately|roughly)\s+)?\d/iu.test(revenueContinuation);
+  if (revenueClause && !amountContinuation && !amountNounQuestion && !nounFrontAmountQuestion && !intent.test(question)) return false;
+  const saleContinuation = revenueContinuation.match(/^(?:after|for|from|of)\s+(.+)/iu)?.[1] ?? '';
+  if (saleContinuation && !amountNounQuestion && !nounFrontAmountQuestion && !intent.test(question) && (
+    /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(saleContinuation)
+    || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(saleContinuation)
+  )) return false;
+  const englishAmountQuestion = amountContinuation
+    && /\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+(?:be|been))?)?\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+(?:be|been))?)\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b/iu.test(question);
+  // Require a complete amount phrase or a following sale/calculation clause.
+  // A shared prefix such as "what is the revenue" is insufficient when followed
+  // by "definition" or "recognition principle"; those need accounting answers.
+  // Match amount nouns/connectors, not arbitrary intervening conceptual words.
+  const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
+  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || nounFrontAmountQuestion || chineseAmountQuestion || englishAmountQuestion
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+be)?)?\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+be)?)\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
+  // Monetary examples do not establish an amount request. Classify the
+  // financial clause across locales without enumerating question openers or
+  // accounting verbs; explicit amount/label/calculation requests stay checked.
+  const financialClause = /\b(?:revenue|proceeds)\b[\s\p{P}]*\S|(?<![\p{L}])выручк[ауиы](?![\p{L}])[\s\p{P}]*\S|(?:净收入|销售收入|总收入)\s*\S/iu.test(question);
+  if (financialClause && !amountQuestion && !labelled && !intent.test(question)) return false;
+  const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
+  const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
+  if (!labelled && !intent.test(question)
+    && (strategyQuestion || (improvementQuestion && !amountQuestion))) return false;
+  const bareRequest = new RegExp(`^\\s*(?:(?:пожалуйста|please)[,:]?\\s+|请\\s*)?(?:${intent.source})(?:\\s+(?:после\\s+доставки|after\\s+delivery))?\\s*[.!?。！？]*$`, 'iu').test(question);
+  return amountQuestion || (suppliedInputs && (monetaryInputs || labelled || intent.test(question))) || bareRequest;
+}
+export type PaymentTimingInput = Readonly<{
+  immediatePriceMinor: number;
+  delayedPriceMinor: number;
+  delayDays: number;
+  premiumMinor: number;
+  premiumBasisPoints: number;
+  guarantee: 'present' | 'absent' | 'unspecified';
+}>;
+type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
+const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
+// Bound the ambiguous price/ruble stems (оцените, трубы), while retaining
+// monetary compounds such as себестоимость and перерасход.
+const ECONOMIC_TOPIC = /(?<![\p{L}])(?:(?:на|у|рас)?цен|руб)|стоим|расход|прода|выгод|покры|окуп|прибыл|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+
+function hasEconomicTopic(text: string): boolean {
+  // Application rates are not financial expenses. Other monetary words in the
+  // same request still activate the existing financial screen.
+  const topic = text.replace(/(?<![\p{L}])норм(?:а|ы|у|е|ой|ою|ам|ами|ах)?\s+расхода(?![\p{L}])/giu, '');
+  return ECONOMIC_TOPIC.test(topic) || topic.split(/[.!?;。！？；\n]/u).some((clause) =>
+    /\binterest\s+(?:(?:annual|monthly|daily)\s+)?rates?\b|(?:年|月|日)?利率|(?:借款|贷款|融资)?利息/iu.test(clause)
+    || /(?<![\p{L}])процент[\p{L}]*/iu.test(clause)
+      && (/начисл|начисля|плат[её]ж|оплат|кредит|за[её]м|банковск|денежн|депозит/iu.test(clause)
+        || /(?<![\p{L}])(?:процентн[\p{L}]*(?:\s+(?:годов|месячн|дневн)[\p{L}]*)?\s+ставк[\p{L}]*|ставк[\p{L}]*\s+(?:(?:в|по)\s+)?процент[\p{L}]*)/iu.test(clause)));
+}
+const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
+const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;
+const PAYMENT_TONNE_PRICE = /((?:\d{1,3}(?:[ \u00A0\u202F]\d{3})+|\d{1,7})(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:\/\s*т(?:онн[уы])?|за\s+тонн[уы])/giu;
+const PAYMENT_DELAY_DAYS = /(?:через\s+|отсроч\w*(?:\s+на)?\s*|in\s+|after\s+|defer(?:red)?\s+(?:for\s+)?)(\d{1,3})\s*(?:дн(?:я|ей)?|days?|天)/iu;
+const PAYMENT_IMMEDIATE_MARKER = /(?:с\s+оплат\w*\s+сегодня|оплат\w*\s+сегодня|сегодня|сразу|paid\s+today|payment\s+today|today|今天付款|现付)/iu;
+const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\bor\b|还是)/iu;
+
+// An excluded cost/topic is not an instruction to calculate it. Keep mixed
+// clauses (including hypothetical storage) eligible for the existing screen.
+// A span may refer to one storage mention only. Crossing another mention
+// would attach its negation to an earlier, applicable comparison.
+const STORAGE_MENTION_GAP = `(?:(?!${STORAGE_TOPIC.source})[^,，.!?;。！？；\\n])`;
+const STORAGE_NECESSITY_GAP = `(?:(?!${STORAGE_TOPIC.source})[^.!?;。！？；\\n])`;
+const STORAGE_NECESSITY_ACTION_RU = '(?:рассчит|посчит|подсчит|отгруз|достав|сохран|пережд)[\\p{L}]*';
+const STORAGE_NECESSITY_ACTION_EN = '(?:calculat(?:e|ed|ing)|comput(?:e|ed|ing)|ship(?:ped|ping)?|deliver(?:ed|ing)?|preserv(?:e|ed|ing)|wait(?:ing)?)';
+const STORAGE_REQUIRED_WITHOUT = new RegExp([
+  `без\\s+(?:(?:расход|стоимост|затрат)[\\p{L}]*\\s+(?:на\\s+)?)?хранени[ея]${STORAGE_NECESSITY_GAP}{0,80}(?:нельзя|невозмож|нет\\s+возможност[ьи]\\s+(?:(?:быстро|правильно|точно)\\s+)?${STORAGE_NECESSITY_ACTION_RU}|не\\s+(?:мож|могу|получ|удаст))`,
+  `\\bwithout\\s+storage(?:\\s+(?:costs?|expenses?))?${STORAGE_NECESSITY_GAP}{0,80}\\b(?:cannot|can't|impossible|not\\s+possible|no\\s+(?:way|possibility)\\s+(?:(?:to|of)\\s+)?(?:(?:accurately|properly|safely)\\s+)?${STORAGE_NECESSITY_ACTION_EN})\\b`,
+].join('|'), 'iu');
+// A current request can refer back to storage with a pronoun rather than
+// repeating it. Keep an explicit time marker, reference and cost request;
+// a payment-bearing clause leaves that reference ambiguous.
+const STORAGE_RENEWED_COST_REFERENCE = /\b(?:now|currently)\s+(?:(?:i|we)\s+)?(?:need|want|request)\s+(?:to\s+(?:know|calculate|compare)\s+)?(?:its|this|that)\s+(?:costs?|expenses?|price)\b|(?:теперь|сейчас)\s+(?:(?:мне|нам)\s+)?(?:нужн[аоы]|нужен|хочу\s+узнать)\s+(?:его|её|этого|такого)\s+(?:стоимост|цен|расход|затрат)[\p{L}]*|(?:现在|目前)\s*(?:我|我们)?\s*(?:需要|想知道|想了解|计算)\s*(?:它|其|这个|这种|那个)(?:的)?\s*(?:成本|费用|价格)/iu;
+const REFERENCED_COST_EXCLUSION = /^\s+(?:(?:to|should|must)\s+be\s+|(?:is|are)\s+)?(?:excluded|omitted|ignored|removed|left\s+out|not\s+(?:included|counted|considered))\b|^\s+(?:(?:to|should|must)\s+not|not\s+to)\s+be\s+(?:included|counted|considered)\b|^\s+(?:исключ[\p{L}]*|убран[\p{L}]*|не\s+(?:учитыва[\p{L}]*|включ[\p{L}]*))|^\s*(?:不计入|排除|忽略)/iu;
+
+function storageCostReferenceExcluded(clause: string): boolean {
+  const reference = STORAGE_RENEWED_COST_REFERENCE.exec(clause);
+  return reference !== null && STORAGE_PRIOR_ANSWER_REFERENCE.test(clause.slice(0, reference.index))
+    && REFERENCED_COST_EXCLUSION.test(clause.slice(reference.index + reference[0].length));
+}
+const STORAGE_PRIOR_ANSWER_REFERENCE = new RegExp([
+  /(?:^|[^\p{L}])(?:я|мы|ты|вы)\s+(?:(?:ранее|раньше|уже|только\s+что)\s+)?(?:говорил[аи]?|сказал[аи]?|предложил[аи]?|упоминал[аи]?|обсуждал[аи]?)/u.source,
+  /(?:^|[^\p{L}])(?:предыдущ|прошл|тво|ваш)[\p{L}]*\s+(?:ответ|сообщени)/u.source,
+  /\b(?:your|the|previous|earlier|last)\s+(?:(?:previous|earlier|last)\s+)?(?:answer|reply)\b/.source,
+  /\b(?:you|i|we)\s+(?:(?:earlier|previously|already|just)\s+)?(?:said|mentioned|suggested|proposed|talked|discussed)\b/.source,
+  /\b(?:earlier|previously|last\s+time)\s+(?:we|you|i)\s+(?:said|mentioned|suggested|talked|discussed)\b/.source,
+  /(?:你|您)(?:之前|刚才|先前)?(?:的)?(?:回答|回复|说|提到|提及)|(?:之前|刚才|先前)(?:的)?(?:回答|回复)/.source,
+  /(?:我|我们)(?:之前|刚才|先前)(?:的)?(?:回答|回复|说过?|提到|提及|谈过|讨论过)/.source,
+].join('|'), 'iu');
+const STORAGE_EXCLUDED = new RegExp([
+  /не\s+(?:нужно|надо|требуется|буду|будем)\s+(?:хранить|хранени[ея])/.source,
+  `(?:хранить|хранени[ея])${STORAGE_MENTION_GAP}{0,48}\\s+не\\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\\p{L}]*|включа[\\p{L}]*)`,
+  /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
+  /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
+  /(?<![\p{L}])исключ(?:и|ите|ить)\s+(?:из\s+(?:расч[её]та|сметы)\s+)?(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
+  /хранени[ея]\s+(?:(?:(?:был|была|были|было|будет|будут)\s+)?исключен[\p{L}]*|не\s+(?:должен|должна|должны|должно|будет|будут)\s+(?:учитыв|включ)[\p{L}]*)/u.source,
+  `не\\s+(?:упомина|обсужда|говори)[\\p{L}]*${STORAGE_MENTION_GAP}{0,48}(?:хранить|хранени[еяи])`,
+  /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
+  /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
+  /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
+  /\b(?:assuming|assume)\s+no\s+storage(?:\s+(?:costs?|expenses?))?(?:\s+is\s+(?:needed|required|necessary|planned|involved))?(?:\s+for\s+(?:this|the|our)\s+(?:deal|shipment|transaction|sale|delivery|contract))?(?=\s*(?:$|[,，:]))/.source,
+  /\b(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage(?:\s+(?:costs?|expenses?))?\b/.source,
+  /\bstorage(?:\s+(?:costs?|expenses?))?\s+(?:(?:is|are|was|were|will\s+be|(?:has|have|had|should\s+have|must\s+have)\s+been)\s+(?:excluded|omitted|ignored|not\s+(?:included|counted|considered))|(?:(?:should|must)\s+not|not\s+to)\s+be\s+(?:included|counted|considered)|(?:should|must|to)\s+be\s+(?:excluded|omitted|ignored))\b/.source,
+  `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
+  /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
+  /\b(?:do\s+not|don't)\s+need\s+to\s+store\b/.source,
+  `\\b(?:do\\s+not|don't)\\s+(?:mention|discuss|talk\\s+about)${STORAGE_MENTION_GAP}{0,48}\\bstorage\\b`,
+  `(?:无需|不需要|不用|不必)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
+  `(?:仓储|储存)${STORAGE_MENTION_GAP}{0,20}(?:不需要|无需)`,
+  `(?:不要|不应)\\s*(?:计入|加入|考虑)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
+  `(?:不要|别)\\s*(?:再)?\\s*(?:提及|提到|提|讨论|谈论)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
+].join('|'), 'iu');
+
+function storageClauses(text: string): string[] {
+  return text
+    .split(/[.!?;。！？；\n]|(?:,?\s+(?:но|однако)\s+)|(?:,?\s+\b(?:but|however)\b\s+)|(?:，?\s*(?:但是|但)\s*)/iu)
+    .filter((clause) => STORAGE_TOPIC.test(clause));
+}
+
+function storageExplicitlyExcluded(text: string): boolean {
+  const clauses = storageClauses(text).flatMap((clause) =>
+    STORAGE_PRIOR_ANSWER_REFERENCE.test(clause) && !STORAGE_RENEWED_COST_REFERENCE.test(clause)
+      ? clause.split(/\s+and\s+|\s+и\s+|而/iu).filter((part) => STORAGE_TOPIC.test(part))
+      : [clause]).filter((clause) =>
+    !STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)
+    || STORAGE_RENEWED_COST_REFERENCE.test(clause)
+    || STORAGE_REQUIRED_WITHOUT.test(clause));
+  return clauses.length > 0 && clauses.every((clause) => {
+    // Double negation and unexcluded mentions keep the conservative screen.
+    if (STORAGE_REQUIRED_WITHOUT.test(clause)
+      || /не\s+исключ(?:и|ите|ить)\s+(?:из\s+(?:расч[её]та|сметы)\s+)?(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/iu.test(clause)
+      || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|\b(?:do\s+not|don't|must\s+not|cannot|can't|without|never)\s+(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage\b|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+    if (storageCostReferenceExcluded(clause) && [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].length === 1) return true;
+    const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
+    return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>
+      exclusions.some((exclusion) => topic.index >= exclusion.index
+        && topic.index + topic[0].length <= exclusion.index + exclusion[0].length));
+  });
+}
+
+function storageAffirmativelyRequested(text: string): boolean {
+  const clauses = storageClauses(text);
+  if (clauses.some((clause) => STORAGE_REQUIRED_WITHOUT.test(clause))) return true;
+  if (clauses.some((clause) => STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)
+    && !storageExplicitlyExcluded(clause)
+    && !PAYMENT_TIMING_TOPIC.test(clause)
+    && STORAGE_RENEWED_COST_REFERENCE.test(clause))) return true;
+  return clauses.flatMap((clause) => clause.split(/[,，]|\s+and\s+|\s+и\s+|而/iu)).some((clause) => {
+    if (!STORAGE_TOPIC.test(clause)) return false;
+    if (storageExplicitlyExcluded(clause)) return false;
+    // Mentioning a previous answer is not renewed physical-storage intent.
+    if (STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)) return false;
+    return hasEconomicTopic(clause)
+      || /хранить|нуж|необходим|если|нельзя|невозмож|\bstor(?:e|es|ed|ing)\b|\b(?:if|need|needed|required)\b|cannot\s+(?:ship|avoid)|储存|需要|必须|如果/iu.test(clause)
+      || (/месяц|срок|month|duration|月|期限/iu.test(clause) && !PAYMENT_TIMING_TOPIC.test(clause));
+  });
+}
+
+/** History establishes a topic only; assistant prose never establishes a quantity. */
+export function economicComparisonFor(question: string, history: readonly UserContextTurn[]): EconomicComparison | null {
+  if (saleProceedsFromUser(question) !== null || saleCalculationRequested(question)) return 'sale_proceeds';
+  if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
+  if (paymentTimingFromUser(question) !== null) return 'payment_timing';
+  if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
+  const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
+  const economicFollowUp = STORAGE_TOPIC.test(lastUser) && hasEconomicTopic(lastUser)
+    && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question);
+  const paymentChoice = /оплат|плат[её]ж|денежн|банк[\p{L}]*\s+гарант|payment|paid|bank\s+guarantee|付款|银行担保/iu.test(question)
+    && /сравн|выбр|выбор|выбира|что\s+выбрать|что\s+лучше|какой\s+вариант|compar|choos|select|which|better|比较|选择|哪|更/iu.test(question);
+  // Excluding storage arithmetic must not disable the existing monetary
+  // output screen or qualitative-only provider instruction for a cost question.
+  if (storageExplicitlyExcluded(question)) return hasEconomicTopic(question) || economicFollowUp || paymentChoice ? 'qualitative' : null;
+  if ((STORAGE_TOPIC.test(question) && hasEconomicTopic(question)) || economicFollowUp) {
+    return storageExplicitlyExcluded(lastUser) && !storageAffirmativelyRequested(question) ? 'qualitative' : 'storage';
+  }
+  return paymentChoice ? 'qualitative' : null;
+}
+
+function moneyMinor(raw: string): number | null {
+  const normalized = raw.replace(/[ \u00A0\u202F]/gu, '').replace(',', '.');
+  if (!/^\d{1,7}(?:\.\d{1,2})?$/u.test(normalized)) return null;
+  const [rubles, kopecks = ''] = normalized.split('.');
+  const minor = Number(rubles) * 100 + Number(kopecks.padEnd(2, '0'));
+  return Number.isSafeInteger(minor) && minor > 0 ? minor : null;
+}
+
+/**
+ * A deliberately narrow same-turn payment-timing calculation.
+ * We only accept exactly two explicit RUB/tonne prices, an explicit "today"
+ * marker for the first price and an explicit day delay for the second. This
+ * avoids inheriting stale numbers or guessing which commercial option is which.
+ */
+export function paymentTimingFromUser(question: string): PaymentTimingInput | null {
+  if (!PAYMENT_TIMING_TOPIC.test(question) || !PAYMENT_COMPARISON_SEPARATOR.test(question)) return null;
+  const prices = [...question.matchAll(PAYMENT_TONNE_PRICE)];
+  if (prices.length !== 2 || prices[0].index === undefined || prices[1].index === undefined) return null;
+
+  const firstRaw = prices[0][1];
+  const secondRaw = prices[1][1];
+  const immediatePriceMinor = moneyMinor(firstRaw);
+  const delayedPriceMinor = moneyMinor(secondRaw);
+  if (immediatePriceMinor === null || delayedPriceMinor === null) return null;
+
+  const firstEnd = prices[0].index + prices[0][0].length;
+  const secondStart = prices[1].index;
+  const secondEnd = secondStart + prices[1][0].length;
+  const between = question.slice(firstEnd, secondStart);
+  const after = question.slice(secondEnd);
+  if (!PAYMENT_IMMEDIATE_MARKER.test(between) || !PAYMENT_COMPARISON_SEPARATOR.test(between)) return null;
+
+  const delayMatch = PAYMENT_DELAY_DAYS.exec(after);
+  if (!delayMatch) return null;
+  const delayDays = Number(delayMatch[1]);
+  if (!Number.isSafeInteger(delayDays) || delayDays < 1 || delayDays > 365) return null;
+
+  const premiumMinor = delayedPriceMinor - immediatePriceMinor;
+  const premiumBasisPoints = Math.round((premiumMinor * 10_000) / immediatePriceMinor);
+  if (!Number.isSafeInteger(premiumBasisPoints)) return null;
+
+  const guarantee = /без\s+(?:банковск[\p{L}-]*\s+)?гарант/iu.test(question)
+    ? 'absent'
+    : /(?:с|есть)\s+(?:банковск[\p{L}-]*\s+)?гарант/iu.test(question)
+      ? 'present'
+      : 'unspecified';
+
+  return Object.freeze({
+    immediatePriceMinor,
+    delayedPriceMinor,
+    delayDays,
+    premiumMinor,
+    premiumBasisPoints,
+    guarantee,
+  });
+}
+
+/** Bounded output screen, not a proof of arbitrary financial prose. */
+export function economicBlockAllowed(block: string): boolean {
+  const body = block.replace(/^\d+[.)]\s*/u, '');
+  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|%|процент|(?<![\p{L}])ставк[аи](?![\p{L}])|годов|interest|annual|利率|(?:продавать|продать|покупать|купить|хранить)\s+(?:сейчас|сегодня|немедленно)|(?:сейчас|сегодня|немедленно)\s+(?:продавать|продать|покупать|купить|хранить)|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|предпочт|разумнее|безопаснее|надежнее|оптимальн|перв\w*\s+вариант|втор\w*\s+вариант|(?:продавать|продать|хранить|купить|покупать)\s+(?:сейчас|сегодня|немедленно)|(?:сейчас|сегодня|немедленно)\s+(?:продавать|продать|хранить|купить|покупать)|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|safer|prefer|optimal|first\s+option|second\s+option|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|第一个方案|第二个方案|应选|选择|建议|应该|现在卖/iu.test(body)
+    && !/(?:два|двух|три|тр[её]х|несколько|two|three|several|[一二三四五六七八九十两])\s*(?:месяц|month|个月|月)/iu.test(body);
+}
+
+type StorageInput = Readonly<{ value: number; unit: 'RUB_PER_TONNE_MONTH_MINOR' | 'MONTH'; userTurn: number }>;
+
+/** Only a deliberately narrow, explicit RUB/tonne/month × integer-month calculation. */
+export function storageCostFromUser(question: string, history: readonly UserContextTurn[]): number | null {
+  if (economicComparisonFor(question, history) !== 'storage') return null;
+  let rate: StorageInput | null = null;
+  let duration: StorageInput | null = null;
+  // Only a bounded duration-only continuation may inherit the preceding rate.
+  // A newly named commodity, free-form correction or longer thread requires
+  // explicit restatement; do not try to infer commodity identity from a list.
+  const previous = [...history].reverse().find((turn) => turn.role === 'user')?.text;
+  const continuation = /^срок\s+хранения\s+(?:\d{1,3}|один|два|двух|три|тр[её]х)\s+месяц(?:а|ев)?[.?!]?\s*(?:насколько\s+должна\s+вырасти\s+цена,?\s+чтобы\s+покрыть\s+только\s+хранение[?.]?)?$/iu.test(question.trim());
+  const turns = [...(previous && continuation ? [previous] : []), question];
+  for (const [userTurn, text] of turns.entries()) {
+    const ambiguousNumber = /\d\s+\d|[-−]\s*\d|\d\s*[–—-]\s*\d|от\s+\d.{0,12}до\s+\d|\d[eE][+-]?\d/iu.test(text);
+    // Ambiguous corrections or a unit change invalidate the old input, never reuse it silently.
+    if (/(?:\d.{0,20}(?:руб|₽|RUB)|тариф|хран[еи].{0,35}(?:\d|стоим|цен|руб)|(?:storage|仓储).{0,35}(?:\d|cost|rate|成本))/iu.test(text)) {
+      const matches = [...text.matchAll(/(?:^|[\s.!?;])(?:хранение|стоимость\s+хранения)(?:\s+стоит)?\s+(\d{1,7}(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:за\s*тонн[уы]|\/\s*т(?:онн[уы])?)\s*(?:в\s*месяц|\/\s*мес(?:яц)?)/giu)];
+      rate = null;
+      if (!ambiguousNumber && matches.length === 1 && !/(?:(?:^|\s)не\s+(?:\d|один|два|три|хранени|стоимост|срок)|неизвест|отмен|not\s|unknown|(?:\d|один|два|три)\s*(?:или|либо))/iu.test(text)) {
+        const parts = matches[0][1].replace(',', '.').split('.');
+        const value = Number(parts[0]) * 100 + Number((parts[1] ?? '').padEnd(2, '0'));
+        if (Number.isSafeInteger(value) && value > 0) rate = { value, unit: 'RUB_PER_TONNE_MONTH_MINOR', userTurn };
+      }
+    }
+    const durationText = text.replace(/(?:в\s*месяц|\/\s*мес(?:яц)?)/giu, '');
+    if (/месяц|год|лет|недел|дн|duration|store for|period|срок\s+(?:неизвест|отмен|измен|друг)/iu.test(durationText)) {
+      const matches = [...text.matchAll(/(?:срок\s+хранения|хранить|хранение\s+на)\s+(\d{1,3}|один|два|двух|три|тр[её]х)\s+месяц(?:а|ев)?/giu)];
+      duration = null;
+      if (!ambiguousNumber && matches.length === 1 && !/(?:(?:^|\s)не\s+(?:\d|один|два|три|хранени|стоимост|срок)|неизвест|отмен|not\s|unknown|(?:\d|один|два|три)\s*(?:или|либо))/iu.test(text)) {
+        const words: Record<string, number> = { один: 1, два: 2, двух: 2, три: 3, трех: 3, трёх: 3 };
+        const value = words[matches[0][1].toLowerCase()] ?? Number(matches[0][1]);
+        if (Number.isSafeInteger(value) && value > 0 && value <= 120) duration = { value, unit: 'MONTH', userTurn };
+      }
+    }
+  }
+  if (!rate || !duration) return null;
+  const minor = rate.value * duration.value;
+  return Number.isSafeInteger(minor) ? minor : null;
+}
+
+export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null, sale: SaleProceedsInput | null = null): string {
+  if (kind === 'sale_proceeds') {
+    if (sale === null) {
+      if (locale === 'en') return 'Proceeds after delivery = quantity × sale price − total delivery charge. Specify the quantity in metric tonnes, the RUB-per-tonne sale price and the total delivery charge unambiguously in the same question for the same crop.';
+      if (locale === 'zh') return '扣除运输费后的收入 = 吨数 × 销售单价 − 运输总费用。请在同一个问题中明确同一种作物的公吨数、每吨卢布销售价格和运输总费用。';
+      return 'Остаток после доставки = объём × цена продажи − общая стоимость доставки. Укажите в одном вопросе однозначный объём в метрических тоннах, цену продажи в рублях за тонну и общую стоимость доставки одной культуры.';
+    }
+    const decimal = (value: number, scale: number): string => {
+      const negative = value < 0 ? '-' : '';
+      const digits = BigInt(Math.abs(value)).toString().padStart(scale + 1, '0');
+      const fraction = digits.slice(-scale).replace(/0+$/u, '');
+      return negative + digits.slice(0, -scale) + (fraction ? '.' + fraction : '');
+    };
+    const quantity = decimal(sale.quantityMilliTonnes, 3);
+    const price = decimal(sale.priceMinorPerTonne, 2);
+    const gross = decimal(sale.grossMinor, 2);
+    const delivery = decimal(sale.deliveryMinor, 2);
+    const net = decimal(sale.proceedsMinor, 2);
+    if (locale === 'en') return `Calculation from your inputs: ${quantity} t × ${price} RUB/t = ${gross} RUB gross revenue. After the stated delivery charge: ${gross} − ${delivery} = ${net} RUB. This is proceeds after delivery only, not profit; other costs and taxes are not included. No current market price was verified.`;
+    if (locale === 'zh') return `根据你提供的数据：${quantity}吨 × ${price}卢布/吨 = ${gross}卢布销售收入。扣除所述运输费用：${gross} − ${delivery} = ${net}卢布。这仅是扣除运输费后的收入，不是利润；未计入其他成本和税款，也未核实当前市场价格。`;
+    return `Расчёт по вашим данным: ${quantity} т × ${price} руб/т = ${gross} руб выручки. После указанной доставки: ${gross} − ${delivery} = ${net} руб. Это остаток после доставки, а не прибыль: другие расходы и налоги не учтены. Текущая рыночная цена не проверялась.`;
+  }
+  if (kind === 'qualitative') {
+    if (locale === 'en') return 'To assess profitability, compare confirmed costs and payment terms. A price comparison alone does not determine which option to choose.';
+    if (locale === 'zh') return '评估收益时，应比较已核实的费用和付款条件；仅比较价格不能决定应选哪一种方案。';
+    return 'Для оценки выгодности сравните подтверждённые расходы и условия оплаты. Сравнение цен само по себе не определяет, какой вариант выбрать.';
+  }
+  if (kind === 'transport') {
+    if (locale === 'en') return 'Compare the total quote per trip divided by the actual payable tonnes with the per-tonne quote. Include all trips, loading, waiting and return charges. What are both rates and the actual load?';
+    if (locale === 'zh') return '将按趟报价的总费用除以实际计费吨数，再与按吨报价比较；计入全部趟数、装卸、等待和返程费用。两种费率和实际装载量是多少？';
+    return 'Разделите полную стоимость всех рейсов на фактически оплачиваемый тоннаж и сравните с тарифом за тонну. Учтите погрузку, простой и обратный путь. Какие тарифы и фактическая загрузка?';
+  }
+  if (kind === 'payment_timing') {
+    if (payment === null) {
+      if (locale === 'en') return 'For a payment-timing comparison, specify two RUB-per-tonne prices, which one is paid today, and the exact delay in days. Without those explicit inputs, no option should be selected.';
+      if (locale === 'zh') return '比较付款时点时，请明确两种每吨卢布价格、哪一种今天付款，以及延期的确切天数。缺少这些明确输入时，不应替你选择方案。';
+      return 'Для сравнения условий оплаты укажите две цены в руб/т, какой вариант оплачивается сегодня и точный срок отсрочки в днях. Без этих явных данных выбирать вариант нельзя.';
+    }
+    const premium = Math.abs(payment.premiumMinor) / 100;
+    const premiumText = premium.toFixed(2).replace(/\.00$/u, '').replace('.', ',');
+    const percent = Math.abs(payment.premiumBasisPoints) / 100;
+    const percentText = percent.toFixed(2).replace(/\.00$/u, '').replace('.', ',');
+    const directionEn = payment.premiumMinor >= 0 ? 'adds' : 'reduces the price by';
+    const directionZh = payment.premiumMinor >= 0 ? '增加' : '减少';
+    const guaranteeRu = payment.guarantee === 'absent'
+      ? 'В запросе банковской гарантии нет, поэтому риск неплатежа нужно оценивать отдельно.'
+      : payment.guarantee === 'present'
+        ? 'В запросе указана банковская гарантия; отдельно проверьте её условия и исполнимость.'
+        : 'Статус банковской гарантии не указан; его нужно проверить отдельно.';
+    const guaranteeEn = payment.guarantee === 'absent'
+      ? 'No bank guarantee is stated, so counterparty non-payment risk must be assessed separately.'
+      : payment.guarantee === 'present'
+        ? 'A bank guarantee is stated; verify its terms and enforceability separately.'
+        : 'Bank-guarantee status is not stated and must be checked separately.';
+    const guaranteeZh = payment.guarantee === 'absent'
+      ? '请求中未说明银行担保，因此需要单独评估交易对手不付款风险。'
+      : payment.guarantee === 'present'
+        ? '请求中说明有银行担保；仍需单独核对其条款和可执行性。'
+        : '未说明银行担保状态，需要单独核对。';
+    if (locale === 'en') return `Calculation from your inputs: a ${payment.delayDays}-day delay ${directionEn} ${premiumText.replace(',', '.')} RUB/t, or ${percentText.replace(',', '.')}% relative to the price paid today. ${guaranteeEn} This does not determine which option to choose: compare the cost of money over ${payment.delayDays} days, counterparty risk and recovery terms.`;
+    if (locale === 'zh') return `根据你提供的数据：延期${payment.delayDays}天使每吨价格${directionZh}${premiumText}卢布，相当于相对今天付款价格的${percentText}%。${guaranteeZh}这并不能决定应选哪一种方案；还需比较这${payment.delayDays}天的资金成本、交易对手风险和追偿条件。`;
+    const premiumRu = payment.premiumMinor >= 0 ? `добавляет ${premiumText} руб/т к цене` : `уменьшает цену на ${premiumText} руб/т`;
+    return `Расчёт по вашим данным: отсрочка на ${payment.delayDays} дней ${premiumRu}, то есть ${percentText}% относительно цены с оплатой сегодня. ${guaranteeRu} Это не определяет, какой вариант выбрать: сравните стоимость денег за ${payment.delayDays} дней, риск контрагента и условия взыскания.`;
+  }
+  const amount = storageMinor === null ? null : (storageMinor / 100).toFixed(2).replace(/\.00$/u, '');
+  if (locale === 'en') return `${amount === null ? 'Storage-only break-even is the monthly cost per tonne multiplied by the holding period; please specify both inputs with units.' : `Calculation from your inputs: covering storage alone requires a price increase of ${amount} RUB per tonne.`} This does not establish total profitability: compare future net proceeds, quality losses, financing and delivery costs.`;
+  if (locale === 'zh') return `${amount === null ? '仅覆盖仓储费所需的涨价等于每吨每月费用乘以储存月数；请提供带单位的费用和期限。' : `根据你提供的数据计算：仅覆盖仓储费，每吨价格需上涨${amount}卢布。`}这不代表总体盈利；还需比较未来净收入、质量损失、融资和运输费用。`;
+  return `${amount === null ? 'Для покрытия только хранения умножьте месячную стоимость за тонну на срок. Уточните эти два значения с единицами.' : `Расчёт по вашим данным: для покрытия только хранения цена должна вырасти на ${amount.replace('.', ',')} руб/т.`} Это не доказывает общую выгодность: сравните будущую чистую выручку, потери качества, финансирование и доставку.`;
+}
+
+/** Private detection view only; never a publishing or HTML sanitization boundary. */
+function saleSafetyView(text: string, removeFormatting = false, preserveFormatCharacters = false): string {
+  // FEFF is both ignorable and a valid Bearer separator. Retain that boundary
+  // before joining arbitrarily long ignorable runs, without splitting a key.
+  const joined = preserveFormatCharacters ? text : text
+    .replace(/(?<![a-z0-9._~+\/-])(Bearer)(?=[\p{Cf}\p{Default_Ignorable_Code_Point}\s]*\s)/giu, '$1 ')
+    .replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '');
+  const normalized = joined
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+    .replace(/\s+/gu, ' ');
+  return removeFormatting ? normalized.replace(/[*_`~]/gu, '') : normalized;
+}
 
 export class StreamingAnswerGate {
   private pending = '';
@@ -81,6 +994,31 @@ export class StreamingAnswerGate {
   private violationState: GateViolation | null = null;
   private partialBlockOpen = false;
   private progressiveSafetyContext = '';
+  private discardedSaleRawContext = '';
+  private discardedSaleFormattingContext = '';
+  private discardedSaleRenderedContext = '';
+  private discardedSaleRenderedFormattingContext = '';
+  private discardedSaleDecodedContext = '';
+  private discardedSaleDecodedFormattingContext = '';
+  private discardedSaleMarkdownContext = '';
+  private discardedSaleMarkdownFormattingContext = '';
+  private discardedSaleMarkdownState = newSaleMarkdownScanState();
+  private discardedSaleOriginalMarkdownContext = '';
+  private discardedSaleOriginalMarkdownFormattingContext = '';
+  private discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
+  private discardedSaleTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleUnquotedTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleUnquotedMarkdownTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleReferenceTail = '';
+  private discardedSaleRawJoinedReferenceTail = '';
+  private discardedSaleRawJoinedContext = '';
+  private discardedSaleRawJoinedFormattingContext = '';
+  private discardedSaleRawJoinedTagState = newSaleTagScanState();
+  private discardedSaleTagState = newSaleTagScanState();
+  private discardedSaleDecodedTagState = newSaleTagScanState();
+  private progressiveJoiner = ' ';
+  private pendingListMarker = '';
   private readonly authority: string;
   private readonly maxPendingChars: number;
 
@@ -105,6 +1043,18 @@ export class StreamingAnswerGate {
 
   push(delta: string): GateCommit {
     if (this.violationState !== null || !delta) return EMPTY_COMMIT;
+    if (this.options.economicComparison === 'sale_proceeds') {
+      const flags = new Set<string>();
+      // Bound each safety scan even if one transport delta contains a whole
+      // long answer. No provider sale prose is ever published.
+      for (let index = 0; index < delta.length; index += 512) {
+        this.pending += delta.slice(index, index + 512);
+        const commit = this.drain(false);
+        if (commit.violation) return commit;
+        for (const flag of commit.flags) flags.add(flag);
+      }
+      return { text: '', flags: Object.freeze([...flags]), violation: null };
+    }
     this.pending += delta;
     return this.drain(false);
   }
@@ -112,15 +1062,258 @@ export class StreamingAnswerGate {
   /** Release whatever remains once generation has ended. */
   flush(): GateCommit {
     if (this.violationState !== null) return EMPTY_COMMIT;
-    return this.drain(true);
+    const commit = this.drain(true);
+    // A standalone number may be a valid answer outside evidence-bound output.
+    // An orphan marker after actual content is never published on its own.
+    if (!commit.violation && !this.published && this.pendingListMarker && !this.options.currentDataRequired && !this.options.economicComparison) {
+      this.published = this.pendingListMarker;
+      this.pendingListMarker = '';
+      return { ...commit, text: this.published };
+    }
+    this.pendingListMarker = '';
+    return commit;
+  }
+
+  private discardedSaleDecodedText(head: string, final: boolean): { original: string; joined: string } {
+    const encoded = this.discardedSaleReferenceTail + head;
+    const unfinished = !final
+      ? encoded.match(/&(?:#(?:[xX][0-9a-fA-F]*|[0-9]*)|[A-Za-z][A-Za-z0-9]{0,31})?$/u)?.[0] ?? ''
+      : '';
+    this.discardedSaleReferenceTail = unfinished ? decodeSaleCharacterReferences(unfinished, false) : '';
+    const original = decodeSaleCharacterReferences(encoded.slice(0, encoded.length - unfinished.length), true);
+    // Decode each original character reference once, then scan its tag boundaries.
+    // Retained decoded context is never passed back through the entity decoder.
+    return { original, joined: saleTextWithoutTagBoundaries(original, this.discardedSaleDecodedTagState, false) };
+  }
+
+  /** Parse literal tag syntax before decoding attribute text: an entity quote
+   * in an unquoted value is data and cannot open a quoted attribute. */
+  private discardedSaleRawJoinedText(head: string, final: boolean): string {
+    const joined = saleTextWithoutTagBoundaries(head, this.discardedSaleRawJoinedTagState, false);
+    const encoded = this.discardedSaleRawJoinedReferenceTail + joined;
+    const unfinished = !final
+      ? encoded.match(/&(?:#(?:[xX][0-9a-fA-F]*|[0-9]*)|[A-Za-z][A-Za-z0-9]{0,31})?$/u)?.[0] ?? ''
+      : '';
+    this.discardedSaleRawJoinedReferenceTail = unfinished ? decodeSaleCharacterReferences(unfinished, false) : '';
+    return decodeSaleCharacterReferences(encoded.slice(0, encoded.length - unfinished.length), true);
+  }
+
+  private scanOriginalTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
+    let prescription = false;
+    let fragment = '';
+    let renderedFragment = '';
+    const scanFragment = (): GateViolation | null => {
+      if (!fragment) return null;
+      const frame = frames[frames.length - 1];
+      // Normalize a bounded fragment once, before trimming its lookbehind.
+      // Keep enclosing prefixes frozen at nested-tag boundaries, and retain
+      // original whitespace / split-surrogate semantics in the four views.
+      const raw = saleSafetyView(frame.raw + fragment);
+      const formatted = saleSafetyView(frame.formatted + fragment, true);
+      const originalRaw = saleSafetyView(frame.originalRaw + fragment, false, true);
+      const originalFormatted = saleSafetyView(frame.originalFormatted + fragment, true, true);
+      // Reuse the four views for plain text; quoted tag contents also retain
+      // a rendered view so long inner attributes cannot evict an outer prefix.
+      const identical = renderedFragment === fragment && frame.renderedRaw === frame.raw
+        && frame.renderedFormatted === frame.formatted && frame.renderedOriginalRaw === frame.originalRaw
+        && frame.renderedOriginalFormatted === frame.originalFormatted;
+      const renderedRaw = identical ? raw : saleSafetyView(frame.renderedRaw + renderedFragment);
+      const renderedFormatted = identical ? formatted : saleSafetyView(frame.renderedFormatted + renderedFragment, true);
+      const renderedOriginalRaw = identical ? originalRaw : saleSafetyView(frame.renderedOriginalRaw + renderedFragment, false, true);
+      const renderedOriginalFormatted = identical ? originalFormatted : saleSafetyView(frame.renderedOriginalFormatted + renderedFragment, true, true);
+      const views = identical ? [raw, formatted, originalRaw, originalFormatted]
+        : [raw, formatted, originalRaw, originalFormatted, renderedRaw, renderedFormatted, renderedOriginalRaw, renderedOriginalFormatted];
+      frame.raw = raw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = formatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalRaw = originalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = originalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedRaw = renderedRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedFormatted = renderedFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedOriginalRaw = renderedOriginalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedOriginalFormatted = renderedOriginalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      fragment = '';
+      renderedFragment = '';
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return 'WRITE_CLAIM';
+      if (views.some((view) => SECRET_PATTERN.test(view))) return 'SECRET';
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      return null;
+    };
+    for (const character of text) {
+      let frame = frames[frames.length - 1];
+      const quotedValueOpener = frame.state.inside && !frame.state.comment && !frame.state.declaration
+        && !frame.state.quote && frame.state.attribute === 'value';
+      // Keep a same-delimiter inner attribute in this frame's rendered view,
+      // rather than recursively allocating another quoted-value context. This
+      // preserves split signatures across long inner metadata without making
+      // literal opposite-quote runs consume the nesting limit.
+      const borrowedDelimiter = frame.closingQuote === character && quotedValueOpener;
+      if ((character === '"' || character === "'") && frame.state.quote !== character && !quotedValueOpener) {
+        // An outer closing delimiter also ends unfinished private inner views.
+        // Otherwise serial benign attributes can accumulate stale contexts.
+        let closingIndex = frames.length - 1;
+        while (closingIndex > 0 && frames[closingIndex].closingQuote !== character) closingIndex -= 1;
+        if (closingIndex > 0) {
+          const violation = scanFragment();
+          if (violation) return { violation, prescription };
+          frames.length = closingIndex;
+          frame = frames[frames.length - 1];
+        }
+      }
+      fragment += character;
+      const previousQuote = frame.state.quote;
+      renderedFragment += !frame.state.inside && character !== '<'
+        ? character : saleTextWithoutTagBoundaries(character, frame.state, false);
+      const openedQuote = !previousQuote && frame.state.quote !== '';
+      if (openedQuote || fragment.length >= 512) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+      }
+      if (openedQuote && !borrowedDelimiter) {
+        // Attribute content gets its own bounded lexical view. Literal <x
+        // sequences remain inside that value instead of opening header frames.
+        // Nested quoted values still preserve the earlier secret/write checks.
+        if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+        frames.push(newSaleTagContentFrame(frame.state.quote));
+      }
+    }
+    return { violation: scanFragment(), prescription };
+  }
+
+  private scanUnquotedTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
+    // Quoted-value parsing above owns quoted tag-like text. This second bounded
+    // interpretation retains signatures inside malformed unquoted headers.
+    if (frames.length === 1 && !frames[0].state.inside && !frames[0].raw && !text.includes('<')) return { violation: null, prescription: false };
+    let prescription = false;
+    let fragment = '';
+    const scanFragment = (): GateViolation | null => {
+      if (!fragment) return null;
+      const frame = frames[frames.length - 1];
+      // Normalize a bounded fragment once, before trimming its lookbehind.
+      // Keep enclosing prefixes frozen at nested-tag boundaries, and retain
+      // original whitespace / split-surrogate semantics in the four views.
+      const raw = saleSafetyView(frame.raw + fragment);
+      const formatted = saleSafetyView(frame.formatted + fragment, true);
+      const originalRaw = saleSafetyView(frame.originalRaw + fragment, false, true);
+      const originalFormatted = saleSafetyView(frame.originalFormatted + fragment, true, true);
+      const views = [raw, formatted, originalRaw, originalFormatted];
+      frame.raw = raw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = formatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalRaw = originalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = originalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      fragment = '';
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return 'WRITE_CLAIM';
+      if (views.some((view) => SECRET_PATTERN.test(view))) return 'SECRET';
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      return null;
+    };
+    for (const character of text) {
+      let frame = frames[frames.length - 1];
+      if (frame.pendingTagStart) {
+        frame.pendingTagStart = false;
+        if (/[A-Za-z!/?]/u.test(character)) {
+          // Only a lexical tag opener freezes the enclosing safety prefix.
+          // Literal < runs/less-than operators, including split/decoded ones
+          // in quoted attributes, do not consume nesting capacity.
+          const violation = scanFragment();
+          if (violation) return { violation, prescription };
+          if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+          frame = newSaleTagContentFrame();
+          frames.push(frame);
+        }
+        fragment += '<';
+        saleTextWithoutTagBoundaries('<', frame.state, false);
+      }
+      if (frame.state.inside && !frame.state.quote && character === '<') {
+        frame.pendingTagStart = true;
+        continue;
+      }
+      fragment += character;
+      const wasInside = frame.state.inside;
+      saleTextWithoutTagBoundaries(character, frame.state, false);
+      const closedNestedTag = wasInside && !frame.state.inside && frames.length > 1;
+      if (closedNestedTag || fragment.length >= 512) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+      }
+      if (closedNestedTag) frames.pop();
+    }
+    return { violation: scanFragment(), prescription };
+  }
+
+
+  private discardSaleProse(final: boolean): GateCommit {
+    const head = this.pending;
+    this.pending = '';
+    if (!head && (!final || !(this.discardedSaleRenderedContext || this.discardedSaleDecodedContext || this.discardedSaleReferenceTail || this.discardedSaleRawJoinedReferenceTail))) return EMPTY_COMMIT;
+    // Nothing from this mode is published, so even unclosed traces, fences and
+    // envelopes can be scanned and discarded immediately. Check original raw
+    // contents before any formatting removal; trace text is not a safety bypass.
+    const rawBlock = saleSafetyView(this.discardedSaleRawContext + head, false, true);
+    // Include original quoted/unclosed tag contents in the formatting view.
+    const formattingBlock = saleSafetyView(this.discardedSaleFormattingContext + head, true, true);
+    const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
+    const decoded = this.discardedSaleDecodedText(head, final);
+    const rawJoined = this.discardedSaleRawJoinedText(head, final);
+    const rawJoinedBlock = saleSafetyView(this.discardedSaleRawJoinedContext + rawJoined);
+    const rawJoinedFormattingBlock = saleSafetyView(this.discardedSaleRawJoinedFormattingContext + rawJoined, true);
+    const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
+    if (originalContents.violation) return this.refuse(originalContents.violation);
+    const unquotedContents = this.scanUnquotedTagContents(decoded.original, this.discardedSaleUnquotedTagContentFrames);
+    if (unquotedContents.violation) return this.refuse(unquotedContents.violation);
+    // Keep a second bounded view without formatting, including tags split over
+    // arbitrarily long transport cuts. A separate raw view preserves real keys
+    // containing underscores; normalization cannot silently erase such tokens.
+    const block = sanitizeAnswer(saleSafetyView(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`, true));
+    // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
+    // Keep actual whitespace but join tag boundaries in this additional view.
+    // Do not trim each fragment: trailing spaces remain significant across cuts.
+    const decodedRawBlock = saleSafetyView(this.discardedSaleDecodedContext + decoded.original, false, true);
+    const decodedFormattingBlock = saleSafetyView(this.discardedSaleDecodedFormattingContext + decoded.original, true, true);
+    const renderedRawBlock = saleSafetyView(this.discardedSaleRenderedContext + decoded.joined);
+    const renderedBlock = saleSafetyView(this.discardedSaleRenderedFormattingContext + decoded.joined, true);
+    const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
+    const markdownRawBlock = saleSafetyView(this.discardedSaleMarkdownContext + markdownHead);
+    const markdownFormattingBlock = saleSafetyView(this.discardedSaleMarkdownFormattingContext + markdownHead, true);
+    // Parse original Markdown before tag removal too: angle-wrapped URLs can
+    // contain apostrophes/parentheses which are not HTML attribute delimiters.
+    const originalMarkdownHead = saleMarkdownLinkText(decoded.original, this.discardedSaleOriginalMarkdownState);
+    const composedContents = this.scanOriginalTagContents(originalMarkdownHead, this.discardedSaleMarkdownTagContentFrames);
+    if (composedContents.violation) return this.refuse(composedContents.violation);
+    const unquotedComposedContents = this.scanUnquotedTagContents(originalMarkdownHead, this.discardedSaleUnquotedMarkdownTagContentFrames);
+    if (unquotedComposedContents.violation) return this.refuse(unquotedComposedContents.violation);
+    const originalMarkdownRawBlock = saleSafetyView(this.discardedSaleOriginalMarkdownContext + originalMarkdownHead);
+    const originalMarkdownFormattingBlock = saleSafetyView(this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead, true);
+    const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
+      markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock, rawJoinedBlock, rawJoinedFormattingBlock];
+    if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
+    if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
+    const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
+    if (originalContents.prescription || composedContents.prescription || unquotedContents.prescription || unquotedComposedContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    this.discardedSaleRawJoinedContext = rawJoinedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRawJoinedFormattingContext = rawJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleDecodedFormattingContext = decodedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleMarkdownContext = markdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleMarkdownFormattingContext = markdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalMarkdownContext = originalMarkdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalMarkdownFormattingContext = originalMarkdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    if (normalizedHead) this.progressiveJoiner = /\s$/u.test(normalizedHead) ? ' ' : '';
+    return { text: '', flags: Object.freeze(flags), violation: null };
   }
 
   private drain(final: boolean): GateCommit {
+    if (this.options.economicComparison === 'sale_proceeds') return this.discardSaleProse(final);
     const decidable = final ? this.pending.length : undecidedTailStart(this.pending);
     const overflowing = !final && this.pending.length > this.maxPendingChars;
     const progressiveAllowed = !final
       && this.options.answerMode === 'general_agro'
-      && !this.options.currentDataRequired;
+      && !this.options.currentDataRequired
+      && !this.options.economicComparison;
 
     let head = this.pending.slice(0, decidable);
     if (!head) return EMPTY_COMMIT;
@@ -133,12 +1326,14 @@ export class StreamingAnswerGate {
         head = head.slice(0, lastBoundary);
         consumed = lastBoundary;
       } else if (progressiveAllowed) {
-        const wordBoundary = progressiveWordBoundary(head);
+        const wordBoundary = progressiveWordBoundary(head, this.options.locale);
         if (wordBoundary <= 0) return EMPTY_COMMIT;
         head = head.slice(0, wordBoundary);
         consumed = wordBoundary;
         progressiveFragment = true;
       } else if (overflowing) {
+        // Never publish an undecided economic claim merely to bound the buffer.
+        if (this.options.economicComparison) return this.refuse('OUTPUT_LIMIT');
         const wordBreak = head.lastIndexOf(' ');
         if (wordBreak <= 0) return EMPTY_COMMIT;
         head = head.slice(0, wordBreak);
@@ -150,24 +1345,47 @@ export class StreamingAnswerGate {
 
     if (progressiveFragment) {
       const candidate = this.partialBlockOpen && this.progressiveSafetyContext
-        ? `${this.progressiveSafetyContext} ${head}`
+        ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${head}`
         : head;
-      if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)) return EMPTY_COMMIT;
+      if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)
+        || CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN.test(candidate)
+        || (this.options.locale === 'zh' && CHINESE_PRESCRIPTION_PREFIX.test(candidate))) return EMPTY_COMMIT;
     }
 
     this.pending = this.pending.slice(consumed);
 
+    // Sanitization trims a new fragment's leading whitespace. Preserve that
+    // boundary, including a delta containing only whitespace, until text is
+    // committed. Keep the safety lookbehind across the same boundary.
+    if (this.partialBlockOpen && /^\s/u.test(head)) {
+      this.progressiveJoiner = /^\s*\n/u.test(head) || this.progressiveJoiner === '\n'
+        ? '\n'
+        : ' ';
+    }
+
     const flags: string[] = [];
     const kept: string[] = [];
-    for (const rawBlock of splitAnswerBlocks(stripInternalModelTrace(head))) {
-      const block = sanitizeAnswer(rawBlock);
+    const blocks = splitAnswerBlocks(stripInternalModelTrace(head)).flatMap((block) => block.split(/(?<=[。！？])/u));
+    for (const rawBlock of blocks) {
+      let block = sanitizeAnswer(rawBlock);
       if (!block) continue;
+
+      // A numbered prefix is punctuation, not a complete answer sentence.
+      // Keep it with the following body so filtering cannot leave an empty item.
+      if (/^\d{1,2}[.)]$/u.test(block)) {
+        this.pendingListMarker = block;
+        continue;
+      }
+      if (this.pendingListMarker) {
+        block = `${this.pendingListMarker} ${block}`;
+        this.pendingListMarker = '';
+      }
 
       // A progressive fragment can split one sentence over several commits.
       // Re-check the bounded tail already published with the new fragment so a
       // prohibited claim cannot be assembled across the transport boundary.
       const safetyBlock = this.partialBlockOpen && this.progressiveSafetyContext
-        ? `${this.progressiveSafetyContext} ${block}`
+        ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${block}`
         : block;
 
       // A block claiming an executed write, or carrying secret-shaped material,
@@ -178,6 +1396,11 @@ export class StreamingAnswerGate {
       if (SECRET_PATTERN.test(safetyBlock)) return this.refuse('SECRET');
       if (isUngroundedCropProtectionPrescription(safetyBlock)) {
         flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+        continue;
+      }
+
+      if (this.options.economicComparison && !economicBlockAllowed(block)) {
+        flags.push('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
         continue;
       }
 
@@ -198,16 +1421,17 @@ export class StreamingAnswerGate {
     if (kept.length === 0) return { text: '', flags: Object.freeze([...new Set(flags)]), violation: null };
 
     const joined = kept.join('\n');
-    const separator = this.published ? (this.partialBlockOpen ? ' ' : '\n') : '';
+    const separator = this.published ? (this.partialBlockOpen ? this.progressiveJoiner : '\n') : '';
     const text = `${separator}${joined}`;
     this.published += text;
 
     if (progressiveFragment) {
       const sentenceContext = this.partialBlockOpen && this.progressiveSafetyContext
-        ? `${this.progressiveSafetyContext} ${joined}`
+        ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${joined}`
         : joined;
       this.progressiveSafetyContext = sentenceContext.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
       this.partialBlockOpen = true;
+      this.progressiveJoiner = /\s$/u.test(head) ? ' ' : '';
     } else {
       this.progressiveSafetyContext = '';
       this.partialBlockOpen = false;
@@ -219,6 +1443,29 @@ export class StreamingAnswerGate {
   private refuse(violation: GateViolation): GateCommit {
     this.violationState = violation;
     this.pending = '';
+    this.discardedSaleRawContext = '';
+    this.discardedSaleFormattingContext = '';
+    this.discardedSaleRenderedContext = '';
+    this.discardedSaleRenderedFormattingContext = '';
+    this.discardedSaleDecodedContext = '';
+    this.discardedSaleDecodedFormattingContext = '';
+    this.discardedSaleMarkdownContext = '';
+    this.discardedSaleMarkdownFormattingContext = '';
+    this.discardedSaleMarkdownState = newSaleMarkdownScanState();
+    this.discardedSaleOriginalMarkdownContext = '';
+    this.discardedSaleOriginalMarkdownFormattingContext = '';
+    this.discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
+    this.discardedSaleTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleUnquotedTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleUnquotedMarkdownTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleReferenceTail = '';
+    this.discardedSaleRawJoinedReferenceTail = '';
+    this.discardedSaleRawJoinedContext = '';
+    this.discardedSaleRawJoinedFormattingContext = '';
+    this.discardedSaleRawJoinedTagState = newSaleTagScanState();
+    this.discardedSaleTagState = newSaleTagScanState();
+    this.discardedSaleDecodedTagState = newSaleTagScanState();
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;
     return { text: '', flags: Object.freeze([]), violation };
@@ -228,7 +1475,7 @@ export class StreamingAnswerGate {
 /** End index of the last complete block in `value`, or 0 when there is none. */
 function lastBlockBoundary(value: string): number {
   let best = 0;
-  const boundary = /(?:[.!?。！？]\s|\n)/gu;
+  const boundary = /(?:[.!?]\s|[。！？]\s*|\n)/gu;
   for (let match = boundary.exec(value); match !== null; match = boundary.exec(value)) {
     best = match.index + match[0].length;
   }
@@ -236,14 +1483,17 @@ function lastBlockBoundary(value: string): number {
 }
 
 /**
- * End index of a complete whitespace-delimited prefix suitable for progressive
- * general-agro release. The current unfinished token always remains pending, so
- * a secret-like token or raw URL can never be cut in half and leaked early.
+ * Release whitespace-bounded text, or a complete Han character in Chinese.
+ * ASCII secrets and URLs remain withheld until their whole token is decidable.
  */
-function progressiveWordBoundary(value: string): number {
+function progressiveWordBoundary(value: string, locale: PublicLocale): number {
   if (value.length < GENERAL_AGRO_PROGRESSIVE_MIN_CHARS) return 0;
-  for (let index = value.length - 1; index >= GENERAL_AGRO_PROGRESSIVE_MIN_CHARS - 1; index -= 1) {
-    if (/\s/u.test(value[index])) return index + 1;
+  const unfinishedUrl = /(?:https?:\/\/|www\.)\S*$/iu.exec(value);
+  const upperBound = unfinishedUrl?.index ?? value.length;
+  for (let index = upperBound - 1; index >= GENERAL_AGRO_PROGRESSIVE_MIN_CHARS - 1; index -= 1) {
+    if (/\s/u.test(value[index]) || (locale === 'zh' && HAN_CHARACTER.test(value[index]))) {
+      return index + 1;
+    }
   }
   return 0;
 }
@@ -260,6 +1510,11 @@ export class ProviderStreamParser {
   private buffer = '';
   private readonly decoder = new TextDecoder('utf-8');
   private doneState = false;
+  private stringContentReceived = false;
+
+  get receivedStringContent(): boolean {
+    return this.stringContentReceived;
+  }
 
   get finished(): boolean {
     return this.doneState;
@@ -309,6 +1564,7 @@ export class ProviderStreamParser {
       const row = asRecord(parsed);
       const choice = asRecord(Array.isArray(row?.choices) ? row.choices[0] : null);
       const delta = asRecord(choice?.delta);
+      if (typeof delta?.content === 'string') this.stringContentReceived = true;
       const piece = typeof delta?.content === 'string' ? delta.content : '';
       if (piece) content += piece;
 

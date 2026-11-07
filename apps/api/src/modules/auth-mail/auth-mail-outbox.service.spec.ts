@@ -78,4 +78,27 @@ describe('AuthMailOutboxService PostgreSQL function binding', () => {
     expect(sql.values[10]).toBe(availableAt);
     expect(sql.values[11]).toBe(expiresAt);
   });
+
+
+  it('polls only the bounded registration-decision status authority', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([{
+      delivery_status: 'SENT',
+      attempt_count: 1,
+      max_attempts: 12,
+      last_error_code: null,
+      sent_at: new Date('2035-01-01T00:00:00.000Z'),
+    }]);
+    const client = { $queryRaw: queryRaw, $executeRaw: jest.fn() } as unknown as AuthSqlClient;
+    const key = `auth-mail:registration-decision:${'a'.repeat(64)}`;
+    const result = await new AuthMailOutboxService().waitForRegistrationDecisionDelivery(
+      client,
+      key,
+      { timeoutMs: 1_000, pollMs: 100 },
+    );
+    expect(result.status).toBe('SENT');
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const sql = queryRaw.mock.calls[0]?.[0] as CapturedSql;
+    expect(sql.strings.join('?')).toContain('auth.registration_decision_mail_delivery_status(?::text)');
+    expect(sql.values).toEqual([key]);
+  });
 });
