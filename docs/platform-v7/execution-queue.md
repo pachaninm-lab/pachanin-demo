@@ -13961,3 +13961,858 @@ Lossless source-patch capture as a JSON string. Parse this string to recover the
   "newRecurringCostRub": 0
 }
 ```
+
+
+## Shared bank read-entry P2 — exact bounded one-page admission, 2026-11-03
+
+This exact metadata proposal explicitly adopts only the bounded normalization/path exception below. Entire current9e accepted queue (including6104) is preserved as an exact prefix; accepted6106 API code is fully retained. It does not close CAP1 or admit the earlier four-test QA payload. Source remains private until actual metadata acceptance and every later source gate.
+
+```json
+{
+  "purposeId": "bank-shared-read-entry-p2-6093-20261103",
+  "status": "METADATA_ONLY_SOURCE_NOT_ACCEPTED",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "issue": 6093,
+  "metadataBaseExactMain": "2d318ce1c9b2613989da8e4b64e5b245203b2c50",
+  "metadataBranch": "governance/bank-shared-read-entry-v2-6093",
+  "metadataPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md"
+  ],
+  "claims": [
+    6615332749,
+    6615603394,
+    6616401920
+  ],
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "exactSourcePaths": [
+    "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+  ],
+  "privateHead": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+  "privateTree": "0e842c654fa249df75defec2be2b91f2d908efc0",
+  "sourcePins": [
+    {
+      "path": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7c5363a4653d5bce296ed7e2d0027863a897f23e",
+      "beforeBytes": 1259,
+      "beforeSha256": "35d679f26aee9176caffd84a3825167dc63a53d6a582c52846b5caa7e4652b5b",
+      "afterBlob": "5eb5a640b68bd9d89bb9c6d6dc64beee654369c9",
+      "afterBytes": 578,
+      "afterSha256": "2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "694474f883a8549d4087c1bc9b287738d2ff37e5",
+      "beforeBytes": 6680,
+      "beforeSha256": "fa96b78fcdd5e406b08b49814ab55c8d4fa97c1888fc01e094e130caa97451a0",
+      "afterBlob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "afterBytes": 20664,
+      "afterSha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5"
+    }
+  ],
+  "completeSourcePatchBytes": 17138,
+  "completeSourcePatchSha256": "3c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21",
+  "sourcePatchEncoding": "json-string-utf8",
+  "explicitBoundedAdmission": [
+    "After ordinary acceptance of THIS exact metadata, authorize ONLY these two frozen payloads on the retained source ref: the shared entry default reuses the existing canonical read-only renderer, and its existing already-native test adds behavioral/negative regressions. No other retained source path may ride along.",
+    "Explicitly adopt only the18 ASCII whitespace deletions OUTSIDE all JSON strings plus ONE exact ordered page-path append to the existing ten-path vector. This is the sole narrow below-ceiling P2 exception to prior blanket product-admission holds; it is not a general normalization/scope/capacity exception.",
+    "Actual state grows37B, from3145690 to3145727B, still <=3145728. Preserve all other values, string/numeric tokens, records/history, other vectors/order, owners, primary/current/next/progress and exact source/guard/workflow bytes. No false zero-growth/all-state-unchanged claim.",
+    "CAP1 ceiling/consumer owner remains unchanged. The separate four-test-path/+220B QA source6 candidate5edd stays private/HOLD. This bounded one-page metadata is neither its adoption nor CAP1 closure nor4MiB authority.",
+    "State/source authority for later adoption comes from the genuinely accepted metadata base, never an unaccepted candidate-owned scope or manifest. Full source diff must be exactly these two after blobs/modes and preserve every other THEN-current accepted leaf, including Gekta6096."
+  ],
+  "stateTransition": {
+    "base": "9e38468733be0cf159c1fec60e89c20f3ee10174",
+    "metadataDirectory": "/workspace/scratch/5b06f14799fe/payment-basis-admission-6093",
+    "baseBytes": 3145690,
+    "normalizedBytes": 3145672,
+    "candidateBytes": 3145727,
+    "ceilingBytes": 3145728,
+    "spareBytes": 1,
+    "actualByteGrowth": 37,
+    "removedOutsideStringWhitespace": [
+      {
+        "byteOffset": 103578,
+        "byteHex": "0a"
+      },
+      {
+        "byteOffset": 103579,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103580,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103581,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103582,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 103630,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087186,
+        "byteHex": "0a"
+      },
+      {
+        "byteOffset": 3087187,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087188,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087189,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087190,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3087234,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121586,
+        "byteHex": "0a"
+      },
+      {
+        "byteOffset": 3121587,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121588,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121589,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121590,
+        "byteHex": "20"
+      },
+      {
+        "byteOffset": 3121627,
+        "byteHex": "20"
+      }
+    ],
+    "appendedScopeBranch": "test/bank-acceptance-contract-6085",
+    "appendedOnlyPath": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "allOtherValuesAndStringNumericTokensPreserved": true,
+    "candidateSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "notAccepted": true
+  },
+  "privateChecksOnly": {
+    "actualCurrent52Selection": {
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+      "native": false,
+      "exit": 0,
+      "seconds": 75.734,
+      "files": 52,
+      "success": true,
+      "numTotalTests": 2022,
+      "numPassedTests": 2022,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "evidenceOwner": "implementation author"
+    },
+    "closestThree": {
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "evidenceOwner": "independent reviewer",
+      "passed": 167,
+      "failed": 0,
+      "skipped": 0,
+      "native": false
+    },
+    "sameNew44TestsOnAcceptedEntry": {
+      "passed": 22,
+      "failed": 22,
+      "skipped": 0,
+      "observedBase": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+      "currentF069EntryBytesIdentical": true
+    },
+    "correctedReadinessFile": {
+      "oldCasesRetained": 17,
+      "added": 27,
+      "total": 44,
+      "passed": 44
+    },
+    "pnpmTypecheckExit": 0,
+    "reviewVerifier": {
+      "passed": 49,
+      "failed": 0
+    },
+    "mechanicalUiDetectorFindings": 0,
+    "initialAuthorTestError": "Initial36-case version35PASS/1FAIL used an incorrect expected Chinese unavailable literal. It was corrected to existing actual server copy; raw red JSON retained. No application copy changed.",
+    "preflightReview": {
+      "bytes": 11301,
+      "sha256": "c4a02958c1aea9c7613674afc10a3dfb0cf3617de6d2272b1083b69d539ef8a4",
+      "actualRegistryReplay": "PASS; focused private callback with genuine Git and unchanged guard, not full/native guard"
+    },
+    "independentWholeSourceReview": {
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+      "reviewer": "/root/review_bank_6103",
+      "independentNonauthor": true,
+      "bytes": 7169,
+      "sha256": "05b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093",
+      "verdict": "PRIVATE_H2_SOURCE_CLEAN_NO_INTRODUCED_P0_P1_P2_P3",
+      "freshClosest167": {
+        "passed": 167,
+        "failed": 0,
+        "skipped": 0
+      },
+      "authorFull52NotIndependentCredit": 2022,
+      "historicalAdverseChecksOnly": "Priorff9a8adverse/webTS/oldpagebaseline remain support for byte-identical functions, not fresh H2 or native checks",
+      "native": false,
+      "sourceAdmission": false
+    },
+    "hostingAuthorityCheck": {
+      "exit": 1,
+      "actualFailure": "docker compose config --format json failed with an empty child diagnostic in this local environment",
+      "notPassed": true,
+      "nativeDockerChecksStillRequired": true
+    },
+    "historicalInitialWholeSourceReview": {
+      "reviewer": "/root/review_bank_6103",
+      "independentNonauthor": true,
+      "exactPrivateHead": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+      "bytes": 12436,
+      "sha256": "93b120ec3d1426b4cec3d63ef4a7f2900dbdc60a47589bff5d1dd9c7dacb3298",
+      "verdict": "PRIVATE_SOURCE_CLEAN_NO_INTRODUCED_P0_P1_P2_P3",
+      "closest167": {
+        "passed": 167,
+        "failed": 0,
+        "skipped": 0
+      },
+      "additionalMoney62": {
+        "passed": 62,
+        "overlap44NotSummed": true
+      },
+      "webTypecheckExit": 0,
+      "same44OnBase": {
+        "passed": 22,
+        "failed": 22
+      },
+      "deliberateRegressionsRejected": 8,
+      "native": false,
+      "sourceAdmission": false
+    },
+    "historicalInitial52Selection": {
+      "head": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+      "files": 52,
+      "passed": 2022,
+      "failed": 0,
+      "skipped": 0,
+      "native": false
+    },
+    "historicalInitialClosestThree": {
+      "files": 3,
+      "passed": 167,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pnpmTypecheckObservedHead": "738fd1004549c39de6e8959c79b9cb77c2d32142"
+  },
+  "requiredGates": [
+    "Genuine private whole-two independent nonauthor review before this metadata publication; exact after pins and full patch must match.",
+    "Metadata3 fresh actual-head whole-diff independent review, distinct owner audit, all applicable native/security, strict current-base/readiness/review-thread checks and ordinary full-expected-SHA manual acceptance before any source publication.",
+    "After acceptance recheck exact current main/Hub/owners and all source before-pins, compose exactly these two afters preserving current foreign leaves and retained ref ancestry. Fresh actual published-head whole-two independent review and distinct author audit; local/private old results do not transfer.",
+    "Actual native existing52 unit selection INCLUDING all44 readiness cases, full unmodified source/guard/security/build/browser/Kubernetes/positive cleanup and canonical readiness, unresolved-finding checks and ordinary expected-full-head manual merge remain required.",
+    "Actual exact-current-main web image/OCI/persisted model/healthy/live evidence is separately required before deployment claims. API/model/provider/DB/original19/13-cabinet and whole-block acceptance stay separate."
+  ],
+  "requiredTruthBoundaries": [
+    "The source adds no shell/cabinet/role/tenant/RLS/backend permission or actor/session override. Parent verified cabinet session and existing bank RbacGuard remain; canonical workspace GET/no-store/server bearer/participant/RLS/parsed evidence remain the data authority.",
+    "Only reuse the existing read-only canonical renderer at the already shared URI. Forward its original props/searchParams unchanged through default export; preserve existing metadata/robots and locale/query normalization. No cloned domain or fixture page, client money controls, new POST/request, readiness invention or money write.",
+    "Existing bank parent nav/return-to-bank links remain denied for buyer/seller. This fixes the primary shared entry rendering only; disclose these residual limitations and do not claim all bank subroutes/full participant journey/live authenticated13 accepted.",
+    "Tests execute actual entry/canonical renderer/cockpit/RbacGuard; positive display cases use explicit disposable locale/profile/server-data/visual doubles. Eight adapter cases use the actual canonical GET adapter/projection with only URL/header/fetch boundary doubles. They do not certify live credentials or backend RLS.",
+    "Keep all17 old money/confirmation denial cases and original52CI arguments; no new test path, CI list, registry, skipped test, guard limit or timeout edit. New cases cover readonly RUENZH, normalizedDeal/shipment arrays, unavailable/malformed/mismatched data,401/403, cross-tenant shipment, unknown shipment, network errors and ordinary guard denials.",
+    "Preserve every previous purpose/report/failure. All source6QA/CAP1/original19/CORE5525/5526/owner13/real external bank-FGIS requirements and official MASTER5/100 stay open."
+  ],
+  "forbiddenAuthority": [
+    "Guard writer/owner transfer,4MiB consumer permission, scope/state/history deletion or unbounded compaction",
+    "Shell/cabinet/business permission, actor/tenant/session/DB/RLS/API/migration/provider/command/payment or finality change",
+    "CI/security/independent-review/readiness waiver, broad exclusions, retries/budget increase, forged statuses, forced/automatic merge",
+    "Host/model/API/DB/backup/restore/original19 operation, new recurring cost or whole-block/MASTER score claim"
+  ],
+  "privateSourceReviewEncoding": "genuine-published-verbatim-report-links-with-full-byte-and-sha256-pins",
+  "historicalInitialPrivateHead": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+  "historicalInitialMetadataBase": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+  "currentBaseDrift": {
+    "priorBase": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+    "acceptedCurrentBase": "9e38468733be0cf159c1fec60e89c20f3ee10174",
+    "acceptedPr": 6106,
+    "delta": "Only two accepted Gekta API service/spec files; all web/source2/state/queue/review/guard bytes unchanged",
+    "preserveEveryAcceptedForeignLeaf": true,
+    "privateH2EvidenceRemainsBoundToF069": true,
+    "freshMetadataAndLaterPublishedSourceGatesRequired": true
+  },
+  "privateSourceBaseExactMain": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+  "priorMetadataBaseDrift": {
+    "priorBase": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+    "acceptedCurrentBase": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+    "acceptedPr": 6104,
+    "delta": "execution-queue append128/0 only; all runtime/state/review/guard/source2 bytes unchanged",
+    "queuePrefixBlob": "fa8ac645dd128db9816401645fc2a768c24e078b",
+    "preserveWholeCurrentPrefix": true,
+    "notReusingOldHeadGates": true,
+    "queuePrefixSha256": "ee6789c6b6da8fee8180fc840a9e5eeb0ff334f852b88341d314e8abbc2a464c"
+  },
+  "linkedPrivateSourceReviews": [
+    {
+      "historicalPrivateContext": "H1",
+      "head": "ff9a8927ace1195ee9da2cf9fc60247455f8f0b4",
+      "base": "5f0b26c0681fa1457c011e20fa612886701f8d37",
+      "bytes": 12436,
+      "sha256": "93b120ec3d1426b4cec3d63ef4a7f2900dbdc60a47589bff5d1dd9c7dacb3298",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616389686",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    },
+    {
+      "historicalPrivateContext": "H2",
+      "head": "738fd1004549c39de6e8959c79b9cb77c2d32142",
+      "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+      "bytes": 7169,
+      "sha256": "05b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616393047",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    }
+  ],
+  "historicalMetadata90": {
+    "head": "90b2c414cda01e2ab9d79c8d13b9ae94cc33cd8d",
+    "base": "f069117ccec5eb594e61d69b85b0bf643a8ef92f",
+    "nativeGitleaksResult": "FAILURE retained",
+    "independentClassification": "Two HTTP case-list prose false positives; no issued credential",
+    "forensicReportBytes": 8789,
+    "forensicReportSha256": "3b3e6dc8e423bdaedc99362e30bc01aebce003776b84a0797740c30fe2e7b204",
+    "securityAbuseMandatoryScenariosPassed": 10,
+    "evidenceManifestCapture": "FAILED on coherent base Security Quality Gitleaks failure",
+    "correction": "Replace only duplicated unaccepted report bodies with full genuine published hash-bound reports",
+    "scannerPolicyUnchanged": true,
+    "oldHeadGatesNotTransferred": true
+  }
+}
+```
+
+Complete frozen source patch, losslessly JSON-encoded:
+
+```json
+"diff --git a/apps/web/app/platform-v7/bank/payment-basis/page.tsx b/apps/web/app/platform-v7/bank/payment-basis/page.tsx\nindex 7c5363a4653d5bce296ed7e2d0027863a897f23e..5eb5a640b68bd9d89bb9c6d6dc64beee654369c9 100644\n--- a/apps/web/app/platform-v7/bank/payment-basis/page.tsx\n+++ b/apps/web/app/platform-v7/bank/payment-basis/page.tsx\n@@ -1,7 +1,4 @@\n import type { Metadata } from 'next';\n-import { redirect } from 'next/navigation';\n-\n-type PageSearchParams = { dealId?: string | string[]; shipmentId?: string | string[] };\n \n export const metadata: Metadata = {\n   title: 'Проверка основания выплаты · Прозрачная Цена',\n@@ -9,20 +6,6 @@ export const metadata: Metadata = {\n   robots: { index: false, follow: false },\n };\n \n-export default async function BankPaymentBasisPage(props: { searchParams?: Promise<PageSearchParams> }) {\n-  const searchParams = await props.searchParams;\n-  const query = new URLSearchParams();\n-  const dealId = firstParam(searchParams?.dealId);\n-  const shipmentId = firstParam(searchParams?.shipmentId);\n-  if (dealId) query.set('dealId', dealId);\n-  if (shipmentId) query.set('shipmentId', shipmentId);\n-\n-  const suffix = query.size > 0 ? `?${query.toString()}` : '';\n-  redirect(`/platform-v7/bank/release-safety${suffix}`);\n-}\n-\n-function firstParam(value: string | string[] | undefined): string | undefined {\n-  const candidate = Array.isArray(value) ? value[0] : value;\n-  const normalized = candidate?.trim();\n-  return normalized || undefined;\n-}\n+// Keep the shared entry on its permitted URI while using the canonical\n+// authenticated, read-only review and its existing query normalization.\n+export { default } from '../release-safety/page';\ndiff --git a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\nindex 694474f883a8549d4087c1bc9b287738d2ff37e5..52d68700a2653f76b59f9a624ee31538845cca40 100644\n--- a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n+++ b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n@@ -1,6 +1,10 @@\n import fs from 'node:fs';\n import path from 'node:path';\n-import { describe, expect, it } from 'vitest';\n+import { createRequire } from 'node:module';\n+import { createElement, type ReactNode } from 'react';\n+import { renderToStaticMarkup } from 'react-dom/server';\n+import ts from 'typescript';\n+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\n import {\n   p7BuildBankBasis,\n   p7MarkBankBasisSent,\n@@ -17,6 +21,17 @@ import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key\n import { PLATFORM_V7_CANONICAL_ROLES, type PlatformV7CanonicalRole } from '@/lib/platform-v7/role-canonical';\n import type { PlatformV7DocumentRequirement } from '@/lib/platform-v7/document-matrix';\n import type { PlatformV7MoneyTree } from '@/lib/platform-v7/money-tree';\n+import {\n+  getCanonicalBankReleaseWorkspace,\n+  buildBankReleaseProjection,\n+  type BankReleaseProjection,\n+} from '@/lib/bank-release-server';\n+import * as serverApi from '@/lib/server-api';\n+import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';\n+import {\n+  evaluatePlatformV7RouteGuard,\n+  platformV7RouteGuardRequest,\n+} from '@/lib/platform-v7/rbac-route-guard';\n \n const webRoot = fs.existsSync(path.join(process.cwd(), 'lib/platform-v7/bank-basis.ts'))\n   ? process.cwd()\n@@ -121,3 +136,235 @@ describe('platform-v7 bank readiness guard', () => {\n     expect(tree).toEqual(before);\n   });\n });\n+\n+// These are explicit server-data/request boundary doubles. The entry page,\n+// canonical read-only renderer, cockpit and bank role guard execute unchanged;\n+// this fixture does not certify a live session, PostgreSQL access or payment.\n+const readEntryBoundary = {\n+  locale: vi.fn(),\n+  workspace: vi.fn(),\n+  projection: vi.fn(),\n+  profile: vi.fn(),\n+};\n+\n+function loadReadEntry() {\n+  const requireFromWeb = createRequire(path.join(webRoot, 'package.json'));\n+  const loaded = new Map<string, Record<string, any>>();\n+  function load(relativePath: string): Record<string, any> {\n+    const cached = loaded.get(relativePath);\n+    if (cached) return cached;\n+    const module = { exports: {} as Record<string, any> };\n+    loaded.set(relativePath, module.exports);\n+    const source = fs.readFileSync(path.join(webRoot, relativePath), 'utf8');\n+    const compiled = ts.transpileModule(source, { compilerOptions: {\n+      target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,\n+      jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,\n+    } }).outputText;\n+    const boundRequire = (specifier: string): unknown => {\n+      if (specifier === '../release-safety/page') return load('app/platform-v7/bank/release-safety/page.tsx');\n+      if (specifier === 'next-intl/server') return { getLocale: readEntryBoundary.locale };\n+      if (specifier === '@/lib/bank-release-server') return {\n+        getCanonicalBankReleaseWorkspace: readEntryBoundary.workspace,\n+        buildBankReleaseProjection: readEntryBoundary.projection,\n+      };\n+      if (specifier === '@/lib/auth-profile-server') return { getAuthProfile: readEntryBoundary.profile };\n+      if (specifier === '@/lib/platform-v7/rbac-route-guard') return {\n+        evaluatePlatformV7RouteGuard, platformV7RouteGuardRequest,\n+      };\n+      if (specifier === '@/components/platform-v7/CanonicalDealsList') return {\n+        CanonicalDealsList: () => createElement('div', { 'data-testid': 'read-entry-deal-list-boundary' }),\n+      };\n+      if (specifier === '@pc/design-system-v8') return {\n+        StatusChip: ({ children, tone }: { children: ReactNode; tone?: string }) => createElement('span', { 'data-tone': tone }, children),\n+        InlineNotice: ({ children, title }: { children: ReactNode; title?: string }) => createElement('aside', null, title, children),\n+      };\n+      if (specifier === '@/components/transaction-ux/MoneyObligationCockpit') return load('components/transaction-ux/MoneyObligationCockpit.tsx');\n+      if (specifier.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };\n+      return requireFromWeb(specifier);\n+    };\n+    new Function('require', 'module', 'exports', compiled)(boundRequire, module, module.exports);\n+    return module.exports;\n+  }\n+  return {\n+    Page: load('app/platform-v7/bank/payment-basis/page.tsx').default,\n+    Guard: load('components/platform-v7/RbacGuard.tsx').RbacGuard,\n+    metadata: load('app/platform-v7/bank/payment-basis/page.tsx').metadata,\n+  };\n+}\n+\n+describe('shared bank payment-basis read entry', () => {\n+  const workspace = Object.freeze({ marker: 'authenticated-workspace-unit-boundary' });\n+  let projection: BankReleaseProjection;\n+  beforeEach(() => {\n+    vi.clearAllMocks();\n+    projection = {\n+      dealId: 'deal-read-entry', tenantId: 'tenant-read-entry', dealVersion: '7', dealStatus: 'RELEASE_REQUESTED',\n+      shipmentId: 'shipment-read-entry', amountKopecks: '12000', currency: 'RUB', viewerRole: 'BUYER',\n+      viewerCanRequest: false, state: 'awaiting_bank', documents: [], documentsReady: false,\n+      acceptanceReady: false, reserveConfirmed: false, releaseRequested: true, releaseConfirmed: false,\n+      activeDisputeCount: 0, activeHoldKopecks: '0', payment: null, reserveOperation: null,\n+      releaseOperation: null, releaseOutbox: null, blockers: [], warnings: [],\n+    };\n+    readEntryBoundary.locale.mockResolvedValue('ru');\n+    readEntryBoundary.workspace.mockResolvedValue(workspace);\n+    readEntryBoundary.projection.mockReturnValue(projection);\n+    readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });\n+  });\n+\n+  const locales = [\n+    { locale: 'ru', unknown: 'внешний исход не подтверждён', unavailable: 'Серверная проверка выплаты недоступна' },\n+    { locale: 'en', unknown: 'external outcome unconfirmed', unavailable: 'Server payout review is unavailable' },\n+    { locale: 'zh', unknown: '外部结果尚未确认', unavailable: '服务器付款检查不可用' },\n+  ];\n+  const readers = [\n+    { cabinet: 'buyer', apiRole: 'BUYER' },\n+    { cabinet: 'seller', apiRole: 'FARMER' },\n+  ] as const;\n+\n+  for (const reader of readers) {\n+    it.each(locales)(`${reader.cabinet} reads the canonical review at the shared URI in $locale`, async copy => {\n+      expect(canRoleAccessCabinet(reader.cabinet, '/platform-v7/bank/payment-basis')).toBe(true);\n+      expect(canRoleAccessCabinet(reader.cabinet, '/platform-v7/bank')).toBe(false);\n+      readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+      readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: reader.apiRole });\n+      const before = structuredClone(projection);\n+      const { Page, Guard, metadata } = loadReadEntry();\n+      const page = await Page({ searchParams: Promise.resolve({\n+        dealId: ['  deal-read-entry  ', 'ignored-deal'], shipmentId: ['  shipment-read-entry  ', 'ignored-shipment'],\n+        released: 'true', bankConfirmed: 'true',\n+      }) });\n+      const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: page }));\n+      expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('deal-read-entry');\n+      expect(readEntryBoundary.projection).toHaveBeenCalledExactlyOnceWith(workspace, 'shipment-read-entry');\n+      expect(metadata.robots).toEqual({ index: false, follow: false });\n+      expect(html).toContain('data-testid=\"platform-v7-bank-release-safety-v8\"');\n+      expect(html).toContain(copy.unknown);\n+      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');\n+      expect(html).toContain('dealId=deal-read-entry&amp;shipmentId=shipment-read-entry');\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+      expect(projection).toEqual(before);\n+      expect(projection.releaseConfirmed).toBe(false);\n+      expect(projection.viewerCanRequest).toBe(false);\n+    });\n+  }\n+\n+  it.each(locales)('keeps unavailable workspace data unavailable in $locale', async copy => {\n+    readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+    readEntryBoundary.workspace.mockResolvedValue(null);\n+    const { Page } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'missing-deal' }) }));\n+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('missing-deal');\n+    expect(readEntryBoundary.projection).not.toHaveBeenCalled();\n+    expect(html).toContain(copy.unavailable);\n+    expect(html).not.toContain('deal-read-entry');\n+    expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+  });\n+\n+  it('keeps a rejected canonical projection unavailable', async () => {\n+    readEntryBoundary.projection.mockReturnValue(null);\n+    const { Page } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'deal-read-entry' }) }));\n+    expect(html).toContain('Серверная проверка выплаты недоступна');\n+    expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');\n+    expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+  });\n+\n+  it.each([undefined, {}, { dealId: '   ' }, { dealId: [] }])('uses the canonical registry when no Deal is selected: %j', async query => {\n+    const { Page } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));\n+    expect(html).toContain('read-entry-deal-list-boundary');\n+    expect(readEntryBoundary.workspace).not.toHaveBeenCalled();\n+    expect(readEntryBoundary.projection).not.toHaveBeenCalled();\n+    expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+  });\n+\n+  it.each([\n+    { available: false, id: null, orgId: null, role: null },\n+    { available: true, id: 'unit-reader', orgId: null, role: 'BUYER' },\n+    { available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'DRIVER' },\n+    { available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'GUEST' },\n+    { available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'PLATFORM_OWNER' },\n+  ])('preserves the actual bank guard denial for %j', async profile => {\n+    readEntryBoundary.profile.mockResolvedValue(profile);\n+    const { Guard } = loadReadEntry();\n+    const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: createElement('div', null, 'PRIVATE_UNIT_READ_VIEW') }));\n+    expect(html).toContain('platform-v7-rbac-denied-bank_workspace');\n+    expect(html).not.toContain('PRIVATE_UNIT_READ_VIEW');\n+  });\n+\n+  describe('canonical read-data boundary', () => {\n+    afterEach(() => {\n+      vi.restoreAllMocks();\n+      vi.unstubAllGlobals();\n+    });\n+\n+    function responseBody() {\n+      return {\n+        deal: {\n+          id: 'deal-read-entry', tenantId: 'tenant-read-entry', status: 'DRAFT', version: '1',\n+          totalKopecks: '12000', currency: 'RUB', updatedAt: '2026-11-03T12:00:00.000Z',\n+          shipments: [{ id: 'shipment-read-entry', dealId: 'deal-read-entry', tenantId: 'tenant-read-entry', status: 'PLANNED', checkpoints: [] }],\n+          acceptanceRecords: [], labSamples: [], documents: [], payments: [], bankOperations: [],\n+        },\n+        viewer: { participantId: 'unit-participant', organizationId: 'unit-reader-org', role: 'BUYER', accessLevel: 'READ' },\n+        projections: { documents: [], payments: [], disputes: [] }, outbox: [],\n+      };\n+    }\n+\n+    function useCanonicalRead(fetchBoundary: ReturnType<typeof vi.fn>) {\n+      vi.spyOn(serverApi, 'serverApiUrl').mockImplementation(route => `https://unit-api.example${route}`);\n+      vi.spyOn(serverApi, 'serverAuthHeaders').mockResolvedValue({ authorization: 'Bearer disposable-unit-fixture' });\n+      vi.stubGlobal('fetch', fetchBoundary);\n+      readEntryBoundary.workspace.mockImplementation(getCanonicalBankReleaseWorkspace);\n+      readEntryBoundary.projection.mockImplementation(buildBankReleaseProjection);\n+    }\n+\n+    it('uses the actual authenticated GET adapter and projection without creating a payout', async () => {\n+      const body = responseBody();\n+      const before = structuredClone(body);\n+      const fetchBoundary = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));\n+      useCanonicalRead(fetchBoundary);\n+      const { Page } = loadReadEntry();\n+      const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'deal-read-entry', shipmentId: 'shipment-read-entry' }) }));\n+      expect(fetchBoundary).toHaveBeenCalledTimes(1);\n+      const [url, init] = fetchBoundary.mock.calls[0];\n+      expect(url).toBe('https://unit-api.example/deals/deal-read-entry/workspace');\n+      expect(init.cache).toBe('no-store');\n+      expect(init.method ?? 'GET').toBe('GET');\n+      expect(init.headers).toEqual({ authorization: 'Bearer disposable-unit-fixture' });\n+      expect(init.body).toBeUndefined();\n+      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');\n+      expect(html).toContain('выплата заблокирована');\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+      expect(body).toEqual(before);\n+    });\n+\n+    it.each(['401', '403', 'mismatched-deal', 'cross-tenant-shipment', 'unknown-shipment', 'malformed', 'network-error'])(\n+      'keeps the actual canonical adapter/projection failure unavailable: %s', async failure => {\n+        const body = responseBody();\n+        const query = { dealId: 'deal-read-entry', shipmentId: 'shipment-read-entry' };\n+        if (failure === 'mismatched-deal') {\n+          body.deal.id = 'different-deal';\n+          body.deal.shipments[0].dealId = 'different-deal';\n+        }\n+        if (failure === 'cross-tenant-shipment') body.deal.shipments[0].tenantId = 'different-tenant';\n+        if (failure === 'unknown-shipment') query.shipmentId = 'unknown-shipment';\n+        const fetchBoundary = failure === 'network-error'\n+          ? vi.fn().mockRejectedValue(new Error('PRIVATE_READ_FIXTURE_DETAIL'))\n+          : vi.fn().mockResolvedValue(\n+            failure === '401' || failure === '403'\n+              ? new Response(null, { status: Number(failure) })\n+              : new Response(JSON.stringify(failure === 'malformed' ? { unexpected: true } : body), { status: 200 }),\n+          );\n+        useCanonicalRead(fetchBoundary);\n+        const { Page } = loadReadEntry();\n+        const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));\n+        expect(fetchBoundary).toHaveBeenCalledTimes(1);\n+        expect(html).toContain('Серверная проверка выплаты недоступна');\n+        expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');\n+        expect(html).not.toContain('PRIVATE_READ_FIXTURE_DETAIL');\n+        expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+      },\n+    );\n+  });\n+});\n"
+```
+
+Complete independent private source reports (genuine published bodies, exact byte/hash verified):
+
+Historical private H1 context; support only, no approval transfer:
+head ff9a8927ace1195ee9da2cf9fc60247455f8f0b4
+base 5f0b26c0681fa1457c011e20fa612886701f8d37
+UTF-8 bytes 12436
+SHA256 93b120ec3d1426b4cec3d63ef4a7f2900dbdc60a47589bff5d1dd9c7dacb3298
+Full genuine published report: https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616389686
+
+Historical private H2 context; support only, no approval transfer:
+head 738fd1004549c39de6e8959c79b9cb77c2d32142
+base f069117ccec5eb594e61d69b85b0bf643a8ef92f
+UTF-8 bytes 7169
+SHA256 05b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093
+Full genuine published report: https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616393047
+
+The complete literal source patch remains above. The linked complete reports retain all failures, findings and limitations. Private H2 checks remain bound to f069, not current9e or metadata native acceptance. Original90b2 native red is retained. No ignore, encoding, exclusion or scanner/rule/CI weakening is introduced.
+
+
+## Delivery replacement of unaccepted PR6108 — 2026-11-04
+
+This proposal replaces only the never-accepted metadata delivery in https://github.com/pachaninm-lab/pachanin-demo/pull/6108. That original PR, its90b2/807 commits, complete reviews and genuine red native evidence remain retained in their original branch and PR; no history/ref is rewritten or deleted. The two historical generic-api-key findings were independently established as an HTTP-status case list, not credentials. 807 corrected the current text but the normal historical scan still includes90b2; a new independent proposal starts at the actual accepted main instead of importing those unaccepted report-storage commits. No parent-order trick, ignore, allowlist, scanner/config/range change, review transfer, rerun waiver or bypass is introduced. All normal exact-head native/security/review/readiness/manual gates must pass on this new proposal. The complete current-main queue prefix, including accepted6107, is retained; the reviewed state transformation and frozen source2 afters/patch stay byte-identical. The retained SOURCE branch remains test/bank-acceptance-contract-6085; no implementation or host operation is published by this metadata. Prior/private/6108 green results are historical support only; original failures remain failures. Full bank navigation/13 cabinets/CORE5525/5526/API/DB/original19/external providers and whole block stay OPEN; official5/100 is unchanged.
+
+
+## PC-CROP completed-owned bank shared-navigation phase — 2026-11-04
+
+```json
+{
+  "schemaVersion": "pc.product-completed-owned-phase.v1",
+  "purposeId": "bank-shared-navigation-owned-phase-6093-20261104",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "metadataBranch": "governance/bank-shared-navigation-phase-6093",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "authorityBaseExactMain": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+  "claim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621764711",
+  "previousSourceEpoch": {
+    "admissionPr": 6110,
+    "admissionAcceptedMain": "01667dc9ccdfccab0665ed72c436913c0eb3d7f5",
+    "sourcePr": 6112,
+    "sourceHead": "d51b310850a6e96a9d0ffe9521da141ee92ff910",
+    "sourceAcceptedMain": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+    "sourceEpochClosedBy": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+    "installationAccepted": false
+  },
+  "semanticScope": "Remove denied bank-only parent navigation and secondary bank-root returns from the already shared buyer/seller payment-basis presentation. Existing reactive client pathname selects fixed shared/public-home escape; exact bank-only contexts retain existing bank navigation. Server-page context is actual middleware-written request pathname, never access authority. Same canonical read-only renderer/data/projection and authenticated server/cabinet guards remain.",
+  "whyFiveSources": "Private155 whole-four review found genuine P2: 22 of45 existing canonical page cases failed versus accepted-base123PASS. Add only that maintained canonical-page test loader as fifth file, keeping all45 cases, actual route-module loading and explicit next/headers request boundary. Keep failed155/report/red/baseline history. No skipped/deleted cases or global resolver/runtime test detection.",
+  "stateOnlyTransition": {
+    "proposal_only": true,
+    "source_epoch_closed_by": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+    "branch": "test/bank-acceptance-contract-6085",
+    "field": [
+      "approvedConcurrentScopes",
+      "test/bank-acceptance-contract-6085"
+    ],
+    "beforeBytes": 3145727,
+    "afterBytes": 3145323,
+    "acceptedCeiling": 3145728,
+    "spareBytes": 405,
+    "delta": -404,
+    "oldValueBytes": 673,
+    "newValueBytes": 269,
+    "oldVector": [
+      "apps/web/tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts",
+      "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "apps/web/app/platform-v7/bank/payment-basis/page.tsx"
+    ],
+    "newVector": [
+      "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "retiredFutureWritePaths": [
+      "apps/web/tests/unit/platform-v7-rbac-money-document-bank-action-boundary.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "apps/web/app/platform-v7/bank/payment-basis/page.tsx"
+    ],
+    "retainedPaths": [
+      "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+    ],
+    "newPaths": [
+      "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "beforeSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "afterSha256": "8bc2bd9d6ff4735337b865723a8dbafbea3d4e910985947b19d6f811345732d8",
+    "beforeBlob": "5597a223c0a8bdf38f1d2f299c729f59c483ce3c",
+    "afterBlob": "f1f27ca799be5509c632c0b8b2e1d972ae292c92",
+    "scopeVectorCount": 228,
+    "allOtherBytesExact": true,
+    "allOtherValuesExact": true,
+    "inverseRestoresEveryByte": true,
+    "stateGrowthAuthorized": false,
+    "guardOwnerTransferred": false,
+    "sourcePublicationAuthorized": false
+  },
+  "explicitNarrowProspectiveSupersession": {
+    "effectiveOnlyAfter": "Fresh exact published whole-three metadata independent review, distinct owner audit, all applicable actual native/security/readiness and ordinary full-expected-head manual acceptance of THIS purpose; current proposal is not a source grant.",
+    "replacesOnly": "Completed own6110/6112 future code-write phase on retained test/bank-acceptance-contract-6085. Replace its ordered11-path vector with the exact5 above. This expressly supersedes the prior scope-deletion prohibition ONLY insofar as it would forbid retirement of these completed future-write permissions, and the blanket new-product admission hold ONLY for THIS negative404-byte replacement. It never authorizes deletion of source/tests/evidence/history.",
+    "precedentNotAutomaticGrant": "Accepted queue completed own ROOT-vector phase at8614 and retained CORE19-to18 renewal at12090/12141 establish the ordinary proposal mechanism. They do not authorize this product proposal or reuse Han/math/CORE exceptions.",
+    "preserved": "Keep complete orderedold11 above, every existing queue/review prefix, all135 historical admissions and228 vectors, every other raw state byte/value, every accepted source/test/CI argument and all owners. Protected CLAUDE_PC_CROP_EXECUTOR consumer/ref/owner/CAP1 and fixed3145728 ceiling stay untouched; all other holds remain.",
+    "noCurrentMechanicalRetirementClaim": "Unchanged generic scope guard unions accepted historical manifests/global paths. GuardPASS alone cannot prove exclusive5 scope, exact after bytes or permission retirement. Accepted finite purpose/pins plus independent actual whole-diff/full-tree/owner/native/security/manual gates enforce only this5; no retired manifest/global path grants a new source purpose."
+  },
+  "privateSourceIdentity": {
+    "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+    "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+    "tree": "31af225eb4871b5b8c23ea28b764bf7a6f720c4b",
+    "patchBytes": 28069,
+    "patchSha256": "df70aad631118fb2310f945267da106e54886ce723b8d3b562b05025adc2452e",
+    "sourcePayloads": [
+      {
+        "path": "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "mode": "100644",
+        "before_blob": "b67a3452e05ad97082ccfbcc0c4975302cb62df9",
+        "before_bytes": 42426,
+        "before_sha256": "b61df1af32f2252f88cd7757f1819328894db8bb4627745098ce4ae87a4f682e",
+        "after_blob": "d231407afb9930d1e22a1f4d925a53c1ae987fda",
+        "after_bytes": 42819,
+        "after_sha256": "79544b148d46ceff84bab9f7a8ecf82e0513ff32f535e724852276539ea3031d"
+      },
+      {
+        "path": "apps/web/components/platform-v7/BankSectionNav.tsx",
+        "mode": "100644",
+        "before_blob": "1e38f3fac9bf9402cc3a97394afc96824ef1a82c",
+        "before_bytes": 3536,
+        "before_sha256": "7eb9d1c6362ac742d957b0751b3289942339a5e8aad61cb7f72db6758dd8e4c9",
+        "after_blob": "6611acc941e969405069ff1fe700934370d8c9d8",
+        "after_bytes": 5278,
+        "after_sha256": "3233a376fb603d0f893623a017623eee34bbb6d086b836065a35c1e0f56f3288"
+      },
+      {
+        "path": "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "mode": "100644",
+        "before_blob": "630599ff7ff0ca4338445fc8bba50d61cf07f4f6",
+        "before_bytes": 19423,
+        "before_sha256": "847e84249f505341ad83fbcc1a47bfd1e27f25c0c28c9adf76d4693d71ca1bd0",
+        "after_blob": "cf50b0767cf7cf78626ca3873400ad54ecad96b2",
+        "after_bytes": 19703,
+        "after_sha256": "96b433762eec64b504d2d3ae46a1d0014ce9eb2beba066a44c2a0a28ff0f0b0e"
+      },
+      {
+        "path": "apps/web/tests/unit/bankSectionNav.test.tsx",
+        "mode": "100644",
+        "before_blob": "b77c0392c20debc8965edd182ff1bb05f190c1ee",
+        "before_bytes": 2621,
+        "before_sha256": "2d9f436f0f9210d9d2f3b1e81fdbe228a442f8247d7d9b5f455fbbca8fbe8797",
+        "after_blob": "ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7",
+        "after_bytes": 4401,
+        "after_sha256": "b6b67769a730433e9e352d064e2d929ce60ae1a140920957a0ee47a72187c997"
+      },
+      {
+        "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+        "mode": "100644",
+        "before_blob": "52d68700a2653f76b59f9a624ee31538845cca40",
+        "before_bytes": 20664,
+        "before_sha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5",
+        "after_blob": "2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748",
+        "after_bytes": 29715,
+        "after_sha256": "64c17c6b1e94b662aad3a3cadd5473166ab457a2ab2a98b5b99b8411140ca26a"
+      }
+    ],
+    "foreignLeavesExact": 7096
+  },
+  "genuineIndependentPrivateReports": [
+    {
+      "context": "Historical failed private whole4",
+      "head": "155f044a93c49a93e5fdf85da1d978be610f7b8f",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CHANGES_REQUESTED_P2_1",
+      "bytes": 13143,
+      "sha256": "a566497dd61f317505cd1055de88a105b114f5fed432b8db1b57e2652caee7e7",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621771795",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    },
+    {
+      "context": "Fresh corrected private whole5",
+      "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CLEAN_PRIVATE_WHOLE5_ONLY",
+      "bytes": 13697,
+      "sha256": "835271572aead2b6847c11e2884a410760b304f244885ddc7da89d1c6c0b9da0",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621841234",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    }
+  ],
+  "authorPrivateChecks": {
+    "closestExistingAndNewCases": {
+      "files": 4,
+      "passed": 218,
+      "failed": 0,
+      "skipped": 0
+    },
+    "unchangedActualCi52": {
+      "passed": 2068,
+      "failed": 0,
+      "skipped": 0
+    },
+    "wholeWorkspaceTypecheckExit": 0,
+    "old44ReadinessCases": "Retained unchanged; prior10rawtestcalls exact",
+    "canonical45Cases": "Retained; one source-signature assertion updated semantically and explicit routes/request-only headers unit boundaries added",
+    "failed155": "Private closest95 and selected52 passed while adjacent canonical45 failed22; genuine whole4CHANGES_REQUESTED retained",
+    "receiptCorrection": "Old nav4 typecheck receipt still records initial runner refusal; nav5 new pinned npm/pnpm10 receipt truthfully records exit0. No old receipt or runner failure deleted.",
+    "nativeOrSourceAcceptance": false
+  },
+  "requiredGates": [
+    "Metadata changes exactly these3GOV regular files. State change only one qualified compact array; exact inverse restores every byte. Queue/review append only; every foreign leaf preserved. Full actual registry-loader/capacity/dispatcher/scope/hosting/review/native/security/readiness/manual gates remain.",
+    "Only AFTER this metadata is genuinely accepted recheck live main/Hub/owner and all five before blobs, compose these exact afters on then-current main and normal retained source ancestry. No private commit/review/count is native acceptance.",
+    "Fresh actual published whole5 independent nonauthor review and distinct owner audit, with fresh closest218 local author and nonauthor cases including existing canonical45+adjacent Nav5+server78. Actual unchanged52 selected native CI including all90 readiness/allold44, full applicable guard/security/type/build/browser/Kubernetes/deepoutbox/storage/positivecleanup/readiness and manual full-expected-head merge remain required. No skip/exclusion/budget/threshold alteration.",
+    "Genuine canonical main web image/digest/fullOCIrevision and fresh bounded audit/DNS/operational serialization/exact rollback/nonwebIDs/healthy/live RUENZH and authenticated acceptance remain separate before installation claims."
+  ],
+  "truthBoundaries": [
+    "No shell/root/banklayout/middleware/cabinet/profile/role/tenant/RLS/server action/API/DB/migration/provider/money/finality change. Existing middleware overwrites x-pc-pathname in both protected realms; request context controls only presentation.",
+    "Same mounted client reacts bank-to-shared-to-bank; existing root locale provider and existing full-page locale switching remain. No new actor/profile fetch or role inference. Known bank paths finite; shared/null/unknown/lookalike use only allowed shared/public-home links. Bank-role primary Deals/selected-clean existing policy gap remains OPEN.",
+    "Retain all44 readiness cases, current52 CI arguments and all45 canonical page cases; only explicit loader boundary/signature correction in fifth test. No CI/registry/guard/security/skip change. Source unit doubles are not production identities or external evidence.",
+    "Private physical-browser/mobile/contrast/hydration acceptance is not established by unit/static detector results. Actual published head browser/native evidence remains mandatory.",
+    "Previous source6112 is accepted270 but not installed; separate build dependency6621357227 remains. No MASTER/whole-block credit; sourceQA6/CORE5525/5526/full13/API/DB/restore/original19/external bank-FGIS contracts/access/exchange/freshness/conflicts/reconciliation stay OPEN5/100."
+  ],
+  "forbiddenAuthority": [
+    "Other owner/guard/consumer transfer or4MiB limit/state growth/new ref/vector/admission",
+    "Accepted source/test/history deletion or blanket hold lifting",
+    "Parallel RLS/tenant/role/payment/provider authority",
+    "CI/security/independent-review/readiness weakening, force/automatic merge, forged status or retry waiver",
+    "Host/model/API/DB/restore/original19/cost/installation/MASTER credit"
+  ],
+  "productionInvocationAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0
+}
+```
+
+Complete frozen five-source patch, losslessly JSON-encoded (no omission):
+
+```json
+"diff --git a/apps/web/app/platform-v7/bank/release-safety/page.tsx b/apps/web/app/platform-v7/bank/release-safety/page.tsx\nindex b67a3452e05ad97082ccfbcc0c4975302cb62df9..d231407afb9930d1e22a1f4d925a53c1ae987fda 100644\n--- a/apps/web/app/platform-v7/bank/release-safety/page.tsx\n+++ b/apps/web/app/platform-v7/bank/release-safety/page.tsx\n@@ -1,6 +1,8 @@\n import type { Metadata } from 'next';\n import Link from 'next/link';\n+import { headers } from 'next/headers';\n import { getLocale } from 'next-intl/server';\n+import { PLATFORM_V7_BANK_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from '@/lib/platform-v7/routes';\n import { InlineNotice, StatusChip } from '@pc/design-system-v8';\n import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';\n import {\n@@ -156,20 +158,21 @@ export async function generateMetadata(): Promise<Metadata> {\n export default async function BankReleaseSafetyPage(props: { searchParams?: Promise<PageSearchParams> }) {\n   const searchParams = await props.searchParams;\n   const locale = normalizeLocale(await getLocale());\n+  const showBankReturn = (await headers()).get('x-pc-pathname') === PLATFORM_V7_RELEASE_SAFETY_ROUTE;\n   const dealId = firstParam(searchParams?.dealId);\n   const shipmentId = firstParam(searchParams?.shipmentId);\n-  if (!dealId) return renderRegistry(locale);\n+  if (!dealId) return renderRegistry(locale, showBankReturn);\n \n   const workspace = await getCanonicalBankReleaseWorkspace(dealId);\n   const projection = workspace ? buildBankReleaseProjection(workspace, shipmentId) : null;\n-  return projection ? renderSelected(projection, locale) : renderUnavailable(locale);\n+  return projection ? renderSelected(projection, locale) : renderUnavailable(locale, showBankReturn);\n }\n \n-function renderRegistry(locale: Locale) {\n+function renderRegistry(locale: Locale, showBankReturn: boolean) {\n   const copy = COPY[locale];\n   return (\n     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={copy.eyebrow} title={copy.title} description={copy.description} statusLabel={copy.status} statusTone='warning' labels={copy.labels}\n-      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{copy.bankAction}</Link> }}\n+      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{copy.bankAction}</Link> : undefined }}\n       facts={[{ label: copy.reserveLabel, value: copy.reserveValue, hint: copy.reserveHint }, { label: copy.evidenceLabel, value: copy.evidenceValue, hint: copy.evidenceHint }, { label: copy.requestLabel, value: copy.requestValue, hint: copy.requestHint }, { label: copy.callbackLabel, value: copy.callbackValue, hint: copy.callbackHint }]}\n     >\n       <MoneyBoundary>{copy.boundary}</MoneyBoundary>\n@@ -365,12 +368,12 @@ function renderSelected(projection: BankReleaseProjection, locale: Locale) {\n   );\n }\n \n-function renderUnavailable(locale: Locale) {\n+function renderUnavailable(locale: Locale, showBankReturn: boolean) {\n   const common = COPY[locale];\n   const copy = SELECTED_COPY[locale];\n   return (\n     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={common.eyebrow} title={copy.unavailableTitle} description={copy.unavailableDescription} statusLabel={copy.values.blocked} statusTone='critical' labels={common.labels}\n-      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{common.bankAction}</Link> }} facts={[]}\n+      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{common.bankAction}</Link> : undefined }} facts={[]}\n     ><MoneyBoundary>{copy.boundary}</MoneyBoundary></MoneyObligationCockpit>\n   );\n }\ndiff --git a/apps/web/components/platform-v7/BankSectionNav.tsx b/apps/web/components/platform-v7/BankSectionNav.tsx\nindex 1e38f3fac9bf9402cc3a97394afc96824ef1a82c..6611acc941e969405069ff1fe700934370d8c9d8 100644\n--- a/apps/web/components/platform-v7/BankSectionNav.tsx\n+++ b/apps/web/components/platform-v7/BankSectionNav.tsx\n@@ -2,6 +2,16 @@\n \n import Link from 'next/link';\n import { usePathname } from 'next/navigation';\n+import { useLocale } from 'next-intl';\n+import {\n+  PLATFORM_V7_BANK_CLEAN_ROUTE,\n+  PLATFORM_V7_BANK_ESCROW_ROUTE,\n+  PLATFORM_V7_BANK_EVENTS_ROUTE,\n+  PLATFORM_V7_BANK_FACTORING_ROUTE,\n+  PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,\n+  PLATFORM_V7_BANK_ROUTE,\n+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,\n+} from '@/lib/platform-v7/routes';\n \n type BankSectionLink = {\n   href: string;\n@@ -12,19 +22,46 @@ type BankSectionNavProps = {\n   links: readonly BankSectionLink[];\n };\n \n+const NAV_COPY = {\n+  ru: { navigation: 'Банковские действия', bank: 'Банковый контур', review: 'Проверка выплаты', basis: 'Основание выплаты', home: 'На главную' },\n+  en: { navigation: 'Bank navigation', bank: 'Bank workspace', review: 'Payout review', basis: 'Payment basis', home: 'Platform home' },\n+  zh: { navigation: '银行导航', bank: '银行工作区', review: '付款检查', basis: '付款依据', home: '平台首页' },\n+} as const;\n+\n+// Presentation only: the existing server cabinet and bank guards own access.\n+// Unknown paths cannot opt into bank-only navigation by sharing a prefix.\n+const BANK_ONLY_PATHS: ReadonlySet<string> = new Set([\n+  PLATFORM_V7_BANK_ROUTE,\n+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,\n+  PLATFORM_V7_BANK_CLEAN_ROUTE,\n+  PLATFORM_V7_BANK_EVENTS_ROUTE,\n+  PLATFORM_V7_BANK_FACTORING_ROUTE,\n+  PLATFORM_V7_BANK_ESCROW_ROUTE,\n+  '/platform-v7/bank/grain',\n+]);\n+\n export function BankSectionNav({ links }: BankSectionNavProps) {\n   const pathname = usePathname() ?? '';\n-  const exactMatch = links.find((link) => link.href === pathname);\n-  const activeHref =\n-    exactMatch?.href ??\n-    links\n-      .filter((link) => link.href !== '/platform-v7/bank')\n-      .sort((left, right) => right.href.length - left.href.length)\n-      .find((link) => pathname.startsWith(link.href))?.href;\n+  const locale = useLocale();\n+  const copy = NAV_COPY[locale.startsWith('en') ? 'en' : locale.startsWith('zh') ? 'zh' : 'ru'];\n+  const bankOnlyPath = BANK_ONLY_PATHS.has(pathname)\n+    || /^\\/platform-v7\\/bank\\/events\\/[A-Za-z0-9_-]+$/.test(pathname);\n+  const labels: Readonly<Record<string, string>> = {\n+    [PLATFORM_V7_BANK_ROUTE]: copy.bank,\n+    [PLATFORM_V7_RELEASE_SAFETY_ROUTE]: copy.review,\n+    [PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE]: copy.basis,\n+  };\n+  const visibleLinks = bankOnlyPath\n+    ? links.map(link => ({ ...link, label: labels[link.href] ?? link.label }))\n+    : [\n+      { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: copy.basis },\n+      { href: '/platform-v7', label: copy.home },\n+    ];\n+  const activeHref = visibleLinks.find(link => link.href === pathname)?.href;\n \n   return (\n-    <nav aria-label='Банковские действия' className='p7-bank-section-nav'>\n-      {links.map((link) => {\n+    <nav aria-label={copy.navigation} className='p7-bank-section-nav'>\n+      {visibleLinks.map((link) => {\n         const isActive = link.href === activeHref;\n \n         return (\n@@ -57,14 +94,14 @@ export function BankSectionNav({ links }: BankSectionNavProps) {\n         }\n \n         .p7-bank-section-nav__link {\n-          min-height: 34px;\n+          min-height: 44px;\n           display: inline-flex;\n           align-items: center;\n           justify-content: center;\n           border-radius: 14px;\n           padding: 7px 12px;\n           color: var(--pc-text-secondary, #5F6873);\n-          font-size: 12px;\n+          font-size: 14px;\n           font-weight: 850;\n           letter-spacing: -0.01em;\n           line-height: 1;\n@@ -103,7 +140,7 @@ export function BankSectionNav({ links }: BankSectionNavProps) {\n \n           .p7-bank-section-nav__link {\n             flex: 1 1 132px;\n-            min-height: 38px;\n+            min-height: 44px;\n             padding-inline: 10px;\n           }\n         }\ndiff --git a/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx b/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx\nindex 630599ff7ff0ca4338445fc8bba50d61cf07f4f6..cf50b0767cf7cf78626ca3873400ad54ecad96b2 100644\n--- a/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx\n+++ b/apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx\n@@ -9,6 +9,7 @@ import type { BankReleaseProjection } from '../../lib/bank-release-server';\n \n const pageBoundary = {\n   locale: vi.fn(),\n+  headers: vi.fn(),\n   workspace: vi.fn(),\n   projection: vi.fn(),\n };\n@@ -32,6 +33,8 @@ function loadPage() {\n     const module = { exports: {} as Record<string, any> };\n     const boundRequire = (specifier: string): unknown => {\n       if (specifier === 'next-intl/server') return { getLocale: pageBoundary.locale };\n+      if (specifier === 'next/headers') return { headers: pageBoundary.headers };\n+      if (specifier === '@/lib/platform-v7/routes') return load('apps/web/lib/platform-v7/routes.ts');\n       if (specifier === '@/lib/bank-release-server') return {\n         getCanonicalBankReleaseWorkspace: pageBoundary.workspace,\n         buildBankReleaseProjection: pageBoundary.projection,\n@@ -53,6 +56,7 @@ describe('selected bank payout page reason copy', () => {\n   let projection: BankReleaseProjection;\n   beforeEach(() => {\n     vi.clearAllMocks();\n+    pageBoundary.headers.mockResolvedValue(new Headers());\n     projection = {\n       dealId: 'deal-copy', tenantId: 'tenant-copy', dealVersion: '7', dealStatus: 'RELEASE_REQUESTED',\n       shipmentId: 'shipment-copy', amountKopecks: '12000', currency: 'RUB', viewerRole: 'BANK',\n@@ -183,7 +187,7 @@ describe('BankReleaseSafetyPage', () => {\n     expect(page).toContain('getCanonicalBankReleaseWorkspace');\n     expect(page).toContain('buildBankReleaseProjection');\n     expect(page).toContain('searchParams?: Promise<PageSearchParams>');\n-    expect(page).toContain('if (!dealId) return renderRegistry(locale)');\n+    expect(page).toContain('if (!dealId) return renderRegistry(locale, showBankReturn)');\n     expect(authority).toContain(\"serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)\");\n     expect(authority).toContain('await serverAuthHeaders()');\n     expect(authority).toContain(\"cache: 'no-store'\");\ndiff --git a/apps/web/tests/unit/bankSectionNav.test.tsx b/apps/web/tests/unit/bankSectionNav.test.tsx\nindex b77c0392c20debc8965edd182ff1bb05f190c1ee..ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7 100644\n--- a/apps/web/tests/unit/bankSectionNav.test.tsx\n+++ b/apps/web/tests/unit/bankSectionNav.test.tsx\n@@ -9,10 +9,12 @@ import {\n } from '@/lib/platform-v7/routes';\n \n const usePathnameMock = vi.fn();\n+const useLocaleMock = vi.fn();\n \n vi.mock('next/navigation', () => ({\n   usePathname: () => usePathnameMock(),\n }));\n+vi.mock('next-intl', () => ({ useLocale: () => useLocaleMock() }));\n \n const bankLinks = [\n   { href: PLATFORM_V7_BANK_ROUTE, label: 'Банковый контур' },\n@@ -23,25 +25,26 @@ const bankLinks = [\n describe('BankSectionNav', () => {\n   beforeEach(() => {\n     usePathnameMock.mockReset();\n+    useLocaleMock.mockReturnValue('ru');\n   });\n \n-  it('renders compact bank navigation with active payment-basis state', () => {\n+  it('renders only permitted shared navigation with active payment-basis state', () => {\n     usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n \n     render(<BankSectionNav links={bankLinks} />);\n \n-    const bankLink = screen.getByRole('link', { name: 'Банковый контур' });\n-    const releaseSafetyLink = screen.getByRole('link', { name: 'Проверка выплаты' });\n-    const paymentBasisLink = screen.getByRole('link', { name: 'Передать основание банку' });\n+    const paymentBasisLink = screen.getByRole('link', { name: 'Основание выплаты' });\n+    const homeLink = screen.getByRole('link', { name: 'На главную' });\n \n     expect(screen.getByRole('navigation', { name: 'Банковские действия' })).toBeInTheDocument();\n-    expect(bankLink).toHaveAttribute('href', PLATFORM_V7_BANK_ROUTE);\n-    expect(releaseSafetyLink).toHaveAttribute('href', PLATFORM_V7_RELEASE_SAFETY_ROUTE);\n+    expect(screen.queryByRole('link', { name: 'Банковый контур' })).not.toBeInTheDocument();\n+    expect(screen.queryByRole('link', { name: 'Проверка выплаты' })).not.toBeInTheDocument();\n+    expect(screen.getAllByRole('link')).toHaveLength(2);\n     expect(paymentBasisLink).toHaveAttribute('href', PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n     expect(paymentBasisLink).toHaveAttribute('aria-current', 'page');\n     expect(paymentBasisLink).toHaveAttribute('data-active', 'true');\n-    expect(bankLink).toHaveAttribute('data-active', 'false');\n-    expect(releaseSafetyLink).toHaveAttribute('data-active', 'false');\n+    expect(homeLink).toHaveAttribute('href', '/platform-v7');\n+    expect(homeLink).toHaveAttribute('data-active', 'false');\n   });\n \n   it('keeps the main bank tab active only on the exact bank route', () => {\n@@ -51,6 +54,32 @@ describe('BankSectionNav', () => {\n \n     expect(screen.getByRole('link', { name: 'Банковый контур' })).toHaveAttribute('aria-current', 'page');\n     expect(screen.getByRole('link', { name: 'Банковый контур' })).toHaveAttribute('data-active', 'true');\n-    expect(screen.getByRole('link', { name: 'Передать основание банку' })).toHaveAttribute('data-active', 'false');\n+    expect(screen.getByRole('link', { name: 'Основание выплаты' })).toHaveAttribute('data-active', 'false');\n+    expect(screen.getAllByRole('link')).toHaveLength(3);\n+  });\n+\n+  it('changes the visible link set on sibling navigation without remounting', () => {\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_ROUTE);\n+    const mounted = render(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getAllByRole('link')).toHaveLength(3);\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n+    mounted.rerender(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getAllByRole('link').map(link => link.getAttribute('href'))).toEqual([PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, '/platform-v7']);\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_RELEASE_SAFETY_ROUTE);\n+    mounted.rerender(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getByRole('link', { name: 'Проверка выплаты' })).toHaveAttribute('aria-current', 'page');\n+    expect(screen.getAllByRole('link')).toHaveLength(3);\n+  });\n+\n+  it.each([\n+    { locale: 'en', nav: 'Bank navigation', basis: 'Payment basis', home: 'Platform home' },\n+    { locale: 'zh', nav: '银行导航', basis: '付款依据', home: '平台首页' },\n+  ])('localizes the shared safe links in $locale', copy => {\n+    usePathnameMock.mockReturnValue(PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n+    useLocaleMock.mockReturnValue(copy.locale);\n+    render(<BankSectionNav links={bankLinks} />);\n+    expect(screen.getByRole('navigation', { name: copy.nav })).toBeInTheDocument();\n+    expect(screen.getByRole('link', { name: copy.basis })).toHaveAttribute('href', PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE);\n+    expect(screen.getByRole('link', { name: copy.home })).toHaveAttribute('href', '/platform-v7');\n   });\n });\ndiff --git a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\nindex 52d68700a2653f76b59f9a624ee31538845cca40..2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748 100644\n--- a/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n+++ b/apps/web/tests/unit/platformV7BankReadinessGuard.test.ts\n@@ -3,6 +3,7 @@ import path from 'node:path';\n import { createRequire } from 'node:module';\n import { createElement, type ReactNode } from 'react';\n import { renderToStaticMarkup } from 'react-dom/server';\n+import { cleanup, render, screen } from '@testing-library/react';\n import ts from 'typescript';\n import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';\n import {\n@@ -142,6 +143,9 @@ describe('platform-v7 bank readiness guard', () => {\n // this fixture does not certify a live session, PostgreSQL access or payment.\n const readEntryBoundary = {\n   locale: vi.fn(),\n+  headers: vi.fn(),\n+  pathname: vi.fn(),\n+  clientLocale: vi.fn(),\n   workspace: vi.fn(),\n   projection: vi.fn(),\n   profile: vi.fn(),\n@@ -163,6 +167,10 @@ function loadReadEntry() {\n     const boundRequire = (specifier: string): unknown => {\n       if (specifier === '../release-safety/page') return load('app/platform-v7/bank/release-safety/page.tsx');\n       if (specifier === 'next-intl/server') return { getLocale: readEntryBoundary.locale };\n+      if (specifier === 'next/headers') return { headers: readEntryBoundary.headers };\n+      if (specifier === 'next/navigation') return { ...requireFromWeb(specifier), usePathname: readEntryBoundary.pathname };\n+      if (specifier === 'next-intl') return { useLocale: readEntryBoundary.clientLocale };\n+      if (specifier === '@/lib/platform-v7/routes') return load('lib/platform-v7/routes.ts');\n       if (specifier === '@/lib/bank-release-server') return {\n         getCanonicalBankReleaseWorkspace: readEntryBoundary.workspace,\n         buildBankReleaseProjection: readEntryBoundary.projection,\n@@ -189,6 +197,8 @@ function loadReadEntry() {\n     Page: load('app/platform-v7/bank/payment-basis/page.tsx').default,\n     Guard: load('components/platform-v7/RbacGuard.tsx').RbacGuard,\n     metadata: load('app/platform-v7/bank/payment-basis/page.tsx').metadata,\n+    Nav: load('components/platform-v7/BankSectionNav.tsx').BankSectionNav,\n+    CanonicalPage: load('app/platform-v7/bank/release-safety/page.tsx').default,\n   };\n }\n \n@@ -206,6 +216,7 @@ describe('shared bank payment-basis read entry', () => {\n       releaseOperation: null, releaseOutbox: null, blockers: [], warnings: [],\n     };\n     readEntryBoundary.locale.mockResolvedValue('ru');\n+    readEntryBoundary.headers.mockResolvedValue(new Headers());\n     readEntryBoundary.workspace.mockResolvedValue(workspace);\n     readEntryBoundary.projection.mockReturnValue(projection);\n     readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });\n@@ -368,3 +379,147 @@ describe('shared bank payment-basis read entry', () => {\n     );\n   });\n });\n+\n+describe('shared bank navigation presentation', () => {\n+  const shared = '/platform-v7/bank/payment-basis';\n+  const bank = '/platform-v7/bank';\n+  const canonical = '/platform-v7/bank/release-safety';\n+  const home = '/platform-v7';\n+  const bankLinks = [\n+    { href: bank, label: 'Банковый контур' },\n+    { href: canonical, label: 'Проверка выплаты' },\n+    { href: shared, label: 'Передать основание банку' },\n+  ];\n+  const copies = [\n+    { locale: 'ru', navigation: 'Банковские действия', basis: 'Основание выплаты', home: 'На главную' },\n+    { locale: 'en', navigation: 'Bank navigation', basis: 'Payment basis', home: 'Platform home' },\n+    { locale: 'zh', navigation: '银行导航', basis: '付款依据', home: '平台首页' },\n+  ];\n+  function hrefs(html: string) {\n+    return [...html.matchAll(/href=\"([^\"]*)\"/g)].map(match => match[1]);\n+  }\n+  beforeEach(() => {\n+    vi.clearAllMocks();\n+    readEntryBoundary.locale.mockResolvedValue('ru');\n+    readEntryBoundary.clientLocale.mockReturnValue('ru');\n+    readEntryBoundary.pathname.mockReturnValue(shared);\n+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': shared }));\n+    readEntryBoundary.workspace.mockResolvedValue(null);\n+    readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: 'BUYER' });\n+  });\n+  afterEach(cleanup);\n+\n+  for (const reader of [{ cabinet: 'buyer', apiRole: 'BUYER' }, { cabinet: 'seller', apiRole: 'FARMER' }] as const) {\n+    it.each(copies)(`${reader.cabinet} has only permitted shared navigation in $locale`, async copy => {\n+      readEntryBoundary.clientLocale.mockReturnValue(copy.locale);\n+      readEntryBoundary.profile.mockResolvedValue({ available: true, id: 'unit-reader', orgId: 'unit-reader-org', role: reader.apiRole });\n+      const { Nav, Guard } = loadReadEntry();\n+      const html = renderToStaticMarkup(await Guard({ surface: 'bank_workspace', children: createElement(Nav, { links: bankLinks }) }));\n+      expect(hrefs(html)).toEqual([shared, home]);\n+      for (const href of hrefs(html)) expect(canRoleAccessCabinet(reader.cabinet, href)).toBe(true);\n+      expect(html).toContain(copy.navigation);\n+      expect(html).toContain(copy.basis);\n+      expect(html).toContain(copy.home);\n+      expect(html).not.toContain('platform-v7-rbac-denied');\n+      expect(readEntryBoundary.profile).toHaveBeenCalledTimes(1);\n+      expect(readEntryBoundary.workspace).not.toHaveBeenCalled();\n+    });\n+  }\n+\n+  it.each(copies)('keeps a permitted escape for a bank reader at the same shared URI in $locale', copy => {\n+    readEntryBoundary.clientLocale.mockReturnValue(copy.locale);\n+    const { Nav } = loadReadEntry();\n+    const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));\n+    expect(hrefs(html)).toEqual([shared, home]);\n+    for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);\n+    expect(canRoleAccessCabinet('bank', '/platform-v7/deals')).toBe(false);\n+    expect(html).not.toContain('href=\"/platform-v7/deals\"');\n+    expect(html).toContain(copy.home);\n+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+  });\n+\n+  it.each([bank, canonical, `${bank}/clean`, `${bank}/events`, `${bank}/events/event-1`, `${bank}/factoring`, `${bank}/escrow`, `${bank}/grain`])(\n+    'preserves the existing full navigation at the known bank-only route %s', pathname => {\n+      readEntryBoundary.pathname.mockReturnValue(pathname);\n+      const { Nav } = loadReadEntry();\n+      const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));\n+      expect(hrefs(html)).toEqual([bank, canonical, shared]);\n+      for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);\n+      expect(canRoleAccessCabinet('buyer', pathname)).toBe(false);\n+      expect(canRoleAccessCabinet('seller', pathname)).toBe(false);\n+      expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+    },\n+  );\n+\n+  it.each([null, undefined, '', `${bank}/`, `${bank}/unknown`, `${shared}/`, `${shared}/child`, `${shared}-extra`, `${canonical}/child`, `${bank}/events/a/b`, `${bank}/events/%2f`, `${bank}/events/..`, `${bank}?role=bank`, '/ru/platform-v7/bank'])(\n+    'uses fixed safe navigation for missing or unknown path context %j', pathname => {\n+      readEntryBoundary.pathname.mockReturnValue(pathname);\n+      const { Nav } = loadReadEntry();\n+      const html = renderToStaticMarkup(createElement(Nav, { links: bankLinks }));\n+      expect(hrefs(html)).toEqual([shared, home]);\n+      expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+      expect(readEntryBoundary.workspace).not.toHaveBeenCalled();\n+    },\n+  );\n+\n+  it.each(copies)('updates the same mounted navigation bank → shared → bank in $locale', copy => {\n+    readEntryBoundary.clientLocale.mockReturnValue(copy.locale);\n+    readEntryBoundary.pathname.mockReturnValue(bank);\n+    const { Nav } = loadReadEntry();\n+    const mounted = render(createElement(Nav, { links: bankLinks }));\n+    const currentHrefs = () => screen.getAllByRole('link').map(link => link.getAttribute('href'));\n+    expect(currentHrefs()).toEqual([bank, canonical, shared]);\n+    expect(screen.getAllByRole('link')[0]).toHaveAttribute('aria-current', 'page');\n+    readEntryBoundary.pathname.mockReturnValue(shared);\n+    mounted.rerender(createElement(Nav, { links: bankLinks }));\n+    expect(currentHrefs()).toEqual([shared, home]);\n+    expect(screen.getByRole('link', { name: copy.basis })).toHaveAttribute('aria-current', 'page');\n+    readEntryBoundary.pathname.mockReturnValue(canonical);\n+    mounted.rerender(createElement(Nav, { links: bankLinks }));\n+    expect(currentHrefs()).toEqual([bank, canonical, shared]);\n+    expect(screen.getAllByRole('link')[1]).toHaveAttribute('aria-current', 'page');\n+  });\n+\n+  it.each(copies)('omits the bank-only backlink from shared registry and unavailable views in $locale', async copy => {\n+    readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+    const { Page } = loadReadEntry();\n+    const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));\n+    const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));\n+    for (const html of [registry, unavailable]) {\n+      expect(hrefs(html)).not.toContain(bank);\n+      expect(hrefs(html)).toContain('/platform-v7/deals');\n+      for (const role of ['buyer', 'seller'] as const) {\n+        for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);\n+      }\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+    }\n+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('unavailable-deal');\n+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();\n+  });\n+\n+  it.each([null, '', `${bank}/unknown`, `${canonical}/`, `${canonical}/child`, `${canonical}-extra`])(\n+    'does not infer a bank-only backlink from absent or unknown request header %j', async pathname => {\n+      readEntryBoundary.headers.mockResolvedValue(new Headers(pathname === null ? undefined : { 'x-pc-pathname': pathname }));\n+      const { Page } = loadReadEntry();\n+      for (const query of [{}, { dealId: 'unavailable-deal' }]) {\n+        const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));\n+        expect(hrefs(html)).not.toContain(bank);\n+      }\n+    },\n+  );\n+\n+  it.each(copies)('preserves the bank return link on the canonical bank-only page in $locale', async copy => {\n+    readEntryBoundary.locale.mockResolvedValue(copy.locale);\n+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': canonical }));\n+    const { Page, CanonicalPage } = loadReadEntry();\n+    expect(Page).toBe(CanonicalPage);\n+    expect(canRoleAccessCabinet('bank', canonical)).toBe(true);\n+    expect(canRoleAccessCabinet('buyer', canonical)).toBe(false);\n+    expect(canRoleAccessCabinet('seller', canonical)).toBe(false);\n+    for (const query of [{}, { dealId: 'unavailable-deal' }]) {\n+      const html = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(query) }));\n+      expect(hrefs(html)).toContain(bank);\n+      expect(html).not.toMatch(/<form|<button|method=[\"']post/i);\n+    }\n+  });\n+});\n"
+```
+
+## Gekta Qwen3.8 candidate memory profile — source-only preparation, 2026-11-05
+
+```json
+{
+  "schemaVersion": "pc.gekta.model-source-only-profile-admission.v1",
+  "purposeId": "gekta-qwen38-iq2s-ubatch64-source-only-20261105",
+  "kind": "EXACT_SOURCE_PREPARATION_NO_EXECUTION_AUTHORITY",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "ownerBasis": "Current explicit owner finish instruction; source preparation only, not a new model command, grant, human MFA attestation or gate waiver.",
+  "authorityBaseExactMainAtPreparation": "38bdca854f4fd94b0f533bac6ecd41b25b9dba29",
+  "retainedMetadataBranch": "governance/gekta-history-han-purpose-20261101",
+  "existingSourceBranch": "fix/gekta-candidate-oneuse-grant-20261008",
+  "metadataOnly": true,
+  "metadataEffect": "Append only this closed source purpose to the existing CORE queue lane. Install no source here. Preserve the complete accepted queue prefix and the unique operational 2026-11-03 admission unchanged. No new state admission/vector or scope membership.",
+  "unchangedState": {
+    "bytes": 3145323,
+    "sha256": "8bc2bd9d6ff4735337b865723a8dbafbea3d4e910985947b19d6f811345732d8",
+    "vectors": 228,
+    "coordinationAdmissions": 135,
+    "ceilingBytes": 3145728,
+    "spareBytesAtPreparation": 405,
+    "primaryCurrentNextOwnersProgress": "UNCHANGED"
+  },
+  "retainedAllowedPaths": [
+    ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+    "scripts/gekta-qwen35-4b-model-host-candidate.py",
+    "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+    "docs/gekta/model-oneuse-grant-20261008.md"
+  ],
+  "sourceProposal": {
+    "sourcePayloads": [
+      {
+        "path": ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "mode": "100644",
+        "beforeBlob": "e7c4ab3305acb848a2df43c0405b4b787d650bc9",
+        "beforeSha256": "1bfd2173fa956687c2f640a81f4cf15e393d1cd70b43a77771e4dc79d72c08a5",
+        "afterBlob": "3c0b29666508d3978960b282c1d14fbec777fc58",
+        "bytes": 160498,
+        "sha256": "8b6d76104b29de19286a56ac6cf0408457da28d07933aa3409f59fb26830cead"
+      },
+      {
+        "path": "scripts/gekta-qwen35-4b-model-host-candidate.py",
+        "mode": "100644",
+        "beforeBlob": "602861e0e44195b65a17bfe3f8c76f82ef00a3b6",
+        "beforeSha256": "cf4cf291655dd4addab82ac5366f5cece2a601e97a49ce0e09cb1baaaeb64272",
+        "afterBlob": "e612f77a5e2d65d524fac28a97bdb9477ebe27f1",
+        "bytes": 73439,
+        "sha256": "aac0f32d28fb3ab17ae3c299966ca46f4565b2f0356c27ca84f05b12a348274e"
+      },
+      {
+        "path": "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+        "mode": "100644",
+        "beforeBlob": "d3b6a3c9f2097fce70d7931cd2b423ec1fff2249",
+        "beforeSha256": "422eefbb6acade15a8dd14b4359c42c90ac5e3ea0cb49cbff2c399cb8b40b26b",
+        "afterBlob": "a6a865f5defc3c65f565fd7a76d317de5b698752",
+        "bytes": 12048,
+        "sha256": "501afb6e504411ac8cec1d34657c4ec336a5d8e0b55661706eae0846bf8abcd1"
+      },
+      {
+        "path": "docs/gekta/model-oneuse-grant-20261008.md",
+        "mode": "100644",
+        "beforeBlob": "a3fe72fe4d7127b27344050d8623106280272f9b",
+        "beforeSha256": "181c19f1e0ef510ec122bc565163d77c650fd181b7679777dece195a6d106f8d",
+        "afterBlob": "4b4cd2b8277aa1142ba15b6be05ef144c91c93ef",
+        "bytes": 8887,
+        "sha256": "0bc08a8a066167d7ac8d388be000ff2c4a01328935a24e7f6af6dcf753dfa6f8"
+      }
+    ],
+    "completeSourcePatch": {
+      "content": "diff --git a/.github/workflows/gekta-qwen35-4b-model-host-candidate.yml b/.github/workflows/gekta-qwen35-4b-model-host-candidate.yml\nindex e7c4ab3305acb848a2df43c0405b4b787d650bc9..3c0b29666508d3978960b282c1d14fbec777fc58 100644\n--- a/.github/workflows/gekta-qwen35-4b-model-host-candidate.yml\n+++ b/.github/workflows/gekta-qwen35-4b-model-host-candidate.yml\n@@ -182,9 +182,10 @@\n           assert spec.loader is not None\n           spec.loader.exec_module(module)\n           marker = 'SYNTHETIC_NOT_A_CREDENTIAL_7f914ef09a8b4c11'\n-          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]\n+          profile = [item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value)]\n+          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS, *profile]\n           assert module.candidate_exec_argv_status(valid) == 0\n-          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS]) == 0\n+          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS, *profile]) == 0\n           for flags in [\n               ['--api-key', marker], ['--api-key=' + marker],\n               ['--api_key', marker], ['--api_key=' + marker],\n@@ -271,7 +272,7 @@\n           }))\n           ''')\n               executable.chmod(0o700)\n-              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]\n+              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS, *profile]\n \n               def real_guard(argv):\n                   read_fd, write_fd = os.pipe()\n@@ -347,6 +348,9 @@\n           module = importlib.util.module_from_spec(spec)\n           assert spec.loader is not None\n           spec.loader.exec_module(module)\n+          baseline_profile = [os.fsencode(item) for key, value in module.EXPECTED.items() for item in (module.ALIASES[key][0], value)]\n+          candidate_profile = [item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value)]\n+          candidate_profile_bytes = b'\\0'.join(os.fsencode(item) for item in candidate_profile) + b'\\0'\n \n           class FakeProc:\n               pid = 424242\n@@ -364,7 +368,7 @@\n               return (\n                   {'pid': 999, 'exe': '/bin/true', 'cmdlineSha256': 'x', 'apiKeySha256': 'y', 'restarts': 0, 'vmSwapKb': 0, 'startTime': 1},\n                   pathlib.Path('/bin/true'),\n-                  [b'/bin/true'],\n+                  [b'/bin/true', *baseline_profile],\n                   {},\n               )\n \n@@ -564,7 +568,7 @@\n \n                   candidate_cmd = (\n                       b'/bin/true\\0--model\\0' + os.fsencode(candidate) +\n-                      b'\\0--alias\\0' + module.CANDIDATE_ALIAS.encode() + b'\\0'\n+                      b'\\0--alias\\0' + module.CANDIDATE_ALIAS.encode() + b'\\0' + candidate_profile_bytes\n                   )\n                   with contextlib.ExitStack() as stack:\n                       stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))\n@@ -719,7 +723,7 @@\n               listener_mock = mock.Mock()\n               candidate_cmd = (\n                   b'/bin/true\\0--model\\0' + os.fsencode(candidate) +\n-                  b'\\0--alias\\0' + module.CANDIDATE_ALIAS.encode() + b'\\0'\n+                  b'\\0--alias\\0' + module.CANDIDATE_ALIAS.encode() + b'\\0' + candidate_profile_bytes\n               )\n               with contextlib.ExitStack() as stack:\n                   stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))\n@@ -795,9 +799,11 @@\n               candidate.write_bytes(b'x')\n               split_guarded = [\n                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,\n+                  *candidate_profile,\n               ]\n               joined_guarded = [\n                   '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,\n+                  *[module.ALIASES[key][0] + '=' + value for key, value in module.CANDIDATE_EXPECTED.items()],\n               ]\n               with mock.patch.object(module, 'CANDIDATE_PATH', candidate):\n                   for guarded in (split_guarded, joined_guarded):\n@@ -837,13 +843,15 @@\n               with tempfile.TemporaryDirectory() as tmp:\n                   candidate = pathlib.Path(tmp) / 'candidate.gguf'\n                   candidate.write_bytes(b'x')\n+                  runner = pathlib.Path(tmp) / 'synthetic-runner.py'\n+                  runner.write_text('import time; time.sleep(1.0)\\n')\n                   read_fd, write_fd = os.pipe()\n                   guarded = [\n                       sys.executable,\n-                      '-c',\n-                      'import time; time.sleep(1.0)',\n+                      str(runner),\n                       '--model=' + str(candidate),\n                       '--alias=' + module.CANDIDATE_ALIAS,\n+                      *candidate_profile,\n                   ]\n                   with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \\\n                        mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False):\n@@ -1215,7 +1223,7 @@\n                       for name, value in {\n                           'require_nonroot': 'tai', 'sha_file': 'hash', 'ensure_start_capacity': None,\n                           'save_state': None,\n-                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true'], {}),\n+                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true', *[os.fsencode(item) for key, value in module.EXPECTED.items() for item in (module.ALIASES[key][0], value)]], {}),\n                       }.items():\n                           stack.enter_context(mock.patch.object(module, name, return_value=value))\n                       stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=Proc()))\n@@ -1250,6 +1258,224 @@\n \n           unittest.main(argv=['startup-diagnostic-contract'], verbosity=2)\n           PY\n+      - name: Prove bounded memory evidence and candidate-only microbatch\n+        run: |\n+          set -Eeuo pipefail\n+          python3 -I - <<'PY_MEMORY_PROFILE'\n+          import contextlib\n+          import importlib.util\n+          import io\n+          import json\n+          import os\n+          from pathlib import Path\n+          import tempfile\n+          import types\n+          import unittest\n+          from unittest import mock\n+\n+          path = Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()\n+          spec = importlib.util.spec_from_file_location('candidate_memory_profile', path)\n+          m = importlib.util.module_from_spec(spec)\n+          spec.loader.exec_module(m)\n+\n+          BASELINE = {'threads': '16', 'threads_batch': '16', 'parallel': '1',\n+                      'ctx': '8192', 'batch': '512', 'ubatch': '128'}\n+          CANDIDATE = {**BASELINE, 'ubatch': '64'}\n+\n+\n+          def flags(profile):\n+              return [item for key, value in profile.items() for item in (m.ALIASES[key][0], value)]\n+\n+\n+          def candidate_argv():\n+              return ['/fixture/llama-server', '--model', str(m.CANDIDATE_PATH),\n+                      '--alias', m.CANDIDATE_ALIAS, *flags(CANDIDATE)]\n+\n+\n+          class CandidateMemoryProfileContract(unittest.TestCase):\n+              def test_separate_profiles_keep_original_limits_and_admission_identity(self):\n+                  self.assertEqual(m.EXPECTED, BASELINE)\n+                  self.assertEqual(m.CANDIDATE_EXPECTED, CANDIDATE)\n+                  self.assertEqual(m.candidate_admission_identity()['flags'], CANDIDATE)\n+                  self.assertEqual(m.LEASE_SECONDS, 420)\n+                  self.assertEqual(m.MAX_CANDIDATE_RSS_KB, 9 * 1024 * 1024)\n+                  self.assertEqual((m.MIN_MEM_BEFORE_KB, m.MIN_MEM_READY_KB, m.MIN_MEM_RUNTIME_KB),\n+                                   (8 * 1024 * 1024, 3 * 1024 * 1024, 2 * 1024 * 1024))\n+                  self.assertEqual(m.EXECUTION_GRANT, 'gekta-finish-20261103-qwen38-iq2s-oneuse')\n+\n+              def test_real_baseline_validation_accepts_only_the_unchanged_128_profile(self):\n+                  argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--alias', m.BASELINE_ALIAS, *flags(BASELINE)]]\n+                  command_result = types.SimpleNamespace(returncode=0, stdout='aedb2a5 LLAMA_API_KEY', stderr='')\n+                  with contextlib.ExitStack() as stack:\n+                      for name, result in {'require_nonroot': 'tai', 'service_user': 'tai', 'service_pid': 999,\n+                                           'service_restarts': 0, 'process_start_time': 1, 'proc_kb': 0,\n+                                           'systemctl_read': command_result, 'command': command_result}.items():\n+                          stack.enter_context(mock.patch.object(m, name, return_value=result))\n+                      read = stack.enter_context(mock.patch.object(m, 'read_proc'))\n+                      read.return_value = (Path('/fixture/llama-server'), argv, {'LLAMA_API_KEY': 's' * 64}, b'synthetic')\n+                      self.assertEqual(m.snapshot_baseline()[0]['pid'], 999)\n+                      read.return_value = (Path('/fixture/llama-server'), m.replace_flag(argv, 'ubatch', b'64'),\n+                                           {'LLAMA_API_KEY': 's' * 64}, b'synthetic')\n+                      with self.assertRaisesRegex(m.CandidateError, '^baseline_flag_mismatch:ubatch$'):\n+                          m.snapshot_baseline()\n+\n+              def test_all_candidate_profile_flags_are_bound_before_exec_and_after_exec(self):\n+                  valid = candidate_argv()\n+                  self.assertEqual(m.candidate_exec_argv_status(valid), 0)\n+                  raw = [os.fsencode(item) for item in valid]\n+                  for key in CANDIDATE:\n+                      for bad in (m.replace_flag(raw, key, b'999'), m.remove_flag(raw, key),\n+                                  raw + [os.fsencode(m.ALIASES[key][0]), os.fsencode(CANDIDATE[key])]):\n+                          with self.subTest(key=key, kind=len(bad)):\n+                              self.assertEqual(m.candidate_exec_argv_status([os.fsdecode(item) for item in bad]), 86)\n+                              with contextlib.redirect_stdout(io.StringIO()):\n+                                  with self.assertRaisesRegex(m.CandidateError, '^candidate_runtime_flags_mismatch$'):\n+                                      m.require_candidate_keyless_argv(raw, bad)\n+                  self.assertEqual(m.candidate_exec_argv_status([*valid, '--api-key=PRIVATE_SENTINEL']), 84)\n+\n+              def test_numeric_diagnostic_never_emits_raw_proc_or_exception_values(self):\n+                  values = {'VmRSS': 7000000, 'RssAnon': 123456, 'RssFile': 6876544, 'VmHWM': 7100000}\n+                  output = io.StringIO()\n+                  with mock.patch.object(m, 'proc_kb', side_effect=lambda pid, key: values[key]), \\\n+                       mock.patch.object(m, 'mem_available_kb', return_value=3500000), \\\n+                       contextlib.redirect_stdout(output):\n+                      m.emit_candidate_memory_diagnostic(123, 4096)\n+                  self.assertEqual(output.getvalue().splitlines(), [\n+                      'QWEN35_CANDIDATE_MEMORY_DIAGNOSTIC_VERSION=v1',\n+                      'QWEN35_CANDIDATE_POST_READY_VM_SWAP_KB=4096',\n+                      'QWEN35_CANDIDATE_POST_READY_VM_RSS_KB=7000000',\n+                      'QWEN35_CANDIDATE_POST_READY_RSS_ANON_KB=123456',\n+                      'QWEN35_CANDIDATE_POST_READY_RSS_FILE_KB=6876544',\n+                      'QWEN35_CANDIDATE_POST_READY_VM_HWM_KB=7100000',\n+                      'QWEN35_CANDIDATE_POST_READY_MEM_AVAILABLE_KB=3500000',\n+                  ])\n+                  for invalid in (None, True, -1, 2**63, 'PRIVATE_SENTINEL'):\n+                      output = io.StringIO()\n+                      with mock.patch.object(m, 'proc_kb', return_value=invalid), \\\n+                           mock.patch.object(m, 'mem_available_kb', side_effect=OSError('PRIVATE_SENTINEL')), \\\n+                           contextlib.redirect_stdout(output):\n+                          m.emit_candidate_memory_diagnostic(123, 7)\n+                      self.assertIn('POST_READY_VM_SWAP_KB=7\\n', output.getvalue())\n+                      self.assertEqual(output.getvalue().count('=not_reported\\n'), 5)\n+                      self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())\n+\n+              def test_inherited_128_profile_cannot_reach_exec_or_spend_exec_release(self):\n+                  raw = m.replace_flag([os.fsencode(item) for item in candidate_argv()], 'ubatch', b'128')\n+                  read_fd, write_fd = os.pipe()\n+                  os.write(write_fd, b'G')\n+                  os.close(write_fd)\n+                  with mock.patch.dict(m.os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps([os.fsdecode(item) for item in raw])}), \\\n+                       mock.patch.object(m, 'reserve_execution') as reserve, \\\n+                       mock.patch.object(m.os, 'nice') as nice, \\\n+                       mock.patch.object(m.os, 'execvpe') as execute:\n+                      self.assertEqual(m.candidate_exec_guard(read_fd), 86)\n+                      reserve.assert_not_called()\n+                      nice.assert_not_called()\n+                      execute.assert_not_called()\n+\n+              def test_diagnostic_output_failure_is_best_effort(self):\n+                  with mock.patch.object(m, 'proc_kb', return_value=1), \\\n+                       mock.patch.object(m, 'mem_available_kb', return_value=1), \\\n+                       mock.patch.object(m, 'emit', side_effect=OSError('PRIVATE_SENTINEL')):\n+                      m.emit_candidate_memory_diagnostic(123, 4096)\n+\n+              def exercise_start(self, swap_kb, available_kb=4 * 1024 * 1024, optional_reads_fail=False):\n+                  with tempfile.TemporaryDirectory() as temporary:\n+                      root = Path(temporary)\n+                      candidate = root / 'model.gguf'\n+                      candidate.write_bytes(b'x')\n+                      baseline_argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--model', '/fixture/base.gguf',\n+                                       '--alias', m.BASELINE_ALIAS, '--api-key', 's' * 64, *flags(BASELINE)]]\n+                      baseline_before = list(baseline_argv)\n+                      output = io.StringIO()\n+                      events = []\n+                      prepared = []\n+                      class Proc:\n+                          pid = 424242\n+                          exited = False\n+                          def poll(self):\n+                              return 0 if self.exited else None\n+                          def wait(self, timeout=None):\n+                              self.exited = True\n+                              return 0\n+                      proc = Proc()\n+                      def fake_popen(argv, **kwargs):\n+                          prepared.extend(json.loads(kwargs['env']['QWEN35_GUARDED_ARGV_JSON']))\n+                          self.assertEqual(m.candidate_exec_argv_status(prepared), 0)\n+                          return proc\n+                      def stop_child(*args):\n+                          events.append('cleanup')\n+                          self.assertIn('POST_READY_VM_SWAP_KB=' + str(swap_kb), output.getvalue())\n+                          proc.wait()\n+                      def memory(pid, key):\n+                          if key == 'VmSwap':\n+                              events.append('swap')\n+                              return swap_kb\n+                          if optional_reads_fail:\n+                              raise OSError('PRIVATE_SENTINEL')\n+                          return {'VmRSS': 7000000, 'RssAnon': 123456, 'RssFile': 6876544, 'VmHWM': 7100000}[key]\n+                      with contextlib.ExitStack() as stack:\n+                          for name, value in {'CANDIDATE_PATH': candidate, 'CANDIDATE_SIZE': 1, 'CANDIDATE_SHA256': 'hash',\n+                                              'STATE_DIR': root, 'PID_PATH': root / 'candidate.pid',\n+                                              'CANDIDATE_IDENTITY_PATH': root / 'identity.json', 'LOG_PATH': root / 'candidate.log'}.items():\n+                              stack.enter_context(mock.patch.object(m, name, value))\n+                          for name, value in {'require_nonroot': 'tai', 'reserve_execution': None, 'sha_file': 'hash',\n+                                              'ensure_start_capacity': None, 'save_state': None, 'write_candidate_identity': None,\n+                                              'write_pid': None, 'baseline_matches_state': True, 'pidfd_exited': False,\n+                                              'candidate_process_matches': True, 'require_isolated_candidate_group': None,\n+                                              'process_nice': 10, 'wait_candidate': None, 'mem_available_kb': available_kb,\n+                                              'baseline_runtime_healthy': True, 'verify_listener_absent': None, 'stop_watchdog': None,\n+                                              'snapshot_baseline': ({'pid': 999}, Path('/fixture/llama-server'), baseline_argv,\n+                                                                    {'LLAMA_API_KEY': 's' * 64})}.items():\n+                              stack.enter_context(mock.patch.object(m, name, return_value=value))\n+                          stack.enter_context(mock.patch.object(m.subprocess, 'Popen', side_effect=fake_popen))\n+                          stack.enter_context(mock.patch.object(m.os, 'write', side_effect=lambda fd, data: len(data)))\n+                          stack.enter_context(mock.patch.object(m.os, 'pidfd_open', side_effect=lambda *args: os.open(os.devnull, os.O_RDONLY)))\n+                          stack.enter_context(mock.patch.object(m, 'launch_watchdog', side_effect=lambda *args: (\n+                              os.open(os.devnull, os.O_RDONLY), os.open(os.devnull, os.O_WRONLY))))\n+                          stack.enter_context(mock.patch.object(m.pathlib.Path, 'read_bytes', side_effect=lambda: b'\\0'.join(os.fsencode(item) for item in prepared) + b'\\0'))\n+                          stack.enter_context(mock.patch.object(m, 'proc_kb', side_effect=memory))\n+                          stack.enter_context(mock.patch.object(m, 'stop_owned_child', side_effect=stop_child))\n+                          stack.enter_context(mock.patch.object(m, 'emit_candidate_start_diagnostic'))\n+                          error = None\n+                          with contextlib.redirect_stdout(output):\n+                              try:\n+                                  m.start('a' * 64, execution_grant=m.EXECUTION_GRANT, corpus='critical',\n+                                          admitted_sha='a' * 40, checkout_sha='a' * 40)\n+                              except m.CandidateError as exc:\n+                                  error = str(exc)\n+                      self.assertEqual(baseline_argv, baseline_before)\n+                      prepared_raw = [os.fsencode(item) for item in prepared]\n+                      self.assertEqual(m.flag_value(prepared_raw, 'ubatch'), b'64')\n+                      self.assertEqual(m.flag_value(prepared_raw, 'ctx'), b'8192')\n+                      self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())\n+                      self.assertEqual(events.count('swap'), 1, error)\n+                      return error, events, output.getvalue()\n+\n+              def test_nonzero_swap_diagnoses_before_cleanup_without_weakening_guard(self):\n+                  for swap_kb in (1, 4096):\n+                      for optional_reads_fail in (False, True):\n+                          error, events, output = self.exercise_start(swap_kb, optional_reads_fail=optional_reads_fail)\n+                          self.assertEqual(error, 'candidate_swap_nonzero')\n+                          self.assertEqual(events, ['swap', 'cleanup'])\n+                          self.assertIn('POST_READY_VM_SWAP_KB=' + str(swap_kb) + '\\n', output)\n+                          self.assertNotIn('START=PASS', output)\n+\n+              def test_zero_swap_still_requires_original_ready_headroom(self):\n+                  error, events, output = self.exercise_start(0, available_kb=m.MIN_MEM_READY_KB - 1)\n+                  self.assertEqual(error, 'candidate_ready_headroom_low')\n+                  self.assertEqual(events, ['swap', 'cleanup'])\n+                  self.assertNotIn('START=PASS', output)\n+\n+              def test_original_ready_boundary_and_zero_swap_can_reach_success(self):\n+                  error, events, output = self.exercise_start(0, available_kb=m.MIN_MEM_READY_KB)\n+                  self.assertIsNone(error)\n+                  self.assertEqual(events, ['swap'])\n+                  self.assertIn('START=PASS', output)\n+\n+\n+          unittest.main(argv=['candidate-memory-profile-contract'], verbosity=2)\n+          PY_MEMORY_PROFILE\n       - name: Prove staging and cached artifact disk boundaries\n         run: |\n           set -Eeuo pipefail\n@@ -1507,6 +1733,7 @@\n                   os.write(write_fd, b'G')\n                   os.close(write_fd)\n                   argv = ['/bin/true', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]\n+                  argv.extend(item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value))\n                   with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': module.json.dumps(argv)}), mock.patch.object(module.os, 'nice', return_value=10), mock.patch.object(module.os, 'execvpe') as execute:\n                       code = module.candidate_exec_guard(read_fd, **kwargs)\n                   return code, execute.call_count\ndiff --git a/scripts/gekta-qwen35-4b-model-host-candidate.py b/scripts/gekta-qwen35-4b-model-host-candidate.py\nindex 602861e0e44195b65a17bfe3f8c76f82ef00a3b6..e612f77a5e2d65d524fac28a97bdb9477ebe27f1 100644\n--- a/scripts/gekta-qwen35-4b-model-host-candidate.py\n+++ b/scripts/gekta-qwen35-4b-model-host-candidate.py\n@@ -53,6 +53,9 @@\n     \"batch\": \"512\",\n     \"ubatch\": \"128\",\n }\n+# Baseline validation stays at 128. Only the finite candidate uses the smaller\n+# physical batch; its 8192-token context and all safety limits stay unchanged.\n+CANDIDATE_EXPECTED = {**EXPECTED, \"ubatch\": \"64\"}\n ALIASES = {\n     \"model\": (\"--model\", \"-m\"),\n     \"alias\": (\"--alias\",),\n@@ -171,6 +174,32 @@\n     if not match:\n         fail(\"memavailable_missing\")\n     return int(match.group(1))\n+\n+def emit_candidate_memory_diagnostic(pid: int, vm_swap_kb: int) -> None:\n+    # Record the exact swap value used by the guard before it can abort startup.\n+    # Optional observations are sequential, not an atomic memory snapshot. They\n+    # never change the guard result or disclose /proc text, argv or exceptions.\n+    try:\n+        values = {\"POST_READY_VM_SWAP_KB\": vm_swap_kb}\n+        for label, field in (\n+            (\"POST_READY_VM_RSS_KB\", \"VmRSS\"),\n+            (\"POST_READY_RSS_ANON_KB\", \"RssAnon\"),\n+            (\"POST_READY_RSS_FILE_KB\", \"RssFile\"),\n+            (\"POST_READY_VM_HWM_KB\", \"VmHWM\"),\n+        ):\n+            try:\n+                values[label] = proc_kb(pid, field)\n+            except Exception:\n+                values[label] = None\n+        try:\n+            values[\"POST_READY_MEM_AVAILABLE_KB\"] = mem_available_kb()\n+        except Exception:\n+            values[\"POST_READY_MEM_AVAILABLE_KB\"] = None\n+        emit(\"MEMORY_DIAGNOSTIC_VERSION\", \"v1\")\n+        for label, value in values.items():\n+            emit(label, value if type(value) is int and 0 <= value < 2**63 else \"not_reported\")\n+    except Exception:\n+        pass\n \n def flag_hits(argv, names):\n     hits = []\n@@ -580,6 +609,15 @@\n         fail(\"candidate_guard_argv_invalid\")\n     if observed_shape != \"absent\":\n         fail(\"candidate_key_present_in_cmdline\")\n+    if not candidate_runtime_flags_match(observed):\n+        fail(\"candidate_runtime_flags_mismatch\")\n+\n+\n+def candidate_runtime_flags_match(argv) -> bool:\n+    try:\n+        return all(flag_value(argv, key) == value.encode(\"ascii\") for key, value in CANDIDATE_EXPECTED.items())\n+    except CandidateError:\n+        return False\n \n \n def candidate_exec_argv_status(argv) -> int:\n@@ -600,6 +638,8 @@\n         return 80\n     if candidate_api_key_arg_shape(encoded) != \"absent\":\n         return 84\n+    if not candidate_runtime_flags_match(encoded):\n+        return 86\n     return 0\n \n def candidate_exec_guard(guard_fd: int, *, execution_grant: str = \"\", corpus: str = \"\", admitted_sha: str = \"\", checkout_sha: str = \"\") -> int:\n@@ -1304,7 +1344,7 @@\n     return {\n         \"alias\": CANDIDATE_ALIAS, \"url\": CANDIDATE_URL,\n         \"sha256\": CANDIDATE_SHA256, \"bytes\": CANDIDATE_SIZE,\n-        \"runtimeCommitShort\": \"aedb2a5\", \"flags\": EXPECTED,\n+        \"runtimeCommitShort\": \"aedb2a5\", \"flags\": CANDIDATE_EXPECTED,\n         \"host\": CANDIDATE_HOST, \"port\": CANDIDATE_PORT,\n         \"leaseSeconds\": LEASE_SECONDS, \"minFreeBytes\": MIN_FREE_BYTES,\n         \"minCachedFreeBytes\": MIN_DISK_RESERVE_BYTES,\n@@ -1545,6 +1585,7 @@\n     argv = replace_flag(argv, \"alias\", CANDIDATE_ALIAS.encode(\"utf-8\"))\n     argv = replace_flag(argv, \"host\", CANDIDATE_HOST.encode(\"ascii\"))\n     argv = replace_flag(argv, \"port\", str(CANDIDATE_PORT).encode(\"ascii\"))\n+    argv = replace_flag(argv, \"ubatch\", CANDIDATE_EXPECTED[\"ubatch\"].encode(\"ascii\"))\n     argv = remove_flag(argv, \"api_key\")\n     env[\"LLAMA_API_KEY\"] = candidate_key\n     for key in (\"NOTIFY_SOCKET\", \"WATCHDOG_PID\", \"WATCHDOG_USEC\", \"INVOCATION_ID\", \"JOURNAL_STREAM\"):\n@@ -1649,7 +1690,9 @@\n         start_phase = \"readiness\"\n         wait_candidate(proc.pid, candidate_key, state)\n         start_phase = \"post_ready\"\n-        if proc_kb(proc.pid, \"VmSwap\") != 0:\n+        vm_swap_kb = proc_kb(proc.pid, \"VmSwap\")\n+        emit_candidate_memory_diagnostic(proc.pid, vm_swap_kb)\n+        if vm_swap_kb != 0:\n             fail(\"candidate_swap_nonzero\")\n         available = mem_available_kb()\n         if available < MIN_MEM_READY_KB:\ndiff --git a/docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json b/docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json\nindex d3b6a3c9f2097fce70d7931cd2b423ec1fff2249..a6a865f5defc3c65f565fd7a76d317de5b698752 100644\n--- a/docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json\n+++ b/docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json\n@@ -3,9 +3,9 @@\n   \"branch\": \"fix/gekta-candidate-oneuse-grant-20261008\",\n   \"status\": \"active\",\n   \"issue\": 3896,\n-  \"purpose\": \"Separately admitted finite Qwen3.8-27B IQ2_S compatibility, resource, quality and speed candidate on the existing host. The current owner finish instruction does not renew either old4B grant. New source and its immutable four-payload purpose require separate accepted admission, independent actual-head/native/manual acceptance, then two finite corpus slots; this file or private proposal alone is not runtime authorization.\",\n-  \"approvedBy\": \"Current owner request to finish Gekta; exact new purpose gekta-qwen38-iq2s-finite-canary-20261103 must be separately accepted in trusted main before this source may reach SSH transport.\",\n-  \"authorityBaseExactMain\": \"d466d3d8b442bc6c8580d80abd09ae008e7a4088\",\n+  \"purpose\": \"Source-only Qwen3.8-27B IQ2_S memory diagnostics and candidate ubatch64 preparation on the same retained four-path owner lane. Preserve context8192, baseline ubatch128 and every existing safety boundary. This phase grants no model invocation, retry, new slot, grant renewal, production control or activation. The exact four after-payloads require separately accepted source-only purpose, independent actual-head/native/manual source acceptance; this scope or its merge cannot make a spent allowance available.\",\n+  \"approvedBy\": \"Current owner request to finish Gekta permits private preparation. Exact source-only purpose gekta-qwen38-iq2s-ubatch64-source-only-20261105 must be separately accepted in trusted main before publication of these source afters. It preserves the unique 2026-11-03 finite runtime admission and all spent markers unchanged; it is not SSH or execution authorization.\",\n+  \"authorityBaseExactMain\": \"38bdca854f4fd94b0f533bac6ecd41b25b9dba29\",\n   \"newRecurringCostRub\": 0,\n   \"allowedPaths\": [\n     \".github/workflows/gekta-qwen35-4b-model-host-candidate.yml\",\n@@ -17,7 +17,7 @@\n     \"Use only the existing dedicated non-root TAI_MODEL_SSH_USER, TAI_MODEL_SSH_KEY and pinned TAI_MODEL_SSH_HOST_KEY; no password, sudo, root SSH or production SSH credential fallback.\",\n     \"The remote SSH principal must be the same non-root OS user configured on tai-qwen3-8b.service, while the service remains active and unchanged throughout the candidate window.\",\n     \"Candidate identity is tai-qwen38-27b-iq2s using Qwen/Qwen3.8-27B via the pinned Unsloth GGUF revision4ca720788d1e01f1bff70c033e0d0028fd02e502, exact8371970048-byte Qwen3.8-27B-UD-IQ2_S.gguf and SHA2567897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe. Full downloaded bytes must verify before launch; metadata/partial headers never establish compatibility, RAM fit, speed or quality.\",\n-    \"Candidate uses the exact active production llama.cpp executable and preserves threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128 except model path, alias, loopback port and ephemeral API key.\",\n+    \"Candidate uses the exact active production llama.cpp executable and threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch64. Baseline validation remains threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128. The only additional candidate argv difference admitted by this source-only phase is ubatch128 to64; model path, alias, loopback port and ephemeral API key retain their existing boundaries. Parent/pre-exec and observed argv reject missing, duplicate or mismatched candidate profile flags before they can establish startup acceptance.\",\n     \"Candidate binds only 127.0.0.1:18081, is reached only through a pinned SSH tunnel, and is never placed in production routing.\",\n     \"Before candidate launch the helper snapshots baseline PID, command identity, restart counter, zero-swap state and capacity; baseline must retain at least 8 GiB MemAvailable before launch.\",\n     \"Candidate launch is held behind a same-process pre-exec pipe guard: candidate pidfd and PID record are established first; the watchdog must open its own pidfd to that still-inert guard and acknowledge ready supervision before the parent may release the guard. After release the guard lowers its own CPU scheduling priority with os.nice and execs the reviewed llama argv directly in the same task, without external nice/ionice wrapper processes. The watchdog keeps the same pidfd across guard→llama exec, enforces the hard 420-second lease and bounded RSS/headroom, and verifies the final candidate identity and lowered priority. Any pidfd/PID-record/watchdog/ready setup failure closes the guard without starting llama. Both start-failure recovery and standalone cleanup treat the acknowledged pre-exec guard and reviewed llama identity as the same owned task; cleanup is pidfd-only, recovery PID/watchdog metadata is retained until owned-process exit plus listener absence are actually proved, and only then may supervision/recovery metadata be released. No numeric PID/PGID signaling is allowed.\",\n@@ -28,13 +28,15 @@\n     \"New mandatory recurring cost remains 0 RUB.\",\n     \"The pre-exec guard must validate candidate model and alias through the same bounded flag parser used by the parent so both --flag value and --flag=value baseline token forms are accepted without argv normalization; any guard or pre-identity exec exit must fail fast with its bounded exit status instead of being masked by the generic identity timeout.\",\n     \"Startup diagnostics may read at most 64 KiB from only the current owned attempt's private log inode after owned-child exit and listener-absence proof. Reject unsafe files or stale/mutated cursors; emit only closed phase/class vocabulary and bounded byte/truncation counts, never stderr text, keys, environment, paths or argv. Cleanup failure suppresses diagnostics and retains recovery state; diagnostic failure must not mask the original failed start. Workflow reporting must accept only complete allowlisted lines and must not turn log classification into inference or acceptance PASS.\",\n-    \"Candidate artifact/state identity is derived from the same effective non-root OS-account home in the parent, pre-exec guard, watchdog and cleanup; inherited service HOME cannot change expected candidate identity. Preserve the inherited runtime environment, executable and reviewed argv apart from already admitted model/alias/loopback/key differences.\",\n+    \"Candidate artifact/state identity is derived from the same effective non-root OS-account home in the parent, pre-exec guard, watchdog and cleanup; inherited service HOME cannot change expected candidate identity. Preserve the inherited runtime environment, executable and reviewed argv apart from already admitted model/alias/loopback/key differences and only this phase's candidate ubatch128 to64. Baseline argv remains unchanged.\",\n     \"Both --api-key and --api_key, split or joined forms including duplicates/empty values, are rejected by parent and pre-exec guard before any subprocess exec. Preserve the post-exec rejection for observed credential arguments. Emit only fixed prepared/observed shape labels and a changed boolean, never key values, argv, paths or hashes. This hardening is not a claim that a credential caused the observed guard exit80.\",\n     \"Both old grants gekta-critical-5974230017 and gekta-finish-20261008-4b-oneuse remain retired/spent; all old critical/extra reservation/exec markers are retained under the unchanged OS-account cache/state namespace, never removed/reset/edited/refunded. Old commands or either old grant fail before credential input or launch. A new candidate filename/alias is not a reset of old slots.\",\n     \"Only separately accepted grant gekta-finish-20261103-qwen38-iq2s-oneuse may reserve one critical corpus and, after the operator inspects actual same-SHA critical PASS, cleanup PASS and unchanged healthy8B, one extra corpus. Each retains the hard420-second lease. Failure, cancellation, transport loss or changed source cannot replenish a slot. Candidate PASS is not permanent activation or full1000-question quality acceptance.\",\n     \"Before SSH secrets are injected, exact-current-main resolution must validate one unique separately accepted queue purpose gekta-qwen38-iq2s-finite-canary-20261103, exact fixed artifact/runtime/resource/slot identities, both retired grants, false production/automatic-merge flags, zero cost and all four regular UTF8 source payload hashes/Git blobs/modes. Missing, malformed, duplicate, oversized, changed or self-included source admission fails closed before transport. The four-path source PR must not add its own queue purpose.\",\n     \"New finite resource envelope: disk must have candidate bytes plus3GB free before a new download; reuse of the already owned, exact-size, fully SHA-verified cached artifact requires only the same3GB reserve and never redownloads or resets a grant. Reject unsafe, corrupted, wrong-size or insufficient-reserve cache entries without repair. Prelaunch8GiB, ready3GiB and runtime2GiB MemAvailable thresholds and zero-swap checks remain unchanged. Only this new artifact has9GiB maximum candidateRSS; old7GiB4B source/grants are not altered or renewed. Watchdog/pidfd/identity/lease cleanup remain intact. Any capacity/load/quality/timeout failure is preserved; no blind retry or claim that failure proves the model can never run alone.\",\n-    \"Historical QWEN35 env/protocol/test/file names remain for the unchanged10-case critical corpus; exact emitted artifact/model identity identifies Qwen3.8. Extra-corpus visible-delta timing is named firstVisibleMs, not modelTTFT. Quantization quality and current-host performance require actual same-source measured output; source or metadata is not a result.\"\n+    \"Historical QWEN35 env/protocol/test/file names remain for the unchanged10-case critical corpus; exact emitted artifact/model identity identifies Qwen3.8. Extra-corpus visible-delta timing is named firstVisibleMs, not modelTTFT. Quantization quality and current-host performance require actual same-source measured output; source or metadata is not a result.\",\n+    \"The sole new pre-guard diagnostic is a bounded numeric post-ready observation: the exact VmSwap value used by the unchanged zero-swap guard, plus best-effort VmRSS, RssAnon, RssFile, VmHWM and MemAvailable. Emit only seven fixed keys with v1, integers0 through2^63-1, or not_reported; never raw proc text, argv, environment, paths or exception text. These reads are sequential, not an atomic snapshot. Missing optional fields/output failure cannot change the original guard result. Existing private-log reading/classification remains after owned-child exit and listener-absence proof, including suppression on cleanup failure.\",\n+    \"Source-only purpose gekta-qwen38-iq2s-ubatch64-source-only-20261105 may pin these four afters but may not edit or duplicate the unique finite runtime admission gekta-qwen38-iq2s-finite-canary-20261103, alter its grant/slots or mutate durable execution markers. The retained runtime record still binds ubatch128 and its accepted original four afters; the changed profile must fail that resolver before SSH secrets. Accepted source is therefore not executable under this phase. Preserve critical run41732219749 failure candidate_swap_nonzero, inference SKIPPED and cleanup PASS. Its spent critical allowance is not refunded; extra remains ineligible without actual same-SHA critical PASS. Any later operational proposal needs separate legitimate owner coordination and cannot infer authority from a source merge.\"\n   ],\n   \"forbiddenCapabilities\": [\n     \"sudo, root SSH, password SSH, production SSH credentials, sudoers changes, persistent privileged bridges or arbitrary privileged remote command authority\",\ndiff --git a/docs/gekta/model-oneuse-grant-20261008.md b/docs/gekta/model-oneuse-grant-20261008.md\nindex a3fe72fe4d7127b27344050d8623106280272f9b..4b4cd2b8277aa1142ba15b6be05ef144c91c93ef 100644\n--- a/docs/gekta/model-oneuse-grant-20261008.md\n+++ b/docs/gekta/model-oneuse-grant-20261008.md\n@@ -1,3 +1,51 @@\n+# Source-only memory profile preparation, 2026-11-05\n+\n+This phase proposes only four reviewed source afters on the existing\n+`fix/gekta-candidate-oneuse-grant-20261008` lane. The new source-only purpose\n+is `gekta-qwen38-iq2s-ubatch64-source-only-20261105`, prepared against accepted\n+main `38bdca854f4fd94b0f533bac6ecd41b25b9dba29`. It creates no execution grant,\n+slot, nonce, host window, credential, service-control or production authority.\n+\n+The candidate profile retains the same Qwen3.8-27B IQ2_S artifact, runtime\n+aedb2a5, threads16/threads-batch16/parallel1/ctx8192/batch512 and changes only\n+candidate ubatch128 to64. Baseline remains ubatch128 and must stay active and\n+unchanged. This is an unmeasured graph-buffer reduction hypothesis, not proof\n+of RAM fit, quality, speed or permission to shorten the production context.\n+\n+Before the unchanged zero-swap guard, record the same checked VmSwap value\n+and best-effort VmRSS, RssAnon, RssFile, VmHWM and MemAvailable. Output is\n+restricted to fixed field names, bounded integers or not_reported. Additional\n+diagnostic failures cannot mask the original start failure. These sequential\n+observations are not an atomic snapshot. Existing private-log diagnostics\n+still require owned-process exit and listener absence; their limits remain.\n+\n+The separately accepted queue-only source-purpose append must preserve all\n+existing queue bytes, state, owners, four-path scope membership and the unique\n+2026-11-03 finite runtime admission. Complete private source and independent\n+review precede metadata acceptance. The later actual four-path source head\n+still needs fresh independent review, separate owner audit, every applicable\n+native/security/current-readiness gate and ordinary expected-SHA manual merge.\n+\n+**No runtime command is authorized by this source-only phase.** The original\n+finite admission remains bound to ubatch128 and the original four source\n+hashes. The new helper must reject that unchanged admission before SSH secrets.\n+Source acceptance must not be described as operational admission or a model\n+PASS. Do not rewrite the old record to64, duplicate its marker, rename a grant,\n+reset markers, repost or rerun a spent command to make this source executable.\n+\n+Historical critical run41732219749 / job126252196225 failed at post_ready with\n+candidate_swap_nonzero; inference was SKIPPED and cleanup PASS. The critical\n+allowance is spent. Extra is not eligible without actual same-SHA critical PASS.\n+Later source changes, this document or the current owner finish instruction\n+do not themselves change those dispositions. Any future operational proposal\n+requires separate legitimate owner coordination; none is supplied here.\n+\n+## Prior finite candidate record — retained verbatim as history\n+\n+The commands and allowances in the following 2026-11-03 and 2026-10-08 records\n+describe their original purposes. They are not invocation instructions or a\n+new execution allowance for the source-only profile above.\n+\n # Finite Qwen3.8 candidate, 2026-11-03\n \n The current owner instruction to finish Gekta covers preparing a current-host\n",
+      "bytes": 42113,
+      "sha256": "136f881827bfcbbd801daed1946eef66bd51b4f595c32fa404033a9207c8d99a"
+    },
+    "immutableTwoFileCodePatchSha256": "ef86077321a0353a3ad1b7aff3fdf2f5230d9bf0ab6a8888b3c3865a5ef11449",
+    "implementationEffect": "Keep exact Qwen3.8-27B IQ2_S artifact/runtime, ctx8192, parallel1, threads16, threads_batch16 and batch512. Candidate-only ubatch64; baseline remains128. Add bounded numeric post-ready evidence before the unchanged swap guard and exact candidate profile validation. Align only the existing scope and runbook; no host action.",
+    "scopeContractChange": "Explicit prospective replacement of the old candidate ubatch128/argv-preservation clauses only for these exact source afters. Keep the four-path membership and every safety/cost/identity/lease/cleanup boundary. Old accepted scope bytes and past purposes stay preserved in the accepted queue/history."
+  },
+  "reviewPrerequisite": {
+    "status": "PRIVATE_COMPLETE_SOURCE4_AND_METADATA_REVIEW_CLEAN; ACTUAL_PUBLISHED_QUEUE_HEAD_REVIEW_PENDING",
+    "knownCodeReviewScope": "The separately requested private independent review covers only the immutable two-file code patch above. Its result must not be represented as review of these two new documentation afters or this queue packet.",
+    "requiredBeforeMetadataAcceptance": "Attach/read the genuine completed independent full four-path source review, bound to every listed after blob and the complete source patch, then independently review the actual queue-only head. This draft supplies no fabricated review content or PASS.",
+    "privateCompleteReview": {
+      "verdict": "CLEAN_PRIVATE_COMPLETE_SOURCE4_AND_SOURCE_ONLY_METADATA",
+      "reviewer": "/root/gekta_finish_review",
+      "independentOfImplementationAuthor": true,
+      "comparisonBase": "38bdca854f4fd94b0f533bac6ecd41b25b9dba29",
+      "sourcePatchSha256": "136f881827bfcbbd801daed1946eef66bd51b4f595c32fa404033a9207c8d99a",
+      "sourcePayloads": [
+        {
+          "path": ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+          "mode": "100644",
+          "beforeBlob": "e7c4ab3305acb848a2df43c0405b4b787d650bc9",
+          "beforeSha256": "1bfd2173fa956687c2f640a81f4cf15e393d1cd70b43a77771e4dc79d72c08a5",
+          "afterBlob": "3c0b29666508d3978960b282c1d14fbec777fc58",
+          "bytes": 160498,
+          "sha256": "8b6d76104b29de19286a56ac6cf0408457da28d07933aa3409f59fb26830cead"
+        },
+        {
+          "path": "scripts/gekta-qwen35-4b-model-host-candidate.py",
+          "mode": "100644",
+          "beforeBlob": "602861e0e44195b65a17bfe3f8c76f82ef00a3b6",
+          "beforeSha256": "cf4cf291655dd4addab82ac5366f5cece2a601e97a49ce0e09cb1baaaeb64272",
+          "afterBlob": "e612f77a5e2d65d524fac28a97bdb9477ebe27f1",
+          "bytes": 73439,
+          "sha256": "aac0f32d28fb3ab17ae3c299966ca46f4565b2f0356c27ca84f05b12a348274e"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+          "mode": "100644",
+          "beforeBlob": "d3b6a3c9f2097fce70d7931cd2b423ec1fff2249",
+          "beforeSha256": "422eefbb6acade15a8dd14b4359c42c90ac5e3ea0cb49cbff2c399cb8b40b26b",
+          "afterBlob": "a6a865f5defc3c65f565fd7a76d317de5b698752",
+          "bytes": 12048,
+          "sha256": "501afb6e504411ac8cec1d34657c4ec336a5d8e0b55661706eae0846bf8abcd1"
+        },
+        {
+          "path": "docs/gekta/model-oneuse-grant-20261008.md",
+          "mode": "100644",
+          "beforeBlob": "a3fe72fe4d7127b27344050d8623106280272f9b",
+          "beforeSha256": "181c19f1e0ef510ec122bc565163d77c650fd181b7679777dece195a6d106f8d",
+          "afterBlob": "4b4cd2b8277aa1142ba15b6be05ef144c91c93ef",
+          "bytes": 8887,
+          "sha256": "0bc08a8a066167d7ac8d388be000ff2c4a01328935a24e7f6af6dcf753dfa6f8"
+        }
+      ],
+      "reviewedDraftPurpose": {
+        "bytes": 53176,
+        "sha256": "483fb6c769f9e4e8e9748b431f2d69bcf25c0c76e242dca3b4e01651a8c7a083",
+        "blob": "83e9f034a5aea15347fc698b052717a4546ab681"
+      },
+      "reviewedDraftQueueAppend": {
+        "bytes": 53272,
+        "sha256": "3a9497ddaea6f31ec84d90b12d34f532c36ce37fe151569b9ac231d964935391",
+        "blob": "597c5d1489c4984221c4abcade99a6eeabd7b977"
+      },
+      "reviewedDraftQueueAfter": {
+        "bytes": 2991734,
+        "sha256": "cfc4c49e138923f4d6bcabef313024f9a1bda9ee40036b55cce02626518c1e86",
+        "blob": "72c24b7629b985a3eab08ae4732b47ca1e1f0fa6"
+      },
+      "report": {
+        "content": "# Independent private review — complete Qwen3.8 ubatch64 source4 and source-only queue proposal\n\n**Verdict: CLEAN_PRIVATE_COMPLETE_SOURCE4_AND_SOURCE_ONLY_METADATA. HOLD-DOC-01 is closed for these exact private afters. Publication, actual metadata/source acceptance, complete native verification and all operational authority remain separate and unfulfilled by this report.** No actionable introduced defect was found within the inspected package. This is a nonauthor review of the full frozen four-path source proposal and its one-path metadata proposal, not a published-head approval or permission to run a model.\n\nReviewer: `/root/gekta_finish_review`, separate from the implementation author. Comparison base: `38bdca854f4fd94b0f533bac6ecd41b25b9dba29`. I read the complete route explanation, entire documentation diff, complete source-only record and queue framing; independently rebound the already fully reviewed code pair by bytes; applied all three patches only to my own isolated copies; reconstructed private tree objects in my review directory; and executed the real pure admission validators with process/network/host/grant stop-traps. I did not edit reviewed inputs or an author's repository, publish, inspect live markers, use SSH or invoke a model.\n\n## 1. Exact reviewed package\n\n| Artifact | Bytes | SHA256 |\n| --- | ---: | --- |\n| `four-path-source.patch` |42,113|`136f881827bfcbbd801daed1946eef66bd51b4f595c32fa404033a9207c8d99a`|\n| `source-docs.patch` |15,570|`63bc9b27a523d1a71492f7b4f83754eb3fa64bbe6d14dc6407a45df031da05f2`|\n| `source-only-metadata.patch` |82,286|`1a5ef8a8b03e293428d675a57d7df34572e0308e21e59bb8cf658a3caae33cfa`|\n| `source-only-purpose.json` |53,176|`483fb6c769f9e4e8e9748b431f2d69bcf25c0c76e242dca3b4e01651a8c7a083`|\n| `queue-append.md` |53,272|`3a9497ddaea6f31ec84d90b12d34f532c36ce37fe151569b9ac231d964935391`|\n\n| Source path | Accepted before blob | Exact proposed after blob |\n| --- | --- | --- |\n| `.github/workflows/gekta-qwen35-4b-model-host-candidate.yml` |`e7c4ab3305acb848a2df43c0405b4b787d650bc9`|`3c0b29666508d3978960b282c1d14fbec777fc58`|\n| `scripts/gekta-qwen35-4b-model-host-candidate.py` |`602861e0e44195b65a17bfe3f8c76f82ef00a3b6`|`e612f77a5e2d65d524fac28a97bdb9477ebe27f1`|\n| `docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json` |`d3b6a3c9f2097fce70d7931cd2b423ec1fff2249`|`a6a865f5defc3c65f565fd7a76d317de5b698752`|\n| `docs/gekta/model-oneuse-grant-20261008.md` |`a3fe72fe4d7127b27344050d8623106280272f9b`|`4b4cd2b8277aa1142ba15b6be05ef144c91c93ef`|\n\nAll four are regular100644. Independent SHA256/size/blob checks match every manifest and embedded source pin against accepted Git objects and actual after bytes. The entire embedded source patch equals the standalone full patch. The code afters exactly equal my prior reviewed copies and the frozen author copies. Each code diff block is byte-identical to the prior26,543-byte patch SHA`ef86077321a0353a3ad1b7aff3fdf2f5230d9bf0ab6a8888b3c3865a5ef11449`; the combined patch only orders workflow before helper.\n\nMy independently reconstructed source tree is `f74fdfb56d32fae6e14a9fcf719eef1f3dea2c80`: exactly4 changed paths, all7,097 foreign leaves/modes retained. The independent queue-only tree is `9a7968a371a68d20e298a25958006054c3fa32b2`: exactly1 changed path, all7,100 others retained. Both keep the7,101-path inventory. These are verification tree objects, not commits, retained-history proofs or a combined five-file publication.\n\n## 2. Documentation closes HOLD-DOC-01 without weakening a guard\n\nThe existing four-path membership, branch/status/schema/issue/cost and forbiddenCapabilities remain unchanged. Only `purpose`, `approvedBy`, preparation-base provenance and `requiredBehavior` change in the scope. Two existing runtime-identity clauses are replaced; two narrowly bounded clauses are appended. The remaining original behavior clauses stay byte-identical.\n\nThe resulting contract is coherent with the unchanged reviewed code:\n\n- **Baseline:** threads16, threads-batch16, parallel1, context8192, batch512, ubatch128; active baseline argv/service remain unchanged.\n- **Candidate:** the same profile except ubatch64. The additional candidate argv exception is explicit in both the runtime-flags and OS-account identity clauses. Existing model/alias/loopback/key boundaries are retained.\n- **Numeric diagnostic:** one fixed version key plus VmSwap, VmRSS, RssAnon, RssFile, VmHWM and MemAvailable. The same sampled VmSwap feeds the unchanged zero-swap guard. Optional observations are best-effort and sequential, with bounded integer0..2^63−1 or `not_reported`; output/read failures do not change the original guard result. Raw proc text, credentials, argv, paths and exception text remain forbidden.\n- **Private log:** the full pre-existing64KiB owned-inode clause remains verbatim, including owned-child exit and listener-absence proof, suppression on cleanup failure, closed output vocabulary and preservation of the original start failure. Numeric pre-guard observations are authorized separately; the new clause does not move private-log reading before cleanup.\n\nThe runbook adds the source-only chapter and preserves every old byte as a literal suffix beneath an explicit historical heading. Prior commands are not offered for replay. The new chapter correctly labels memory benefit as an unmeasured hypothesis; there is no claim of proven RAM fit, speed, quality or a smaller permitted production context.\n\nThe9GiB candidate RSS limit, prelaunch8GiB/ready3GiB/runtime2GiB headroom, zero swap,420-second lease, same non-root OS-account state namespace, pidfd supervision, loopback/pinned SSH and cleanup/unchanged-baseline requirements remain. The new documents do not modify helper/workflow behavior beyond the already reviewed two-file implementation.\n\n## 3. Operational admission and spending remain intact\n\nQueue before:2,938,462 bytes, blob `c8df883f23fd2b8c19a6afd164899bbef6bc16a6`.\n\nQueue after:2,991,734 bytes, blob `72c24b7629b985a3eab08ae4732b47ca1e1f0fa6`, SHA256 `cfc4c49e138923f4d6bcabef313024f9a1bda9ee40036b55cce02626518c1e86`. It is exactly the complete accepted prefix plus the53,272-byte new appendix. Spare at the unchanged3MiB ceiling is153,994 bytes.\n\nThe unique operational marker remains unique. Its complete framed13-key record is byte-identical:78,397 bytes, SHA256 `65597d1309a6f6ef72b06344ba5dfaa10218784cb1b69f3afc947095e4a98e5e`. It still binds original ubatch128, original four source payloads, `gekta-finish-20261103-qwen38-iq2s-oneuse`, critical1/extra1 and both retired grant IDs. No operational schema, grant, slot count, candidate identity, original source patch or original review is rewritten.\n\nThe new record has a distinct source-only schema/purpose and does not satisfy the operative13-key schema. Its preserved-slot fields describe the old record; they do not allocate another slot. The actual helper still resolves only its original marker/purpose. Grant IDs, durable state namespace and all four critical/extra reservation/exec marker filenames are unchanged. No live marker was read or written in this review.\n\nThe draft preserves the recorded failed/spent critical and extra ineligibility. Its references to run41732219749/job126252196225 are retained historical evidence, not a fresh host-health observation. Source hash, profile, purpose name or merge cannot refund that attempt. The source-only phase ends with source acceptance and resolver rejection; it supplies no future operational command/grant/window.\n\nState is untouched at3,145,323 bytes: all228 vectors and135 coordination admissions remain. The retained source branch still owns exactly the same four paths. The distinct source-only queue append neither creates a new vector nor changes PRIMARY/current/next/progress/owners or CAP1.\n\n## 4. Fresh independent checks actually executed\n\nAll metadata, docs and source patches passed `git apply --check --whitespace=error-all`, then applied to my private copied before bytes and reconstructed every claimed after exactly. Both private trees pass `git diff --check`. The reviewed inputs remained unchanged afterward.\n\nSix real pure-validator cases passed their expected outcomes:\n\n| Helper / source / queue | Observed result |\n| --- | --- |\n| Original helper, original4, original queue | Original source-admission validation passes |\n| Original helper, original4, appended queue | Same original validation passes |\n| Candidate64 helper, proposed4, appended queue | `candidate_admission_invalid` |\n| Original helper, proposed4, appended queue | `candidate_admission_invalid` |\n| Candidate64 helper, proposed4, source-only appendix alone | `candidate_admission_invalid` |\n| Candidate64 helper, proposed4, source-only body under the operational framing | `candidate_admission_invalid` |\n\nThe two positive results establish only unchanged original byte-admission validation. They do not establish current slot eligibility or authorize execution. The negatives confirm that this source-only record cannot make64 executable or replace the strict runtime schema.\n\nProcess/exec/signal, network, start/cleanup and grant operations were trapped; **zero side-effect calls occurred**. Fixture bytes were identical before and after validation. All fixtures and verification objects are inside the review directory.\n\nThe earlier independent9 memory/profile,5 admission and21 grant tests remain evidence on the exact unchanged code pair; I did not re-label them as new executions here. The original complete ownership/recovery fixture failure in this local proc namespace, including the author's unchanged-source control, remains a failure/limitation. Native whole-fixture acceptance is still required; this report supplies no waiver, real model result or current performance measurement.\n\nOne initial verifier assertion incorrectly assumed whole-patch concatenation order. Comparison showed only the order of the two byte-identical code blocks differs. I corrected only my verifier to compare exact per-path blocks and then applied/reconstructed the full patch. No reviewed file was changed to make a check pass.\n\n## 5. Exact pending-review update permitted by the completed report\n\nThe inspected draft truthfully says `PENDING_INDEPENDENT_REVIEW_OF_THIS_COMPLETE_FOUR_PATH_PACKAGE_AND_METADATA`; no review evidence was fabricated. After this report exists, the author may prepare a new metadata revision recording **this PRIVATE verdict only**:\n\n1. Replace `reviewPrerequisite.status` with `PRIVATE_COMPLETE_SOURCE4_AND_METADATA_REVIEW_CLEAN; ACTUAL_PUBLISHED_QUEUE_HEAD_REVIEW_PENDING`.\n2. Add `reviewPrerequisite.privateCompleteReview` containing the exact reviewer/independence, comparison base, four after pins, full source-patch hash, the reviewed draft purpose/append/queue identities above, and this complete report with its measured byte count and SHA256. Do not claim that this review covers a future queue after containing itself.\n3. Replace `knownLimits[3]`, which says no complete private review exists, with the factual private review completed / owner full read and actual published-head review still required qualification. Keep the prior code-only review description historical.\n\nOwner full-read status must remain pending until root actually reads the complete report. All runtime/source-acceptance authorization booleans remain false, cost/credit stay0, old operational framing remains exact, all four source payloads remain frozen. Recompute the readable record, appendix, queue after, patch, hashes and capacity. Qualify corresponding private route/coordination prose without editing the four reviewed source afters.\n\nThis evidence update changes metadata bytes. It needs a bounded new comparison confirming only genuine review evidence/qualification changed, plus the later final-base and actual published-head reviews. It does not retroactively give the updated queue the old draft hash or transfer private approval to publication. A separately emitted suggested update artifact is an unapplied instruction, not a modification or acceptance of the reviewed package.\n\n## 6. Remaining gates and meaning of CLEAN\n\nClose/disposition source6111 and reconcile actual main, Team Hub, retained refs/claims and any newer owner windows. Rebind to that actual accepted base, preserving every newer queue byte, state and foreign leaf. If source/dependency bytes change, repeat the appropriate complete review.\n\nOn the existing CORE metadata lineage, publish only the queue proposal after the permitted coordination. Require fresh complete actual queue-head independent review, separate owner audit, applicable substantive native/security/capacity/readiness checks and ordinary full-expected-SHA manual acceptance. Only then may the separate exact source4 be composed/published on current main with retained history and foreign preservation; it needs its own full published-head review, audit and all required native/security/readiness/manual gates.\n\nHOLD-DOC-01 is resolved for the exact private source4. Earlier operational-admission and native-runtime holds are not resolved. Source acceptance alone must continue to reject execution under the old admission. Any future operational proposal needs separate legitimate coordination and cannot revive spent/retired markers.\n\nEvidence: `gekta_current_work/review-model-source4-38bd/verify.py` and `independent-proof.json`; earlier code-only report `independent-qwen38-ubatch64-private.md` (SHA256 `f0f169da622016f3c5204b8e8e0295ea237144c56d04f3e8d67eedd61ee05656`). All full per-file SHA256/byte identities and private tree proofs are retained in the new machine-readable proof.\n",
+        "bytes": 13645,
+        "sha256": "6b9a60f20f0b85fce2a99bb57f5b35f7df81b31488a640190fa7790c299a220c"
+      },
+      "ownerFullReadStatus": "COMPLETE_ROOT_FULL_READ_20261105",
+      "actualPublishedQueueHeadReviewStatus": "PENDING_NOT_COVERED_BY_PRIVATE_REVIEW",
+      "operationalAuthority": false,
+      "qualification": "This report covers the pinned prior private draft and frozen source4. Adding this evidence changes metadata bytes; verify that bounded delta and rebind/review actual final-base and published heads separately. No review of itself or future public head is asserted."
+    }
+  },
+  "preservedOperationalAdmission": {
+    "purposeId": "gekta-qwen38-iq2s-finite-canary-20261103",
+    "schemaVersion": "pc.gekta.model-finite-candidate-admission.v1",
+    "framedRecordBytes": 78397,
+    "framedRecordSha256": "65597d1309a6f6ef72b06344ba5dfaa10218784cb1b69f3afc947095e4a98e5e",
+    "executionGrant": "gekta-finish-20261103-qwen38-iq2s-oneuse",
+    "slots": {
+      "critical": 1,
+      "extra": 1
+    },
+    "candidateUbatch": "128",
+    "fullRecordPreserved": true,
+    "resolverEffectAfterSourceAcceptance": "The new helper still looks only for the original unique runtime purpose. Its candidate64 identity and new source hashes do not match that unchanged record, so it must reject before SSH secrets. This source-only record is not an executable replacement and must never be substituted for the closed runtime schema."
+  },
+  "preservedExecutionDisposition": {
+    "criticalRunId": 41732219749,
+    "criticalJobId": 126252196225,
+    "result": "candidate_swap_nonzero at post_ready; inference SKIPPED; cleanup PASS; baseline8B unchanged",
+    "criticalSlot": "SPENT_BY_RECORDED_ATTEMPT; NO_REFUND",
+    "extraSlot": "INELIGIBLE_WITHOUT_ACTUAL_SAME_SHA_CRITICAL_PASS",
+    "liveMarkerInspectionByThisProposal": false,
+    "noNewGrantNonceOrMarker": true
+  },
+  "preservation": [
+    "All accepted queue bytes remain an exact prefix, including the full original runtime purpose, source patch, review and historical failures. No editing, replacing or duplicating its operational marker/body.",
+    "Keep state, all228 concurrent vectors, all135 coordination admissions, owner identities, PRIMARY/current/next/progress, protected guards and every foreign source leaf/mode unchanged.",
+    "Keep zero swap, candidateRSS9GiB, prelaunch8GiB/ready3GiB/runtime2GiB headroom,420-second lease, same non-root OS-account state namespace, pidfd supervision, loopback, pinned host key, ephemeral credential boundaries and baseline/cleanup.",
+    "No old or current execution slot is reset, replenished, renamed, repaired, interpreted as PASS or made deliverable by source/run changes. No extra invocation after failed critical.",
+    "No production/model invocation or installation, baseline control, route/alias change, paid provider/server, credential/role change, new recurring cost, original19/API release witness or source6111 acceptance credit."
+  ],
+  "sourcePublication": {
+    "freshBase": "Then-current accepted main after coordinator closes the source6111/other active source or runtime epoch. If this preparation base or any before/dependency/foreign leaf changes, recompose and re-review; do not overwrite accepted work.",
+    "history": "Use existing metadata and model-owner branch histories with ordinary compatible continuation. No new concurrent vector, owner transfer or force publication.",
+    "sequence": [
+      "Complete private full-four-path nonauthor source review and distinct owner audit; keep this draft held while any finding or required review is missing.",
+      "Freshly reconcile actual main, ownership/Hub and active source/runtime windows. Publish only the queue append on the existing CORE metadata lane after the coordinator permits that source-only epoch.",
+      "Require independent actual queue-head review, separate owner audit, all applicable genuine native/security/current canonical readiness and ordinary expected-full-SHA manual metadata acceptance. Do not run or change host commands.",
+      "Only then compose the exact four listed source afters on actual accepted main, preserving all foreign leaves and current API/evaluation dependencies. The model source branch must not add its own queue purpose.",
+      "Obtain fresh independent whole published source-head review, owner audit, complete applicable model contract/security/native/readiness and ordinary expected-SHA manual source acceptance. The real ownership fixture must pass natively; local synthetic PASS and known namespace FAIL are not a waiver.",
+      "Source acceptance ends this phase. Preserve the resolver rejection and spent attempt. Any future operational proposal remains separately coordinated, with no command, grant or host window supplied by this record."
+    ],
+    "currentCompositionProvenance": {
+      "kind": "PRIVATE_CURRENT_BASE_COMPOSITION_PROOF_NOT_PUBLIC_HEAD_ACCEPTANCE",
+      "preparedOn": "2026-11-08",
+      "historicalPreparationFields": {
+        "authorityBaseExactMainAtPreparation": "Historical 2026-11-05 preparation on accepted38bd, retained unchanged.",
+        "unchangedState": "Historical preparation-state snapshot on38bd; its 405-byte spare is not current state capacity.",
+        "reviewPrerequisite.privateCompleteReview": "Historical completed private review on38bd; full report and all pins retained exactly.",
+        "sourceProposal.completeSourcePatch": "Frozen already-reviewed source4; preparation references inside its documentation remain historical."
+      },
+      "acceptedMainAtThisComposition": "205dbd05b8165f5cc5980a2351de9f5491a17a8f",
+      "acceptedMainTree": "c2df4a1678491fe8873154e387bbe3a6adfc8198",
+      "prospectiveAfterPr6111": {
+        "head": "c24bae53dfaa81638f873f0f2134b2213fddc7b7",
+        "tree": "2a9b01c09442c86d98a7efef5cbebfa2d758fac5",
+        "state": "PUBLISHED_SOURCE_CANDIDATE_NOT_ACCEPTED_AT_PREPARATION",
+        "sameQueueStateAndFourSourceBeforeBytes": true
+      },
+      "currentPreservedState": {
+        "bytes": 3145513,
+        "sha256": "8afad21d3db9fa5b20ab11fcc4d60cb164dcf47b6168b7e9b804ee4c1f3be570",
+        "blob": "aee9ddbb7a45f145db6185c5289038d3a931c1de",
+        "vectors": 228,
+        "coordinationAdmissions": 135,
+        "unchangedCeilingBytes": 3145728,
+        "spareBytesAtThisComposition": 215
+      },
+      "currentPreservedQueuePrefix": {
+        "bytes": 2938462,
+        "sha256": "a42aa236de62d1fc9de2fb7c016c496a00c1c14725d7b825b889cc045810e5bb",
+        "blob": "c8df883f23fd2b8c19a6afd164899bbef6bc16a6"
+      },
+      "fourSourceBeforePinsStillExact": true,
+      "newSourceAfterBytesChanged": false,
+      "metadataDelta": "Only this provenance object is added; every prior purpose value, embedded patch and embedded historical review remains unchanged.",
+      "publicationRequirement": "Wait for actual accepted PR6111 main; bind actual merge commit outside historical preparation fields, recheck complete prefix/state/source-before bytes and all foreign leaves, and perform independent new metadata-head review plus native gates. Drift requires a fresh composition.",
+      "publicationOrNativeAcceptanceClaimed": false,
+      "runtimeAuthority": false
+    }
+  },
+  "knownLimits": [
+    "The exact candidate has not been run with ubatch64. Memory fit, latency and semantic quality remain NOT_MEASURED.",
+    "Current local evidence is9 new memory/profile,16 startup,5 admission and21 grant methods plus synthetic OS/pre-exec contracts; existing full real-PID ownership fails in this local proc namespace, including unchanged-source control. Native full acceptance remains mandatory.",
+    "Generic scope membership is not immutable purpose/payload enforcement. Genuine full-tree/mode/blob review must enforce these exact four afters; unchanged validators are not a review attestor.",
+    "The complete source4 and source-only metadata received the pinned independent PRIVATE review. Root has fully read that pinned private report. Independent actual published queue/source-head review and the corresponding owner full reads remain required. Prior code-only review is not substituted for this complete report. No source or metadata publication, native acceptance, model execution or operational authority is claimed."
+  ],
+  "sourcePublicationAccepted": false,
+  "productionMutationAuthorizedByThisRecord": false,
+  "modelInvocationOrActivationAuthorized": false,
+  "executionGrantCreated": false,
+  "automaticMergeAllowed": false,
+  "newRecurringCostRub": 0,
+  "masterCredit": 0
+}
+```

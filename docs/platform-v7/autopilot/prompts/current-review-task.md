@@ -7379,3 +7379,166 @@ Review this metadata on its actual exact head. Exactly three already-allowed gov
 ```
 
 Full17774-byte source patch lives in the matching queue purpose. The future source must match all eight after blobs/modes and preserve every other accepted-main leaf. CI must preserve all48old arguments, add exactly4, remove only4old failed exclusions and account for932files=52executed+880excluded; no other workflow/registry semantics change. Private six-core82/independent108 results remain separate from new eight-path CI-wiring review and native52 acceptance. Metadata acceptance precedes source publication. Source requires genuine exact-head independent review, owner audit, complete native/security/Kubernetes/cleanup/readiness and manual expected-full-SHA acceptance. Application release is separate. Full block andMASTER5/100 remain open.
+
+
+## Shared bank read-entry P2 — exact bounded one-page admission, 2026-11-03
+
+Review the full exact purpose, token/value/inverse proof, frozen patch and current private independent source report in the matching queue section. Accepted6104 queue must remain the whole exact prefix. Explicitly authorize ONLY this below-ceiling one-page P2 exception after normal acceptance; do not infer4MiB/CAP1 closure or oldsource6 adoption. All other state values/tokens/history/vectors remain equal.
+
+```json
+{
+  "purposeId": "bank-shared-read-entry-p2-6093-20261103",
+  "status": "METADATA_ONLY_SOURCE_NOT_ACCEPTED",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "metadataBaseExactMain": "2d318ce1c9b2613989da8e4b64e5b245203b2c50",
+  "metadataPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md"
+  ],
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "exactSourcePaths": [
+    "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+  ],
+  "sourcePins": [
+    {
+      "path": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7c5363a4653d5bce296ed7e2d0027863a897f23e",
+      "beforeBytes": 1259,
+      "beforeSha256": "35d679f26aee9176caffd84a3825167dc63a53d6a582c52846b5caa7e4652b5b",
+      "afterBlob": "5eb5a640b68bd9d89bb9c6d6dc64beee654369c9",
+      "afterBytes": 578,
+      "afterSha256": "2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "694474f883a8549d4087c1bc9b287738d2ff37e5",
+      "beforeBytes": 6680,
+      "beforeSha256": "fa96b78fcdd5e406b08b49814ab55c8d4fa97c1888fc01e094e130caa97451a0",
+      "afterBlob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "afterBytes": 20664,
+      "afterSha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5"
+    }
+  ],
+  "completeSourcePatchBytes": 17138,
+  "completeSourcePatchSha256": "3c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21",
+  "stateAdmission": {
+    "beforeBytes": 3145690,
+    "removeOnlyOutsideStringWhitespaceBytes": 18,
+    "appendOnlyPagePathBytes": 55,
+    "afterBytes": 3145727,
+    "acceptedCeiling": 3145728,
+    "afterSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "actualGrowthBytes": 37,
+    "oldVector": 10,
+    "newVector": 11
+  }
+}
+```
+
+Reject extra paths, stale head/context evidence or scope/owner/role/tenant/backend/guard/budget change. Source default reuses the canonical read-only view at its existing permitted URI. Disclose remaining bank nav/backlinks denials; no all-subroute/live13/DB/provider acceptance. Metadata and actual published source each need independent whole-head review, distinctowner, all applicable native/security/build/browser/KIND/cleanup/readiness and ordinary full-SHA manual gates. Exact image/web/live release is separate; official5/100 unchanged.
+
+Current private SOURCE2 review: exact738fd1004549c39de6e8959c79b9cb77c2d32142/basef069,7169B/SHA25605b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093. Root read it in full. Fresh independent167PASS, fresh author52/2022PASS and authorwhole-workspacetypecheckexit0 are separate PRIVATE evidence. No actualnative/metadata/source acceptance is credited. Historicalff9a report stays support, never transferred approval. Full genuine H2 report: https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616393047; exact original bytes/hash verified. The matching queue pins both full linked reports and retains the full literal source patch. Localhostingconfigcheckexit1 remainsNOT_PASS pending actualnativeDocker/build.
+
+Current metadata base9e accepts only two Gekta API service/spec changes; preserve them and every other accepted foreign leaf. All H2/private2022 evidence remains on738fd100/basef069; it is not execution on9e or this metadata head. Prior metadata90 native failure is preserved; the duplicate-report correction has independent forensic classification 8789B/SHA2563b3e6dc8e423bdaedc99362e30bc01aebce003776b84a0797740c30fe2e7b204. No scanner/CI policy changes or acceptance transfer. Fresh actual metadata-head review and all genuine gates remain required.
+
+
+## Delivery replacement of unaccepted PR6108 — 2026-11-04
+
+This proposal replaces only the never-accepted metadata delivery in https://github.com/pachaninm-lab/pachanin-demo/pull/6108. That original PR, its90b2/807 commits, complete reviews and genuine red native evidence remain retained in their original branch and PR; no history/ref is rewritten or deleted. The two historical generic-api-key findings were independently established as an HTTP-status case list, not credentials. 807 corrected the current text but the normal historical scan still includes90b2; a new independent proposal starts at the actual accepted main instead of importing those unaccepted report-storage commits. No parent-order trick, ignore, allowlist, scanner/config/range change, review transfer, rerun waiver or bypass is introduced. All normal exact-head native/security/review/readiness/manual gates must pass on this new proposal. The complete current-main queue prefix, including accepted6107, is retained; the reviewed state transformation and frozen source2 afters/patch stay byte-identical. The retained SOURCE branch remains test/bank-acceptance-contract-6085; no implementation or host operation is published by this metadata. Prior/private/6108 green results are historical support only; original failures remain failures. Full bank navigation/13 cabinets/CORE5525/5526/API/DB/original19/external providers and whole block stay OPEN; official5/100 is unchanged.
+
+
+## Bank shared-navigation completed-own phase proposal — 2026-11-04
+
+```json
+{
+  "purposeId": "bank-shared-navigation-owned-phase-6093-20261104",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "claim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621764711",
+  "acceptedPreviousSource": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+  "closedEpoch": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "privateHead": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+  "privateTree": "31af225eb4871b5b8c23ea28b764bf7a6f720c4b",
+  "sourcePatchBytes": 28069,
+  "sourcePatchSha256": "df70aad631118fb2310f945267da106e54886ce723b8d3b562b05025adc2452e",
+  "exactSource5": [
+    {
+      "path": "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "before_blob": "b67a3452e05ad97082ccfbcc0c4975302cb62df9",
+      "after_blob": "d231407afb9930d1e22a1f4d925a53c1ae987fda",
+      "after_bytes": 42819,
+      "after_sha256": "79544b148d46ceff84bab9f7a8ecf82e0513ff32f535e724852276539ea3031d"
+    },
+    {
+      "path": "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "before_blob": "1e38f3fac9bf9402cc3a97394afc96824ef1a82c",
+      "after_blob": "6611acc941e969405069ff1fe700934370d8c9d8",
+      "after_bytes": 5278,
+      "after_sha256": "3233a376fb603d0f893623a017623eee34bbb6d086b836065a35c1e0f56f3288"
+    },
+    {
+      "path": "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "before_blob": "630599ff7ff0ca4338445fc8bba50d61cf07f4f6",
+      "after_blob": "cf50b0767cf7cf78626ca3873400ad54ecad96b2",
+      "after_bytes": 19703,
+      "after_sha256": "96b433762eec64b504d2d3ae46a1d0014ce9eb2beba066a44c2a0a28ff0f0b0e"
+    },
+    {
+      "path": "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "before_blob": "b77c0392c20debc8965edd182ff1bb05f190c1ee",
+      "after_blob": "ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7",
+      "after_bytes": 4401,
+      "after_sha256": "b6b67769a730433e9e352d064e2d929ce60ae1a140920957a0ee47a72187c997"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "before_blob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "after_blob": "2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748",
+      "after_bytes": 29715,
+      "after_sha256": "64c17c6b1e94b662aad3a3cadd5473166ab457a2ab2a98b5b99b8411140ca26a"
+    }
+  ],
+  "stateTransition": {
+    "beforeBytes": 3145727,
+    "afterBytes": 3145323,
+    "beforeBlob": "5597a223c0a8bdf38f1d2f299c729f59c483ce3c",
+    "afterBlob": "f1f27ca799be5509c632c0b8b2e1d972ae292c92",
+    "beforeSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "afterSha256": "8bc2bd9d6ff4735337b865723a8dbafbea3d4e910985947b19d6f811345732d8",
+    "delta": -404,
+    "spareBytes": 405
+  },
+  "completePurposeAndBothVectorsAndFullPatch": "execution-queue final bank shared-navigation phase section; all existing prefixes/history retained",
+  "genuineIndependentPrivateReports": [
+    {
+      "context": "Historical failed private whole4",
+      "head": "155f044a93c49a93e5fdf85da1d978be610f7b8f",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CHANGES_REQUESTED_P2_1",
+      "bytes": 13143,
+      "sha256": "a566497dd61f317505cd1055de88a105b114f5fed432b8db1b57e2652caee7e7",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621771795",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    },
+    {
+      "context": "Fresh corrected private whole5",
+      "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CLEAN_PRIVATE_WHOLE5_ONLY",
+      "bytes": 13697,
+      "sha256": "835271572aead2b6847c11e2884a410760b304f244885ddc7da89d1c6c0b9da0",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621841234",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    }
+  ],
+  "narrowFuturePermissionSupersession": "Explicit only completed own11→5 future permissions and relevant blankethold, effective only after this exact3GOV actual acceptance; no source/evidence deletion or guard/CAP1 transfer",
+  "required": "actualwhole3review/owneraudit/native/security/READY/manual THEN actualsource5 freshwhole5/native52/localclosest218/browser/KIND/outbox/storage/cleanup/readiness/manual; old/private evidence never transfers",
+  "limits": "UNCHANGED3MiB consumer;405B spare,227other vectors/135admissions/allotherbytes exact; no role/RLS/API/provider/money/host/score change; installation270 pending and full13/CORE/original19/blockOPEN5/100"
+}
+```

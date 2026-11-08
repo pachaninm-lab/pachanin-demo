@@ -42,7 +42,7 @@ jobs:
     name: Exact-head source and scope preflight
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072') && 10 || 8 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation') && 10 || 8 }}
     permissions:
       contents: read
     env:
@@ -88,7 +88,7 @@ jobs:
 
           class SourceBudgetChecks(unittest.TestCase):
               def expected_owned_guard_seconds(self, ref):
-                  return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072') else 300
+                  return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation') else 300
 
               def fixture(self, root, test_fail=False, guard_fail=False):
                       repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()
@@ -373,7 +373,7 @@ jobs:
                       '\n  production-like-kubernetes:\n', 1)[0]
                   runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
                       '\n  production-like-kubernetes-gate:\n', 1)[0]
-                  self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072') && 10 || 8 }}\n", preflight)
+                  self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation') && 10 || 8 }}\n", preflight)
                   self.assertIn('    timeout-minutes: 300\n', runtime)
                   self.assertIn("          node-version: '24.8.0'\n", preflight)
                   self.assertIn('      - name: Retain source-bound result without raw errors\n'
@@ -425,6 +425,50 @@ jobs:
                   self.assertEqual(report['checks'], [])
                   self.assertEqual(len(calls), 1)
                   self.assertEqual(calls[0]['outer_timeout'], 435)
+
+              def test_transitive_security_ref_requires_exact_same_repository_identity(self):
+                  ref = 'agent/ir-sec-transitive-runtime-remediation'
+                  report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
+                  self.assertEqual(report['result'], 'PASS')
+                  self.assertEqual([c['budget_seconds'] for c in report['checks']], [420, 180])
+                  self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])
+                  for candidate, head_repo, repo in [
+                      (ref + '-extra', 'fixture/repository', 'fixture/repository'),
+                      (ref + '/extra', 'fixture/repository', 'fixture/repository'),
+                      (ref.upper(), 'fixture/repository', 'fixture/repository'),
+                      ('prefix/' + ref, 'fixture/repository', 'fixture/repository'),
+                      (ref + ' ', 'fixture/repository', 'fixture/repository'),
+                      ('', 'fixture/repository', 'fixture/repository'),
+                      (ref, 'fork/repository', 'fixture/repository'),
+                      (ref, 'fixture/repository/', 'fixture/repository'),
+                      (ref, '', 'fixture/repository'),
+                      (ref, '', ''),
+                  ]:
+                      with self.subTest(ref=candidate, head=head_repo, repository=repo):
+                          report, calls, _ = self.execute_collector(head_ref=candidate, guard_seconds=180,
+                              head_repository=head_repo, repository=repo)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual([c['budget_seconds'] for c in report['checks']], [180, 180])
+                          self.assertEqual([c['outer_timeout'] for c in calls], [195, 195])
+
+              def test_transitive_security_timeouts_and_incomplete_tap_still_fail(self):
+                  ref = 'agent/ir-sec-transitive-runtime-remediation'
+                  for behavior in ('guard-timeout', 'branch-timeout', 'outer-timeout',
+                                   'header-only', 'skipped-tap', 'inconsistent-tap'):
+                      with self.subTest(behavior=behavior):
+                          report, calls, group = self.execute_collector(
+                              behavior, head_ref=ref, guard_seconds=420)
+                          self.assertEqual(report['result'], 'FAIL')
+                          if behavior == 'guard-timeout':
+                              self.assertEqual(group['exit_code'], 124)
+                              self.assertEqual([c['exit_code'] for c in report['checks']], [124, 0])
+                          elif behavior == 'branch-timeout':
+                              self.assertEqual([c['exit_code'] for c in report['checks']], [0, 124])
+                          elif behavior == 'outer-timeout':
+                              self.assertEqual(report['stage'], 'guard-regressions')
+                              self.assertEqual(report['checks'], [])
+                              self.assertEqual(len(calls), 1)
+                              self.assertEqual(calls[0]['outer_timeout'], 435)
 
           unittest.main(verbosity=2)
           PY_SOURCE_BUDGET_TESTS
@@ -528,12 +572,13 @@ jobs:
                       'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997',
                       'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089',
                       'fix/codeql-v2-26-3-upstream-lock-4072',
+                      'agent/ir-sec-transitive-runtime-remediation',
                   }
                   own_repository = os.environ.get('GITHUB_REPOSITORY', '')
                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
                                   bool(own_repository) and
                                   os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)
-                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072'}
+                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation'}
                   measured_budget = owned_budget and os.environ.get('GITHUB_HEAD_REF', '') in measured_budget_refs
                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),
                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]

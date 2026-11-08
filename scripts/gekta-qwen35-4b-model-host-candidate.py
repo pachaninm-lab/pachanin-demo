@@ -53,6 +53,9 @@ EXPECTED = {
     "batch": "512",
     "ubatch": "128",
 }
+# Baseline validation stays at 128. Only the finite candidate uses the smaller
+# physical batch; its 8192-token context and all safety limits stay unchanged.
+CANDIDATE_EXPECTED = {**EXPECTED, "ubatch": "64"}
 ALIASES = {
     "model": ("--model", "-m"),
     "alias": ("--alias",),
@@ -171,6 +174,32 @@ def mem_available_kb() -> int:
     if not match:
         fail("memavailable_missing")
     return int(match.group(1))
+
+def emit_candidate_memory_diagnostic(pid: int, vm_swap_kb: int) -> None:
+    # Record the exact swap value used by the guard before it can abort startup.
+    # Optional observations are sequential, not an atomic memory snapshot. They
+    # never change the guard result or disclose /proc text, argv or exceptions.
+    try:
+        values = {"POST_READY_VM_SWAP_KB": vm_swap_kb}
+        for label, field in (
+            ("POST_READY_VM_RSS_KB", "VmRSS"),
+            ("POST_READY_RSS_ANON_KB", "RssAnon"),
+            ("POST_READY_RSS_FILE_KB", "RssFile"),
+            ("POST_READY_VM_HWM_KB", "VmHWM"),
+        ):
+            try:
+                values[label] = proc_kb(pid, field)
+            except Exception:
+                values[label] = None
+        try:
+            values["POST_READY_MEM_AVAILABLE_KB"] = mem_available_kb()
+        except Exception:
+            values["POST_READY_MEM_AVAILABLE_KB"] = None
+        emit("MEMORY_DIAGNOSTIC_VERSION", "v1")
+        for label, value in values.items():
+            emit(label, value if type(value) is int and 0 <= value < 2**63 else "not_reported")
+    except Exception:
+        pass
 
 def flag_hits(argv, names):
     hits = []
@@ -580,6 +609,15 @@ def require_candidate_keyless_argv(prepared, observed) -> None:
         fail("candidate_guard_argv_invalid")
     if observed_shape != "absent":
         fail("candidate_key_present_in_cmdline")
+    if not candidate_runtime_flags_match(observed):
+        fail("candidate_runtime_flags_mismatch")
+
+
+def candidate_runtime_flags_match(argv) -> bool:
+    try:
+        return all(flag_value(argv, key) == value.encode("ascii") for key, value in CANDIDATE_EXPECTED.items())
+    except CandidateError:
+        return False
 
 
 def candidate_exec_argv_status(argv) -> int:
@@ -600,6 +638,8 @@ def candidate_exec_argv_status(argv) -> int:
         return 80
     if candidate_api_key_arg_shape(encoded) != "absent":
         return 84
+    if not candidate_runtime_flags_match(encoded):
+        return 86
     return 0
 
 def candidate_exec_guard(guard_fd: int, *, execution_grant: str = "", corpus: str = "", admitted_sha: str = "", checkout_sha: str = "") -> int:
@@ -1304,7 +1344,7 @@ def candidate_admission_identity() -> dict:
     return {
         "alias": CANDIDATE_ALIAS, "url": CANDIDATE_URL,
         "sha256": CANDIDATE_SHA256, "bytes": CANDIDATE_SIZE,
-        "runtimeCommitShort": "aedb2a5", "flags": EXPECTED,
+        "runtimeCommitShort": "aedb2a5", "flags": CANDIDATE_EXPECTED,
         "host": CANDIDATE_HOST, "port": CANDIDATE_PORT,
         "leaseSeconds": LEASE_SECONDS, "minFreeBytes": MIN_FREE_BYTES,
         "minCachedFreeBytes": MIN_DISK_RESERVE_BYTES,
@@ -1545,6 +1585,7 @@ def start(candidate_key: str, *, execution_grant: str = "", corpus: str = "", ad
     argv = replace_flag(argv, "alias", CANDIDATE_ALIAS.encode("utf-8"))
     argv = replace_flag(argv, "host", CANDIDATE_HOST.encode("ascii"))
     argv = replace_flag(argv, "port", str(CANDIDATE_PORT).encode("ascii"))
+    argv = replace_flag(argv, "ubatch", CANDIDATE_EXPECTED["ubatch"].encode("ascii"))
     argv = remove_flag(argv, "api_key")
     env["LLAMA_API_KEY"] = candidate_key
     for key in ("NOTIFY_SOCKET", "WATCHDOG_PID", "WATCHDOG_USEC", "INVOCATION_ID", "JOURNAL_STREAM"):
@@ -1649,7 +1690,9 @@ def start(candidate_key: str, *, execution_grant: str = "", corpus: str = "", ad
         start_phase = "readiness"
         wait_candidate(proc.pid, candidate_key, state)
         start_phase = "post_ready"
-        if proc_kb(proc.pid, "VmSwap") != 0:
+        vm_swap_kb = proc_kb(proc.pid, "VmSwap")
+        emit_candidate_memory_diagnostic(proc.pid, vm_swap_kb)
+        if vm_swap_kb != 0:
             fail("candidate_swap_nonzero")
         available = mem_available_kb()
         if available < MIN_MEM_READY_KB:
