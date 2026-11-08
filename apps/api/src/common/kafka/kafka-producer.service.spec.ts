@@ -1,4 +1,7 @@
-import { KafkaProducerService } from './kafka-producer.service';
+import {
+  KafkaDefinitiveRejectionError,
+  KafkaProducerService,
+} from './kafka-producer.service';
 
 describe('KafkaProducerService topology contract', () => {
   const original = {
@@ -32,6 +35,7 @@ describe('KafkaProducerService topology contract', () => {
       configured: false,
       connected: false,
     }));
+    await expect(service.isReady()).resolves.toBe(false);
     await expect(service.send({ topic: 'domain', value: { ok: true } })).resolves.toBe(false);
   });
 
@@ -56,6 +60,116 @@ describe('KafkaProducerService topology contract', () => {
       configured: false,
       connected: false,
       clientId: 'grainflow-outbox-worker-7d9f6',
+    });
+  });
+
+  it('probes broker readiness instead of trusting the startup connection flag', async () => {
+    const service = new KafkaProducerService();
+    const describeCluster = jest.fn().mockResolvedValue({
+      brokers: [],
+      controller: null,
+      clusterId: 'test-cluster',
+    });
+    const state = service as unknown as {
+      connected: boolean;
+      producer: object | null;
+      admin: { describeCluster: typeof describeCluster } | null;
+    };
+    state.connected = true;
+    state.producer = {};
+    state.admin = { describeCluster };
+
+    await expect(service.isReady()).resolves.toBe(true);
+    expect(describeCluster).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports not-ready when a live broker probe fails after startup', async () => {
+    const service = new KafkaProducerService();
+    const describeCluster = jest.fn().mockRejectedValue(new Error('broker unavailable'));
+    const state = service as unknown as {
+      connected: boolean;
+      producer: object | null;
+      admin: { describeCluster: typeof describeCluster } | null;
+    };
+    state.connected = true;
+    state.producer = {};
+    state.admin = { describeCluster };
+
+    await expect(service.isReady()).resolves.toBe(false);
+    expect(service.isConnected()).toBe(true);
+    expect(describeCluster).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['MESSAGE_TOO_LARGE', 10, 'KAFKA_MESSAGE_TOO_LARGE'],
+    ['RECORD_LIST_TOO_LARGE', 18, 'KAFKA_RECORD_LIST_TOO_LARGE'],
+  ] as const)(
+    'exposes definitive broker rejection %s only through the explicit outbox boundary',
+    async (type, code, expectedCode) => {
+      const service = new KafkaProducerService();
+      const send = jest.fn().mockRejectedValue(Object.assign(
+        new Error('broker rejected immutable payload'),
+        { name: 'KafkaJSProtocolError', type, code, retriable: false },
+      ));
+      const state = service as unknown as {
+        connected: boolean;
+        producer: { send: typeof send } | null;
+      };
+      state.connected = true;
+      state.producer = { send };
+
+      await expect(service.sendOrThrow({ topic: 'domain', value: { oversized: true } }))
+        .rejects.toEqual(expect.objectContaining({
+          name: 'KafkaDefinitiveRejectionError',
+          code: expectedCode,
+        }));
+      await expect(service.send({ topic: 'domain', value: { oversized: true } })).resolves.toBe(false);
+    },
+  );
+
+  it('keeps the legacy sendBatch count contract while exposing typed batch rejection explicitly', async () => {
+    const service = new KafkaProducerService();
+    const sendBatch = jest.fn().mockRejectedValue(Object.assign(
+      new Error('broker rejected immutable batch'),
+      { name: 'KafkaJSProtocolError', type: 'MESSAGE_TOO_LARGE', code: 10, retriable: false },
+    ));
+    const state = service as unknown as {
+      connected: boolean;
+      producer: { sendBatch: typeof sendBatch } | null;
+    };
+    state.connected = true;
+    state.producer = { sendBatch };
+    const messages = [{ topic: 'domain', value: { oversized: true } }];
+
+    await expect(service.sendBatchOrThrow(messages)).rejects.toEqual(expect.objectContaining({
+      name: 'KafkaDefinitiveRejectionError',
+      code: 'KAFKA_MESSAGE_TOO_LARGE',
+    }));
+    await expect(service.sendBatch(messages)).resolves.toBe(0);
+  });
+
+  it('keeps an acknowledgement-window transport exception unclassified and fail-closed', async () => {
+    const service = new KafkaProducerService();
+    const send = jest.fn().mockRejectedValue(new Error('socket closed before acknowledgement'));
+    const state = service as unknown as {
+      connected: boolean;
+      producer: { send: typeof send } | null;
+    };
+    state.connected = true;
+    state.producer = { send };
+
+    await expect(service.send({ topic: 'domain', value: { uncertain: true } })).resolves.toBe(false);
+    await expect(service.sendOrThrow({ topic: 'domain', value: { uncertain: true } })).resolves.toBe(false);
+  });
+
+  it('exports a stable typed rejection contract for the outbox boundary', () => {
+    const error = new KafkaDefinitiveRejectionError(
+      'KAFKA_MESSAGE_TOO_LARGE',
+      'message cannot be accepted',
+    );
+    expect(error).toMatchObject({
+      name: 'KafkaDefinitiveRejectionError',
+      code: 'KAFKA_MESSAGE_TOO_LARGE',
     });
   });
 });

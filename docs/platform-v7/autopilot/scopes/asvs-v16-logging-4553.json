@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4553,
+  "branch": "sec/asvs-v16-logging-4553",
+  "status": "active",
+  "purpose": "Assess ASVS V16 Security Logging and Error Handling, where masking and encoding are two different controls and only one is present.",
+  "authorityBaseExactMain": "3c2deda4dc1fb91199638127392fc4e1ec019aad",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v16-logging-4553.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "A coverage claim names the denominator it measured, and pairs it with the negative check that makes it conclusive.",
+    "Masking is not treated as encoding; they answer different requirements.",
+    "A control present in one process does not answer for another process.",
+    "A configuration in the repository that requires an insecure endpoint is a FAIL, not a blocked assessment - and that distinction is stated where it is used.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V16.4.1 is FAIL with the live log-injection instance named, and the PII masking credited so it does not read as an absence of log hygiene.",
+    "V16.2.1 is NOT_ASSESSED because the third logging channel is unstructured, rather than PASS on the two that are.",
+    "V16.5.4 is FAIL for the API even though the worker installs last-resort handlers.",
+    "V16.5.1 states both the 284 structured throws and the zero raw-error throws.",
+    "V16.5.2 states what was scanned against the authorization paths, not how many fallbacks exist.",
+    "V16.4.2 notes that append-only was the wrong control under V8.4.1 and is the right one here.",
+    "All 17 V16 requirements are decided: 8 PASS, 6 FAIL, 3 not assessed.",
+    "finalPass stays false."
+  ]
+}

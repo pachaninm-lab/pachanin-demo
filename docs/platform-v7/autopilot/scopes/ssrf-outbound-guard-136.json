@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4807,
+  "branch": "security/ssrf-outbound-guard-136",
+  "status": "active",
+  "purpose": "Close ASVS V1.3.6, V13.2.4 and V13.2.5 on the two call sites that fetch a destination an outside party chose. The scheme check closed in #4805 proves the URL is of a safe kind and says nothing about where it points; http://127.0.0.1:8200 and http://169.254.169.254 are ordinary http URLs. Destinations are now vetted by address, the connection is pinned to the address that was vetted so a second resolution cannot be substituted, and every redirect hop is vetted again.",
+  "authorityBaseExactMain": "44df77974fed05e297b4a97d8d8c6b714bb8b3f7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/ssrf-outbound-guard-136.json",
+    "apps/api/src/common/security/ip-address-policy.ts",
+    "apps/api/src/common/security/ip-address-policy.spec.ts",
+    "apps/api/src/common/security/safe-outbound-request.ts",
+    "apps/api/src/common/security/safe-outbound-request.spec.ts",
+    "apps/api/src/modules/partner-api/partner-api.controller.ts",
+    "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+    "apps/api/src/modules/partner-api/webhook-url-protocol.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The guard is on the two untrusted-destination sites and nowhere else, and that is a decision rather than an oversight. Of thirteen outbound fetch sites, eleven take a destination the operator chose - ML_SERVICE_URL, VAULT_ADDR, object storage, the two AI services which already allowlist hosts, and the Telegram and VK constants. Those resolve into private space by design, so a blanket policy would refuse ml-service:8001 and vault:8200 and break working integrations while protecting nothing.",
+    "No existing partner integration is broken, and the claim is measured rather than assumed: webhook subscriptions live in an in-memory Map with no Prisma model, so none survives a restart. Even so the default is the public-unicast category rather than a host allowlist, because a partner endpoint is by nature an arbitrary public address and a default-deny host list would make the feature unusable.",
+    "Every resolved address is checked, not the first. A name can carry a public A record and a loopback one, and the attacker picks which the connection uses.",
+    "The socket connects to the address that was vetted, via the lookup hook. Resolving to check and then handing the name to the client leaves a second resolution between check and connect, and that gap is DNS rebinding.",
+    "Every redirect hop is vetted again from the scheme onward, with a bounded hop count. A 302 is a new destination chosen by the same untrusted party.",
+    "IPv6 forms carrying an IPv4 address inside are unwrapped and judged on what is inside. ::ffff:127.0.0.1 is loopback in different notation, and 6to4, NAT64 and Teredo embed addresses too.",
+    "Octal, hexadecimal and integer spellings are refused rather than reinterpreted. A resolver may read 0177.0.0.1 as loopback; this policy refuses to give the string a second reading.",
+    "Fail closed everywhere: an unparseable address, a failed or empty resolution, a redirect without a location, too many redirects and a transport error are all refusals, and a refusal reason is distinguishable from a connection failure so a case cannot pass by failing to connect to something it should have refused.",
+    "Paths and default ports are deliberately unconstrained, and the reasoning is written down. A path is the partner's own endpoint; a port restriction on a public address protects nothing once every internal destination is removed by the address rules, while breaking partners on non-standard ports.",
+    "Registration business logic beyond this validation, 1C, marketing and presentation are not touched. No production, REG.RU, DNS, database or credential mutation, no migration, no new dependency - the transport is node:http and node:https."
+  ],
+  "acceptance": [
+    "ip-address-policy.spec.ts passes 47 of 47 and safe-outbound-request.spec.ts passes 33 of 33; the whole security and partner-api set is 180.",
+    "Six mutations are caught: checking only the first resolved address fails 1, re-resolving at connect time fails 1, following a redirect without re-vetting fails 3, dropping the literal-address check fails 2, dropping IPv4 link-local fails 9, dropping the IPv4-mapped IPv6 unwrapping fails 4.",
+    "All three verdicts revoke at the matrix level: dropping the every-address loop rejects V1.3.6, dropping the host:port narrowing rejects V13.2.4, and returning the dispatcher to a bare fetch rejects V1.2.2, V1.3.6, V13.2.4 and V13.2.5 together.",
+    "The matrix rebuilds at applied 332 / rejected 0, PASS 114 to 117 and FAIL 105 to 102, with no other verdict moved.",
+    "tsc --noEmit exit 0, node --test scripts/security passes in full, guard=0."
+  ]
+}

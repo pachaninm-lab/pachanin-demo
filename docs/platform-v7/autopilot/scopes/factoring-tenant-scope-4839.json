@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4839,
+  "branch": "security/factoring-tenant-scope-8-2-2",
+  "status": "active",
+  "purpose": "FactoringService took an organizationId as a parameter and never checked whose it was. FINANCE_ROLES here includes FARMER and BUYER, so any ordinary market participant could score another tenant's organization and pull a credit report on its legal entity. Worse: when the organization was not found, getCreditReport fell back to a hard-coded INN and returned that bureau report labelled with the requested organizationId - a fabricated financial record about a named company.",
+  "authorityBaseExactMain": "b63f10878c5c658007b460d1435558d87f750ae8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/factoring-tenant-scope-4839.json",
+    "apps/api/src/modules/factoring/factoring.service.ts",
+    "apps/api/src/modules/factoring/factoring-tenant-scope.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Role check stays first, before the tenant check and before any read. A caller whose role is not on the list must not learn about a missing tenant instead.",
+    "A foreign organization is indistinguishable from a missing one: findFirst on the id+tenant pair, never findUnique on the id alone. The model carries @@unique([id, tenantId]) so the query stays a point lookup.",
+    "The hard-coded fallback INN remains legitimate in exactly one place - the no-database demo mode - and nowhere else. With a database present, an organization that is not in the caller's tenant is a refusal, never a substituted value.",
+    "No outbound credit-bureau request may be made on an INN the caller's tenant does not own. That is the consequence the boundary exists to prevent, not merely a read.",
+    "No schema change, no migration, no RLS policy edit, no dependency. Nothing outside apps/api/src/modules/factoring. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "No ASVS decision is edited in this pass and no requirement is claimed to move. The matrix stays where it is; this is a measured leak closed on its own merits."
+  ],
+  "acceptance": [
+    "Three separate defects in one method, each closed and each with its own test: deals read without a tenant predicate; dispute.count with NO scope at all; organization looked up by id alone with its INN flowing outward.",
+    "The dispute count was not only a leak but a scoring defect: platform-wide disputes over a year were divided by THIS organization's deal count, so an organization with three deals had disputeRate exceed 1 and lose 30 of 100 points. Now counted over exactly the deals already selected.",
+    "getCreditReport refuses an organization outside the caller's tenant instead of substituting the hard-coded INN. The demo path with no database is preserved and tested.",
+    "BigInt again: the hand-written DealScoreRow alias claimed totalKopecks was a number where the schema says BigInt. The alias was corrected to the schema, not bent to fit the call site - tsc refused to compile the moment the swallowing catch came off, which is how the lie surfaced.",
+    "Seven mutations applied, each verified to have actually applied, all seven caught: three predicates dropped, two assertTenantScope calls removed, the hard-coded INN fallback restored, and the swallowing catch restored.",
+    "Reverse direction tested: an organization of the caller's own tenant still scores, bigint volumes sum correctly, demo mode still works, and a database refusal propagates instead of becoming a zero score - a zero score is a factoring refusal, and issuing one from an unreachable database is a financial decision made on data nobody read.",
+    "api typecheck exit 0 and the full @pc/api suite green."
+  ]
+}

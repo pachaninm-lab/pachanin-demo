@@ -1,0 +1,168 @@
+name: Role Eligibility Official Source Contract Probes
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/role-eligibility-fgis-source-contract-probe.yml'
+      - 'scripts/role-eligibility-fgis-contract-probe.mjs'
+      - 'scripts/role-eligibility-fns-rsmp-import-contract.mjs'
+      - 'scripts/role-eligibility-fns-rsmp-archive-topology.mjs'
+      - 'scripts/role-eligibility-fns-rsmp-archive-topology.test.mjs'
+      - 'apps/api/src/modules/role-eligibility/adapters/fgis-grain.adapter.ts'
+      - 'apps/api/src/modules/role-eligibility/adapters/fns-evidence.adapter.ts'
+      - 'apps/api/src/modules/role-eligibility/adapters/accreditation.adapter.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe official FGIS, FNS and EAEU contracts read-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Capture bounded IPv4 HTTP and HTTPS FGIS transport matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/role-eligibility-official-source-contracts
+          : > artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt
+          for url in \
+            https://opendata.mcx.ru/opendata/7708075454-zerno \
+            http://opendata.mcx.ru/opendata/7708075454-zerno \
+            https://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml \
+            http://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml
+          do
+            printf 'URL=%s\n' "$url" >> artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt
+            set +e
+            curl -4 --silent --show-error --max-time 20 --connect-timeout 10 \
+              --output /dev/null --dump-header /tmp/fgis-headers \
+              --write-out 'HTTP_CODE=%{http_code}\nREMOTE_IP=%{remote_ip}\nSSL_VERIFY_RESULT=%{ssl_verify_result}\nREDIRECT_URL=%{redirect_url}\n' \
+              "$url" >> artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt 2>> artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt
+            rc=$?
+            set -e
+            printf 'CURL_EXIT=%s\n' "$rc" >> artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt
+            if [[ -s /tmp/fgis-headers ]]; then
+              awk 'BEGIN{IGNORECASE=1} /^HTTP\// || /^location:/ || /^content-type:/ {print}' /tmp/fgis-headers \
+                >> artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt
+            fi
+            printf '%s\n' '---' >> artifacts/role-eligibility-official-source-contracts/fgis-transport-matrix.txt
+            rm -f /tmp/fgis-headers
+          done
+
+      - name: Run bounded FGIS open-data probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/role-eligibility-fgis-contract-probe.mjs fgis \
+            | tee artifacts/role-eligibility-official-source-contracts/fgis.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('artifacts/role-eligibility-official-source-contracts/fgis.json', 'utf8'));
+          if (p.schemaVersion !== 'role-eligibility-fgis-source-contract-probe.v2') throw new Error('FGIS_PROBE_SCHEMA_INVALID');
+          if (p.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || p.productionDatabaseMutation !== 0 || p.registrationTouched !== false) throw new Error('FGIS_PROBE_BOUNDARY_INVALID');
+          if (!Array.isArray(p.probes) || p.probes.length !== 4) throw new Error('FGIS_PROBE_TRANSPORT_MATRIX_INCOMPLETE');
+          const protocols = new Set(p.probes.map((probe) => new URL(probe.requestedUrl).protocol));
+          if (!protocols.has('https:') || !protocols.has('http:')) throw new Error('FGIS_PROBE_PROTOCOL_MATRIX_INCOMPLETE');
+          for (const probe of p.probes) {
+            if (new URL(probe.requestedUrl).hostname !== 'opendata.mcx.ru') throw new Error('FGIS_PROBE_NON_OFFICIAL_HOST');
+            if (!probe.status && !probe.errorCode) throw new Error('FGIS_PROBE_FAILURE_CAUSE_MISSING');
+          }
+          if (p.productionTransportEligible === true && p.contractStatus !== 'PROVEN_HTTPS_TRANSPORT_SHAPE_OBSERVED') throw new Error('FGIS_PROBE_PRODUCTION_ELIGIBILITY_INVALID');
+          if (p.productionTransportEligible === true && (p.data?.transport !== 'HTTPS' || p.structure?.transport !== 'HTTPS')) throw new Error('FGIS_PROBE_INSECURE_PRODUCTION_ELIGIBILITY');
+          console.log(`FGIS_CONTRACT_STATUS=${p.contractStatus}`);
+          console.log(`FGIS_PRODUCTION_TRANSPORT_ELIGIBLE=${p.productionTransportEligible}`);
+          NODE
+
+      - name: Run bounded FNS RSMP official open-data probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/role-eligibility-fgis-contract-probe.mjs fns-rsmp \
+            | tee artifacts/role-eligibility-official-source-contracts/fns-rsmp.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('artifacts/role-eligibility-official-source-contracts/fns-rsmp.json', 'utf8'));
+          if (p.schemaVersion !== 'role-eligibility-fns-rsmp-source-contract-probe.v1') throw new Error('FNS_RSMP_PROBE_SCHEMA_INVALID');
+          if (p.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || p.productionDatabaseMutation !== 0 || p.registrationTouched !== false) throw new Error('FNS_RSMP_PROBE_BOUNDARY_INVALID');
+          if (p.legalSemantics !== 'OFFICIAL_OPEN_DATA_POSITIVE_MEMBERSHIP_ONLY') throw new Error('FNS_RSMP_LEGAL_SEMANTICS_INVALID');
+          if (p.absenceSemantics !== 'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE' || p.automaticNegativeAuthority !== false) throw new Error('FNS_RSMP_NEGATIVE_AUTHORITY_FORBIDDEN');
+          for (const url of [p.authorityRoot, p.passport?.dataUrl, p.passport?.structureUrl].filter(Boolean)) {
+            const u = new URL(url);
+            if (u.protocol !== 'https:' || !['www.nalog.gov.ru','nalog.gov.ru','file.nalog.ru'].includes(u.hostname)) throw new Error('FNS_RSMP_NON_OFFICIAL_URL');
+          }
+          if (p.productionTransportEligible === true && p.contractStatus !== 'PROVEN_OFFICIAL_OPEN_DATA_MACHINE_CONTRACT') throw new Error('FNS_RSMP_PRODUCTION_ELIGIBILITY_INVALID');
+          if (p.productionTransportEligible === true && p.structure?.identityShapeObserved !== true) throw new Error('FNS_RSMP_IDENTITY_SCHEMA_NOT_PROVEN');
+          console.log(`FNS_RSMP_CONTRACT_STATUS=${p.contractStatus}`);
+          console.log(`FNS_RSMP_PRODUCTION_TRANSPORT_ELIGIBLE=${p.productionTransportEligible}`);
+          NODE
+
+      - name: Prove FNS RSMP bounded range archive topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test scripts/role-eligibility-fns-rsmp-archive-topology.test.mjs
+          node scripts/role-eligibility-fns-rsmp-archive-topology.mjs \
+            artifacts/role-eligibility-official-source-contracts/fns-rsmp.json \
+            artifacts/role-eligibility-official-source-contracts/fns-rsmp-archive-topology.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('artifacts/role-eligibility-official-source-contracts/fns-rsmp-archive-topology.json', 'utf8'));
+          if (p.schemaVersion !== 'role-eligibility-fns-rsmp-archive-topology.v1') throw new Error('FNS_RSMP_TOPOLOGY_SCHEMA_INVALID');
+          if (p.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || p.productionDatabaseMutation !== 0 || p.registrationTouched !== false || p.enforcementChanged !== false) throw new Error('FNS_RSMP_TOPOLOGY_BOUNDARY_INVALID');
+          if (p.rangeSupported !== true || p.rangeTransport !== 'HTTP_206_EXACT_RANGE') throw new Error('FNS_RSMP_RANGE_TRANSPORT_NOT_PROVEN');
+          if (p.zip64 !== false || p.multiDisk !== false || p.encryptedEntries !== 0) throw new Error('FNS_RSMP_ZIP_TOPOLOGY_UNSUPPORTED');
+          if (!Number.isInteger(p.entryCount) || p.entryCount <= 0 || p.xmlEntryCount !== p.entryCount) throw new Error('FNS_RSMP_XML_ENTRY_TOPOLOGY_INVALID');
+          if (!Array.isArray(p.compressionMethods) || p.compressionMethods.some((method) => ![0,8].includes(method))) throw new Error('FNS_RSMP_COMPRESSION_METHOD_INVALID');
+          if (p.localHeaderSamplesVerified < 1 || p.streamingStrategy !== 'HTTP_RANGE_PER_ENTRY_BOUNDED_INFLATE_XML' || p.boundedMemoryImportFeasible !== true) throw new Error('FNS_RSMP_BOUNDED_IMPORT_NOT_PROVEN');
+          if (p.admissionAuthority !== false || p.automaticNegativeAuthority !== false || p.absenceSemantics !== 'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE') throw new Error('FNS_RSMP_AUTHORITY_BOUNDARY_INVALID');
+          console.log(`FNS_RSMP_RANGE_TOPOLOGY=PASS entries=${p.entryCount} max_uncompressed=${p.maxEntryDecompressedBytes}`);
+          NODE
+
+      - name: Run bounded EAEU conformity-register probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/role-eligibility-fgis-contract-probe.mjs eaeu-labs \
+            | tee artifacts/role-eligibility-official-source-contracts/eaeu-labs.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('artifacts/role-eligibility-official-source-contracts/eaeu-labs.json', 'utf8'));
+          if (p.schemaVersion !== 'role-eligibility-eaeu-labs-source-contract-probe.v1') throw new Error('EAEU_PROBE_SCHEMA_INVALID');
+          if (p.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || p.productionDatabaseMutation !== 0 || p.registrationTouched !== false) throw new Error('EAEU_PROBE_BOUNDARY_INVALID');
+          if (p.legalSemantics !== 'OFFICIAL_EAEU_CONFORMITY_REGISTER_POSITIVE_MEMBERSHIP_AND_STATUS') throw new Error('EAEU_LEGAL_SEMANTICS_INVALID');
+          if (p.requiredUse !== 'LABORATORY_ONLY_WITH_SCOPE_AND_STATUS_VALIDATION' || p.automaticNegativeAuthority !== false) throw new Error('EAEU_SCOPE_OR_NEGATIVE_AUTHORITY_INVALID');
+          const urls = [p.authorityRoot, p.resource?.odataUrl, p.resource?.odataSchemaUrl, p.resource?.restUrl, p.resource?.restSpecUrl].filter(Boolean);
+          for (const url of urls) {
+            const u = new URL(url);
+            if (u.protocol !== 'https:' || !(u.hostname === 'eaeunion.org' || u.hostname.endsWith('.eaeunion.org'))) throw new Error('EAEU_NON_OFFICIAL_URL');
+          }
+          if (p.productionTransportEligible === true && p.contractStatus !== 'PROVEN_OFFICIAL_EAEU_ODATA_CONTRACT') throw new Error('EAEU_PRODUCTION_ELIGIBILITY_INVALID');
+          console.log(`EAEU_CONTRACT_STATUS=${p.contractStatus}`);
+          console.log(`EAEU_PRODUCTION_TRANSPORT_ELIGIBLE=${p.productionTransportEligible}`);
+          NODE
+
+      - name: Inspect FGIS binary envelope without entity values
+        if: hashFiles('fgis-dataset-sample.bin') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          file fgis-dataset-sample.bin | sed 's#fgis-dataset-sample.bin: ##' \
+            > artifacts/role-eligibility-official-source-contracts/fgis-file-type.txt
+          sha256sum fgis-dataset-sample.bin \
+            | awk '{print $1}' \
+            > artifacts/role-eligibility-official-source-contracts/fgis-data-sha256.txt
+          rm -f fgis-dataset-sample.bin
+
+      - name: Upload immutable official-source probe evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-official-source-contracts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility-official-source-contracts
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

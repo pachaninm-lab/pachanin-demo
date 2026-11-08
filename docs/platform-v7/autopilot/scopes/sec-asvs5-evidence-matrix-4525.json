@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4525,
+  "branch": "sec/asvs5-evidence-matrix",
+  "status": "active",
+  "purpose": "Generate a deterministic OWASP ASVS 5.0.0 evidence inventory from the exact pinned public standard without claiming compliance before every applicable requirement has evidence.",
+  "authorityBaseExactMain": "12b87e88ba7c20c84a7e12635c63019511091a2f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/sbom-scan.yml",
+    "docs/platform-v7/autopilot/scopes/sec-asvs5-evidence-matrix-4525.json",
+    "scripts/ip/verify-ip-evidence.mjs",
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "OWASP ASVS 5.0.0 is read only from the exact public upstream release commit 5cf9b032440be53ce345ab3c130fda46ba1ce7a2 and its exact SHA-256 8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311.",
+    "No application source, crown-jewel content, secret, credential or production data may be uploaded to OWASP or any external scanner/service.",
+    "The generated evidence must not reproduce ASVS requirement descriptions; it may contain identifiers, levels, statuses and evidence references only.",
+    "Unknown requirements remain NOT_ASSESSED and pending applicability remains explicit; no existing security gate may be translated into an inferred ASVS PASS.",
+    "Final ASVS PASS is impossible while any applicable requirement is NOT_ASSESSED or FAIL or while applicability review remains pending.",
+    "No product code, dependency, lockfile, database, DNS, REG.RU runtime or production configuration may change.",
+    "Merge and CI success are not ASVS compliance or REG.RU production evidence."
+  ],
+  "acceptance": [
+    "The exact pinned ASVS source validates as 345 unique well-formed requirements at levels 1 through 3 and matches its pinned SHA-256.",
+    "Malformed schema, duplicate or malformed requirement identifiers, invalid levels, wrong requirement counts and source-byte drift fail closed.",
+    "ASVS_MATRIX.csv and ASVS_SUMMARY.json are deterministic and included in the immutable IP evidence bundle.",
+    "The matrix contains no requirement prose and the summary records proprietarySourceUploaded=false.",
+    "The IP evidence verifier independently validates matrix shape, counts, digest, statuses, applicability and final-pass consistency.",
+    "Offline unit tests cover the evidence builder and the concurrent-scope guard accepts exactly the five authorized paths."
+  ]
+}

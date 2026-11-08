@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-csrf-trusted-proxy-boundary-3785",
+  "status": "active",
+  "issue": 3785,
+  "baseCommit": "d2f0a78ab68b06ff208b0c1a9cbe070bade21dad",
+  "operationalStatus": "P0_CSRF_TRUSTED_PROXY_BOUNDARY_HARDENING",
+  "allowedPaths": [
+    ".github/workflows/web-unit.yml",
+    "apps/web/lib/server-request-security.ts",
+    "apps/web/tests/unit/serverRequestSecurity.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-p0-csrf-trusted-proxy-boundary-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "RELEASE_ONLY_AFTER_GATES",
+    "runtimeBusinessBehaviorChange": true,
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "rlsMutation": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "originValidationDisabled": false,
+    "csrfTokenValidationDisabled": false,
+    "untrustedForwardedHostAccepted": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "configured PC_PUBLIC_ORIGIN or NEXT_PUBLIC_SITE_URL remains the strongest target-origin authority",
+    "without configured public origin, only Host and X-Forwarded-Proto from the checked-in production proxy contract determine the public target origin",
+    "X-Forwarded-Host is not trusted because the current production proxy contract does not overwrite it",
+    "cross-origin requests remain rejected before route business logic even when the double-submit token matches",
+    "CSRF cookie/header mismatches remain rejected after same-origin validation passes",
+    "the shared serverRequestSecurity regression suite is executed by the mandatory web-unit workflow",
+    "the production invalid-email diagnostic must return INVALID_EMAIL with the real public Origin before any real reviewer password reset is replayed",
+    "no DB, RLS, reviewer credential, MFA or staff-assignment mutation is introduced",
+    "new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

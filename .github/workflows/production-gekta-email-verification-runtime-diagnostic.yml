@@ -1,0 +1,166 @@
+name: Production Gekta Email Verification Runtime Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-gekta-email-verification-runtime-diagnostic.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-gekta-email-verification-runtime-diagnostic
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  SOURCE_SHA: 24590ce52413ab28e23e6a50036923fbe0baaff0
+  SOURCE_SINCE: '2026-08-14T21:04:00Z'
+  SOURCE_UNTIL: '2026-08-14T21:09:00Z'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate bounded diagnostic authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/production gekta-email-verify-diagnose current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate owner and source contract
+        env:
+          COMMENTER: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login || '' }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ '${{ github.event_name }}' == issue_comment ]]; then
+            [[ "$COMMENTER" == "$OWNER" && "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          fi
+
+  diagnose:
+    name: Read-only active API/Web verification runtime
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Resolve pinned REG.RU identity
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ -n "$host" && "$host" == "${SSH_HOST_SECRET:-}" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#dns_ipv4[@]} >= 1 ))
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+          mkdir -p "$HOME/.ssh"
+          chmod 0700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 0600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Emit bounded runtime facts only
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          ssh "${ssh_common[@]}" "$USER@$HOST" "SOURCE_SHA='$SOURCE_SHA' SOURCE_SINCE='$SOURCE_SINCE' SOURCE_UNTIL='$SOURCE_UNTIL' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 )) || { echo 'CONTAINER_AUTHORITY=AMBIGUOUS'; exit 21; }
+          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"
+          api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
+          web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
+          [[ "$api_image" == *"sha-${SOURCE_SHA:0:12}"* ]] && echo 'SOURCE_API_IMAGE=EXACT' || echo 'SOURCE_API_IMAGE=DIFFERENT'
+          [[ "$web_image" == *"sha-${SOURCE_SHA:0:12}"* ]] && echo 'SOURCE_WEB_IMAGE=EXACT' || echo 'SOURCE_WEB_IMAGE=DIFFERENT'
+          env_value(){
+            local id="$1" key="$2"
+            docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$id" | awk -F= -v key="$key" '$1==key {sub(/^[^=]*=/, ""); print; found=1} END {if (!found) exit 3}'
+          }
+          api_mfa="$(env_value "$api_id" MFA_ENCRYPTION_KEY 2>/dev/null || true)"
+          api_delivery="$(env_value "$api_id" REGISTRATION_DELIVERY_KEY 2>/dev/null || true)"
+          web_delivery="$(env_value "$web_id" REGISTRATION_DELIVERY_KEY 2>/dev/null || true)"
+          web_ticket="$(env_value "$web_id" MFA_LOGIN_TICKET_SECRET 2>/dev/null || true)"
+          [[ -n "$api_mfa" ]] && echo 'API_MFA_ENCRYPTION_KEY=PRESENT' || echo 'API_MFA_ENCRYPTION_KEY=MISSING'
+          (( ${#api_mfa} >= 32 )) && echo 'API_MFA_ENCRYPTION_KEY_LENGTH=VALID' || echo 'API_MFA_ENCRYPTION_KEY_LENGTH=INVALID'
+          [[ -n "$api_delivery" ]] && echo 'API_REGISTRATION_DELIVERY_KEY=PRESENT' || echo 'API_REGISTRATION_DELIVERY_KEY=MISSING'
+          [[ -n "$web_delivery" ]] && echo 'WEB_REGISTRATION_DELIVERY_KEY=PRESENT' || echo 'WEB_REGISTRATION_DELIVERY_KEY=MISSING'
+          [[ -n "$api_delivery" && -n "$web_delivery" && "$api_delivery" == "$web_delivery" ]] && echo 'REGISTRATION_DELIVERY_KEYS=MATCH' || echo 'REGISTRATION_DELIVERY_KEYS=MISMATCH_OR_MISSING'
+          [[ -n "$web_ticket" ]] && echo 'WEB_MFA_LOGIN_TICKET_SECRET=PRESENT' || echo 'WEB_MFA_LOGIN_TICKET_SECRET=MISSING'
+          (( ${#web_ticket} >= 32 )) && echo 'WEB_MFA_LOGIN_TICKET_SECRET_LENGTH=VALID' || echo 'WEB_MFA_LOGIN_TICKET_SECRET_LENGTH=INVALID'
+          api_log="$(docker logs --since "$SOURCE_SINCE" --until "$SOURCE_UNTIL" "$api_id" 2>&1 || true)"
+          web_log="$(docker logs --since "$SOURCE_SINCE" --until "$SOURCE_UNTIL" "$web_id" 2>&1 || true)"
+          grep -Fq 'MFA_ENCRYPTION_KEY is required in production' <<<"$api_log" && echo 'SOURCE_API_MFA_KEY_RUNTIME_ERROR=YES' || echo 'SOURCE_API_MFA_KEY_RUNTIME_ERROR=NO'
+          grep -Fq 'REGISTRATION_EMAIL_TOKEN_INVALID' <<<"$api_log" && echo 'SOURCE_API_EMAIL_TOKEN_INVALID=YES' || echo 'SOURCE_API_EMAIL_TOKEN_INVALID=NO'
+          grep -Fq 'gekta_email_verification_contract_invalid' <<<"$web_log" && echo 'SOURCE_WEB_VERIFY_CONTRACT_INVALID=YES' || echo 'SOURCE_WEB_VERIFY_CONTRACT_INVALID=NO'
+          echo 'PRODUCTION_MUTATION=NONE'
+          REMOTE
+
+      - name: Remove local credentials
+        if: always()
+        run: |
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"

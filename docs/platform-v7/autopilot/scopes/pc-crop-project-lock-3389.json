@@ -6,14 +6,35 @@
   "projectLockId": "PC-CROP-REMAINDER",
   "issue": 3389,
   "activeSlice": null,
-  "baseCommit": "8f01d677108012d2eede6aee866ff4c3fdcf8e42",
+  "baseCommit": "8961d36ad03d679f0c81bc63c3425c5d9d6e7155",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "internal-repository-project-completed-external-live-blocked",
+  "ownerAuthorizedOperationalRecovery": {
+    "id": "PRODUCTION_REGISTRATION_RECOVERY_3785",
+    "governanceCommentId": 5289918015,
+    "registrationIssue": 3785,
+    "releaseEvidenceIssue": 3072,
+    "authorityContinuationIssue": 4637,
+    "authorityContinuationBaseExactMain": "7886c60baa47bb549afc744381c9ff9e90097d7d",
+    "authorizedBranch": "fix/pc-crop-docker-headroom-rollover-4637",
+    "allowedPaths": [
+      ".github/workflows/production-docker-headroom-recovery.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json",
+      "scripts/production-docker-headroom-recovery.sh"
+    ],
+    "expiresWhenRegistrationIssueCloses": true,
+    "purpose": "bounded-docker-headroom-recovery-for-production-registration-release-only",
+    "newRecurringCostRub": 0
+  },
   "allowedPaths": [
     ".github/workflows/pc-crop-project-lock.yml",
     "docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json",
     "docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json",
-    "scripts/verify-pc-crop-project-lock.mjs"
+    "scripts/verify-pc-crop-project-lock.mjs",
+    ".github/workflows/production-docker-headroom-recovery.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json",
+    "scripts/production-docker-headroom-recovery.sh",
+    "docs/platform-v7/autopilot/project-locks/pc-crop-federal-accounting.json"
   ],
   "forbiddenPaths": [
     "apps/**",
@@ -30,7 +51,13 @@
     "modelAdmissionChange": false,
     "securityGateDisabled": false,
     "acceptanceGateWeakened": false,
-    "productionDeployment": false
+    "productionDeployment": false,
+    "productionOperationalRecovery": true,
+    "applicationMutation": false,
+    "databaseMutation": false,
+    "customerDataMutation": false,
+    "credentialMutation": false,
+    "containerVolumeNetworkMutation": false
   },
   "requiredEvidence": [
     "PC-CROP-10D PR 3506 merged at 2a2a58778d194d4abc37c4dde429993dc8546d1f",
@@ -38,10 +65,16 @@
     "Final truth blob 20650c296b75c6a3a248e40ce67f78a7f023496f and readiness blob f175a5583771275562ceaa2a5af09f7f9c86c867 remain unchanged",
     "Project lock has no active issue slice or remaining sequence",
     "Closed Qwen recovery issue 3372 exception remains expired",
+    "Repository-owner authorization comment 5289918015 on governance issue 3389 authorizes only bounded Docker headroom recovery for registration issue 3785 and release evidence issue 3072",
+    "Recovery rollover branch fix/pc-crop-docker-headroom-rollover-4637 is source-controlled before its workflow/script changes and is limited to the three explicit recovery paths",
+    "Recovery workflow requires exact repository-owner issue command and resolves then revalidates exact current main",
+    "Recovery deletes only unused canonical grainflow images, protects all container-referenced images, exact-main revisions and two newest images per component, and forbids broad prune/delete operations",
+    "Recovery proves running API/web container identity and revisions plus container/volume/network counts remain unchanged on PASS",
     "TAI and Qwen branch/title drift is rejected",
-    "All non-governance PC-CROP implementation scopes are rejected after completion",
+    "All non-governance PC-CROP implementation scopes remain rejected after completion",
     "Production authority remains REG_RU_VPS_ONLY",
-    "Operational status remains NOT_ATTESTED"
+    "Operational status remains NOT_ATTESTED",
+    "New recurring cost remains 0 RUB"
   ],
   "productionHosting": "REG_RU_VPS_ONLY"
 }

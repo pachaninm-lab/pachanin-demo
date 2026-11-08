@@ -1,0 +1,288 @@
+name: Production P0 First-Customer IMAP Stage Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-imap-stage-diagnostic.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-p0-first-customer-imap-stage-diagnostic
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '3785'
+  SUBJECT_SHA: '55f78afe5f01f1aa2732a984b5cc0ccb1ccfcc71'
+  FAILED_RUN_ID: '31885882933-1'
+  WINDOW_START: '2026-08-15T12:56:00Z'
+  COMMAND_TEXT: '/production p0-first-customer-imap-stage 31885882933'
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/production-p0-first-customer-imap-stage-diagnostic.yml').read_text(encoding='utf-8')
+          for marker in [
+              'IMAP_STAGE=', 'IMAP_EXCEPTION_CLASS=', 'IMAP_CONNECT=', 'IMAP_LOGIN=',
+              'IMAP_SELECT=', 'IMAP_SEARCH=', 'IMAP_FETCH=', 'RECIPIENT_MATCH_COUNT=',
+              'FRESH_MATCH_COUNT=', 'VERIFY_URL_COUNT=', 'VALID_TOKEN_COUNT=',
+              'MAILBOX_READ_ONLY=PASS', 'PRODUCTION_MUTATION=NONE', 'readonly=True', 'BODY.PEEK[]'
+          ]:
+              if marker not in text:
+                  raise SystemExit('missing '+marker)
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=['EXPUNGE','APPEND ','STORE ','COPY ','MOVE ','DELETE ','sendmail','SMTP(',
+                     'docker restart','docker rm','ALTER ROLE','CREATE ROLE','DROP ROLE','INSERT INTO',
+                     'UPDATE auth.','DELETE FROM','TRUNCATE ','curl -X POST']
+          bad=[x for x in forbidden if x in diagnostic]
+          if bad:
+              raise SystemExit('mutation surface: '+' | '.join(bad))
+          PY
+
+  diagnostic:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-first-customer-imap-stage 31885882933' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_P0_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact failed-run source boundary
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main="$(git rev-parse origin/main)"
+          [[ "$main" == "$(git rev-parse HEAD)" ]]
+          git cat-file -e "${SUBJECT_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_SHA" "$main"
+          git diff --quiet "$SUBJECT_SHA..$main" -- \
+            apps/web/app/api/auth/register/route.ts \
+            apps/web/lib/server/transactional-mail.ts \
+            scripts/production-p0-first-customer-acceptance.sh
+          echo "main=$main" >> "$GITHUB_OUTPUT"
+
+      - name: Classify exact candidate-A IMAP path read-only
+        id: imap
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/imap-stage.out"
+          set +e
+          python3 - <<'PY' > "$output"
+          import email, imaplib, os, re, ssl
+          from datetime import datetime
+          from email.policy import default
+          from email.utils import getaddresses, parsedate_to_datetime
+          from urllib.parse import parse_qs, unquote, urlparse
+
+          stage='CONFIG'
+          result='FAIL'
+          exception_class='NONE'
+          connect=login=select=search=fetch='NOT_RUN'
+          recipient=fresh=urls=tokens=0
+          checked=0
+
+          def emit():
+              print(f'IMAP_STAGE={stage}')
+              print(f'IMAP_RESULT={result}')
+              print(f'IMAP_EXCEPTION_CLASS={exception_class}')
+              print(f'IMAP_CONNECT={connect}')
+              print(f'IMAP_LOGIN={login}')
+              print(f'IMAP_SELECT={select}')
+              print(f'IMAP_SEARCH={search}')
+              print(f'IMAP_FETCH={fetch}')
+              print(f'MESSAGES_CHECKED={checked}')
+              print(f'RECIPIENT_MATCH_COUNT={recipient}')
+              print(f'FRESH_MATCH_COUNT={fresh}')
+              print(f'VERIFY_URL_COUNT={urls}')
+              print(f'VALID_TOKEN_COUNT={tokens}')
+              print('MAILBOX_READ_ONLY=PASS')
+              print('PRODUCTION_MUTATION=NONE')
+
+          def canonical(value):
+              try:
+                  value=str(value or '').strip().lower()
+                  if value.count('@') != 1: return None
+                  local,domain=value.rsplit('@',1)
+                  local.encode('ascii')
+                  domain=domain.encode('idna').decode('ascii').lower()
+                  result=f'{local}@{domain}'
+                  if len(result)>254 or not re.fullmatch(r'[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9.-]{1,189}',result): return None
+                  return result
+              except Exception: return None
+
+          client=None
+          try:
+              required=['PC_P0_EMAIL_TEMPLATE','PC_P0_IMAP_HOST','PC_P0_IMAP_USER','PC_P0_IMAP_PASSWORD']
+              if any(not os.environ.get(k,'').strip() for k in required):
+                  raise RuntimeError('CONFIG_MISSING')
+              run=f"{os.environ['FAILED_RUN_ID']}-{os.environ['SUBJECT_SHA'][:7]}"
+              template=os.environ['PC_P0_EMAIL_TEMPLATE'].strip(); slot='a'; identity=f'{run}-{slot}'
+              if template.count('{identity}')==1 and '{run}' not in template and '{slot}' not in template:
+                  target=template.replace('{identity}',identity).lower()
+              elif template.count('{identity}')==0 and template.count('{run}')==1 and template.count('{slot}')==1:
+                  target=template.replace('{run}',run).replace('{slot}',slot).lower()
+              else:
+                  raise RuntimeError('TEMPLATE_INVALID')
+              target=canonical(target)
+              if not target: raise RuntimeError('TARGET_INVALID')
+              start=int(datetime.fromisoformat(os.environ['WINDOW_START'].replace('Z','+00:00')).timestamp())-300
+              host=os.environ['PC_P0_IMAP_HOST'].strip()
+              port=int((os.environ.get('PC_P0_IMAP_PORT') or '993').strip())
+              user=os.environ['PC_P0_IMAP_USER']; password=os.environ['PC_P0_IMAP_PASSWORD']
+              folder=(os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
+              stage='CONNECT'
+              client=imaplib.IMAP4_SSL(host,port,ssl_context=ssl.create_default_context(),timeout=15); connect='PASS'
+              stage='LOGIN'
+              status,_=client.login(user,password)
+              if status!='OK': raise RuntimeError('LOGIN_NON_OK')
+              login='PASS'
+              stage='SELECT'
+              status,_=client.select(folder,readonly=True)
+              if status!='OK': raise RuntimeError('SELECT_NON_OK')
+              select='PASS'
+              stage='SEARCH'
+              status,data=client.search(None,'ALL')
+              if status!='OK': raise RuntimeError('SEARCH_NON_OK')
+              search='PASS'
+              identifiers=(data[0] or b'').split()[-1000:]
+              stage='FETCH'; fetch='PASS'
+              url_pattern=re.compile(r'https://[^\s<>"\']+/platform-v7/register\?[^\s<>"\']+',re.I)
+              for ident in reversed(identifiers):
+                  status,rows=client.fetch(ident,'(BODY.PEEK[])')
+                  if status!='OK': continue
+                  raw=next((item[1] for item in rows if isinstance(item,tuple) and len(item)>1),None)
+                  if not raw: continue
+                  checked+=1
+                  message=email.message_from_bytes(raw,policy=default)
+                  recipients=[]
+                  for header in ('to','cc','delivered-to','x-original-to','envelope-to'):
+                      for _,address in getaddresses(message.get_all(header,[])):
+                          c=canonical(address)
+                          if c: recipients.append(c)
+                  if target not in recipients: continue
+                  recipient+=1
+                  try: sent=int(parsedate_to_datetime(message.get('date')).timestamp())
+                  except Exception: sent=int(datetime.now().timestamp())
+                  if sent<start: continue
+                  fresh+=1
+                  parts=[]
+                  iterator=message.walk() if message.is_multipart() else (message,)
+                  for part in iterator:
+                      if part.get_content_type() not in ('text/plain','text/html'): continue
+                      try: parts.append(part.get_content())
+                      except Exception:
+                          payload=part.get_payload(decode=True) or b''
+                          parts.append(payload.decode(part.get_content_charset() or 'utf-8',errors='replace'))
+                  body='\n'.join(parts).replace('&amp;','&')
+                  for candidate in url_pattern.findall(body):
+                      urls+=1
+                      q=parse_qs(urlparse(candidate).query)
+                      token=unquote((q.get('verify') or [''])[0])
+                      if 48<=len(token)<=512 and re.fullmatch(r'[A-Za-z0-9._~-]+',token): tokens+=1
+              stage='COMPLETE'; result='PASS'
+          except Exception as exc:
+              exception_class=type(exc).__name__.upper()
+              exception_class=re.sub(r'[^A-Z0-9_]', '_', exception_class)[:60] or 'UNKNOWN'
+          finally:
+              if client is not None:
+                  try: client.logout()
+                  except Exception: pass
+              emit()
+          PY
+          rc=$?
+          set -e
+          cat "$output"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              IMAP_STAGE|IMAP_RESULT|IMAP_EXCEPTION_CLASS|IMAP_CONNECT|IMAP_LOGIN|IMAP_SELECT|IMAP_SEARCH|IMAP_FETCH|MESSAGES_CHECKED|RECIPIENT_MATCH_COUNT|FRESH_MATCH_COUNT|VERIFY_URL_COUNT|VALID_TOKEN_COUNT|MAILBOX_READ_ONLY|PRODUCTION_MUTATION)
+                echo "${key,,}=$value" >> "$GITHUB_OUTPUT";;
+            esac
+          done < "$output"
+          rm -f "$output"
+          [[ "$rc" == 0 ]]
+
+      - name: Publish sanitized stage evidence
+        if: always()
+        shell: bash
+        env:
+          MAIN: ${{ steps.bind.outputs.main }}
+          STAGE: ${{ steps.imap.outputs.imap_stage }}
+          RESULT: ${{ steps.imap.outputs.imap_result }}
+          EXC: ${{ steps.imap.outputs.imap_exception_class }}
+          CONNECT: ${{ steps.imap.outputs.imap_connect }}
+          LOGIN: ${{ steps.imap.outputs.imap_login }}
+          SELECT: ${{ steps.imap.outputs.imap_select }}
+          SEARCH: ${{ steps.imap.outputs.imap_search }}
+          FETCH: ${{ steps.imap.outputs.imap_fetch }}
+          CHECKED: ${{ steps.imap.outputs.messages_checked }}
+          RECIPIENT: ${{ steps.imap.outputs.recipient_match_count }}
+          FRESH: ${{ steps.imap.outputs.fresh_match_count }}
+          URLS: ${{ steps.imap.outputs.verify_url_count }}
+          TOKENS: ${{ steps.imap.outputs.valid_token_count }}
+          READONLY: ${{ steps.imap.outputs.mailbox_read_only }}
+          MUTATION: ${{ steps.imap.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/evidence.md"
+          {
+            echo '### PC-CROP candidate-A IMAP stage diagnostic · failed run 31885882933'
+            echo
+            echo "- diagnostic main: \`${MAIN:-unknown}\`"
+            echo "- failed production subject: \`$SUBJECT_SHA\`"
+            echo "- stage/result/exception-class: \`${STAGE:-unknown} / ${RESULT:-unknown} / ${EXC:-unknown}\`"
+            echo "- connect/login/select/search/fetch: \`${CONNECT:-unknown} / ${LOGIN:-unknown} / ${SELECT:-unknown} / ${SEARCH:-unknown} / ${FETCH:-unknown}\`"
+            echo "- messages checked: \`${CHECKED:-unknown}\`"
+            echo "- exact candidate recipient/fresh/verify-URL/valid-token matches: \`${RECIPIENT:-unknown} / ${FRESH:-unknown} / ${URLS:-unknown} / ${TOKENS:-unknown}\`"
+            echo "- mailbox read-only: \`${READONLY:-unknown}\`"
+            echo "- production mutation: \`${MUTATION:-unknown}\`"
+            echo '- mailbox identity, candidate address, credentials, message contents, links/tokens and provider responses are not published.'
+          } > "$body"
+          gh issue comment "$TARGET_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          rm -f "$body"
+
+      - name: Enforce diagnostic safety
+        shell: bash
+        env:
+          READONLY: ${{ steps.imap.outputs.mailbox_read_only }}
+          MUTATION: ${{ steps.imap.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "$READONLY" == PASS ]]
+          [[ "$MUTATION" == NONE ]]

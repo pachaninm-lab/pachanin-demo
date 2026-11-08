@@ -248,6 +248,12 @@ DECLARE
     'auth.resolve_password_reset_subject(text)',
     'auth.replace_password_after_reset(text,text,text,timestamptz)'
   ];
+  -- Owned by its own authority, not by the reset one. A dump carries the
+  -- function but not the cluster-level role, so a restore leaves it owned by
+  -- whoever ran the restore unless this puts it back.
+  password_format_owned text[] := ARRAY[
+    'auth.upgrade_password_hash_format(text,text,text)'
+  ];
   organization_access_owned text[] := ARRAY[
     'auth.organization_team_snapshot(text,text,text,text,text)',
     'auth.resolve_organization_admin_session(text,text,text,text,text)',
@@ -451,6 +457,27 @@ BEGIN
     REVOKE ALL ON FUNCTION auth.resolve_password_reset_subject(text)
       FROM one_deal_app, one_deal_staff, one_deal_storage;
     REVOKE ALL ON FUNCTION auth.replace_password_after_reset(text,text,text,timestamptz)
+      FROM one_deal_app, one_deal_staff, one_deal_storage;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_password_format_authority') THEN
+    ALTER ROLE pc_password_format_authority
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+    IF EXISTS (
+      SELECT 1 FROM pg_auth_members membership
+      JOIN pg_roles granted ON granted.oid = membership.roleid
+      WHERE granted.rolname = 'pc_password_format_authority') THEN
+      RAISE EXCEPTION 'pc_password_format_authority must have no members after restore';
+    END IF;
+    FOREACH target IN ARRAY password_format_owned LOOP
+      EXECUTE format('ALTER FUNCTION %s OWNER TO pc_password_format_authority', target);
+    END LOOP;
+    GRANT USAGE ON SCHEMA public, auth TO pc_password_format_authority;
+    REVOKE ALL PRIVILEGES ON public.users FROM pc_password_format_authority;
+    GRANT SELECT ("id", "passwordHash") ON public.users TO pc_password_format_authority;
+    GRANT UPDATE ("passwordHash") ON public.users TO pc_password_format_authority;
+    GRANT EXECUTE ON FUNCTION auth.upgrade_password_hash_format(text,text,text) TO one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.upgrade_password_hash_format(text,text,text)
       FROM one_deal_app, one_deal_staff, one_deal_storage;
   END IF;
 
@@ -679,6 +706,8 @@ BEGIN
     GRANT USAGE ON SCHEMA public, auth TO pc_registration_decision_authority;
     REVOKE ALL PRIVILEGES ON public.users, public.user_orgs, public.organizations
       FROM pc_registration_decision_authority;
+    REVOKE ALL PRIVILEGES ON auth.registration_applications
+      FROM pc_registration_decision_authority;
     GRANT SELECT ON public.users, public.user_orgs, public.organizations
       TO pc_registration_decision_authority;
     GRANT UPDATE ("status", "updatedAt") ON public.users
@@ -689,6 +718,8 @@ BEGIN
     GRANT UPDATE ("status", "verifiedAt", "version", "updatedAt")
       ON public.organizations TO pc_registration_decision_authority;
     GRANT SELECT ON auth.sessions, auth.credential_states, auth.staff_assignments, auth.registration_applications
+      TO pc_registration_decision_authority;
+    GRANT UPDATE (id) ON TABLE auth.registration_applications
       TO pc_registration_decision_authority;
 
     GRANT EXECUTE ON FUNCTION auth.registration_platform_actor_authorized(text,text)
@@ -940,7 +971,17 @@ SELECT
    WHERE n.nspname = 'auth'
      AND p.proname = 'finalize_authenticated_user_mfa'
      AND p.prosecdef
-     AND owner.rolname = 'pc_auth_mfa_authority')::text
+     AND owner.rolname = 'pc_auth_mfa_authority'
+     AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[]
+     AND p.proconfig @> ARRAY['row_security=on']::text[]
+     AND p.prosrc LIKE '%challenge."type" IN (''TOTP_ENROLL'', ''TOTP_VERIFY'')%'
+     AND p.prosrc LIKE '%challenge.verified_at = pg_catalog.transaction_timestamp()%'
+     AND p.prosrc LIKE '%session.mfa_verified_method = ''TOTP''%'
+     AND p.prosrc LIKE '%session.mfa_verified_at = pg_catalog.transaction_timestamp()%'
+     AND p.prosrc LIKE '%challenge.verified_at = session.mfa_verified_at%'
+     AND p.prosrc LIKE '%session.credential_version = credential.credential_version%'
+     AND p.prosrc ~ 'UPDATE public\."users"'
+     AND p.prosrc !~* '\m(INSERT|DELETE|TRUNCATE|MERGE|CALL|EXECUTE)\M')::text
   || ':' ||
   (SELECT count(*) FROM pg_roles
    WHERE rolname = 'pc_auth_mfa_authority'
@@ -1325,6 +1366,21 @@ SELECT
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'DELETE')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')
+    AND has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')
+    AND (SELECT count(*) FROM pg_attribute attribute
+         WHERE attribute.attrelid = 'auth.registration_applications'::regclass
+           AND attribute.attnum > 0
+           AND NOT attribute.attisdropped
+           AND has_column_privilege(
+             'pc_registration_decision_authority',
+             'auth.registration_applications',
+             attribute.attname,
+             'UPDATE'
+           )) = 1
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')
   )::int::text
   || ':' ||
   (

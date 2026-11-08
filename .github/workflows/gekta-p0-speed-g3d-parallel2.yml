@@ -1,0 +1,236 @@
+name: Gekta P0 SPEED G3D Parallel Capacity
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3d-parallel2.yml'
+      - 'scripts/gekta-qwen-g3d-runtime.py'
+      - 'scripts/gekta-qwen-g3d-bootstrap.sh'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3d-parallel2-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3d-parallel2
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+  SPEED_ISSUE_NUMBER: '3896'
+
+jobs:
+  contract:
+    name: Validate G3D exact-capacity contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove helper and bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/gekta-qwen-g3d-runtime.py
+          python3 scripts/gekta-qwen-g3d-runtime.py self-test | tee "$RUNNER_TEMP/g3d-self-test"
+          grep -qx 'GEKTA_G3D_SELF_TEST=PASS' "$RUNNER_TEMP/g3d-self-test"
+          bash -n scripts/gekta-qwen-g3d-bootstrap.sh
+      - name: Prove bounded authority and one capacity invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const workflow = fs.readFileSync('.github/workflows/gekta-p0-speed-g3d-parallel2.yml', 'utf8');
+          const runtime = fs.readFileSync('scripts/gekta-qwen-g3d-runtime.py', 'utf8');
+          const bootstrap = fs.readFileSync('scripts/gekta-qwen-g3d-bootstrap.sh', 'utf8');
+          const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3d-parallel2-3896.json', 'utf8'));
+          for (const forbidden of ['PC_PROD_SSH_KEY','VPS_SSH_KEY','TAI_MODEL_ROOT_SSH_KEY','NOPASSWD: ALL','SETENV:','sudo -s','sudo bash','sudo sh']) {
+            if (workflow.includes(`secrets.${forbidden}`) || bootstrap.includes(forbidden)) throw new Error(`forbidden authority: ${forbidden}`);
+          }
+          for (const required of [
+            'secrets.TAI_MODEL_SSH_KEY', 'secrets.TAI_MODEL_SSH_HOST_KEY', 'StrictHostKeyChecking=yes',
+            "github.event.comment.author_association == 'OWNER'", 'github.event.comment.performed_via_github_app.id == 1144995',
+            '/gekta speed-g3d parallel2 current-main', '/gekta speed-g3d rollback current-main', '/gekta speed-g3d status current-main'
+          ]) if (!workflow.includes(required)) throw new Error(`missing workflow authority: ${required}`);
+          for (const required of [
+            '"parallel": b"1"', '"ctx_size": b"8192"', '"ubatch_size": b"128"',
+            '"parallel": b"2"', '"ctx_size": b"16384"', 'slot_context_not_preserved',
+            'model_process_swap_used', 'MIN_BASELINE_MEM_AVAILABLE_KB', 'MIN_CANDIDATE_MEM_AVAILABLE_KB',
+            'GEKTA_G3D_AUTO_ROLLBACK=SUCCESS', 'zz-gekta-g3d-parallel2.conf'
+          ]) if (!runtime.includes(required)) throw new Error(`missing runtime invariant: ${required}`);
+          const sudoers = 'Cmnd_Alias GEKTA_QWEN_G3D = /usr/local/sbin/gekta-qwen-g3d parallel2, /usr/local/sbin/gekta-qwen-g3d rollback, /usr/local/sbin/gekta-qwen-g3d status';
+          if (!bootstrap.includes(sudoers)) throw new Error('exact sudoers allowlist missing');
+          if (scope.branch !== 'perf/gekta-p0-speed-g3d-parallel2-3896' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope authority mismatch');
+          const allowed = new Set(scope.allowedPaths);
+          for (const p of [
+            '.github/workflows/gekta-p0-speed-g3d-parallel2.yml',
+            'scripts/gekta-qwen-g3d-runtime.py',
+            'scripts/gekta-qwen-g3d-bootstrap.sh',
+            'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3d-parallel2-3896.json'
+          ]) if (!allowed.has(p)) throw new Error(`scope missing path: ${p}`);
+          NODE
+
+  candidate:
+    name: Execute exact G3D capacity action
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        ) ||
+        (
+          github.actor == 'chatgpt-codex-connector[bot]' &&
+          github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+          github.event.comment.performed_via_github_app.id == 1144995
+        )
+      ) &&
+      (
+        github.event.comment.body == '/gekta speed-g3d parallel2 current-main' ||
+        github.event.comment.body == '/gekta speed-g3d rollback current-main' ||
+        github.event.comment.body == '/gekta speed-g3d status current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact current main and action
+        id: target
+        env:
+          COMMAND: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          case "$COMMAND" in
+            '/gekta speed-g3d parallel2 current-main') action=parallel2 ;;
+            '/gekta speed-g3d rollback current-main') action=rollback ;;
+            '/gekta speed-g3d status current-main') action=status ;;
+            *) exit 20 ;;
+          esac
+          helper_sha="$(sha256sum scripts/gekta-qwen-g3d-runtime.py | awk '{print $1}')"
+          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "helper_sha=$helper_sha" >> "$GITHUB_OUTPUT"
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi
+            done
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"; user="$(trim "${MODEL_USER_SECRET:-}")"; port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || exit 21
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"; [[ -n "$pin" ]] || exit 22
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"; pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || exit 22
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"; chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Verify installed helper and execute exact command
+        id: execute
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST")
+          result="$RUNNER_TEMP/g3d-result"; raw="$RUNNER_TEMP/g3d-raw"; : > "$result"; : > "$raw"
+          remote_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3d 2>/dev/null' | awk '{print $1}' || true)"
+          rc=0
+          if [[ ! "$remote_sha" =~ ^[0-9a-f]{64}$ || "$remote_sha" != "$EXPECTED_HELPER_SHA" ]]; then
+            echo 'GEKTA_G3D_ERROR=bootstrap_required' > "$result"
+            rc=30
+          else
+            set +e
+            "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3d $ACTION" > "$raw" 2>&1
+            rc=$?
+            set -e
+            grep -E '^GEKTA_G3D_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$raw" > "$result" || true
+            [[ -s "$result" ]] || echo 'GEKTA_G3D_ERROR=execution_failed' > "$result"
+          fi
+          rm -f "$raw"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          cat "$result"
+      - name: Publish bounded G3D evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/g3d-result"
+          [[ -s "$result" ]] || printf '%s\n' 'GEKTA_G3D_ERROR=no_bounded_result' > "$result"
+          body="$RUNNER_TEMP/g3d-comment.md"
+          {
+            echo '## Gekta P0 SPEED G3D capacity controller'
+            echo
+            echo "- exact repository main: \`${TARGET_SHA:-unknown}\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo "- action: \`${ACTION:-unknown}\`"
+            echo '- transport: `DEDICATED_MODEL_SSH_PINNED_HOST`'
+            echo '- root SSH credential in GitHub: `NONE`'
+            echo '- candidate invariant: `parallel 1→2 + total ctx 8192→16384; ctx/slot remains 8192`'
+            echo '- ubatch: `128 unchanged`'
+            echo '- new recurring cost: `0 RUB`'
+            echo
+            echo '```text'
+            sed -n '1,40p' "$result"
+            echo '```'
+          } > "$body"
+          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+      - name: Enforce execution result
+        if: always()
+        env:
+          RC: ${{ steps.execute.outputs.rc }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${RC:-1}" == 0 ]]
+      - name: Cleanup transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"

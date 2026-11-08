@@ -1,0 +1,453 @@
+name: Gekta Production Browser Speed Baseline
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-speed-production-browser-baseline.yml'
+      - 'scripts/gekta-speed-browser-baseline.mjs'
+      - 'scripts/tai-speed-baseline.mjs'
+      - 'apps/web/tests/unit/taiSpeedBaseline.test.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-speed-production-browser-baseline.yml'
+      - 'scripts/gekta-speed-browser-baseline.mjs'
+      - 'scripts/tai-speed-baseline.mjs'
+      - 'apps/web/tests/unit/taiSpeedBaseline.test.ts'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    gekta-speed-browser-baseline-${{
+      ((github.event_name == 'issue_comment'
+        && github.event.issue.number == 3896
+        && github.event.comment.body == '/gekta speed-browser-baseline current-main')
+       || github.event_name == 'push')
+      && 'measurement' || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  SPEED_ISSUE_NUMBER: 3896
+  EVIDENCE_DIR: artifacts/gekta-speed-browser-baseline
+
+jobs:
+  contract:
+    name: Validate browser speed contract
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Prove existing speed measurement helpers
+        run: pnpm vitest run apps/web/tests/unit/taiSpeedBaseline.test.ts
+
+      - name: Parse browser-authoritative harness
+        run: node --check scripts/gekta-speed-browser-baseline.mjs
+
+      - name: Prove summary contract without network
+        run: |
+          node --input-type=module <<'NODE'
+          const mod = await import('./scripts/gekta-speed-browser-baseline.mjs');
+          const text = mod.renderBrowserSummary({
+            revision: {},
+            probe: {},
+            singleTurn: [{ concurrency: 1, overall: { reservationMs: { p50: 42, p95: 65 } }, bySource: {} }],
+          });
+          if (!text.includes('reservation latency is INCLUDED in user-visible TTFT')) process.exit(1);
+          if (!text.includes('reservation p50 ms: 42')) process.exit(1);
+          NODE
+
+      - name: Refuse an unspecified production target
+        run: |
+          set +e
+          node scripts/gekta-speed-browser-baseline.mjs >/dev/null 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 2
+
+      - name: Assert no production secret is referenced
+        run: |
+          set -euo pipefail
+          if grep -nE 'secrets\.' .github/workflows/gekta-speed-production-browser-baseline.yml; then
+            echo 'Credential reference detected in browser speed workflow.' >&2
+            exit 1
+          fi
+
+      - name: Assert immutable measurement authority is fail closed
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/gekta-speed-production-browser-baseline.yml
+          grep -Fq "scripts/gekta-speed-browser-baseline.mjs) ;;" "$workflow"
+          grep -Fq ".github/workflows/gekta-speed-production-browser-baseline.yml) ;;" "$workflow"
+          grep -Fq "GEKTA_SPEED_UNSAFE_TOOLING_DELTA" "$workflow"
+          grep -Fq "git merge-base --is-ancestor" "$workflow"
+          grep -Fq "measurement_paths=(" "$workflow"
+          grep -Fq "pnpm-lock.yaml" "$workflow"
+          grep -Fq "IDENTICAL_MEASUREMENT_SURFACE" "$workflow"
+          grep -Fq "GEKTA_MEASUREMENT_TOOL_DRIFT_DURING_SPEED_MEASUREMENT" "$workflow"
+          grep -Fq "GEKTA_DEPLOYED_APP_DRIFT_DURING_MEASUREMENT" "$workflow"
+          grep -Fq "repositoryMainAdvancedDuringMeasurement" "$workflow"
+          grep -Fq "ignoredNonMeasurementDeltaCount" "$workflow"
+          grep -Fq "production authority remains the unchanged deployed application SHA" "$workflow"
+
+  baseline:
+    name: Measure production click-to-first-meaningful
+    if: >-
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3896 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner &&
+       github.event.comment.body == '/gekta speed-browser-baseline current-main') ||
+      (github.event_name == 'push' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve immutable measurement-tool authority
+        id: authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          tool_sha="$(git rev-parse origin/main)"
+          [[ "$tool_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$tool_sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$tool_sha" ]]
+          echo "tool_sha=$tool_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve deployed application and prove measurement-only delta
+        id: deployed
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$(mktemp)"
+          status="$(curl --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 --output "$manifest" --write-out '%{http_code}' \
+            "$LIVE_BASE/manifest-pc-deploy.json?gekta-speed-browser=$GITHUB_RUN_ID-$(date +%s)")"
+          deployed_sha="$(jq -r '.commitSha // empty' "$manifest" 2>/dev/null || true)"
+          rm -f "$manifest"
+          [[ "$status" == 200 && "$deployed_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "GEKTA_DEPLOYED_REVISION_UNPROVEN http=$status" >&2
+            exit 20
+          }
+
+          git cat-file -e "${deployed_sha}^{commit}" 2>/dev/null || {
+            git fetch --no-tags origin "$deployed_sha"
+            git cat-file -e "${deployed_sha}^{commit}"
+          }
+          git merge-base --is-ancestor "$deployed_sha" "$TOOL_SHA" || {
+            echo "GEKTA_DEPLOYED_REVISION_NOT_ANCESTOR deployed=$deployed_sha tool=$TOOL_SHA" >&2
+            exit 21
+          }
+
+          scope=EXACT_APP_AND_TOOL
+          measurement_surface_delta_count=0
+          non_measurement_delta_count=0
+          if [[ "$deployed_sha" != "$TOOL_SHA" ]]; then
+            measurement_paths=(
+              .github/workflows/gekta-speed-production-browser-baseline.yml
+              scripts/gekta-speed-browser-baseline.mjs
+              scripts/tai-speed-baseline.mjs
+              apps/web/tests/unit/taiSpeedBaseline.test.ts
+              package.json
+              pnpm-lock.yaml
+              pnpm-workspace.yaml
+              apps/web/package.json
+              .npmrc
+              .pnpmfile.cjs
+              pnpmfile.cjs
+              patches
+            )
+            mapfile -t measurement_changed_paths < <(
+              git diff --name-only "$deployed_sha..$TOOL_SHA" -- "${measurement_paths[@]}"
+            )
+            measurement_surface_delta_count=${#measurement_changed_paths[@]}
+            if ((measurement_surface_delta_count == 0)); then
+              scope=IDENTICAL_MEASUREMENT_SURFACE
+            else
+              scope=MEASUREMENT_ONLY_DELTA
+            fi
+            for changed in "${measurement_changed_paths[@]}"; do
+              case "$changed" in
+                .github/workflows/gekta-speed-production-browser-baseline.yml) ;;
+                scripts/gekta-speed-browser-baseline.mjs) ;;
+                scripts/tai-speed-baseline.mjs) ;;
+                apps/web/tests/unit/taiSpeedBaseline.test.ts) ;;
+                *)
+                  echo "GEKTA_SPEED_UNSAFE_TOOLING_DELTA path=$changed" >&2
+                  exit 23
+                  ;;
+              esac
+            done
+
+            mapfile -t all_changed_paths < <(git diff --name-only "$deployed_sha..$TOOL_SHA")
+            non_measurement_delta_count=$((${#all_changed_paths[@]} - measurement_surface_delta_count))
+            ((non_measurement_delta_count >= 0)) || {
+              echo GEKTA_SPEED_DELTA_COUNT_INVARIANT_FAILED >&2
+              exit 22
+            }
+          fi
+
+          echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
+          echo "measurement_scope=$scope" >> "$GITHUB_OUTPUT"
+          echo "measurement_surface_delta_count=$measurement_surface_delta_count" >> "$GITHUB_OUTPUT"
+          echo "non_measurement_delta_count=$non_measurement_delta_count" >> "$GITHUB_OUTPUT"
+          echo "MEASUREMENT_SURFACE_DELTA_COUNT=$measurement_surface_delta_count" >> "$GITHUB_ENV"
+          echo "NON_MEASUREMENT_DELTA_COUNT=$non_measurement_delta_count" >> "$GITHUB_ENV"
+          echo "GEKTA_MEASUREMENT_TOOL_SHA=$TOOL_SHA"
+          echo "GEKTA_DEPLOYED_APPLICATION_SHA=$deployed_sha"
+          echo "GEKTA_MEASUREMENT_SCOPE=$scope"
+          echo "GEKTA_MEASUREMENT_SURFACE_DELTA_COUNT=$measurement_surface_delta_count"
+          echo "GEKTA_IGNORED_NON_MEASUREMENT_DELTA_COUNT=$non_measurement_delta_count"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install exact measurement-tool dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium runtime
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+
+      - name: Reconfirm immutable tool and deployed application before timed waves
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TOOL_SHA" ]] || {
+            echo GEKTA_MEASUREMENT_TOOL_DRIFT_BEFORE_SPEED_MEASUREMENT >&2
+            exit 24
+          }
+
+          repository_main_before="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null || true)"
+          if [[ ! "$repository_main_before" =~ ^[0-9a-f]{40}$ ]]; then
+            repository_main_before=unproven
+            echo GEKTA_REPOSITORY_MAIN_BEFORE_SPEED_MEASUREMENT_UNPROVEN
+          elif [[ "$repository_main_before" != "$TOOL_SHA" ]]; then
+            echo "GEKTA_REPOSITORY_MAIN_ADVANCED_BEFORE_SPEED_MEASUREMENT tool=$TOOL_SHA current=$repository_main_before informational=true"
+          fi
+          echo "REPOSITORY_MAIN_BEFORE=$repository_main_before" >> "$GITHUB_ENV"
+
+          manifest="$(mktemp)"
+          status="$(curl --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 --output "$manifest" --write-out '%{http_code}' \
+            "$LIVE_BASE/manifest-pc-deploy.json?gekta-speed-browser-pre=$GITHUB_RUN_ID-$(date +%s)")"
+          current_deployed="$(jq -r '.commitSha // empty' "$manifest" 2>/dev/null || true)"
+          rm -f "$manifest"
+          [[ "$status" == 200 && "$current_deployed" == "$DEPLOYED_SHA" ]] || {
+            echo "GEKTA_DEPLOYED_APP_DRIFT_BEFORE_MEASUREMENT expected=$DEPLOYED_SHA actual=${current_deployed:-unknown}" >&2
+            exit 25
+          }
+
+      - name: Reserve bounded evidence path
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          echo "BASELINE_ARTIFACT=$EVIDENCE_DIR/gekta-speed-browser-${GITHUB_RUN_ID}-tool-${TOOL_SHA}-app-${DEPLOYED_SHA}.json" >> "$GITHUB_ENV"
+
+      - name: Measure real reserve plus public SSE stream
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+          MEASUREMENT_SCOPE: ${{ steps.deployed.outputs.measurement_scope }}
+          MEASUREMENT_SURFACE_DELTA_COUNT: ${{ steps.deployed.outputs.measurement_surface_delta_count }}
+          NON_MEASUREMENT_DELTA_COUNT: ${{ steps.deployed.outputs.non_measurement_delta_count }}
+        run: |
+          set -euo pipefail
+          node scripts/gekta-speed-browser-baseline.mjs \
+            --base-url "$LIVE_BASE" \
+            --concurrency '1,2,4' \
+            --repeat '1' \
+            --locales ru,en,zh \
+            --main-sha "$DEPLOYED_SHA" \
+            --cooldown-ms 15000 \
+            --out "$BASELINE_ARTIFACT"
+
+          enriched="$(mktemp)"
+          jq \
+            --arg tool "$TOOL_SHA" \
+            --arg app "$DEPLOYED_SHA" \
+            --arg scope "$MEASUREMENT_SCOPE" \
+            --argjson measurementDelta "$MEASUREMENT_SURFACE_DELTA_COUNT" \
+            --argjson nonMeasurementDelta "$NON_MEASUREMENT_DELTA_COUNT" \
+            '.measurementAuthority = {
+                measurementToolSha: $tool,
+                deployedApplicationSha: $app,
+                scope: $scope,
+                repositoryMainAtToolResolutionSha: $tool,
+                measurementSurfaceDeltaCount: $measurementDelta,
+                ignoredNonMeasurementDeltaCount: $nonMeasurementDelta
+              }
+             | .revision.measurementToolSha = $tool
+             | .revision.deployedApplicationSha = $app
+             | .revision.repositoryMainSha = $tool
+             | .revision.attestation = (if .revision.webRevision == $app then "web_revision_matches_deployed_application" else "web_revision_does_not_match_deployed_application" end)' \
+            "$BASELINE_ARTIFACT" > "$enriched"
+          mv "$enriched" "$BASELINE_ARTIFACT"
+          echo 'MEASUREMENT_OUTCOME=timed_waves_completed' >> "$GITHUB_ENV"
+
+      - name: Reconfirm immutable deployed application after timed waves
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TOOL_SHA" ]] || {
+            echo GEKTA_MEASUREMENT_TOOL_DRIFT_DURING_SPEED_MEASUREMENT >&2
+            exit 26
+          }
+
+          repository_main_after="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null || true)"
+          if [[ ! "$repository_main_after" =~ ^[0-9a-f]{40}$ ]]; then
+            repository_main_after=unproven
+            echo GEKTA_REPOSITORY_MAIN_AFTER_SPEED_MEASUREMENT_UNPROVEN
+          elif [[ "$repository_main_after" != "$TOOL_SHA" ]]; then
+            echo "GEKTA_REPOSITORY_MAIN_ADVANCED_DURING_SPEED_MEASUREMENT tool=$TOOL_SHA current=$repository_main_after informational=true"
+          fi
+          echo "REPOSITORY_MAIN_AFTER=$repository_main_after" >> "$GITHUB_ENV"
+
+          manifest="$(mktemp)"
+          status="$(curl --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 --output "$manifest" --write-out '%{http_code}' \
+            "$LIVE_BASE/manifest-pc-deploy.json?gekta-speed-browser-post=$GITHUB_RUN_ID-$(date +%s)")"
+          current_deployed="$(jq -r '.commitSha // empty' "$manifest" 2>/dev/null || true)"
+          rm -f "$manifest"
+          [[ "$status" == 200 && "$current_deployed" == "$DEPLOYED_SHA" ]] || {
+            echo "GEKTA_DEPLOYED_APP_DRIFT_DURING_MEASUREMENT expected=$DEPLOYED_SHA actual=${current_deployed:-unknown}" >&2
+            exit 27
+          }
+
+          enriched="$(mktemp)"
+          jq \
+            --arg before "${REPOSITORY_MAIN_BEFORE:-unproven}" \
+            --arg after "$repository_main_after" \
+            --arg tool "$TOOL_SHA" \
+            '.measurementAuthority.repositoryMainBeforeTimedWavesSha = $before
+             | .measurementAuthority.repositoryMainAfterTimedWavesSha = $after
+             | .measurementAuthority.repositoryMainAdvancedDuringMeasurement =
+                 ($before != "unproven" and $after != "unproven" and $after != $tool)' \
+            "$BASELINE_ARTIFACT" > "$enriched"
+          mv "$enriched" "$BASELINE_ARTIFACT"
+          echo 'MEASUREMENT_OUTCOME=passed' >> "$GITHUB_ENV"
+
+      - name: Build bounded human summary
+        if: always()
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+          MEASUREMENT_SCOPE: ${{ steps.deployed.outputs.measurement_scope }}
+        run: |
+          set -euo pipefail
+          summary="$RUNNER_TEMP/gekta-speed-browser-summary.txt"
+          if [[ -f "${BASELINE_ARTIFACT:-}" ]]; then
+            view="$(mktemp)"
+            jq --arg app "$DEPLOYED_SHA" \
+              '.revision.repositoryMainSha = $app
+               | .revision.attestation = (if .revision.webRevision == $app then "web_revision_matches_main" else "web_revision_proven_not_matching_main" end)' \
+              "$BASELINE_ARTIFACT" > "$view"
+            {
+              echo "measurement tool SHA: $TOOL_SHA"
+              echo "deployed application revision: $DEPLOYED_SHA"
+              echo "measurement authority scope: $MEASUREMENT_SCOPE"
+              echo "measurement surface delta count: ${MEASUREMENT_SURFACE_DELTA_COUNT:-unproven}"
+              echo "ignored non-measurement delta count: ${NON_MEASUREMENT_DELTA_COUNT:-unproven}"
+              echo "repository main before timed waves: ${REPOSITORY_MAIN_BEFORE:-unproven}"
+              echo "repository main after timed waves: ${REPOSITORY_MAIN_AFTER:-unproven}"
+              echo "production authority remains the unchanged deployed application SHA"
+              echo "measurement outcome: ${MEASUREMENT_OUTCOME:-unknown}"
+              node scripts/gekta-speed-browser-baseline.mjs --summarize "$view" \
+                | sed -e 's/^repository main:/deployed application authority:/' \
+                      -e 's/web_revision_matches_main/web_revision_matches_deployed_application/g' \
+                      -e 's/EXACT_MAIN_BEFORE=/EXACT_DEPLOYED_APPLICATION_BEFORE=/'
+            } | tee "$summary"
+            rm -f "$view"
+          else
+            echo 'MEASUREMENT_FAILED_NO_ARTIFACT' | tee "$summary"
+          fi
+          echo "SUMMARY_FILE=$summary" >> "$GITHUB_ENV"
+
+      - name: Publish SPEED evidence marker
+        if: always()
+        env:
+          TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+          MEASUREMENT_SCOPE: ${{ steps.deployed.outputs.measurement_scope }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/issue-comment.md"
+          {
+            echo '## Gekta P0 SPEED browser baseline'
+            echo
+            echo "- measurement tool SHA: \`$TOOL_SHA\`"
+            echo "- deployed application revision: \`$DEPLOYED_SHA\`"
+            echo "- measurement authority scope: \`$MEASUREMENT_SCOPE\`"
+            echo "- measurement surface delta count: \`${MEASUREMENT_SURFACE_DELTA_COUNT:-unproven}\`"
+            echo "- ignored non-measurement delta count: \`${NON_MEASUREMENT_DELTA_COUNT:-unproven}\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo "- measurement outcome: \`${MEASUREMENT_OUTCOME:-unknown}\`"
+            echo '- timing boundary: `reserveAnswer + /api/agro-chat stream`'
+            echo '- initial entitlement bootstrap/consent: `outside timed send path`'
+            echo '- repository `main` movement after tool pinning: `informational only`'
+            echo '- production authority: `unchanged deployed application SHA`'
+            echo '- production configuration mutation: `NONE`'
+            echo
+            echo '```text'
+            sed -n '1,160p' "$SUMMARY_FILE"
+            echo '```'
+          } > "$body"
+          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+
+      - name: Upload bounded speed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gekta-speed-browser-${{ github.run_id }}-tool-${{ steps.authority.outputs.tool_sha }}-app-${{ steps.deployed.outputs.deployed_sha }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: warn
+          retention-days: 30

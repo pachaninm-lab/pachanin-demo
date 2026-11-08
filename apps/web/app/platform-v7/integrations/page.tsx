@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
+import { isAppLocale } from '@/i18n/locale';
 import { IntegrationControlTowerClient } from '@/components/crop-platform/IntegrationControlTowerClient';
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import styles from './integrations.module.css';
@@ -17,7 +18,14 @@ export const metadata: Metadata = {
 export default async function IntegrationsPage() {
   const cookieStore = await cookies();
   if (!cookieStore.get(ACCESS_COOKIE)?.value) {
-    redirect('/platform-v7/login?next=%2Fplatform-v7%2Fintegrations');
+    const requestHeaders = await headers();
+    const search = requestHeaders.get('x-pc-search') || '';
+    const queryLocale = new URLSearchParams(search).get('lang');
+    const target = new URLSearchParams({
+      next: `/platform-v7/integrations${search}`,
+    });
+    if (isAppLocale(queryLocale)) target.set('lang', queryLocale);
+    redirect(`/platform-v7/login?${target.toString()}`);
   }
   return (
     <main

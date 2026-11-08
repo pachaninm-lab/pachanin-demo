@@ -3,6 +3,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { KycService } from './kyc.service';
+import {
+  InitiateKycDto,
+  RknIncidentDto,
+  TransactionAmlCheckDto,
+  VerifyInnDto,
+  VerifyOrganizationDto,
+} from './dto/kyc.dto';
 
 @Controller('api/kyc')
 @UseGuards(JwtAuthGuard)
@@ -11,12 +18,7 @@ export class KycController {
 
   @Post('verify')
   verify(
-    @Body() body: {
-      inn: string;
-      organizationName?: string;
-      bik?: string;
-      bankAccount?: string;
-    },
+    @Body() body: VerifyOrganizationDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.kyc.verifyOrganization({ ...body, requestingUserId: user.id });
@@ -24,25 +26,14 @@ export class KycController {
 
   @Post('transaction/aml-check')
   checkTransactionAml(
-    @Body() body: {
-      transactionId: string;
-      amountKopecks: number;
-      payerInn?: string;
-      receiverInn?: string;
-      dealId?: string;
-    },
+    @Body() body: TransactionAmlCheckDto,
   ) {
     return this.kyc.checkTransactionAml(body);
   }
 
   @Post('initiate')
   initiate(
-    @Body() body: {
-      organizationId: string;
-      inn: string;
-      documentType?: string;
-      notes?: string;
-    },
+    @Body() body: InitiateKycDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.kyc.initiateKyc(body, user);
@@ -55,14 +46,7 @@ export class KycController {
 
   @Post('rkn-incident')
   generateRknNotification(
-    @Body() body: {
-      incidentType: string;
-      description: string;
-      affectedSubjectsCount: number;
-      detectedAt: string;
-      reporterFullName: string;
-      reporterPosition: string;
-    },
+    @Body() body: RknIncidentDto,
   ) {
     return this.kyc.generateRknIncidentNotification(body);
   }
@@ -73,7 +57,7 @@ export class KycController {
   }
 
   @Post('verify-inn')
-  verifyInn(@Body() body: { inn: string; ogrn?: string }) {
+  verifyInn(@Body() body: VerifyInnDto) {
     return this.kyc.verifyInn(body.inn, body.ogrn);
   }
 }

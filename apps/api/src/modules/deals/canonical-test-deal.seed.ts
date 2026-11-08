@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { PASSWORD_BCRYPT_COST } from '../auth/password-hashing';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { PersistentAuthRepository } from '../auth/persistent-auth.repository';
 import { Role } from '../../common/types/request-user';
@@ -275,7 +276,7 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
   }
 
   private async seedPersistentIdentitiesMembershipsAndParticipants(): Promise<void> {
-    const passwordHash = bcrypt.hashSync(TEST_PASSWORD, 10);
+    const passwordHash = bcrypt.hashSync(TEST_PASSWORD, PASSWORD_BCRYPT_COST);
 
     for (const identity of identities) {
       await this.prisma.$transaction(async (tx) => {

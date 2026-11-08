@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-owner-login-diagnostic-3785",
+  "status": "active",
+  "operationalStatus": "P0_OWNER_LOGIN_DENIAL_READ_ONLY_DIAGNOSTIC",
+  "purpose": "Classify the sole owner/reviewer's already completed ordinary control-plane login denial in a fixed five-minute UTC window by combining allowlisted web denial counts with auth-session-bound audit aggregates and throttle state without replaying login, password reset or recovery and without exposing identity, account hash or protected values.",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "authorityBaseExactMain": "ee1fbecac8ae301102e451b78351a0e51ebe2060",
+  "productionRuntimePolicy": "API_WEB_MUST_EQUAL_REVIEWED_RUNTIME_BASE_WITH_EXACT_RUNTIME_NEUTRAL_MAIN_DELTA",
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-owner-login-denial-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-owner-login-denial-diagnostic-3785.json",
+    "scripts/check-production-p0-owner-login-denial-diagnostic.mjs",
+    "scripts/production-p0-owner-login-denial-diagnostic.sh"
+  ],
+  "runtimeNeutralDeltaAllowlist": [
+    ".github/workflows/production-p0-owner-login-denial-diagnostic.yml",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/support/acceptance-login.ts",
+    "docs/platform-v7/autopilot/scopes/design-v8-acceptance-csrf-faq-4503.json",
+    "docs/platform-v7/autopilot/scopes/production-p0-owner-login-denial-diagnostic-3785.json",
+    "scripts/check-production-p0-owner-login-denial-diagnostic.mjs",
+    "scripts/production-p0-owner-login-denial-diagnostic.sh"
+  ],
+  "boundaries": {
+    "ownerOnly": true,
+    "trustedConnectorAllowed": true,
+    "exactMainGuard": true,
+    "pinnedSsh": true,
+    "fixedAttemptWindowUtc": "2026-08-22T18:04:00Z/2026-08-22T18:08:59Z",
+    "deployedRuntimeBase": "ee1fbecac8ae301102e451b78351a0e51ebe2060",
+    "runtimeNeutralDeltaOnly": true,
+    "productionMutation": "NONE",
+    "databaseTransactionReadOnly": true,
+    "loginReplay": false,
+    "passwordResetOrRecovery": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "roleOrMembershipMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "The PR changes only the four declared diagnostic files.",
+    "The issue command is accepted only from the repository owner or the trusted connector acting for that owner.",
+    "The command checks out exact current main and proves that every path since the deployed runtime base is in the reviewed runtime-neutral allowlist.",
+    "The active API and Web containers must both equal the reviewed runtime base, be healthy or running, and every exact-current-main delta path must pass the runtime-neutral allowlist.",
+    "Only allowlisted control-plane denial classes, owner-bound audit classes, bounded counts and throttle state are published.",
+    "No email, user ID, account hash, IP, password, TOTP, cookie, token, database URL, runtime secret or raw log line is published.",
+    "No login, password reset, recovery, session, MFA, role, membership, deploy, DNS or SSH-pin mutation occurs.",
+    "The diagnostic emits PRODUCTION_MUTATION=NONE and new recurring cost remains 0 RUB."
+  ]
+}

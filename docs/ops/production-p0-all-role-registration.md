@@ -4,7 +4,7 @@ This runbook closes issue #3785 only when the canonical REG.RU production system
 
 ## Command and prerequisite
 
-The repository owner starts the matrix on release issue #3072 with:
+Issue #3072 remains the legacy historical authority. The repository owner starts the bounded remaining matrix on successor issue #4637 with:
 
 ```text
 /production p0-all-role-registration current-main
@@ -16,9 +16,11 @@ The protected `PC_PROD_HOST` must be one of the production domain's current IPv4
 
 The reviewer decision rate window from the deep prerequisite is allowed to expire before new registrations begin. The runner checks that `main` has not moved throughout that wait and throughout every subsequent external action.
 
+Registration remains fail-closed under the production IP rate limiter. Only an HTTP `429` response with the exact `RATE_LIMITED` contract and a bounded integer `retryAfterSeconds` is retried. The runner waits for that server-provided interval while continuously guarding exact `main`, keeps the same idempotency key, and permits at most four retries. Every malformed rate-limit response or any other non-`202` result is a terminal failure.
+
 ## Human reviewer ceremony
 
-GitHub Actions receives no reviewer email, password, TOTP seed, one-time code, cookie, token or staff session. When the eight new-organization applications are ready, the workflow posts only an aggregate count and the non-personal legal-name marker to issue #3072.
+GitHub Actions receives no reviewer email, password, TOTP seed, one-time code, cookie, token or staff session. When the eight new-organization applications are ready, the workflow posts only an aggregate count and the non-personal legal-name marker to the validated triggering authority issue #4637.
 
 The existing production PLATFORM_OWNER must use the ordinary production browser:
 

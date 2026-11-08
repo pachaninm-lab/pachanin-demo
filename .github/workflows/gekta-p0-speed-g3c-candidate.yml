@@ -1,0 +1,264 @@
+name: Gekta P0 SPEED G3C Ubatch Candidate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3c-candidate.yml'
+      - 'scripts/gekta-qwen-g3c-runtime.py'
+      - 'scripts/gekta-qwen-g3c-runtime-v2.py'
+      - 'scripts/gekta-qwen-g3c-bootstrap.sh'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3c-ubatch512-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3c-candidate
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove one-factor helper and installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/gekta-qwen-g3c-runtime-v2.py self-test | tee "$RUNNER_TEMP/g3c-self-test"
+          grep -qx 'GEKTA_G3C_SELF_TEST=PASS' "$RUNNER_TEMP/g3c-self-test"
+          grep -qx 'GEKTA_G3C_SWAP_GATE_SELF_TEST=PASS' "$RUNNER_TEMP/g3c-self-test"
+          python3 -m py_compile scripts/gekta-qwen-g3c-runtime.py scripts/gekta-qwen-g3c-runtime-v2.py
+          bash -n scripts/gekta-qwen-g3c-bootstrap.sh
+      - name: Prove bounded authority contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const workflow = fs.readFileSync('.github/workflows/gekta-p0-speed-g3c-candidate.yml', 'utf8');
+          const bootstrap = fs.readFileSync('scripts/gekta-qwen-g3c-bootstrap.sh', 'utf8');
+          const runtime = fs.readFileSync('scripts/gekta-qwen-g3c-runtime.py', 'utf8');
+          const wrapper = fs.readFileSync('scripts/gekta-qwen-g3c-runtime-v2.py', 'utf8');
+          for (const forbidden of ['PC_PROD_SSH_KEY','PC_PROD_SSH_PRIVATE_KEY','VPS_SSH_KEY','TAI_MODEL_ROOT_SSH_KEY']) {
+            if (workflow.includes(`secrets.${forbidden}`)) throw new Error(`forbidden credential: ${forbidden}`);
+          }
+          for (const required of [
+            'secrets.TAI_MODEL_SSH_KEY','secrets.TAI_MODEL_SSH_HOST_KEY','StrictHostKeyChecking=yes',
+            'github.event.issue.number == 3896','/gekta speed-g3c probe current-main',
+            'GEKTA_G3C_PROBE_ENV_LLAMA_UBATCH_CLASS','GEKTA_G3C_PROBE_ENV_LD_PRELOAD_PRESENT'
+          ]) {
+            if (!workflow.includes(required)) throw new Error(`missing transport/authority control: ${required}`);
+          }
+          const sudoers = 'Cmnd_Alias GEKTA_QWEN_G3C = /usr/local/sbin/gekta-qwen-g3c ubatch512, /usr/local/sbin/gekta-qwen-g3c rollback, /usr/local/sbin/gekta-qwen-g3c status';
+          if (!bootstrap.includes(sudoers)) throw new Error('exact sudoers allowlist missing');
+          for (const forbidden of ['NOPASSWD: ALL','ALL=(ALL)','SETENV:','sudo -s','sudo bash','sudo sh']) {
+            if (bootstrap.includes(forbidden)) throw new Error(`broad privilege: ${forbidden}`);
+          }
+          for (const required of [
+            '"threads": b"16"','"threads_batch": b"16"','"parallel": b"1"','"ctx_size": b"8192"',
+            '"batch_size": b"512"','"ubatch_size": b"128"',
+            '_replace_flag(argv, "ubatch_size", b"128", b"512")',
+            '100-gekta-g3c.conf','MIN_MEM_AVAILABLE_KB = 3 * 1024 * 1024','GEKTA_G3C_AUTO_ROLLBACK'
+          ]) if (!runtime.includes(required)) throw new Error(`missing G3C invariant: ${required}`);
+          for (const required of ['_process_swap_kb', 'VmSwap:', 'base._mem_facts = _model_mem_facts', 'GEKTA_G3C_SWAP_GATE_SELF_TEST=PASS']) {
+            if (!wrapper.includes(required)) throw new Error(`missing process-scoped swap invariant: ${required}`);
+          }
+          if (!bootstrap.includes('/usr/local/libexec/gekta-qwen-g3c-base.py')) throw new Error('audited base install missing');
+          const probeBegin = '# G3C_' + 'PROBE_READ_ONLY_BEGIN';
+          const probeEnd = '# G3C_' + 'PROBE_READ_ONLY_END';
+          if (workflow.split(probeBegin).length !== 2 || workflow.split(probeEnd).length !== 2) {
+            throw new Error('read-only probe markers invalid');
+          }
+          const probeBlock = workflow.split(probeBegin)[1].split(probeEnd)[0];
+          for (const forbidden of ['sudo ', 'systemctl restart', 'systemctl start', 'systemctl stop', 'kill ', 'pkill ']) {
+            if (probeBlock.includes(forbidden)) throw new Error(`read-only probe gained mutation authority: ${forbidden}`);
+          }
+          NODE
+          GITHUB_HEAD_REF=fix/gekta-g3c-process-swap-gate-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+
+  candidate:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        github.event.comment.body == '/gekta speed-g3c ubatch512 current-main' ||
+        github.event.comment.body == '/gekta speed-g3c rollback current-main' ||
+        github.event.comment.body == '/gekta speed-g3c status current-main' ||
+        github.event.comment.body == '/gekta speed-g3c probe current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact main and fixed action
+        id: target
+        env:
+          COMMAND: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" == "$(git rev-parse HEAD)" && "$sha" =~ ^[0-9a-f]{40}$ ]]
+          case "$COMMAND" in
+            '/gekta speed-g3c ubatch512 current-main') action=ubatch512 ;;
+            '/gekta speed-g3c rollback current-main') action=rollback ;;
+            '/gekta speed-g3c status current-main') action=status ;;
+            '/gekta speed-g3c probe current-main') action=probe ;;
+            *) exit 20 ;;
+          esac
+          helper_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime-v2.py | awk '{print $1}')"
+          base_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime.py | awk '{print $1}')"
+          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ && "$base_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "helper_sha=$helper_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi
+            done
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"; user="$(trim "${MODEL_USER_SECRET:-}")"; port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || { echo 'TAI_MODEL_SSH_KEY is required.' >&2; exit 21; }
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"; [[ -n "$pin" ]] || exit 22
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"; pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || { echo 'model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY' >&2; exit 22; }
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"; chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Verify installed helper and execute exact command
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.target.outputs.base_sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST")
+          remote_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3c 2>/dev/null' | awk '{print $1}' || true)"
+          remote_base_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py 2>/dev/null' | awk '{print $1}' || true)"
+          if [[ ! "$remote_sha" =~ ^[0-9a-f]{64}$ || ! "$remote_base_sha" =~ ^[0-9a-f]{64}$ ]]; then echo 'GEKTA_G3C_ERROR=bootstrap_required' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 30; fi
+          [[ "$remote_sha" == "$EXPECTED_HELPER_SHA" ]] || { echo 'GEKTA_G3C_ERROR=bootstrap_helper_sha_mismatch' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 31; }
+          [[ "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || { echo 'GEKTA_G3C_ERROR=bootstrap_base_sha_mismatch' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 31; }
+          case "$ACTION" in ubatch512|rollback|status|probe) ;; *) exit 32 ;; esac
+
+          # G3C_PROBE_READ_ONLY_BEGIN
+          if [[ "$ACTION" == probe ]]; then
+            set +e
+            "${ssh_base[@]}" /bin/bash -s > "$RUNNER_TEMP/g3c-raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          service=tai-qwen3-8b.service
+          systemctl is-active --quiet "$service"
+          pid="$(systemctl show "$service" --property=MainPID --value)"
+          [[ "$pid" =~ ^[1-9][0-9]*$ ]]
+          python3 - "$pid" "$service" <<'PY'
+          import hashlib, pathlib, re, subprocess, sys
+          pid=int(sys.argv[1]); service=sys.argv[2]
+          proc=pathlib.Path(f'/proc/{pid}')
+          raw_cmd=proc.joinpath('cmdline').read_bytes()
+          argv=[x for x in raw_cmd.split(b'\0') if x]
+          env={}
+          for entry in proc.joinpath('environ').read_bytes().split(b'\0'):
+              if entry and b'=' in entry:
+                  k,v=entry.split(b'=',1); env[k]=v
+          status=proc.joinpath('status').read_text(encoding='ascii')
+          match=re.search(r'^PPid:\s+(\d+)$',status,re.MULTILINE)
+          ppid=int(match.group(1)) if match else -1
+          cgroup=proc.joinpath('cgroup').read_text(encoding='utf-8',errors='replace')
+          exe=proc.joinpath('exe').resolve(strict=True)
+          hits=[]
+          for i,token in enumerate(argv):
+              for alias in (b'--ubatch-size',b'-ub'):
+                  if token==alias and i+1<len(argv): hits.append(argv[i+1])
+                  elif token.startswith(alias+b'='): hits.append(token[len(alias)+1:])
+          ubatch=hits[0] if len(hits)==1 else b''
+          def klass(key,allowed):
+              if key not in env: return 'ABSENT'
+              value=env[key]
+              return value.decode('ascii') if value in allowed else 'OTHER'
+          app=env.get(b'LLAMA_APP_CMD')
+          app_class='ABSENT' if app is None else ('SERVER' if app in {b'server',b'serve'} else 'OTHER')
+          restart=subprocess.run(['systemctl','show',service,'--property=Restart','--value'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,timeout=5,check=False,env={'PATH':'/usr/bin:/bin','LC_ALL':'C'}).stdout.strip()
+          print('GEKTA_G3C_PROBE_SERVICE_ACTIVE=1')
+          print('GEKTA_G3C_PROBE_PPID='+str(ppid))
+          print('GEKTA_G3C_PROBE_PPID_IS_1='+str(int(ppid==1)))
+          print('GEKTA_G3C_PROBE_CGROUP_SERVICE_MATCH='+str(int(service in cgroup)))
+          print('GEKTA_G3C_PROBE_ARG_UBATCH='+(ubatch.decode('ascii') if re.fullmatch(rb'[0-9]+',ubatch) else 'INVALID'))
+          print('GEKTA_G3C_PROBE_ENV_LLAMA_UBATCH_CLASS='+klass(b'LLAMA_ARG_UBATCH',{b'128',b'512'}))
+          print('GEKTA_G3C_PROBE_ENV_LLAMA_BATCH_CLASS='+klass(b'LLAMA_ARG_BATCH',{b'128',b'512',b'2048'}))
+          print('GEKTA_G3C_PROBE_ENV_LD_PRELOAD_PRESENT='+str(int(b'LD_PRELOAD' in env)))
+          print('GEKTA_G3C_PROBE_ENV_LD_LIBRARY_PATH_PRESENT='+str(int(b'LD_LIBRARY_PATH' in env)))
+          print('GEKTA_G3C_PROBE_ENV_LLAMA_APP_CMD_CLASS='+app_class)
+          print('GEKTA_G3C_PROBE_CMDLINE_SHA256='+hashlib.sha256(raw_cmd).hexdigest())
+          print('GEKTA_G3C_PROBE_EXE_SHA256='+hashlib.sha256(exe.read_bytes()).hexdigest())
+          print('GEKTA_G3C_PROBE_RESTART_POLICY='+(restart if re.fullmatch(r'[A-Za-z0-9_.:-]+',restart) else 'INVALID'))
+          print('GEKTA_G3C_PROBE_RESULT=PASS')
+          PY
+          REMOTE
+            rc=$?
+            set -e
+          # G3C_PROBE_READ_ONLY_END
+          else
+            set +e
+            "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3c $ACTION" > "$RUNNER_TEMP/g3c-raw" 2>&1
+            rc=$?
+            set -e
+          fi
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/g3c-raw" > "$RUNNER_TEMP/g3c-result" || true
+          [[ -s "$RUNNER_TEMP/g3c-result" ]] || echo 'GEKTA_G3C_ERROR=bounded_evidence_missing' > "$RUNNER_TEMP/g3c-result"
+          cat "$RUNNER_TEMP/g3c-result"; exit "$rc"
+      - name: Publish bounded G3C evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          { echo '## Gekta P0 SPEED G3C ubatch controller'; echo; echo "- exact repository main: \`$TARGET_SHA\`"; echo "- workflow run: \`$GITHUB_RUN_ID\`"; echo "- action: \`$ACTION\`"; echo '- transport: `DEDICATED_MODEL_SSH_PINNED_HOST`'; echo '- root SSH credential in GitHub: `NONE`'; echo '- raw argv/environment disclosure: `NONE`'; echo; echo '```text'; if [[ -s "$RUNNER_TEMP/g3c-result" ]]; then cat "$RUNNER_TEMP/g3c-result"; else echo 'GEKTA_G3C_ERROR=execution_not_reached'; fi; echo '```'; } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"

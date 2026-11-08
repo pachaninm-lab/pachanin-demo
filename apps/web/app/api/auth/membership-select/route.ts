@@ -7,6 +7,7 @@ import {
   platformHome,
   type AuthenticatedSessionPayload,
 } from '../../../../lib/server/auth-session-response';
+import { isControlHostRequest } from '../../../../lib/platform-v7/control-host';
 import {
   MEMBERSHIP_SELECTION_COOKIE,
   clearMembershipSelectionCookieOptions,
@@ -44,8 +45,12 @@ function clearSelection(response: NextResponse) {
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
-  if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
+  if (!csrf.ok) {
+    if (controlPlane) console.warn('control_plane_membership_denied', JSON.stringify({ correlationId, reason: 'csrf' }));
+    return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
+  }
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const membershipId = String(body.membershipId || '').trim();
   const challengeToken = (await cookies()).get(MEMBERSHIP_SELECTION_COOKIE)?.value || '';
@@ -71,6 +76,7 @@ export async function POST(request: Request) {
     if (!apiResponse.ok) {
       const response = json({ ok: false, code: 'MEMBERSHIP_SELECTION_INVALID', message: UNIVERSAL_ERROR, correlationId }, 401);
       clearSelection(response);
+      if (controlPlane) console.warn('control_plane_membership_denied', JSON.stringify({ correlationId, reason: 'selection' }));
       return response;
     }
 
@@ -120,15 +126,21 @@ export async function POST(request: Request) {
     const response = json({
       ok: true,
       mfaRequired: false,
-      redirectTo: platformHome(role, payload.user.isOrgAdmin === true),
+      redirectTo: controlPlane ? '/platform-v7/staff' : platformHome(role, payload.user.isOrgAdmin === true),
       correlationId,
     });
-    const applied = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
+    const applied = await applyAuthenticatedSession(
+      response,
+      payload as AuthenticatedSessionPayload,
+      { controlPlane },
+    );
     if (!applied) return json({ ok: false, code: 'SESSION_CONFIGURATION_ERROR', message: UNIVERSAL_ERROR, correlationId }, 503);
     response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
     clearSelection(response);
+    if (controlPlane) console.info('control_plane_membership_success', JSON.stringify({ correlationId }));
     return response;
-  } catch {
+  } catch (error) {
+    if (controlPlane) console.error('control_plane_membership_failure', JSON.stringify({ correlationId, reason: error instanceof Error ? error.name : 'unknown' }));
     return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
   }
 }

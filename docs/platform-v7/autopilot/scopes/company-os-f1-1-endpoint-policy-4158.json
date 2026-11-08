@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "company-os/f1-1-endpoint-policy-4158",
+  "status": "active",
+  "purpose": "Implement Company OS F1.1: one machine-verifiable authorization and audit classification for every /staff endpoint, fail CI on omissions or contradictions, and close the registration review list session-boundary gap without creating new standing privilege.",
+  "authorityBaseExactMain": "9bcf73cc4f8f3773a03d197768f9d7be0c4d5f9f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/staff-access/staff-endpoint-policy.ts",
+    "apps/api/src/modules/staff-access/staff-endpoint-policy.spec.ts",
+    "apps/api/src/modules/staff-access/staff-access.controller.ts",
+    "apps/api/src/modules/staff-access/registration-decision-session-boundary.spec.ts",
+    "docs/company-os/truth-audit-f1-1.md"
+  ],
+  "requiredInvariants": [
+    "Every route exposed by StaffAccessController, StaffCapabilitiesController and StaffWorkspaceController has exactly one source-controlled authorization class and one audit class.",
+    "The classification gate is server-side source authority and is verified against actual Nest route, guard, mode and permission metadata.",
+    "Actor-only authority discovery remains usable before a privileged staff access session exists and cannot accept cross-user, tenant or organization selectors.",
+    "Actor-owned access request, grant activation and own-session termination remain self-governance operations and cannot target another actor.",
+    "Break-glass lifecycle remains a distinct emergency class and is never downgraded to ordinary self-mutation classification.",
+    "Privileged routes retain StaffAccessGuard, explicit StaffAccessMode and exact StaffPermission boundaries.",
+    "The registration application review list is brought behind an active CONTROL_PLANE session with STAFF_REQUEST_READ; durable role-ceiling checks alone are not accepted as the privileged session boundary.",
+    "No new staff role or permission is introduced.",
+    "No database schema, migration, Caddy, DNS, Compose, secret or production mutation is included.",
+    "Merge, CI and image build are not production deployment evidence."
+  ],
+  "acceptance": [
+    "The registry/checker enumerates all current /staff routes and fails on missing or duplicate classification.",
+    "The checker fails when a privileged classification disagrees with actual guard, mode or permission metadata.",
+    "The checker fails when a self-authority route contains dynamic target selectors or is widened beyond its exact actor-only path.",
+    "Critical and emergency routes cannot be classified as standard reads or ordinary mutations.",
+    "Registration review list and decision both require current CONTROL_PLANE session authority with their exact permissions.",
+    "Negative fixtures prove an unclassified endpoint and contradictory policy are rejected.",
+    "Exact-head API typecheck, unit tests, RLS, security and CI pass before merge.",
+    "No new recurring cost is introduced."
+  ]
+}

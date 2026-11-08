@@ -1,0 +1,124 @@
+name: Production P0 Auth-Principal Read-Only Invariant Diagnostic v3
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-principal-invariant-diagnostic-v3-3785.yml'
+      - 'scripts/production-p0-auth-principal-invariant-diagnostic-v3-3785.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  DIAGNOSTIC_V3_COMMAND: /production p0-auth-principal-invariant-diagnostic-v3 280c
+
+jobs:
+  contract:
+    name: Validate granular auth-principal read-only boundary
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-auth-principal-invariant-diagnostic-v3 280c'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'main' }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate immutable granular read-only classifier
+        env:
+          PC_P0_AUTH_PRINCIPAL_V3_VALIDATE_ONLY: '1'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          wrapper='scripts/production-p0-auth-principal-invariant-diagnostic-v3-3785.sh'
+          core='scripts/production-p0-first-customer-preflight-diagnostic-3785.sh'
+          bash -n "$wrapper"
+          python3 - "$wrapper" "$core" <<'PY'
+          from pathlib import Path
+          import sys
+          wrapper = Path(sys.argv[1]).read_text(encoding='utf-8')
+          core = Path(sys.argv[2]).read_text(encoding='utf-8')
+          required_wrapper = [
+              "EXPECTED_CORE_BLOB='3e6e1b2cc5eb2f79c331f027d01e196df956154d'",
+              'AUTH_ERR_TRAP_SUSPEND', 'AUTH_ERR_TRAP_RESTORE',
+              'ADMIN_ERR_TRAP_SUSPEND', 'ADMIN_ERR_TRAP_RESTORE',
+              'AUTH_PRINCIPAL_GRANULAR_CLASSIFIER',
+              'P0_AUTH_PRINCIPAL_ROW_MISSING',
+              'P0_AUTH_PRINCIPAL_ROLE_UNEXPECTED',
+              'P0_AUTH_PRINCIPAL_SUPERUSER_INVALID',
+              'P0_AUTH_PRINCIPAL_BYPASSRLS_INVALID',
+              'P0_AUTH_SCHEMA_USAGE_MISSING',
+              'P0_AUTH_MEMBERSHIP_SELECT_MISSING',
+              'P0_AUTH_MEMBERSHIP_TABLE_ROW_MISSING',
+              'P0_AUTH_MEMBERSHIP_RLS_DISABLED',
+              'P0_AUTH_MEMBERSHIP_FORCE_RLS_DISABLED',
+              "export PC_P0_PREFLIGHT_DIAGNOSTIC_COMMAND='/production p0-first-customer-preflight-diagnostic 280c'",
+              'PC_P0_AUTH_PRINCIPAL_V3_VALIDATE_ONLY',
+          ]
+          missing = [value for value in required_wrapper if value not in wrapper]
+          if missing:
+              raise SystemExit('missing v3 invariant: ' + ' | '.join(missing))
+          required_core = ['SET TRANSACTION READ ONLY', 'PRODUCTION_MUTATION', 'NONE']
+          missing_core = [value for value in required_core if value not in core]
+          if missing_core:
+              raise SystemExit('core read-only invariant missing: ' + ' | '.join(missing_core))
+          combined = wrapper + '\n' + core
+          forbidden = [
+              'docker compose up', 'docker compose down', 'docker restart', 'docker rm',
+              'docker run', '--force-recreate', 'prisma migrate', 'prisma db execute',
+              'curl -X POST', 'curl --request POST', 'INSERT INTO', 'UPDATE auth.',
+              'DELETE FROM', 'TRUNCATE TABLE', 'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE',
+              'GRANT ', 'REVOKE ', 'gh secret set', 'gh variable set', 'set -x',
+          ]
+          bad = [value for value in forbidden if value in combined]
+          if bad:
+              raise SystemExit('mutation surface forbidden: ' + ' | '.join(bad))
+          PY
+          bash "$wrapper"
+
+  diagnostic:
+    name: Identify exact auth-principal invariant without mutation
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-principal-invariant-diagnostic-v3 280c'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Execute granular bounded read-only classifier
+        shell: bash
+        run: bash scripts/production-p0-auth-principal-invariant-diagnostic-v3-3785.sh

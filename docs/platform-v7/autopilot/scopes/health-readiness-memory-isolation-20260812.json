@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "health-readiness-memory-isolation-20260812",
+  "branch": "claude/health-readiness-memory-isolation",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "d44bd8ef0473d11b973d700994a1e3bc7a0ac450"
+  },
+  "purpose": "Node CI на exact-main падал на двух тестах готовности: их предмет — PostgreSQL и outbox, но результат зависел от того, сколько памяти занял runner. heapUsed переваливал за производственный порог 900 МБ, и readiness возвращала degraded вместо ready. Память в этих тестах фиксируется детерминированно, а сам порог закрывается отдельными граничными тестами. Производственная семантика готовности не меняется.",
+  "allowedPaths": [
+    "apps/api/src/health.controller.spec.ts",
+    "docs/platform-v7/autopilot/scopes/health-readiness-memory-isolation-20260812.json"
+  ],
+  "forbiddenChanges": [
+    "изменение производственного порога памяти в health.controller.ts",
+    "удаление memory health check",
+    "ослабление readiness ради зелёного CI",
+    "любое изменение apps/api/src/health.controller.ts"
+  ],
+  "requiredChecks": [
+    "Node CI",
+    "Outbox PostgreSQL Authority Acceptance",
+    "api typecheck и полный jest",
+    "exact-head CI"
+  ],
+  "deploymentState": "not-deployed"
+}

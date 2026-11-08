@@ -8,12 +8,12 @@ describe('public Gekta domain copy', () => {
   it('renders the canonical Gekta identity directly in RU, EN and ZH', () => {
     expect(source).toContain("open: 'Спросить Гекту'");
     expect(source).toContain("title: 'Гекта'");
-    expect(source).toContain("subtitle: 'Аграрный интеллект для земли, урожая и решений.'");
+    expect(source).toContain("subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»'");
     expect(source).toContain("open: 'Ask Gekta'");
     expect(source).toContain("title: 'Gekta'");
-    expect(source).toContain("subtitle: 'Agricultural intelligence for land, crops and decisions.'");
+    expect(source).toContain("subtitle: 'AI for farming and agribusiness by Prozrachnaya Tsena'");
     expect(source).toContain("open: '询问 Gekta'");
-    expect(source).toContain("subtitle: '服务于土地、作物与决策的农业智能。'");
+    expect(source).toContain("subtitle: '“透明价格”推出的农业与农业经营 AI'");
   });
 
   it('keeps the agricultural composer scope and removes legacy public identity copy', () => {

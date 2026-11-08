@@ -429,6 +429,78 @@ function topicById(id: PublicAssistantTopicId): TopicDefinition {
   return TOPICS.find((topic) => topic.id === id) ?? TOPICS[0];
 }
 
+/** Practical entry questions; platform detail remains in contextual follow-ups. */
+export const PUBLIC_ASSISTANT_STARTER_PROMPTS: Readonly<Record<PublicAssistantLocale, readonly string[]>> = {
+  ru: ['Продавать урожай сейчас или подождать?', 'Как выбрать покупателя и не остаться без оплаты?', 'Как избежать потерь при приёмке зерна?'],
+  en: ['Should I sell my harvest now or wait?', 'How can I choose a buyer and reduce non-payment risk?', 'How can I avoid losses during grain acceptance?'],
+  zh: ['现在卖粮还是再等等？', '如何选择买家并降低收不到货款的风险？', '如何避免粮食验收时的损失？'],
+};
+
+
+const FARMER_STARTER_ANSWERS: Readonly<Record<PublicAssistantLocale, readonly (readonly [string, string])[]>> = {
+  "ru": [
+    [
+      "Продать сейчас или хранить",
+      "Сравните чистую выручку с тонны. Из цены продажи сейчас вычтите доставку, сушку, очистку и удержания за качество. Для будущей продажи дополнительно учтите хранение, потери массы и качества, стоимость заёмных денег и ближайшие платежи хозяйства. Сравните ожидаемую прибавку к цене с дополнительными расходами. Учтите и риск того, что цена снизится: её рост не гарантирован. Сравните продажу всей партии и продажу частями. Предложения проще сопоставлять, когда объём, качество, доставка и срок оплаты записаны одинаково. Какая культура, в каком регионе, какой объём партии и по какой цене предлагают купить? Текущие котировки я здесь не проверяю."
+    ],
+    [
+      "Покупатель и риск неоплаты",
+      "Сравнивайте цену вместе со сроком оплаты и условиями приёмки. Проверьте реквизиты покупателя, полномочия подписанта и отзывы поставщиков, которые уже работали с ним. До отгрузки согласуйте в договоре порядок и срок оплаты, удержания и действия при расхождениях. Обсудите предоплату или поставку частями, чтобы ограничить сумму под риском. Сохраните согласованную версию условий и подтверждения отгрузки и приёмки в одной истории сделки. Запись в системе сама по себе не обеспечивает оплату и не подтверждает платёжеспособность. Покупатель предлагает предоплату или отсрочку и на какой срок?"
+    ],
+    [
+      "Меньше потерь при приёмке",
+      "До отправки согласуйте показатели качества, отбор проб, взвешивание, расчёт зачётной массы и удержания. Зафиксируйте вес и состояние партии при отгрузке; сохраните документы, анализы и контрольную пробу по согласованной процедуре. На приёмке сопоставьте результаты с исходными данными. При расхождении зафиксируйте замечания и действуйте по согласованному порядку повторного анализа. Когда вес, анализы и условия связаны с одной партией, проще установить причину потерь. У вас вопрос по влажности, примеси, весу или цене после удержаний?"
+    ]
+  ],
+  "en": [
+    [
+      "Sell now or store",
+      "Compare net proceeds per tonne after transport, drying, cleaning and quality deductions. For a later sale, also include storage, quantity and quality losses, financing costs and upcoming farm payments. Any expected price gain must cover extra costs and uncertainty; a price increase is not guaranteed. Compare selling the whole lot with selling in portions. Offers are easier to compare when volume, quality, delivery and payment terms use the same basis. What crop, region, volume and buyer offer are you considering? I have not checked current market quotes here."
+    ],
+    [
+      "Buyer and non-payment risk",
+      "Compare payment dates and acceptance terms alongside price. Check the buyer’s details, the signatory’s authority and references from actual suppliers. Before shipping, agree payment triggers, deductions and discrepancy handling in the contract. Discuss advance payment or smaller deliveries to limit exposure. Keep agreed terms, shipping records and acceptance evidence in one deal history. A system record does not ensure payment or establish creditworthiness. Is the buyer offering advance or deferred payment, and for how long?"
+    ],
+    [
+      "Reduce acceptance losses",
+      "Before shipment, agree quality thresholds, sampling, weighing, payable weight and deductions. Record shipment weight and condition; retain analysis results and a reference sample using the agreed procedure. Compare acceptance results against shipment records. Record discrepancies and follow the agreed retesting process. Linking weights, analyses and terms to one lot makes losses easier to investigate. Is your concern moisture, impurities, weight or the price after deductions?"
+    ]
+  ],
+  "zh": [
+    [
+      "现在出售还是储存",
+      "先比较每吨扣除运输、烘干、清理和质量扣款后的净收入。以后出售还要计入仓储费、数量及质量损失、融资成本和农场近期付款需求。预期涨价必须覆盖新增费用和风险，不能保证价格上涨。可以比较整批出售与分批出售。把数量、质量、运输和付款条件按同一口径记录，更容易比较买家的报价。是什么作物、地区、数量和报价？我在这里没有核验实时行情。"
+    ],
+    [
+      "买家与收款风险",
+      "除了价格，还要比较付款日期和验收条件。核实买家信息、签字人的权限以及真实供应商的合作经历。发货前在合同中约定付款条件、扣款和差异处理程序。讨论预付款或分批交付，以限制风险金额。将约定条件、发货记录和验收证据保存在同一交易记录中。系统记录本身不能确保收款，也不能证明买家的偿付能力。买家提出预付款还是延期付款，期限多长？"
+    ],
+    [
+      "减少验收损失",
+      "发货前约定质量指标、取样、称重、结算重量和扣款规则。记录发货重量及状态，并按约定程序保存检验结果和留样。验收时与发货数据核对。如有差异，应记录异议并按约定进行复检。将重量、检验和条件关联到同一批粮食，更容易查清损失原因。你担心的是水分、杂质、重量还是扣款后的价格？"
+    ]
+  ]
+};
+
+/** Exact matching cannot consume appended instructions or private-data requests. */
+export function answerFarmerStarterQuestion(question: string, localeInput?: string | null) {
+  const locale = normalizeLocale(localeInput);
+  const normalize = (text: string) => normalizeQuestion(text).replace(/[?？.!。！]+$/u, '');
+  const index = PUBLIC_ASSISTANT_STARTER_PROMPTS[locale].findIndex((prompt) => normalize(prompt) === normalize(question));
+  if (index < 0) return null;
+  const [title, answer] = FARMER_STARTER_ANSWERS[locale][index];
+  return {
+    knowledgeVersion: 'public-farmer-starters-2026-09-27.v1',
+    topic: ['harvest_sale', 'buyer_payment_risk', 'grain_acceptance'][index],
+    title, answer, facts: [],
+    maturity: locale === 'ru' ? 'Общие ориентиры; конкретное решение требует ваших условий и проверенных данных.' : locale === 'en' ? 'General guidance; a specific decision requires your terms and verified data.' : '一般性建议；具体决策需要你的条件和已核实数据。',
+    confidence: 'medium' as const,
+    actionAllowed: false as const,
+    sources: [],
+    suggestions: PUBLIC_ASSISTANT_STARTER_PROMPTS[locale].filter((_, i) => i !== index),
+  };
+}
+
 export function publicAssistantCatalog(localeInput?: string | null) {
   const locale = normalizeLocale(localeInput);
   const overview = topicById('overview').copy[locale];
@@ -438,7 +510,7 @@ export function publicAssistantCatalog(localeInput?: string | null) {
     actionAllowed: false as const,
     title: locale === 'en' ? 'Platform assistant' : locale === 'zh' ? '平台助手' : 'Помощник по платформе',
     description: overview.answer,
-    starterPrompts: overview.suggestions,
+    starterPrompts: PUBLIC_ASSISTANT_STARTER_PROMPTS[locale],
     topics: TOPICS.map((topic) => ({ id: topic.id, title: topic.copy[locale].title })),
   };
 }

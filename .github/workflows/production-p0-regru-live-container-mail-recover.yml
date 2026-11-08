@@ -22,7 +22,7 @@ env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: 3072
   EVIDENCE_DIR: artifacts/production-p0-regru-live-container-mail-recover
-  SMTP_HOST: sm38.hosting.reg.ru
+  SMTP_HOST: mail.hosting.reg.ru
   SMTP_PORT: '465'
   SMTP_USER_ASCII: access@xn----8sbjf4befbjgs9b.xn--p1ai
   SMTP_USER_UNICODE: access@процент-агро.рф

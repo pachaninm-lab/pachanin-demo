@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4627,
+  "branch": "sec/asvs-v6-authentication-4627",
+  "status": "active",
+  "purpose": "Record applicability and evidence-backed verdicts for OWASP ASVS 5.0.0 chapter V6 (Authentication) — 47 requirements — in the machine-readable decision register, with no code changes.",
+  "authorityBaseExactMain": "d2ee8d795f4e90630a7fedc35b0f7ee1b59c8918",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v6-authentication-4627.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Every V6 requirement is either an explicit decision (APPLICABLE with PASS/FAIL, or NOT_APPLICABLE_WITH_JUSTIFICATION with a real self-revoking condition) or is deliberately left undeclared to fall through to the honest PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED default — never an explicit NOT_ASSESSED decision with no condition, since the evidence gate rejects those.",
+    "Every applicability=NOT_APPLICABLE_WITH_JUSTIFICATION decision has status=NOT_APPLICABLE and vice versa, verified across the whole decisions file (not only the newly-added rows) before every push.",
+    "A PASS or FAIL is only recorded where the underlying code (strong-password.validator.ts, password-hashing.ts, register/login/password-reset DTOs, auth.controller.ts, mfa.service.ts, auth-crypto.ts, settlement-financial-mfa.guard.ts, policy-engine.service.ts, organization-invitation.service.ts, support.service.ts, opaque-token-authority.ts, auth-mail-templates.ts, common/guards/mfa.guard.ts) was read and the cited pattern verified against the live tree in this pass.",
+    "A downstream FAIL that depends on another requirement's documentation or evidence gap (V6.2.11 on V6.1.2; V6.3.1 on V6.1.1) says so explicitly rather than repeating the underlying finding as if independent.",
+    "A finding that names a real gap in already-merged code (the composition-rule password policy, the absent breach-password check, the bcrypt 72-byte truncation, the dead RequiresMfaGuard header bypass, the non-functional predictable-token admin password-reset stub, the never-invoked passwordChangedMail, the two inconsistent MFA implementations, the TOTP replay and lifetime gaps) is recorded as evidence for future remediation, not fixed in this scope.",
+    "No security control is weakened; Semgrep, the pinning ratchet and every other gate stay at full strength.",
+    "No production, REG.RU, DNS or database mutation.",
+    "This scope changes no application code.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "docs/security/asvs-applicability-decisions.json gains exactly 47 new V6.* decisions and no duplicates — every V6 requirement is decided, none left undeclared.",
+    "The evidence gate rejects 0 decisions; decisionsApplied increases by 47; finalPass stays false.",
+    "scripts/security/*.test.mjs stays 60/60 (JSON-only change, no script logic touched).",
+    "A file-wide applicability/status consistency check reports 0 inconsistencies before every push.",
+    "Every FAIL and PASS note cites a real file and pattern checked against the live tree in this pass."
+  ]
+}

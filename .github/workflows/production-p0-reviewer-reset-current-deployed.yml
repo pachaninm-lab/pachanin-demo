@@ -1,0 +1,108 @@
+name: Production P0 Reviewer Reset — Current Deployed Revision
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-current-deployed.yml'
+      - 'scripts/production-p0-reviewer-reset-current-deployed.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-current-deployed
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate current-deployed reviewer reset contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate immutable-wrapper contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          env -u BASH_ENV -u ENV /usr/bin/bash --noprofile --norc -n scripts/production-p0-reviewer-reset-current-deployed.sh
+          env -u BASH_ENV -u ENV PC_P0_REVIEWER_RESET_CURRENT_VALIDATE_ONLY=1 /usr/bin/bash --noprofile --norc scripts/production-p0-reviewer-reset-current-deployed.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('.github/workflows/production-p0-reviewer-reset-current-deployed.yml').read_text(encoding='utf-8')
+          s=Path('scripts/production-p0-reviewer-reset-current-deployed.sh').read_text(encoding='utf-8')
+          merged=w+'\n'+s
+          required=[
+              "github.event.comment.user.login == github.repository_owner",
+              "github.event.comment.author_association == 'OWNER'",
+              'github.event.comment.performed_via_github_app.id == 1144995',
+              "github.event.comment.body == '/production p0-reviewer-reset-request deployed-056ed446'",
+              "CORE_BLOB='320a91d228bc957eaf61220c256f2108f81a8c1f'",
+              "TARGET_SHA='056ed4461dafb5e7dab2efc9ea5a0d5877523169'",
+              'P0_REVIEWER_RESET_CURRENT_DEPLOYED_WRAPPER=PASS',
+              'PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY',
+              'env -u BASH_ENV -u ENV',
+          ]
+          missing=[x for x in required if x not in merged]
+          if missing:
+              raise SystemExit('missing invariant: '+' | '.join(missing))
+          PY
+
+  request:
+    name: Request ordinary reviewer reset only if deployed readiness requires it
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995
+      ) &&
+      github.event.comment.body == '/production p0-reviewer-reset-request deployed-056ed446'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify owner-issued connector provenance
+        shell: bash
+        env:
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -euo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == OWNER ]]
+          [[ "$body" == '/production p0-reviewer-reset-request deployed-056ed446' ]]
+          if [[ "$GITHUB_ACTOR" != "$owner" ]]; then
+            [[ "$app" == 1144995 ]]
+          fi
+      - name: Request normal password reset under fail-closed deployed readiness gate
+        shell: bash
+        run: env -u BASH_ENV -u ENV /usr/bin/bash --noprofile --norc scripts/production-p0-reviewer-reset-current-deployed.sh

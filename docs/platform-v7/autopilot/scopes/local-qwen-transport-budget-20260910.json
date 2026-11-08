@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-ssh-keepalive-20260911",
+  "status": "active",
+  "purpose": "Bounded Local Qwen provider transport repair after two consecutive exact-head review attempts for substantive PR #5184 reached the pinned model host successfully, entered canonical Qwen3-8B semantic inference, then failed closed with SSH 'client_loop: send disconnect: Broken pipe' after about 4.5 minutes before any semantic verdict. Add SSH protocol keepalive only; do not change semantic review behavior.",
+  "authorityBaseExactMain": "390d30e06aaa44f6164fe8a208c049969808ad85",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewedExactHead": "cda51afbc9b8b9767e6e60789fcfba1f21bef99d",
+    "chunkCount": 5,
+    "failureStep": "Run canonical Qwen3-8B semantic review",
+    "firstReviewRunId": 34565164824,
+    "firstReviewJobId": 103155698736,
+    "secondReviewRunId": 34565164824,
+    "secondReviewJobId": 103156794268,
+    "transportError": "client_loop: send disconnect: Broken pipe",
+    "semanticVerdictProduced": false
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml"
+  ],
+  "requiredChange": {
+    "summary": "Add bounded OpenSSH protocol keepalive options to the existing pinned model-host ssh transport used by the canonical semantic review: ServerAliveInterval=30, ServerAliveCountMax=20 and TCPKeepAlive=yes. No other provider behavior may change."
+  },
+  "requiredInvariants": [
+    "Only the ssh transport option list used by the canonical Local Qwen semantic review and its cleanup command may change; SCP behavior may remain unchanged.",
+    "ServerAliveInterval is exactly 30 seconds, ServerAliveCountMax is exactly 20 and TCPKeepAlive remains enabled.",
+    "Immutable model revision/hash, llama.cpp build/source/archive hash, review policy/hash, strict JSON schema, output cardinality, 8 KiB chunk bound, 96-chunk bound, complete-diff coverage, prompt-bundle hashing, exact-head revalidation and fail-closed publication remain unchanged.",
+    "Model request parameters, generation token budget, HTTP model timeout/retry behavior, semantic validator, PASS/BLOCK derivation and findings policy remain unchanged.",
+    "Pinned host-key verification, BatchMode, IdentitiesOnly and UserKnownHostsFile/StrictHostKeyChecking protections remain unchanged.",
+    "Malformed output, transport failure, stale-head reuse, manual semantic PASS and guard weakening remain forbidden.",
+    "No product, FNS, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior changes are included.",
+    "No independent-provider PASS is claimed for provider self-maintenance.",
+    "After repair merge, PR #5184 must synchronize forward-only to then-current main and obtain a new genuine Local Qwen exact-head PASS.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes exactly .github/workflows/local-qwen-independent-review.yml.",
+    "All applicable ordinary exact-head checks are terminal green before each merge.",
+    "Unresolved review findings and CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit is evidence only and never substitutes for independent semantic review.",
+    "Live main must not drift from each PR base before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-first-customer-durable-contract-4874-v2",
+  "status": "active",
+  "purpose": "Update the production First Customer acceptance checker so the registration-decision durable outbox implementation is validated by its stronger delivery-proof contract while every unaffected historical exact-SHA, RLS, reviewer, evidence and release-provenance assertion remains mandatory.",
+  "approvedBy": "owner-command-registration-completion-2026-09-01",
+  "authorityBaseExactMain": "f3d7f3efa848c634ecf107698081a2834214b113",
+  "registrationAuthority": "issue-3785",
+  "releaseAuthority": "issue-3072",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/check-production-p0-first-customer-acceptance.mjs"
+  ],
+  "requiredBehavior": [
+    "fail closed if the registration-decision durable outbox transition is only partially present",
+    "require both decision entry points and both exact replay paths to use the same durable enqueue and delivery-proof boundary",
+    "require registration decision audit and causal lifecycle receipt before durable notification enqueue",
+    "require SENT evidence for successful initial and replay responses and require 503 when durable SENT evidence is absent",
+    "retain the pinned historical acceptance checker for every unchanged contract surface",
+    "retain exact-SHA release provenance, reviewer fresh-MFA, RLS tenant-isolation, evidence redaction and artifact publication guards"
+  ],
+  "forbiddenCapabilities": [
+    "weakening or deleting a failing assertion without an equivalent or stronger check",
+    "restoring direct SMTP delivery inside reviewer or organization-admin BFF routes",
+    "treating queued or pending mail as delivered",
+    "production mutation, credential access or deployment from this scope",
+    "changes outside the single allowed checker file",
+    "new paid provider, SaaS subscription, API or recurring cost"
+  ],
+  "acceptanceEvidence": [
+    "the First Customer contract workflow passes on the exact correction head",
+    "the checker reports DURABLE_OUTBOX when the complete durable implementation is present",
+    "the checker rejects partial durable migration, missing SENT proof, legacy direct SMTP or replay fail-open behavior",
+    "the pinned historical checker still passes with only the two superseded implementation fixtures restored"
+  ]
+}

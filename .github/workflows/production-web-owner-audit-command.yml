@@ -1,0 +1,28 @@
+name: Production Web Owner Audit Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: production-web-owner-audit-command
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Call canonical read-only production web audit
+    if: >-
+      github.event.issue.number == 3048 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production web audit'
+    uses: ./.github/workflows/production-web-exact-sha.yml
+    with:
+      action: audit
+      target_sha: ''
+      confirmation: ''
+    secrets: inherit

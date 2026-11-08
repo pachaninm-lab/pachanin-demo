@@ -99,3 +99,27 @@ describe('StaffAccessRequestService deal scope binding', () => {
     expect(access.requestAccess).toHaveBeenCalledWith(user, input, undefined);
   });
 });
+
+
+describe('StaffAccessRequestService exact intent replay before mutable deal resolution', () => {
+  const intent = { ...baseInput, createIntentId: '772d6bd1-fbba-4801-a7b4-407f570522ec' };
+  it('returns the immutable committed receipt before attempting a changed/deleted deal lookup', async () => {
+    const f = fixture([]); const receipt = { requestId: 'sar-original', grantId: 'sag-original', status: 'GRANTED', expiresAt: '2026-10-29T01:00:00.000Z' };
+    f.access.replayAccessRequest = jest.fn().mockResolvedValue(receipt);
+    await expect(f.service.requestAccess(user, intent, 'retry')).resolves.toBe(receipt);
+    expect(f.staffAuthorityPrisma.$queryRaw).not.toHaveBeenCalled(); expect(f.access.requestAccess).not.toHaveBeenCalled();
+    expect(f.access.replayAccessRequest).toHaveBeenCalledWith(user, intent);
+  });
+  it('passes original command separately from newly resolved tenant for a genuinely new intent', async () => {
+    const f = fixture([{ tenant_id: 'tenant-a', seller_organization_id: 'seller-org', buyer_organization_id: 'buyer-org' }]);
+    f.access.replayAccessRequest = jest.fn().mockResolvedValue(null);
+    await f.service.requestAccess(user, intent, 'first');
+    expect(f.access.requestAccess).toHaveBeenCalledWith(user, { ...intent, targetTenantId: 'tenant-a' }, 'first', undefined, undefined, intent);
+  });
+  it('propagates actor/payload/evidence rejection without performing mutable deal resolution', async () => {
+    const f = fixture([]); const failure = new ForbiddenException('Actor context changed');
+    f.access.replayAccessRequest = jest.fn().mockRejectedValue(failure);
+    await expect(f.service.requestAccess(user, intent)).rejects.toBe(failure);
+    expect(f.staffAuthorityPrisma.$queryRaw).not.toHaveBeenCalled(); expect(f.access.requestAccess).not.toHaveBeenCalled();
+  });
+});

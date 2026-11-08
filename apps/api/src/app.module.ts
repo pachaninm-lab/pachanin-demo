@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { LotsModule } from './modules/lots/lots.module';
 import { DealsModule } from './modules/deals/deals.module';
 import { CommodityProfilesModule } from './modules/commodity-profiles/commodity-profiles.module';
+import { OrganizationCapabilitiesModule } from './modules/organization-capabilities/organization-capabilities.module';
 import { RegulatoryIntegrationModule } from './modules/regulatory-integration/regulatory-integration.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -56,7 +57,14 @@ import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
 import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapshot.module';
 import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
+import { FounderControlModule } from './modules/founder-control/founder-control.module';
+import { RoleEligibilityModule } from './modules/role-eligibility/role-eligibility.module';
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
+import { GektaModule } from './modules/gekta/gekta.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
+import { CommercialRulesModule } from './modules/commercial-rules/commercial-rules.module';
+import { ServiceMarketplaceModule } from './modules/service-marketplace/service-marketplace.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -64,6 +72,8 @@ import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
     RateLimitModule,
     DatabaseModule,
     StaffAccessModule,
+    FounderControlModule,
+    RoleEligibilityModule,
     AdminModule,
     EvidencePackModule,
     RuntimeCoreModule,
@@ -71,6 +81,7 @@ import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
     LotsModule,
     DealsModule,
     CommodityProfilesModule,
+    OrganizationCapabilitiesModule,
     RegulatoryIntegrationModule,
     DisputesModule,
     DocumentsModule,
@@ -112,6 +123,11 @@ import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
     RuntimeSnapshotModule,
     RuntimePersistenceModule,
     TaiToolsModule,
+    GektaModule,
+    AccountingModule,
+    CommercialRulesModule,
+    ServiceMarketplaceModule,
+    InventoryModule,
   ],
   controllers: [HealthController],
   providers: [

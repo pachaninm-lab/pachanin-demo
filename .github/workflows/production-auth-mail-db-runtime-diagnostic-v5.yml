@@ -1,0 +1,314 @@
+name: Production Auth-Mail DB Runtime Diagnostic v5
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-db-runtime-diagnostic-v5.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-db-runtime-diagnostic-v5
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  DEPLOYED_PRODUCTION_SHA: f166f50e8526cf43f3193e771be05ebc66888494
+  MIGRATION_DATASOURCE_FIX_SHA: 1762b4a22a99d786a971e78cbe16ec1f74bb5a74
+  EXPECTED_PROVISION_BLOB: ae36405e7916a7c44deede109f204776fc49fc04
+  DIAGNOSTIC_COMMAND: /production p0-auth-mail-db-runtime-v5 deployed
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate DB runtime diagnostic v5 contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Enforce read-only Prisma diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/production-auth-mail-db-runtime-diagnostic-v5.yml').read_text(encoding='utf-8')
+          required=[
+            'DEPLOYED_PRODUCTION_SHA: f166f50e8526cf43f3193e771be05ebc66888494',
+            'EXPECTED_PROVISION_BLOB: ae36405e7916a7c44deede109f204776fc49fc04',
+            'MAIN_DB_TARGET_PARITY','AUTH_DB_TARGET_PARITY','PRISMA_CONNECT_CLASS',
+            'PRISMA_PRINCIPAL_CLASS','ROLE_CONTRACT','MAIL_OUTBOX_SELECT_CLASS','PRODUCTION_MUTATION NONE',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=[
+            'docker compose','ALTER ROLE','CREATE ROLE','DROP ROLE','GRANT ','REVOKE ','INSERT INTO',
+            'UPDATE auth.','DELETE FROM','TRUNCATE ','rotate-db','rotate-smtp','rotate-key',
+            'docker restart','docker rm','docker run','--force-recreate','prisma migrate','prisma db execute',
+            'PASSWORD_RESET_REPLAYED YES','PRODUCTION_MUTATION DB_'
+          ]
+          bad=[x for x in forbidden if x in diagnostic]
+          if bad: raise SystemExit('mutation surface forbidden: '+' | '.join(bad))
+          PY
+
+  diagnostic:
+    name: Read-only Prisma DB classifier on deployed API
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-db-runtime-v5 deployed' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind current main to deployed auth-mail contract
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          git cat-file -e "${DEPLOYED_PRODUCTION_SHA}^{commit}"
+          git cat-file -e "${MIGRATION_DATASOURCE_FIX_SHA}^{commit}"
+          git merge-base --is-ancestor "$MIGRATION_DATASOURCE_FIX_SHA" "$DEPLOYED_PRODUCTION_SHA"
+          git merge-base --is-ancestor "$DEPLOYED_PRODUCTION_SHA" "$main_sha"
+          git diff --quiet "$DEPLOYED_PRODUCTION_SHA..$main_sha" -- \
+            apps/api/src/auth-mail-worker.ts \
+            apps/api/prisma/migrations/20260812010000_p0_industrial_auth_mail_outbox/migration.sql \
+            scripts/provision-production-auth-mail-runtime.sh \
+            scripts/production-auth-mail-outbox-cutover-core.sh
+          [[ "$(git hash-object scripts/provision-production-auth-mail-runtime.sh)" == "$EXPECTED_PROVISION_BLOB" ]]
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "deployed_sha=$DEPLOYED_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Classify root-only DB authority with deployed Prisma
+        id: diagnostic
+        shell: bash
+        env:
+          DEPLOYED_SHA: ${{ steps.target.outputs.deployed_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$DEPLOYED_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          umask 077
+          deployed_sha="$1"
+          db_file='/var/lib/pc-secret-authority/runtime/database-url'
+          tmp="$(mktemp -d /tmp/pc-auth-mail-db-v5.XXXXXX)"
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          finish_fail(){ emit AUTH_MAIL_DB_RUNTIME_V5 FAIL; emit ERROR_CODE "$1"; emit PRODUCTION_MUTATION NONE; exit "${2:-1}"; }
+          unexpected(){ local rc=$?; trap - ERR; emit AUTH_MAIL_DB_RUNTIME_V5 FAIL; emit ERROR_CODE UNEXPECTED_REMOTE_ERROR; emit PRODUCTION_MUTATION NONE; exit "$rc"; }
+          trap 'rm -rf -- "$tmp"' EXIT
+          trap unexpected ERR
+
+          [[ "$(id -u)" -eq 0 ]] || finish_fail ROOT_REQUIRED 20
+          [[ "$deployed_sha" =~ ^[0-9a-f]{40}$ ]] || finish_fail DEPLOYED_SHA_INVALID 21
+          [[ -f "$db_file" && ! -L "$db_file" && "$(stat -c '%a:%u:%g' "$db_file")" == '444:0:0' ]] || finish_fail DB_RUNTIME_FILE_INVALID 22
+          emit RUNTIME_DB_PROJECTION PASS
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || finish_fail WEB_CARDINALITY 23
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ "$project" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || finish_fail PROJECT_INVALID 24
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || finish_fail API_CARDINALITY 25
+          api_id="${api_ids[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$deployed_sha" ]] || finish_fail API_REVISION_DRIFT 26
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$deployed_sha" ]] || finish_fail WEB_REVISION_DRIFT 27
+          emit API_WEB_REVISION PASS
+
+          api_env="$tmp/api-env"; main_db="$tmp/main-db"; auth_db="$tmp/auth-db"; prisma="$tmp/prisma.js"
+          : > "$api_env"; : > "$main_db"; : > "$auth_db"; : > "$prisma"
+          chmod 600 "$api_env" "$main_db" "$auth_db" "$prisma"
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" > "$api_env"
+          sed -n 's/^DATABASE_URL=//p' "$api_env" | head -1 > "$main_db"
+          sed -n 's/^AUTH_DATABASE_URL=//p' "$api_env" | head -1 > "$auth_db"
+          [[ -s "$main_db" ]] || finish_fail API_DATABASE_URL_MISSING 28
+          [[ -s "$auth_db" ]] || finish_fail API_AUTH_DATABASE_URL_MISSING 29
+
+          python3 - "$db_file" "$main_db" "$auth_db" <<'PY' > "$tmp/parity" || finish_fail DATABASE_URL_CLASSIFIER_FAILED 30
+          import sys
+          from urllib.parse import unquote,urlsplit
+          worker,main,auth=[urlsplit(open(p,encoding='utf-8').read().strip()) for p in sys.argv[1:4]]
+          for u in (worker,main,auth):
+              if u.scheme not in ('postgres','postgresql') or not u.hostname or not u.path.strip('/'): raise SystemExit(1)
+          if unquote(worker.username or '')!='pc_auth_mail_runtime' or not worker.password: raise SystemExit(2)
+          def target(u): return ((u.hostname or '').lower(),u.port or 5432,unquote(u.path))
+          print('WORKER_DB_USER=PASS')
+          print('MAIN_DB_TARGET_PARITY='+('PASS' if target(worker)==target(main) else 'FAIL'))
+          print('AUTH_DB_TARGET_PARITY='+('PASS' if target(worker)==target(auth) else 'FAIL'))
+          PY
+          cat "$tmp/parity"
+
+          python3 - "$db_file" > "$prisma" <<'PY'
+          import json,sys
+          url=open(sys.argv[1],encoding='utf-8').read().strip()
+          print("const {PrismaClient}=require('@prisma/client');")
+          print('const url='+json.dumps(url)+';')
+          print(r'''
+          const out=(k,v)=>process.stdout.write(`${k}=${v}\n`);
+          const classify=e=>{const m=String(e?.message||'');const c=String(e?.errorCode||e?.meta?.code||e?.code||'').toUpperCase().replace(/[^A-Z0-9_]/g,'_').slice(0,32);if(/authentication failed|password/i.test(m))return 'AUTH_FAILED';if(/can.t reach|connection refused|timed out|timeout/i.test(m))return 'NETWORK_FAILED';if(/does not exist/i.test(m))return 'DATABASE_OR_ROLE_MISSING';if(/ssl|tls|certificate/i.test(m))return 'TLS_FAILED';return c||String(e?.name||'UNKNOWN').toUpperCase().replace(/[^A-Z0-9_]/g,'_').slice(0,64)};
+          const p=new PrismaClient({datasources:{db:{url}}});
+          (async()=>{
+            try{await p.$connect();out('PRISMA_CONNECT_CLASS','PASS')}catch(e){out('PRISMA_CONNECT_CLASS',classify(e));out('PRISMA_PRINCIPAL_CLASS','NOT_RUN');out('ROLE_CONTRACT','NOT_RUN');out('MAIL_OUTBOX_SELECT_CLASS','NOT_RUN');return}
+            try{const r=await p.$queryRawUnsafe('SELECT current_user');out('PRISMA_PRINCIPAL_CLASS',r?.[0]?.current_user==='pc_auth_mail_runtime'?'PASS':'WRONG_PRINCIPAL')}catch(e){out('PRISMA_PRINCIPAL_CLASS',classify(e));out('ROLE_CONTRACT','NOT_RUN');out('MAIL_OUTBOX_SELECT_CLASS','NOT_RUN');return}
+            try{const r=await p.$queryRawUnsafe("SELECT rolcanlogin,rolsuper,rolbypassrls,rolinherit,has_database_privilege(current_user,current_database(),'CONNECT') connect_ok,has_schema_privilege(current_user,'auth','USAGE') schema_ok,has_table_privilege(current_user,'auth.mail_outbox','SELECT') select_ok FROM pg_roles WHERE rolname=current_user");const x=r?.[0];out('ROLE_CONTRACT',x&&x.rolcanlogin===true&&x.rolsuper===false&&x.rolbypassrls===false&&x.rolinherit===false&&x.connect_ok===true&&x.schema_ok===true&&x.select_ok===true?'PASS':'FAIL')}catch(e){out('ROLE_CONTRACT',classify(e))}
+            try{await p.$queryRawUnsafe('SELECT 1 FROM auth.mail_outbox LIMIT 0');out('MAIL_OUTBOX_SELECT_CLASS','PASS')}catch(e){out('MAIL_OUTBOX_SELECT_CLASS',classify(e))}
+          })().finally(async()=>{await p.$disconnect().catch(()=>{})});
+          ''')
+          PY
+          docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - < "$prisma" > "$tmp/prisma.out" 2>/dev/null || true
+          for key in PRISMA_CONNECT_CLASS PRISMA_PRINCIPAL_CLASS ROLE_CONTRACT MAIL_OUTBOX_SELECT_CLASS; do
+            value="$(sed -nE "s/^${key}=([A-Z0-9_]{1,100})$/\\1/p" "$tmp/prisma.out" | head -1)"
+            [[ -n "$value" ]] || value=NO_SAFE_RESULT
+            emit "$key" "$value"
+          done
+
+          trap - ERR
+          emit AUTH_MAIL_DB_RUNTIME_V5 PASS
+          emit ERROR_CODE NONE
+          emit PRODUCTION_MUTATION NONE
+          REMOTE
+          rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_DB_RUNTIME_V5|ERROR_CODE|RUNTIME_DB_PROJECTION|API_WEB_REVISION|WORKER_DB_USER|MAIN_DB_TARGET_PARITY|AUTH_DB_TARGET_PARITY|PRISMA_CONNECT_CLASS|PRISMA_PRINCIPAL_CLASS|ROLE_CONTRACT|MAIL_OUTBOX_SELECT_CLASS|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do
+            case "$k" in AUTH_MAIL_DB_RUNTIME_V5|ERROR_CODE|RUNTIME_DB_PROJECTION|API_WEB_REVISION|WORKER_DB_USER|MAIN_DB_TARGET_PARITY|AUTH_DB_TARGET_PARITY|PRISMA_CONNECT_CLASS|PRISMA_PRINCIPAL_CLASS|ROLE_CONTRACT|MAIL_OUTBOX_SELECT_CLASS|PRODUCTION_MUTATION) echo "${k,,}=$v" >> "$GITHUB_OUTPUT";; esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish sanitized v5 evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          DEPLOYED_SHA: ${{ steps.target.outputs.deployed_sha }}
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          RESULT: ${{ steps.diagnostic.outputs.auth_mail_db_runtime_v5 }}
+          ERROR_CODE: ${{ steps.diagnostic.outputs.error_code }}
+          RUNTIME_DB_PROJECTION: ${{ steps.diagnostic.outputs.runtime_db_projection }}
+          API_WEB_REVISION: ${{ steps.diagnostic.outputs.api_web_revision }}
+          WORKER_DB_USER: ${{ steps.diagnostic.outputs.worker_db_user }}
+          MAIN_DB_TARGET_PARITY: ${{ steps.diagnostic.outputs.main_db_target_parity }}
+          AUTH_DB_TARGET_PARITY: ${{ steps.diagnostic.outputs.auth_db_target_parity }}
+          PRISMA_CONNECT_CLASS: ${{ steps.diagnostic.outputs.prisma_connect_class }}
+          PRISMA_PRINCIPAL_CLASS: ${{ steps.diagnostic.outputs.prisma_principal_class }}
+          ROLE_CONTRACT: ${{ steps.diagnostic.outputs.role_contract }}
+          MAIL_OUTBOX_SELECT_CLASS: ${{ steps.diagnostic.outputs.mail_outbox_select_class }}
+          PRODUCTION_MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP deployed auth-mail DB runtime diagnostic v5'; echo
+            echo "- diagnostic main SHA: \`${MAIN_SHA:-unknown}\`"; echo "- deployed API/Web SHA: \`${DEPLOYED_SHA:-unknown}\`"
+            echo "- result: \`${RESULT:-unknown}\` (rc=\`${REMOTE_RC:-unknown}\`)"; echo "- safe error: \`${ERROR_CODE:-unknown}\`"
+            echo "- runtime DB projection / API-Web revision: \`${RUNTIME_DB_PROJECTION:-unknown} / ${API_WEB_REVISION:-unknown}\`"
+            echo "- worker DB principal shape: \`${WORKER_DB_USER:-unknown}\`"
+            echo "- main DB target parity / auth DB parity: \`${MAIN_DB_TARGET_PARITY:-unknown} / ${AUTH_DB_TARGET_PARITY:-unknown}\`"
+            echo "- Prisma connect / principal: \`${PRISMA_CONNECT_CLASS:-unknown} / ${PRISMA_PRINCIPAL_CLASS:-unknown}\`"
+            echo "- role contract / mail_outbox SELECT: \`${ROLE_CONTRACT:-unknown} / ${MAIL_OUTBOX_SELECT_CLASS:-unknown}\`"
+            echo "- production mutation: \`${PRODUCTION_MUTATION:-unknown}\`"
+            echo '- no URLs, hostnames, database names, credentials, password hashes, container IDs, raw PostgreSQL/Prisma errors, recipients or tokens are published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce read-only diagnostic result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          RESULT: ${{ steps.diagnostic.outputs.auth_mail_db_runtime_v5 }}
+          PRODUCTION_MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$PRODUCTION_MUTATION" == NONE ]]

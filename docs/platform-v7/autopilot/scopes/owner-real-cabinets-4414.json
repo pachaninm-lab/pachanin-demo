@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/owner-real-cabinets-4414",
+  "status": "active",
+  "purpose": "Issue #4414 urgent correction: restore the existing server-verified PLATFORM_OWNER+MFA one-tap access to the actual protected PC-CROP cabinet routes, bound exclusively to fixed controlled test organizations. Do not impersonate business identities in the API, expose real customer data or weaken normal business-session RBAC. Security gate remediation may include only the separately ticketed, time-bounded non-applicability exception #4432 for CVE-2026-14456 while upstream distroless/Debian has no fixed package.",
+  "authorityBaseExactMain": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+    "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+    "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+    "apps/web/lib/first-customer-workspace-server.ts",
+    "apps/web/lib/platform-v7/controlled-test-organizations.ts",
+    "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
+    "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
+    "docs/platform-v7/autopilot/security-exceptions.json",
+    "docs/platform-v7/autopilot/scopes/owner-real-cabinets-4414.json"
+  ],
+  "requiredInvariants": [
+    "Owner cabinet entry requires an authenticated access token, an ACTIVE PLATFORM_OWNER assignment and MFA assurance from /staff/capabilities/me.",
+    "Every owner cabinet role is server-bound to one fixed controlled test organization and the canonical controlled test tenant; arbitrary customer organization selection is impossible through this path.",
+    "The signed owner cabinet token carries ownerAccess=true and the real owner identity id, but the API bearer token remains the real owner token and is never replaced with a business-user identity.",
+    "Normal business sessions still require exact role, user, membership, organization and tenant equality in the platform-v7 layout.",
+    "Customer business queues are not queried with the owner bearer token in controlled owner mode.",
+    "Business write endpoints continue to authorize the real owner identity and are not granted seller, buyer, logistics, driver, elevator, lab, surveyor, bank, arbitrator or compliance write authority by the cabinet switch.",
+    "All thirteen requested surfaces are available: operator, buyer, seller, logistics, driver, surveyor, elevator, lab, bank, organization employee, arbitrator, compliance and executive.",
+    "No passwordless demo login, shared password, demo1234, public owner bearer or client-selected tenant/organization authority is introduced.",
+    "Security scanning stays fail-closed: CRITICAL findings remain non-exceptable, any HIGH finding other than CVE-2026-14456 remains blocking, and the #4432 exception expires automatically after seven days.",
+    "No database migration, production environment mutation or recurring-cost change is included."
+  ],
+  "acceptance": [
+    "Focused source contract proves thirteen owner cabinet entries and fixed controlled organization bindings.",
+    "Focused source contract proves PLATFORM_OWNER plus MFA is checked both when opening and when consuming an owner cabinet session.",
+    "Focused source contract proves the ordinary business-session equality checks remain present.",
+    "Focused source contract proves owner controlled workspaces do not query customer queues or impersonate a business API identity.",
+    "Security quality gate records CVE-2026-14456 as formally excepted under #4432 rather than ignored, with scanner execution still successful and no other HIGH/CRITICAL blocker.",
+    "Exact-head web-unit, project-lock, autopilot guard and security checks pass before merge.",
+    "Production release evidence proves exact deployed web revision and live acceptance, then the owner control center is used to open the protected cabinet routes."
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/shared-ci-upstream-drift-recovery-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Restore exact-head CI after two independently reproduced external upstream drifts: MinIO public registry authorization failures and hosted CodeQL advancing to 2.27.1.",
+  "authorityBaseExactMain": "d61e42bcd2cd5d0a31fdbf440965621cafeaeac8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/release/production-like-kubernetes-acceptance.sh",
+    "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
+    "docs/platform-v7/autopilot/scopes/shared-ci-upstream-drift-recovery-20260924.json"
+  ],
+  "requiredInvariants": [
+    "Production-like MinIO server and mc use the same historical release versions as before; no application/runtime compatibility version changes are introduced.",
+    "Server and mc binaries are downloaded only from first-party GitHub release assets and fail closed unless their pinned SHA-256 values match.",
+    "The local image base is the pinned Docker Official Image alpine:3.20.3 OCI index digest; the resulting server and mc images are pushed into the existing ephemeral kind registry and referenced by the registry-returned sha256 digest.",
+    "Only the three existing MinIO image references are rewritten at kubectl invocation time; tracked source manifests remain unchanged and the rewrite fails closed if source references drift.",
+    "No Kubernetes timeout, probe, resource, security-context, network, DB, application or acceptance threshold changes.",
+    "CodeQL query, barrier, workflow, fixture corpus, selection rule and security thresholds remain unchanged.",
+    "CodeQL upstream query, flow configuration and customizations retain the previously reviewed blob SHAs while only CLI and bundled pack provenance advances to 2.27.1 / 2.4.6 / 2.10.2.",
+    "The existing provenance unit assertions advance only to the same pinned versions as the lock.",
+    "Exact-head Production-like Kubernetes and full CodeQL compile/regression/selection/drift/SARIF must both pass before merge."
+  ]
+}

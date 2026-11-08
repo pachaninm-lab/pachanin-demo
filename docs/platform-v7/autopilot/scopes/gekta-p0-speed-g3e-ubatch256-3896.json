@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "perf/gekta-p0-speed-g3e-ubatch256-3896",
+  "status": "active",
+  "issue": 3896,
+  "purpose": "Test the last technically justified bounded CPU-inference batch candidate for Gekta: llama.cpp ubatch 128 to 256 only, preserving the proven threads16, threads-batch16, parallel1, ctx8192, batch512, model, prompts, application behavior and rollback boundary.",
+  "approvedBy": "repository-owner final continuation for issue #3896 on 2026-08-15",
+  "authorityBaseExactMain": "f633e4d47d8372d5f7edbafe272850d5a2d511ae",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3e-ubatch256-3896.json",
+    "scripts/gekta-qwen-g3e-runtime.py",
+    "scripts/gekta-qwen-g3e-bootstrap.sh",
+    ".github/workflows/gekta-p0-speed-g3e-ubatch256.yml"
+  ],
+  "requiredBehavior": [
+    "baseline must be active llama.cpp build aedb2a5 with threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128",
+    "candidate changes exactly one runtime factor: ubatch128 to ubatch256",
+    "candidate preserves executable environment authentication model endpoint model file prompts token budgets sampling safety citations ctx8192 parallel1 and every unrelated argv byte",
+    "candidate requires zero swap and at least 3 GiB MemAvailable and automatically restores baseline on restart listener memory swap executable or exact-state failure",
+    "bootstrap installs only one audited helper plus an exact three-command sudoers allowlist and does not restart or mutate the model service",
+    "GitHub never receives root model-host SSH and uses only the dedicated model SSH principal plus pinned host key",
+    "controller issue commands require repository-owner authority and permit the pinned ChatGPT Codex connector app id 1144995 acting on the owner continuation",
+    "production A/B uses the unchanged Gekta browser speed corpus and governing c1 first-meaningful p95; any regression or quality/security failure requires rollback",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "root SSH repository secret broad sudo sudo shell arbitrary systemctl arbitrary helper arguments SETENV or trust-on-first-use",
+    "ubatch other than 128 baseline or 256 candidate",
+    "threads threads-batch parallel ctx batch model quantization model file prompt quality safety citation token-budget application or timeout mutation",
+    "database REG.RU application deal role money registration PC-CROP or Company OS mutation",
+    "second model process new server paid API SaaS or recurring cost"
+  ]
+}

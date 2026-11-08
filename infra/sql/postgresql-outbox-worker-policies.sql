@@ -20,6 +20,15 @@ DROP POLICY IF EXISTS outbox_entries_worker_update ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_select ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_insert ON public."outbox_entries";
 
+GRANT SELECT ON TABLE public."outbox_entries" TO app_outbox;
+GRANT UPDATE (
+  "status", "retryCount", "nextRetryAt", "lastError", "lastErrorCode",
+  "lastErrorCategory", "lastAttemptAt", "manualReviewAt", "sentAt",
+  "confirmedAt", "failedAt", "deadLetterAt", "leaseOwner", "leaseToken",
+  "leaseExpiresAt", "heartbeatAt"
+) ON TABLE public."outbox_entries" TO app_outbox;
+REVOKE INSERT, DELETE ON TABLE public."outbox_entries" FROM app_outbox;
+
 DO $outbox_policy_scope$
 DECLARE
   worker_targets TEXT := 'app_outbox';

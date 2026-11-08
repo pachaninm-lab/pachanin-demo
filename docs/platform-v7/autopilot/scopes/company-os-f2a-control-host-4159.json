@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "company-os/f2a-control-host-4159",
+  "status": "active",
+  "purpose": "Implement the production-neutral Company OS F2A application boundary for control.процент-агро.рф: exact host realm, strict routing, host-only strict session credentials, parent-host staff cutover guards and control-aware auth flows without changing DNS, Caddy, Compose or production runtime.",
+  "authorityBaseExactMain": "a15bcd994788d081eb15f83a1296ea3091e4cc78",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/control-host.ts",
+    "apps/web/lib/server/auth-session-response.ts",
+    "apps/web/middleware.ts",
+    "apps/web/app/api/auth/login/route.ts",
+    "apps/web/app/api/auth/mfa-login/route.ts",
+    "apps/web/app/api/auth/membership-select/route.ts",
+    "apps/web/app/api/auth/refresh/route.ts",
+    "apps/web/app/api/auth/logout/route.ts",
+    "apps/web/app/api/staff/[...path]/route.ts",
+    "apps/web/app/api/staff/capabilities/me/route.ts",
+    "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+    "docs/company-os/truth-audit-f2a.md"
+  ],
+  "requiredInvariants": [
+    "The control realm is disabled by default and cannot become live solely by merging application code.",
+    "Only the exact canonical control host is recognized; X-Forwarded-Host, suffix matches, user-controlled role claims and office-network/IP location never establish control authority.",
+    "When the cutover gate is enabled, parent-host /platform-v7/staff redirects only to HTTPS on the canonical control host and parent-host /api/staff is fail-closed so the parent cannot remain an alternate privileged boundary.",
+    "When the gate is enabled, the control host serves only the bounded control/auth/static route set and never serves business cabinets, public registration, public assistant, demo or role-preview surfaces.",
+    "Successful login, membership selection and MFA on the control host land only at /platform-v7/staff; staff access is still authorized by server-side capabilities and current staff assignments.",
+    "Credential-bearing control-host cookies have no Domain attribute, are Secure in production, HttpOnly where credentials are stored, and use SameSite=Strict. CSRF remains readable only as required by the existing double-submit contract.",
+    "Control-host refresh and logout preserve strict session cookie behavior and correlation evidence.",
+    "The generic staff BFF and the capabilities BFF independently reject non-control hosts after cutover is enabled.",
+    "Existing JIT, SoD, MFA, access-session, capability, break-glass and staff endpoint policy authority is not weakened or duplicated.",
+    "No DNS, Caddy, Compose, production environment, secret, database schema or migration change is included in F2A.",
+    "Merge, CI and image build are not production deployment evidence."
+  ],
+  "acceptance": [
+    "Exact-host parsing rejects ports with malformed values, commas, whitespace, suffix spoofing and X-Forwarded-Host-only spoofing.",
+    "With the gate disabled, current parent-host behavior remains unchanged.",
+    "With the gate enabled, parent staff pages redirect to HTTPS control host while parent staff APIs fail closed.",
+    "With the gate enabled, control host allows only login/recovery/staff/auth/staff API/static assets and blocks business/public/registration/demo paths.",
+    "Auth routes use control-aware strict session cookies and force the staff landing path in the control realm.",
+    "Staff BFFs fail closed when accessed through the parent or an unrelated host after cutover.",
+    "Focused tests prove no Domain attribute, strict SameSite control credentials, no office-network trust and no client-selected role authority.",
+    "Exact-head web unit, Node CI, security and relevant repository gates pass before merge.",
+    "No production mutation and no new recurring cost occur."
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-reset-db-stage-exact-main-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_DB_STAGE_CLASSIFIER_PROVEN_DEPLOYED",
+  "issue": 3785,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-db-stage-classifier.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-db-stage-classifier-3785.json",
+    "scripts/check-production-p0-reviewer-reset-db-stage-classifier.mjs",
+    "scripts/production-p0-reviewer-reset-db-stage-classifier.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "customerOrganizationMutation": false,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "owner-only read-only workflow classifies wrapper, SSH, exact deployed parity, principal boundary, reviewer preflight, reviewer login readiness, and reset-subject stages independently",
+    "the classifier inspects the independently proven deployed API/Web revision d2dd7972105cc59002263455b5ae0eb8d8f2d386, requires it to remain an ancestor of diagnostic main, and fails closed if production parity or main stability is lost",
+    "SSH host discovery may retry at most three times but accepts only exactly one key matching the existing protected SHA-256 fingerprint and retains StrictHostKeyChecking=yes",
+    "no reviewer email, identifier, reset token, password, password hash, TOTP secret, cookie, bearer credential, database URL or raw database error is published",
+    "pc_staff_runtime remains table-free and no SET ROLE, BYPASSRLS, SUPERUSER, privilege expansion or reviewer-row access is introduced",
+    "function metadata is checked for SECURITY DEFINER, pc_staff_authority ownership, row_security=on and runtime EXECUTE before aggregate-only calls are classified",
+    "production mutation is NONE and new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

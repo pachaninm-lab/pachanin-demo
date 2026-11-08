@@ -4,8 +4,8 @@
   "status": "active",
   "title": "TAI owner exact deployment command",
   "priority": "P0",
-  "baselineExactMain": "b4b81d8841b381c51952b5bf00aca8bfdd52bf8f",
-  "objective": "Provide an observable owner-only exact-main deployment command that revalidates the successful restricted Qwen activation and all eight activation jobs, invokes only the protected REG.RU controller, and keeps the production self-hosted deployment job actionless while validating and checksumming root-owned evidence locally.",
+  "baselineExactMain": "2e2cdebe787670db0afa5e80f5d5b2af193cd811",
+  "objective": "Provide an observable owner-only exact-main deployment command that revalidates the successful restricted Qwen activation and all eight activation jobs, invokes only the protected REG.RU controller, keeps the production self-hosted deployment job actionless while validating and checksumming root-owned evidence locally, and serializes authorized production deployment with the complete registration lifecycle.",
   "allowedPaths": [
     ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
     "scripts/select-tai-restricted-qwen-activation-status.mjs",
@@ -16,6 +16,8 @@
   "boundaries": [
     "The only production command is /tai deploy current-main on issue 3365 or the owner-only current-main workflow dispatch",
     "Commenter, actor and triggering actor must equal the repository owner where applicable",
+    "Authorized production deployment uses the literal pc-crop-registration-lifecycle concurrency group with cancel-in-progress false and queue max",
+    "Pull-request validation and unauthorized or non-command events use separate non-production concurrency groups and cannot occupy or cancel the production lifecycle queue",
     "The latest exact commit status TAI Restricted Qwen REG.RU Activation must be success",
     "The status target must identify an exact workflow run in this repository",
     "The referenced activation run is revalidated for exact SHA, workflow name, branch, repository, run attempt and allowed actor pair",

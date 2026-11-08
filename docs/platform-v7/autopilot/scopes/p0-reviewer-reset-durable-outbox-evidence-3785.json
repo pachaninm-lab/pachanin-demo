@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-reset-durable-outbox-evidence-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_DURABLE_OUTBOX_EVIDENCE",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Repair reviewer password-reset correlation and durable delivery evidence",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-password-reset-request.yml",
+    "apps/api/src/modules/auth/auth.controller.ts",
+    "apps/api/src/modules/auth/auth.controller.password-reset.spec.ts",
+    "docs/security/p0-reviewer-password-reset-request-3785.json",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-reset-durable-outbox-evidence-3785.json",
+    "scripts/check-production-p0-reviewer-password-reset-request.mjs",
+    "scripts/production-p0-reviewer-password-reset-request.sh"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "reviewerAccessOnly": true,
+    "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+    "newRecurringCostRub": 0,
+    "ownerOnlyOperationalTrigger": true,
+    "exactMainGuard": true,
+    "databaseMutation": "NORMAL_PASSWORD_RESET_REQUEST_ONLY",
+    "directPasswordWrite": false,
+    "directMfaWrite": false,
+    "roleOrTenantMutation": false,
+    "authMailPayloadDecryptionForEvidence": false,
+    "reviewerPiiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "sshHostKeyBypass": false
+  },
+  "acceptance": [
+    "Web correlation id reaches PasswordResetService and durable auth.mail_outbox unchanged",
+    "requested reset locale reaches PasswordResetService",
+    "sole reviewer readiness remains exactly one eligible reviewer with zero password, MFA and login readiness before reset",
+    "ordinary public forgot-password route is used with CSRF and same-origin protection",
+    "API, Web and auth-mail worker must all run the exact current main revision before the production reset request",
+    "auth-mail worker must be running and healthy",
+    "delivery proof reads only status metadata for the exact PASSWORD_RESET correlation id",
+    "legacy password_reset_delivery_result Web log is not an authority",
+    "reviewer email, reset token, ciphertext, IV, tag, credentials and raw logs are never published",
+    "terminal automated success requires durable auth.mail_outbox status SENT",
+    "new recurring cost remains 0 RUB"
+  ]
+}

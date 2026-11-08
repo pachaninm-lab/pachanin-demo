@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 5469,
+  "branch": "fix/public-i18n-hydration-20260924",
+  "status": "active",
+  "purpose": "Stop the legacy DOM translation bridge from mutating the locale-native deal-flow SSR text during hydration. The bridge remains available for the legacy demo route.",
+  "authorityBaseExactMain": "2c1c2855a74c471fa4404e422965ddd879792842",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx",
+    "docs/platform-v7/autopilot/scopes/public-i18n-hydration-20260924.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "routeChange": false,
+    "translationAuthorityChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "legacyDemoBridgePreserved": true,
+    "exactHeadRequired": true
+  },
+  "acceptance": [
+    "The legacy bridge is absent from locale-native /platform-v7/deal-flow hydration.",
+    "The bridge remains enabled for /platform-v7/demo.",
+    "The unit regression test asserts the route boundary.",
+    "No production, database, identity, API, dependency or lockfile change."
+  ]
+}

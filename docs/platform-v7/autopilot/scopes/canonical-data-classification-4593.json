@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4593,
+  "branch": "sec/canonical-data-classification-4593",
+  "status": "active",
+  "purpose": "Implement the owner-approved canonical data classification as the single source of truth, map the three disagreeing classifications onto it, and record the ASVS consequences honestly.",
+  "authorityBaseExactMain": "bce97855bfdf0de52c46a7bb315b0fda50054be4",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/canonical-data-classification-4593.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/data-classification.json",
+    "docs/security/DATA_CLASSIFICATION.md",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/common/security/data-classes.ts",
+    "apps/api/src/common/security/data-classes.spec.ts",
+    "apps/api/src/common/security/sensitive-data.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+  ],
+  "requiredInvariants": [
+    "The canonical schema is not bent to fit the existing lists; the existing lists are mapped onto it.",
+    "Every field name and every value rule carries exactly one canonical class.",
+    "No downstream control may drop a canonical class because its terminology differs, and a test asserts this per class and per outbound surface.",
+    "Coverage only widens: nothing previously redacted stops being redacted.",
+    "A term that is neither personal data nor a secret is not mislabelled as one to obtain coverage; it is denied by a separate, documented list.",
+    "Unspecified elements of the policy are recorded as open rather than invented.",
+    "An owner statement of sufficiency is authority over what the classification is, not evidence that an unwritten requirement exists.",
+    "No production, REG.RU, DNS or database change; no migration or re-encryption.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "The code mirror and the approved schema agree on the class list, on outbound-redacted classes and on never-query-string classes, asserted by test.",
+    "Every outbound-redacted class is covered by at least one term, with the two prohibited classes excluded by name and on purpose.",
+    "Every term of every outbound-redacted class is proved redacted in the request body, in headers, in the query string and internally.",
+    "The policy document quotes every open item verbatim from the schema.",
+    "Three mutations were verified to turn the suite red: dropping a class from code, removing the last term of a class, and rewording an open item in one place only.",
+    "V14.1.1 moves FAIL to PASS.",
+    "V14.1.2, V11.1.1 and V11.1.2 stay FAIL, each naming exactly what is still missing.",
+    "The evidence gate rejects 0 decisions; finalPass stays false."
+  ]
+}

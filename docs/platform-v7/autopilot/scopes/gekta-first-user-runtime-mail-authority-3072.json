@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-runtime-mail-authority-3072",
+  "branch": "fix/gekta-first-user-runtime-mail-authority-3072",
+  "status": "active",
+  "issue": 3072,
+  "baseline": {
+    "branch": "main",
+    "commit": "2e4d61379a4986cfe63260ea8c09710c4209be41"
+  },
+  "purpose": "Rebind the owner-only Gekta first-user IMAP reader to the already active exact Web transactional-mail mailbox authority over pinned SSH after repeated hosted-secret IMAP authentication failures, without changing product behavior or production runtime.",
+  "allowedPaths": [
+    ".github/workflows/production-gekta-first-user-acceptance.yml",
+    "scripts/check-production-gekta-first-user-runtime-mail-authority.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-runtime-mail-authority-3072.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "runtimeMutation": false,
+    "deploymentMutation": false,
+    "productCodeMutation": false,
+    "mailSendByRebind": false,
+    "credentialSource": "ACTIVE_EXACT_WEB_RUNTIME_OVER_PINNED_SSH",
+    "ephemeralCredentialTransport": true,
+    "credentialOutput": false,
+    "credentialArtifact": false,
+    "piiOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "exactDeployedRevisionGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

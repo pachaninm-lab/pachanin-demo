@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-server-budget-1024-20260910",
+  "status": "active",
+  "purpose": "Bounded provider self-maintenance authority for one Local Qwen server completion-budget repair after exact-head owner-access review run 34521638860 completed deterministic inference across all 11 diff chunks but strict canonical validation failed closed because chunk 1 ended with an unterminated JSON string while the request budget was 1024 and the llama-server process remained hard-capped at --n-predict 128.",
+  "authorityBaseExactMain": "ff9597e0bfb03044af230171acefe1eb0dd0e300",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewRunId": 34521638860,
+    "reviewJobId": 103020477991,
+    "reviewedExactHead": "f830d76e0b37c715b9a6ae9c7256ebb1cfa28b3a",
+    "chunkCount": 11,
+    "diffSha256": "ad7b1e4c5f27ca8c8c97a3e3ca0acba39faf69a8711863724ff7a2b64c7d06c5",
+    "manifestSha256": "436507096ee642f27eb887c5c66501ed7699ba86cc4decc6f1601b1b897c890d",
+    "promptBundleSha256": "74fa152e6cf078bc7ea6a0edbbee75fc2426882ce8acaf4071d5f03345b174c6",
+    "inferenceStep": "SUCCESS",
+    "validatorStep": "FAIL_CLOSED",
+    "validatorError": "Invalid model JSON in chunk 1: Unterminated string starting at: line 9 column 11 (char 159)",
+    "requestNPredict": 1024,
+    "serverNPredict": 128
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml"
+  ],
+  "requiredChange": {
+    "exactReplacement": "--n-predict 128 -> --n-predict 1024",
+    "replacementCount": 1
+  },
+  "requiredInvariants": [
+    "The per-request completion budget remains n_predict:1024 and remains bounded.",
+    "Immutable model revision/hash, llama.cpp build/hash, review policy/hash, strict JSON schema, hand-written grammar, 8 KiB chunk bound, 96-chunk bound, complete-diff coverage, prompt-bundle hash, exact-head revalidation, findings validation and fail-closed publication semantics remain unchanged.",
+    "No validator relaxation, malformed-output acceptance, stale-head reuse, manual semantic PASS or guard weakening is permitted.",
+    "No product, FNS, API, database, RBAC, registration, customer-data or production runtime behavior changes are included.",
+    "No independent-provider PASS is claimed for the provider self-repair itself.",
+    "After this repair is merged, PR #5184 still requires a new genuine Local Qwen exact-head PASS before merge.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Repair PR final diff contains exactly one path: .github/workflows/local-qwen-independent-review.yml.",
+    "The only semantic provider change is llama-server --n-predict 128 to --n-predict 1024.",
+    "All applicable ordinary exact-head CI/security/runtime gates are terminal green.",
+    "Unresolved review findings and CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit verifies the bounded provider-maintenance scope and explicitly is not independent review authority.",
+    "Live main must not drift from the repair PR base before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

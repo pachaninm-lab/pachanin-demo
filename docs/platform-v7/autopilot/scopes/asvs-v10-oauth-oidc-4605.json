@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4605,
+  "branch": "sec/asvs-v10-oauth-oidc-4605",
+  "status": "active",
+  "purpose": "Record applicability and evidence-backed verdicts for OWASP ASVS 5.0.0 chapter V10 (OAuth and OIDC) — 36 requirements — in the machine-readable decision register, with no code changes.",
+  "authorityBaseExactMain": "c10ebdad1fc59bd6d29224f59190a457871f57b9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v10-oauth-oidc-4605.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Every V10 requirement gets a decision: APPLICABLE with PASS/FAIL, or NOT_APPLICABLE_WITH_JUSTIFICATION with a condition tied to a real, checkable absence in the tree; none is silently skipped.",
+    "A NOT_APPLICABLE verdict is only used where the artifact the requirement operates on (a token, an authorization-server endpoint, a consent surface) does not exist anywhere in the codebase, verified by grep against the live tree in this pass, not assumed from the feature being disabled by default.",
+    "The incompleteness of the one real OAuth/OIDC-shaped code path (the gov-id relying-party bridge — state checked, nonce generated but never validated, no token exchange) is named explicitly in the affected notes rather than hidden behind NOT_APPLICABLE.",
+    "A PASS (state-based CSRF protection) is only recorded where the enforcing code was re-read on the live tree in this pass.",
+    "No security control is weakened; Semgrep, the pinning ratchet and every other gate stay at full strength.",
+    "No production, REG.RU, DNS or database mutation.",
+    "This scope changes no application code.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "docs/security/asvs-applicability-decisions.json gains exactly 36 new V10.* decisions and no duplicates.",
+    "The evidence gate rejects 0 decisions; decisionsApplied increases by 36; finalPass stays false.",
+    "scripts/security/*.test.mjs stays 60/60 (JSON-only change, no script logic touched).",
+    "V10.2.1 is PASS with evidence naming the real state-generation and state-comparison code; V10.2.3 is FAIL with evidence naming the static, unvaried scope default.",
+    "Every NOT_APPLICABLE decision's condition is an ABSENT_IN_TREE check against real, verified-absent patterns, self-revoking if the situation ever changes."
+  ]
+}

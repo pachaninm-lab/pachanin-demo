@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4512,
+  "branch": "ip/file-provenance-register",
+  "status": "active",
+  "purpose": "Publish the machine-readable file provenance register in docs/ip/ and bind the generated JSON to the exact source SHA it describes, without reclassifying any file as first-party.",
+  "authorityBaseExactMain": "a81317071f58a2b67b5a9c04271c0fd0437e052c",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json",
+    "docs/platform-v7/autopilot/scopes/ip-file-provenance-register-4512.json",
+    "scripts/ip/build-ip-clean-room.mjs"
+  ],
+  "requiredInvariants": [
+    "The register must stay conservative: UNKNOWN origin must never be rewritten as first-party to improve a statistic.",
+    "CSV and JSON must contain the same number of records, and that number must equal the tracked file count of the authority base tree.",
+    "The generated JSON must record the exact source SHA it was produced from.",
+    "The CSV must remain deterministically reproducible from the same tree and history.",
+    "No product code, UI, authentication, database, migration, dependency, lockfile, workflow or production configuration may change.",
+    "Merge and CI success are not REG.RU production deployment evidence.",
+    "No new recurring cost is introduced."
+  ],
+  "acceptance": [
+    "docs/ip/FILE_PROVENANCE.csv and docs/ip/FILE_PROVENANCE.json both exist and hold 6175 records each.",
+    "The CSV header is exactly the sixteen fields required by the IP programme.",
+    "FILE_PROVENANCE.json carries gitHead and trackedFiles.",
+    "UNKNOWN origin remains 6146 and CROWN_JEWEL unresolved origin remains 605 - the remainder is recorded, not closed.",
+    "The first-party IP policy tests still pass 15/15.",
+    "The concurrent-scope guard accepts exactly the four authorized paths."
+  ]
+}

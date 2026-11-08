@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "effectiveDate": "2026-08-21",
+  "overrides": [
+    {
+      "purl": "pkg:npm/jszip@3.10.1",
+      "declaredLicense": "MIT OR GPL-3.0-or-later",
+      "electedLicense": "MIT",
+      "classification": "PERMISSIVE_OR_APPROVED_DUAL_LICENSE",
+      "evidenceUrl": "https://github.com/Stuk/jszip/blob/v3.10.1/package.json",
+      "reason": "Official package metadata declares a dual MIT/GPL choice; the proprietary product elects the MIT branch."
+    },
+    {
+      "purl": "pkg:npm/busboy@1.6.0",
+      "declaredLicense": "MIT",
+      "classification": "PERMISSIVE_OR_APPROVED",
+      "evidenceUrl": "https://github.com/mscdex/busboy/blob/v1.6.0/package.json",
+      "reason": "Official package metadata uses the legacy licenses[] field, which some SBOM generators do not normalize."
+    },
+    {
+      "purl": "pkg:npm/streamsearch@1.1.0",
+      "declaredLicense": "MIT",
+      "classification": "PERMISSIVE_OR_APPROVED",
+      "evidenceUrl": "https://github.com/mscdex/streamsearch/blob/v1.1.0/package.json",
+      "reason": "Official package metadata uses the legacy licenses[] field, which some SBOM generators do not normalize."
+    },
+    {
+      "purl": "pkg:npm/buffers@0.1.1",
+      "declaredLicense": "MIT",
+      "classification": "PERMISSIVE_OR_APPROVED",
+      "evidenceUrl": "https://sources.debian.org/copyright/license/node-buffers/0.1.1-2/",
+      "reason": "The legacy npm package omits normalized license metadata; Debian source copyright records the upstream 0.1.1 code as MIT and links the upstream source/commit."
+    }
+  ]
+}

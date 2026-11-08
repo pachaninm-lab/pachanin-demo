@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-owner-mobile-acceptance-4038",
+  "branch": "fix/gekta-owner-mobile-acceptance-4038",
+  "issue": 4038,
+  "status": "active",
+  "authorizedBy": "production-release-orchestration-evidence",
+  "baseline": {
+    "branch": "main",
+    "commit": "f121aba91d6554476d5060c060af6231c711c894"
+  },
+  "purpose": "Repair the fail-closed handoff from a successful owner exact-SHA web release to Platform V7/Gekta production mobile acceptance. The workflow_run trigger is already restricted to canonical release workflows; successful release events must enter the accepted-SHA resolver, which independently proves deployment evidence and the live manifest before browser acceptance can run.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+    "docs/platform-v7/autopilot/scopes/gekta-owner-mobile-acceptance-4038.json"
+  ],
+  "productBoundary": {
+    "mode": "release-orchestration-and-acceptance-only",
+    "publicUi": "unchanged",
+    "modelRuntime": "unchanged",
+    "apiBackend": "unchanged",
+    "identityRegistration": "unchanged",
+    "productionData": "unchanged",
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "Gekta UI or copy",
+    "model runtime, prompt, inference routing or latency experiments",
+    "agro-chat API or attachment backend contracts",
+    "PC-CROP registration, reviewer, MFA or password-reset runtime",
+    "role, tenant, RBAC, RLS or PostgreSQL authority",
+    "production credentials or direct REG.RU mutation",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "Workflow Syntax Guard",
+    "platform-v7 autopilot guard",
+    "exact-head CI/security gates",
+    "successful owner exact-SHA release evidence",
+    "production mobile acceptance 320/375/390/430"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope repairs release-to-acceptance orchestration only and does not attest product capabilities until the existing production Playwright suite passes against an exact deployed SHA."
+}

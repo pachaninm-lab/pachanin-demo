@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4915,
+  "branch": "fix/registration-official-ux-4915",
+  "status": "active",
+  "purpose": "Bounded post-P0 public registration UX correction after the exact-SHA 9/9 production registration proof. Replace internal and informal user-facing wording with neutral official language, align the visible password guidance with the already-enforced server policy, add password confirmation and responsive/accessibility browser evidence, and formalize the registration continuation through sign-in and access recovery without changing registration authority, role derivation, MFA policy, RLS, database schema, reviewer authority or production credentials.",
+  "authorityBaseExactMain": "d0fe9bfc275321e0768ec86ce55e82c958e07880",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/auth/register/route.ts",
+    "apps/web/app/api/auth/registration/resend/route.ts",
+    "apps/web/app/platform-v7/forgot-password/page.tsx",
+    "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+    "apps/web/app/platform-v7/register/page.tsx",
+    "apps/web/i18n/public-login-copy.ts",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/styles/platform-v7-public-register-official.css",
+    "apps/web/tests/e2e/platform-v7-registration-official.spec.ts",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/registration-official-ux-4915.json"
+  ],
+  "requiredInvariants": [
+    "The previously proven production registration authority is unchanged: the public form still submits only a public workspace class and organization/applicant data to the existing registration endpoint with the existing CSRF and idempotency boundaries.",
+    "No client-selected internal role or tenant authority is introduced. Role, organization access and final permissions remain server-derived after verification and review.",
+    "No database schema, RLS policy, MFA enforcement, reviewer authority, credential, session authority or production topology is changed.",
+    "The Russian public surface contains no P0 or first-customer terminology, no raw correlation-ID label, no internal workspace terminology, and no informal second-person instructions in the registration path.",
+    "The visible password guidance states the existing server policy accurately: 12 to 128 characters, at least three of lowercase, uppercase, digit and symbol groups, with obvious sequences rejected by the server policy.",
+    "Terms and privacy documents are not rewritten in this scope because confirmed legal-entity and personal-data-operator requisites are not present in the repository; no legal fact is fabricated.",
+    "New recurring cost remains 0 RUB and this pull request performs no production mutation."
+  ],
+  "acceptance": [
+    "Platform-v7 unit and coverage governance checks pass on the exact pull-request head.",
+    "The production web bundle and exact-head TypeScript checks pass.",
+    "The registration browser acceptance runs in the existing Chromium, Firefox, WebKit, Android Chromium and iPhone WebKit matrix.",
+    "The registration browser acceptance checks 320, 375, 390, 430, 768 and 1280 CSS-pixel widths for horizontal overflow and minimum 44 by 44 CSS-pixel visible controls, and reports zero serious or critical axe violations.",
+    "The clean-room and autopilot scope guards accept only the explicitly declared files above."
+  ]
+}

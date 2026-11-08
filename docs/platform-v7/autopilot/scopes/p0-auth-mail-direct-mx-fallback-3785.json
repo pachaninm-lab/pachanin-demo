@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-auth-mail-direct-mx-fallback-3785",
+  "status": "active",
+  "operationalStatus": "P0_AUTH_MAIL_DIRECT_MX_FALLBACK",
+  "issue": 3785,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "sourceBlob": "2fd60233d5eccca6fb51eac3043d461245ea5e41",
+  "title": "Fallback from proven REG.RU relay RCPT 451 to recipient MX over mandatory STARTTLS",
+  "allowedPaths": [
+    "apps/api/src/modules/auth-mail/auth-mail-smtp.spec.ts",
+    "apps/api/src/modules/auth-mail/auth-mail-smtp.ts",
+    "docs/platform-v7/autopilot/scopes/p0-auth-mail-direct-mx-fallback-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE_BEFORE_EXACT_SHA_RELEASE",
+    "databaseMutation": false,
+    "passwordResetRequest": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "smtpDataCommand": false,
+    "reviewerIdentityAccess": false,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawProtocolOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "authenticated REG.RU relay remains the primary transport",
+    "direct MX fallback is entered only for the proven SMTP_TRANSIENT_451 returned by the relay RCPT TO command",
+    "relay authentication, TLS, MAIL FROM, DATA, permanent 5xx and unrelated transient failures never widen into direct fallback",
+    "direct MX delivery resolves ordered recipient MX records and requires STARTTLS with certificate verification and TLS 1.2 or newer",
+    "MX hostnames are resolved once to bounded public IPv4 targets; loopback, private, link-local, CGNAT, benchmark, documentation, multicast and reserved addresses are rejected before socket creation",
+    "the TCP connection uses the already-validated public IP while the original MX hostname is retained only for TLS SNI and certificate verification, preventing DNS-rebinding SSRF",
+    "direct MX EHLO uses the platform domain whose A record and SPF authorize the existing production IP",
+    "canonical platform envelope sender, deterministic Message-ID, recipient and message body are preserved",
+    "multiline SMTP capability responses remain intact when split across network data events",
+    "an alternate MX is attempted only before message payload submission; ambiguous post-DATA failures are not fanned out in the same attempt",
+    "the synthetic direct-MX canary already received final SMTP acceptance and the connected mailbox proves SPF PASS plus DMARC PASS; no credential or bearer material was included",
+    "no new secret, service, DNS record or recurring cost is introduced",
+    "focused regression tests preserve the exact fallback and public-address boundaries",
+    "no reviewer reset is issued by this change"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

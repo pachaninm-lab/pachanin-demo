@@ -1,10 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const absolute = (file: string) => path.join(process.cwd(), file);
+const absolute = (file: string) => path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'), file);
 const read = (file: string) => fs.readFileSync(absolute(file), 'utf8');
 const rootLayout = read('apps/web/app/layout.tsx');
+const globalsCss = read('apps/web/app/globals.css');
+const tailwindRuntimeCss = read('apps/web/styles/platform-v7-tailwind-runtime.css');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
@@ -18,6 +21,7 @@ const serviceWorkerRecovery = read('apps/web/app/pc-public-entry/sw-recovery/rou
 const isolatedLogin = read('apps/web/app/pc-public-entry/platform-v7/login/page.tsx');
 const isolatedRecovery = read('apps/web/app/pc-public-entry/platform-v7/forgot-password/page.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
+const strategicHome = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
 const loginLayout = read('apps/web/app/platform-v7/login/layout.tsx');
 const login = read('apps/web/app/platform-v7/login/page.tsx');
 const recovery = read('apps/web/app/platform-v7/forgot-password/page.tsx');
@@ -70,18 +74,21 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLanding).toContain("data-contact-dock-visual='approved'");
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
-    expect(isolatedLayout).toContain('<HydrationSafeChatSupport renderDock={false} />');
-    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
+    expect(isolatedLayout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />');
+    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />'));
   });
 
-  it('renders one contact dock in initial entry HTML and forbids a deferred duplicate', () => {
+  it('keeps legacy dock support lazy off the canonical landing and forbids deferred duplicates', () => {
     expect(isolatedLayout).toContain("import './public-entry-contact-dock-mount.css'");
-    expect(isolatedLayout).toContain("import { PublicContactDock } from '@/components/platform-v7/PublicContactDock'");
+    expect(isolatedLayout).toContain("import('@/components/platform-v7/PublicContactDock')");
+    expect(isolatedLayout).toContain("import('@/components/platform-v7/HydrationSafeChatSupport')");
+    expect(isolatedLayout).toContain('const canonicalLanding = isCanonicalLanding(pathname);');
+    expect(isolatedLayout).not.toContain("if (isCanonicalLanding(pathname)) return children;");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-mounted='true'");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-end='true'");
-    expect(isolatedLayout).toContain('<PublicContactDock />');
-    expect(isolatedLayout.indexOf('<PublicContactDock />'))
-      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
+    expect(isolatedLayout).toContain("<PublicContactDock assistantContext='public' publicMode={canonicalLanding ? 'gekta' : 'full'} />");
+    expect(isolatedLayout.indexOf("<PublicContactDock assistantContext='public' publicMode={canonicalLanding ? 'gekta' : 'full'} />"))
+      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />'));
     expect(entryDockMountCss).toContain("[data-public-entry-contact-dock-end='true'] ~ .pc-public-contact-dock");
     expect(entryDockMountCss).toContain('display: none !important');
   });
@@ -109,22 +116,22 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(serviceWorkerRecovery).not.toContain('event.respondWith');
   });
 
-  it('restores only the last approved contact dock visual on the public homepage', () => {
-    expect(approvedHomeDock).toContain("[data-contact-dock-visual='approved'] ~ .pc-public-contact-dock");
-    expect(approvedHomeDock).not.toContain("[data-contact-dock-visual='approved'] .pc-public-contact-dock {");
-    expect(approvedHomeDock).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(approvedHomeDock).toContain('width: min(390px');
-    expect(approvedHomeDock).toContain('border: 1px solid rgba(8, 122, 59, .42)');
-    expect(approvedHomeDock).toContain('border-radius: 20px');
-    expect(approvedHomeDock).toContain('min-height: 54px');
-    expect(approvedHomeDock).toContain('min-height: 52px');
-    expect(approvedHomeDock).toContain('width: 30px');
-    expect(approvedHomeDock).toContain('width: 28px');
-    expect(approvedHomeDock).toContain('font-size: 12.5px');
-    expect(approvedHomeDock).toContain('font-size: 11.5px');
-    expect(approvedHomeDock).toContain('bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px))');
-    expect(approvedHomeDock).toContain('.pc-public-contact-dock-assistant strong');
-    expect(approvedHomeDock).toContain('color: inherit');
+  it('keeps the entry marker while the canonical component owns public dock presentation', () => {
+    expect(approvedHomeDock).toContain("[data-contact-dock-visual='approved']");
+    expect(approvedHomeDock).toContain('display: contents');
+    expect(approvedHomeDock).not.toContain('.pc-public-contact-dock');
+    const dock = read('apps/web/components/platform-v7/PublicContactDock.tsx').replace(/\s+/g, '');
+    expect(dock).toContain('@media(max-width:767px)');
+    expect(dock).toContain('@media(min-width:1180px)');
+    expect(dock).toContain('grid-template-rows:repeat(3,48px)!important');
+    expect(dock).toContain('min-height:44px!important');
+    expect(dock).toContain('env(safe-area-inset-bottom');
+    expect(dock).toContain(".pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)");
+    expect(dock).toContain("data-public-mode={publicMode}");
+    expect(dock).toContain("[data-public-mode='gekta']");
+    expect(dock).toContain("display:grid!important");
+    expect(dock).toContain("@media(min-width:981px)");
+    expect(dock).toContain("display:none!important");
   });
 
   it('keeps the route template server-only and free of historical patching', () => {
@@ -132,6 +139,16 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(template).not.toContain("'use client'");
     expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(template).not.toContain('PlatformV7TemplateGuards');
+  });
+
+  it('keeps Tailwind out of the canonical home render path and available elsewhere', () => {
+    expect(globalsCss).not.toContain('@tailwind components');
+    expect(globalsCss).not.toContain('@tailwind utilities');
+    expect(tailwindRuntimeCss).toContain('@tailwind components');
+    expect(tailwindRuntimeCss).toContain('@tailwind utilities');
+    expect(rootLayout).toContain("pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'");
+    expect(rootLayout).toContain("await import('@/components/platform-v7/PlatformV7TailwindRuntime')");
+    expect(rootLayout).toContain('{TailwindRuntime ? <TailwindRuntime /> : null}');
   });
 
   it('does not preload or activate protected font variables on lean public entry routes', () => {
@@ -155,10 +172,11 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicLocaleLink).not.toContain("'use client'");
     expect(publicLocaleLink).toContain("getTranslations('publicEntry.language')");
     expect(publicLocaleLink).toContain('href={`${pathname}?lang=${next}`}');
-    expect(landing).toContain('localeControl={<PublicLocaleLink />}');
+    expect(strategicHome).toContain('localeControl={<PublicLocaleLink />}');
     expect(login).toContain('localeControl={<PublicLocaleLink />}');
     expect(recovery).toContain('localeControl={<PublicLocaleLink />}');
-    expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
+    expect(publicHeader).toContain('href={resolvedBrandHomeHref}');
+    expect(publicHeader).toContain("return locale ? `/platform-v7?lang=${locale}` : '/platform-v7'");
   });
 
   it('loads entry CSS from concrete routes and keeps the shared supporting-page contract explicit', () => {
@@ -166,8 +184,9 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(rootLayout).toContain("import './platform-v7/_styles/public-supporting-shell.css'");
     expect(layout).not.toContain("import '@/styles/");
     expect(template).not.toContain("import '@/styles/");
-    expect(landing).toContain("import '@/styles/platform-v7-public-header.css'");
-    expect(landing).toContain("import '@/styles/platform-v7-public-product-experience-v5.css'");
+    expect(landing).toContain("import '@/styles/platform-v7-strategic-home-v3.css'");
+    expect(strategicHome).toContain("import { PublicSiteHeader } from './PublicSiteHeader'");
+    expect(publicHeader).toContain('PUBLIC_SITE_HEADER_STYLES');
     expect(loginLayout).toContain("import '@/styles/platform-v7-public-auth.css'");
     expect(recovery).toContain("import '@/styles/platform-v7-public-auth.css'");
     expect(publicHeaderCss).toContain('.pc-site-header');

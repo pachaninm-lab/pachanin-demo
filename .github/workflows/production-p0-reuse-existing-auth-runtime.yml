@@ -28,7 +28,6 @@ env:
   SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
   SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
   PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
-  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
 
 jobs:
   authority:
@@ -111,7 +110,6 @@ jobs:
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
-          [[ -n "${PROD_DIR_SECRET:-}" && -n "${PROD_COMPOSE_SECRET:-}" ]]
           bash -n scripts/provision-production-p0-password-reset-runtime.sh
 
       - name: Resolve protected root key and pinned REG.RU identity
@@ -197,8 +195,8 @@ jobs:
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           remote_script="/tmp/pc-auth-runtime-reconcile-${GITHUB_RUN_ID}.sh"
           remote_mail="/tmp/pc-password-reset-mail-${GITHUB_RUN_ID}.env"
-          prod_dir_b64="$(printf '%s' "$PROD_DIR_SECRET" | base64 -w0)"
-          [[ "$prod_dir_b64" =~ ^[A-Za-z0-9+/=]+$ ]]
+          prod_dir_b64="$(printf '%s' "${PROD_DIR_SECRET:-}" | base64 -w0)"
+          [[ -z "$prod_dir_b64" || "$prod_dir_b64" =~ ^[A-Za-z0-9+/=]+$ ]]
 
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
           ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4541,
+  "branch": "sec/asvs-v7-sessions-4541",
+  "status": "active",
+  "purpose": "Assess ASVS V7 Session Management across both session paths, and add the NO_RUNTIME_CALLER condition that was owed after a decision note credited a control nothing invokes.",
+  "authorityBaseExactMain": "0eb97e269555fb7653793dc0f15fca8121431f84",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v7-sessions-4541.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Every decision resting on session invalidation names both session paths, so a divergence between them surfaces as a rejected decision rather than a stale PASS.",
+    "A control that nothing invokes is never recorded as a control; NO_RUNTIME_CALLER makes that machine-checkable.",
+    "A behavioural accident is never recorded as a control.",
+    "Where a control exists but guards something other than what the requirement asks about, it is credited and the gap is scoped.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "NO_RUNTIME_CALLER holds when a symbol is referenced only by its own module and tests, and stops holding on the first real caller.",
+    "The V2.3.5 note is re-anchored on that condition instead of prose, discharging the debt named when it was corrected.",
+    "All 19 V7 requirements are decided: 9 PASS, 10 FAIL.",
+    "V7.2.1, V7.4.1, V7.4.2 and V7.4.3 rest on conditions naming both session paths.",
+    "V7.4.4 is FAIL, not a scoped PASS, because only one of several authenticated shells was proven.",
+    "V7.5.1 and V7.5.3 credit the wired fresh-MFA gate and scope the gap to where it is not applied.",
+    "V7.6.x are decided as applicable on the relying-party path, never as non-applicable.",
+    "finalPass stays false.",
+    "The concurrent-scope guard accepts exactly the four authorized paths."
+  ]
+}

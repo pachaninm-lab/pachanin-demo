@@ -65,6 +65,7 @@ function repositoryHarness() {
     markLoginSuccess: jest.fn(async () => undefined),
     createMembershipSelectionChallenge: jest.fn(async () => undefined),
     createSession: jest.fn(async () => undefined),
+    createRefreshToken: jest.fn(async () => undefined),
     createMfaChallenge: jest.fn(async () => undefined),
     setMfaSecret: jest.fn(async () => undefined),
     latestAuditChainPosition: jest.fn(async () => ({
@@ -164,32 +165,26 @@ describe('password-first multi-membership login boundary', () => {
     expect(repository.createMfaChallenge).not.toHaveBeenCalled();
   });
 
-  it('keeps tenant, organization and membership out of the MFA-pending response', async () => {
+  it.each(['BUYER', 'ADMIN', 'COMPLIANCE_OFFICER', 'ARBITRATOR', 'GUEST'])('opens a password session for %s without an MFA challenge or false MFA claim', async (role) => {
     const { repository } = repositoryHarness();
-    const service = new AuthService(repository);
-
-    const result = await service.login({
-      email: 'a@example.test',
-      password: PASSWORD,
+    repository.findIdentitiesByUser.mockResolvedValue([{ ...membership(), role, is_org_admin: true }]);
+    const result = await new AuthService(repository).login({
+      email: 'a@example.test', password: PASSWORD,
     } as any) as any;
 
-    expect(repository.createSession).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        userId: 'user-a',
-        membershipId: 'membership-a',
-        organizationId: 'org-a',
-        tenantId: 'tenant-org-a',
-        status: 'MFA_PENDING',
-      }),
-    );
-    expect(result.mfaRequired).toBe(true);
-    expect(result.challengeToken).toMatch(/^mc_/);
-    expect(result.user).toEqual({ email: 'a@example.test', role: 'BUYER' });
-    expect(result.user).not.toHaveProperty('orgId');
-    expect(result.user).not.toHaveProperty('tenantId');
-    expect(result.user).not.toHaveProperty('membershipId');
-    expect(result).not.toHaveProperty('accessToken');
-    expect(result).not.toHaveProperty('refreshToken');
+    expect(repository.createSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      userId: 'user-a', membershipId: 'membership-a', organizationId: 'org-a',
+      tenantId: 'tenant-org-a', status: 'ACTIVE',
+    }));
+    expect(result).toMatchObject({ mfaRequired: false, user: {
+      id: 'user-a', role, orgId: 'org-a', tenantId: 'tenant-org-a',
+      membershipId: 'membership-a', mfaVerified: false,
+    } });
+    expect(result.accessToken).toEqual(expect.any(String));
+    expect(result.refreshToken).toMatch(/^rt_/);
+    expect(repository.createMfaChallenge).not.toHaveBeenCalled();
+    expect(repository.setMfaSecret).not.toHaveBeenCalled();
+    expect(result).not.toHaveProperty('challengeToken');
+    expect(result).not.toHaveProperty('setupSecret');
   });
 });

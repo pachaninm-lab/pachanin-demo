@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/gekta-g3d-bootstrap-stage-3896",
+  "status": "active",
+  "issue": 3896,
+  "purpose": "Stage the exact merged Gekta G3D runtime helper and root bootstrap bytes on the existing model host through the dedicated pinned non-root TAI SSH principal, verify exact SHA256 digests, and publish one copy-then-verify root command without changing the running model, service configuration, application, database or production deployment.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-14",
+  "authorityBaseExactMain": "7b66f65f8fc7fc4bbedb56c94088ad1473462c92",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/gekta-p0-speed-g3d-bootstrap-stage.yml",
+    "docs/platform-v7/autopilot/scopes/gekta-g3d-bootstrap-stage-3896.json"
+  ],
+  "requiredBehavior": [
+    "staging resolves and checks out exact current main before any model-host transfer",
+    "staging uses only the existing dedicated TAI model SSH principal and pinned model-host key and never uses or provisions a root SSH credential",
+    "staging transfers only scripts/gekta-qwen-g3d-runtime.py and scripts/gekta-qwen-g3d-bootstrap.sh from the exact merged main checkout into one SHA-named temporary directory owned by the non-root model principal",
+    "both staged files are verified remotely by SHA256 against the exact current-main bytes before any root action is requested",
+    "staging performs no sudo systemctl docker process signal service restart model restart configuration change database write REG.RU application mutation or production deployment",
+    "published evidence contains only exact repository SHA bounded stage markers SHA256 digests and one deterministic root-shell command",
+    "the published root command copies both staged files into a root-owned directory and verifies both exact SHA256 digests before running the already-audited bootstrap",
+    "the audited bootstrap installs only the root-owned G3D helper and exact three-command sudoers allowlist and does not restart or mutate the model service",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "root SSH repository secret or any root credential in GitHub",
+    "sudo systemctl service docker kill pkill process or runtime mutation during staging",
+    "arbitrary file transfer arbitrary root command broad sudo NOPASSWD ALL SETENV trust-on-first-use or host-key relaxation",
+    "parallel ctx ubatch threads batch model prompt token budget sampling safety citation or application mutation during staging",
+    "database REG.RU deal role money registration PC-CROP or production deployment mutation",
+    "new server sidecar paid API SaaS or recurring cost"
+  ]
+}

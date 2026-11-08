@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-subject-acl-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_SUBJECT_ACL_DIAGNOSTIC_EXACT_CURRENT_MAIN",
+  "issue": 3785,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-subject-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-subject-diagnostic-3785.json",
+    "scripts/check-production-p0-reviewer-reset-subject-diagnostic.mjs",
+    "scripts/production-p0-reviewer-reset-subject-diagnostic.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "customerOrganizationMutation": false,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only diagnostic requires its checked-out source SHA and deployed API/Web revisions to equal exact current main and fails closed on any drift",
+    "the diagnostic reads only PostgreSQL catalog privilege/policy metadata and invokes the existing reset-subject function as a boolean probe",
+    "no reviewer email, identifier, password hash, reset token, TOTP secret, cookie, bearer token, database URL or raw database message is published",
+    "pc_staff_runtime remains table-free and no SET ROLE, BYPASSRLS, SUPERUSER or direct reviewer-row access is introduced",
+    "output is limited to allowlisted privilege/policy booleans and a sanitized SQLSTATE/error class",
+    "production mutation is NONE and new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

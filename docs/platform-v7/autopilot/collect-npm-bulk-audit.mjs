@@ -26,6 +26,13 @@ const DEPENDENCY_FIELDS = ['dependencies', 'optionalDependencies'];
 const MAX_COMPRESSED_BYTES = 32 * 1024 * 1024;
 const MAX_DECOMPRESSED_BYTES = 128 * 1024 * 1024;
 
+// Keep three attempts, but do not make every attempt inherit the original 30-second
+// transport budget. npm's own registry fetch timeout is bounded at five minutes; the
+// final attempt reaches that ceiling while the earlier attempts preserve the fast path.
+// Exhausting all three budgets still fails closed and never falls back to a retired
+// Quick/Full audit endpoint.
+const REQUEST_TIMEOUTS_MS = Object.freeze([30_000, 90_000, 300_000]);
+
 // gzip member header. RFC 1952 section 2.3.1.
 const GZIP_MAGIC = [0x1f, 0x8b];
 
@@ -273,7 +280,7 @@ function normalizeAuditResponse(response, submittedPackageCount) {
 }
 
 async function postBulkAdvisories(payload) {
-  const attempts = 3;
+  const attempts = REQUEST_TIMEOUTS_MS.length;
   let lastError;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -291,7 +298,9 @@ async function postBulkAdvisories(payload) {
           'user-agent': `prozrachnaya-cena-security-gate/1 node/${process.version}`,
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30_000),
+        signal: attempt === 1
+          ? AbortSignal.timeout(30_000)
+          : AbortSignal.timeout(REQUEST_TIMEOUTS_MS[attempt - 1]),
       });
       const bytes = await readBoundedBody(response, MAX_COMPRESSED_BYTES);
       if (!response.ok) {
@@ -329,7 +338,7 @@ async function postBulkAdvisories(payload) {
 // Exported so the transport can be tested directly. The regression this guards against
 // is not reachable from the CLI without a live registry.
 export { decodeResponseBody, looksGzipped, postBulkAdvisories, readBoundedBody };
-export const LIMITS = { MAX_COMPRESSED_BYTES, MAX_DECOMPRESSED_BYTES };
+export const LIMITS = { MAX_COMPRESSED_BYTES, MAX_DECOMPRESSED_BYTES, REQUEST_TIMEOUTS_MS };
 
 // Run only when invoked as a script, so importing for tests neither reads the dependency
 // tree nor contacts the registry.

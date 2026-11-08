@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';
+import { DESIGN_SYSTEM_V8_ROUTE_POLICY, isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';
 
 const root = process.cwd();
 const absolute = (relativePath: string) => path.join(root, relativePath);
@@ -106,7 +106,8 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
   it('registers all twelve role roots and accepted transaction routes in one server-safe policy', () => {
     for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);
     for (const route of criticalRoutes) expect(routePolicy).toContain(`'${route}'`);
-    expect(routePolicy).toContain("'/platform-v7/deals/'");
+    expect(isDesignSystemV8Route('/platform-v7/deals/sample-id/execution')).toBe(true);
+    expect(DESIGN_SYSTEM_V8_ROUTE_POLICY.dynamic).toContain(/^\/platform-v7\/deals\/[^/]+\/execution$/.source);
     expect(routePolicy).toContain("'/platform-v7/auction'");
     expect(routePolicy).toContain('isDesignSystemV8Route');
     expect(routePolicy).not.toContain("'use client'");

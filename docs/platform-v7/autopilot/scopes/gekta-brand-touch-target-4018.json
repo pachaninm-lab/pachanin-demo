@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-brand-touch-target-4018",
+  "branch": "fix/gekta-brand-touch-target-4018",
+  "issue": 4018,
+  "status": "active",
+  "authorizedBy": "production-mobile-cross-locale-acceptance",
+  "baseline": {
+    "branch": "main",
+    "commit": "7c768ad7c54523837b06999a8f69bdffe2a840db"
+  },
+  "purpose": "Fix the production-proven Gekta header brand-home touch target that renders at 40 CSS px on 320px mobile while the final UX acceptance contract requires every visible interactive target to be at least 44x44 CSS px; add a permanent exact-production regression assertion for header links.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-brand-touch-target-4018.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "mode": "web-ux-and-regression-only",
+    "modelBoundary": "unchanged",
+    "backendBoundary": "unchanged",
+    "identityBoundary": "unchanged",
+    "languages": ["ru", "en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "Gekta registration, login, email verification, MFA or entitlement behavior",
+    "model runtime, prompt, inference routing or latency experiments",
+    "agro-chat API or attachment backend contracts",
+    "PC-CROP registration, reviewer, role, tenant, RBAC, RLS or PostgreSQL authority",
+    "production credentials or direct REG.RU mutation outside protected release authority",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "gektaMobileUxRedTeam.test.ts",
+    "gekta-production-mobile-acceptance.spec.ts at 320/375/390/430",
+    "RU/EN/ZH production smoke",
+    "exact-head CI and Production-like Kubernetes Acceptance",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope fixes one production-proven mobile header touch target and strengthens its acceptance contract only. Completion still requires protected exact-SHA release and live mobile acceptance."
+}

@@ -1,0 +1,237 @@
+name: Production P0 Registration Current-Main Images Connector
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-registration-current-main-images-connector.yml'
+      - 'docs/platform-v7/autopilot/scopes/p0-registration-current-main-images-connector-3785.json'
+      - '.github/workflows/docker-publish.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-registration-current-main-images-connector
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 4637
+  COMMAND: /production p0-registration-images current-main
+  TRUSTED_CONNECTOR_APP_ID: '1144995'
+  EVIDENCE_DIR: artifacts/production-p0-registration-current-main-images-connector
+
+jobs:
+  contract:
+    name: Validate trusted exact-main image authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4637 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-registration-images current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      short_sha: ${{ steps.target.outputs.short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.sha || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce bounded connector authority contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='.github/workflows/production-p0-registration-current-main-images-connector.yml'
+          canonical='.github/workflows/docker-publish.yml'
+          grep -Fq "github.event.issue.number == 4637" "$file"
+          grep -Fq "github.event.comment.user.login == github.repository_owner" "$file"
+          grep -Fq "github.event.comment.author_association == 'OWNER'" "$file"
+          grep -Fq 'github.event.comment.performed_via_github_app.id == 1144995' "$file"
+          grep -Fq "github.event.comment.body == '/production p0-registration-images current-main'" "$file"
+          grep -Fq 'uses: ./.github/workflows/docker-publish.yml' "$file"
+          grep -Fq 'services: api,web,migration' "$file"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
+          grep -Fq 'workflow_call:' "$canonical"
+          grep -Fq "contains(inputs.services, 'api')" "$canonical"
+          grep -Fq "contains(inputs.services, 'web')" "$canonical"
+          grep -Fq "contains(inputs.services, 'migration')" "$canonical"
+          forbidden='docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL'
+          if grep -Ev '^[[:space:]]*forbidden=' "$file" | grep -Eq "$forbidden"; then
+            echo 'Production mutation surface is forbidden in image authority.' >&2
+            exit 1
+          fi
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$COMMAND" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Freeze exact current-main target
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse HEAD)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$GITHUB_SHA" ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+          printf 'TARGET_SHA=%s\nPRODUCTION_MUTATION=NONE\n' "$target"
+
+  build:
+    name: Build canonical exact-main registration images
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      services: api,web,migration
+
+  verify:
+    name: Prove exact-main API/Web/migration images
+    needs: [contract, build]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      packages: read
+    env:
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      SHORT_SHA: ${{ needs.contract.outputs.short_sha }}
+    steps:
+      - name: Prove exact immutable images
+        id: prove
+        if: needs.build.result == 'success'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SHORT_SHA" =~ ^[0-9a-f]{7}$ ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          : > "$EVIDENCE_DIR/images.tsv"
+          for component in api web migration; do
+            image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            docker pull "$image" >/dev/null
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+            [[ "$revision" == "$TARGET_SHA" ]]
+            digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
+            [[ "$digest" == *@sha256:* ]]
+            printf '%s\t%s\t%s\n' "$component" "$revision" "$digest" >> "$EVIDENCE_DIR/images.tsv"
+          done
+          [[ "$(wc -l < "$EVIDENCE_DIR/images.tsv" | tr -d ' ')" == 3 ]]
+          {
+            printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
+            printf 'IMAGE_AUTHORITY_RUN_ID=%s\n' "$GITHUB_RUN_ID"
+            printf 'API_IMAGE=PASS\nWEB_IMAGE=PASS\nMIGRATION_IMAGE=PASS\n'
+            printf 'PRODUCTION_MUTATION=NONE\n'
+          } > "$EVIDENCE_DIR/result.env"
+
+      - name: Publish bounded image evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          gate='FAIL'
+          if [[ "$BUILD_RESULT" == 'success' ]] &&
+             [[ -f "$EVIDENCE_DIR/result.env" ]] &&
+             grep -Fqx 'API_IMAGE=PASS' "$EVIDENCE_DIR/result.env" &&
+             grep -Fqx 'WEB_IMAGE=PASS' "$EVIDENCE_DIR/result.env" &&
+             grep -Fqx 'MIGRATION_IMAGE=PASS' "$EVIDENCE_DIR/result.env"; then
+            gate='PASS'
+          fi
+          cat > "$EVIDENCE_DIR/summary.md" <<EOF
+          ### PC-CROP registration connector exact-main images
+
+          - target SHA: \`$TARGET_SHA\`
+          - image authority run: \`$GITHUB_RUN_ID\`
+          - build gate: \`${BUILD_RESULT^^}\`
+          - final gate: \`$gate\`
+          - required images: \`api\`, \`web\`, \`migration\`
+          - production mutation: \`NONE\`
+          - registration journeys executed: \`0\`
+          - secrets or image credentials published: \`no\`
+          EOF
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/summary.md"
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-registration-current-main-images-connector-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Enforce terminal image gate
+        if: always()
+        shell: bash
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$BUILD_RESULT" == 'success' ]]
+          test -f "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'API_IMAGE=PASS' "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'WEB_IMAGE=PASS' "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'MIGRATION_IMAGE=PASS' "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'PRODUCTION_MUTATION=NONE' "$EVIDENCE_DIR/result.env"

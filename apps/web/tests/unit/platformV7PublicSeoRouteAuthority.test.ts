@@ -50,6 +50,15 @@ describe('platform-v7 public SEO route authority', () => {
     expect(indexNow).toContain('publicSeoAuthority.routes.map');
   });
 
+  it('does not downgrade linked registry routes to noindex behind an entry-only condition', () => {
+    expect(middleware).toContain(
+      'const isIndexable = PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;',
+    );
+    expect(middleware).not.toContain(
+      'const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;',
+    );
+  });
+
   it('never publishes protected or synthetic transaction routes', () => {
     for (const protectedPrefix of [
       '/platform-v7/buyer',

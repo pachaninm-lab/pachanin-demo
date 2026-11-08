@@ -264,7 +264,27 @@ function getFragmentEntries(dictionary: TranslationDictionary): FragmentEntry[] 
   return entries;
 }
 
-const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [];
+const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [
+  [/Н(?=\d+\s*:)/g, 'W', '第'],
+  [/(\d[\d\s]*(?:[.,]\d+)?\s+)т(?![А-Яа-яЁё])/giu, '$1t', '$1吨'],
+  [/(?<![А-Яа-яЁё])янв\.(?![А-Яа-яЁё])/giu, 'Jan', '1月'],
+  [/(?<![А-Яа-яЁё])февр\.(?![А-Яа-яЁё])/giu, 'Feb', '2月'],
+  [/(?<![А-Яа-яЁё])мар\.(?![А-Яа-яЁё])/giu, 'Mar', '3月'],
+  [/(?<![А-Яа-яЁё])апр\.(?![А-Яа-яЁё])/giu, 'Apr', '4月'],
+  [/(?<![А-Яа-яЁё])мая(?![А-Яа-яЁё])/giu, 'May', '5月'],
+  [/(?<![А-Яа-яЁё])июн\.(?![А-Яа-яЁё])/giu, 'Jun', '6月'],
+  [/(?<![А-Яа-яЁё])июл\.(?![А-Яа-яЁё])/giu, 'Jul', '7月'],
+  [/(?<![А-Яа-яЁё])авг\.(?![А-Яа-яЁё])/giu, 'Aug', '8月'],
+  [/(?<![А-Яа-яЁё])сент\.(?![А-Яа-яЁё])/giu, 'Sep', '9月'],
+  [/(?<![А-Яа-яЁё])окт\.(?![А-Яа-яЁё])/giu, 'Oct', '10月'],
+  [/(?<![А-Яа-яЁё])нояб\.(?![А-Яа-яЁё])/giu, 'Nov', '11月'],
+  [/(?<![А-Яа-яЁё])дек\.(?![А-Яа-яЁё])/giu, 'Dec', '12月'],
+  [
+    /цифровая инфраструктура исполнения сделок в растениеводстве/giu,
+    'digital infrastructure for crop-trade execution',
+    '种植业交易执行数字基础设施',
+  ],
+];
 const PLATE_TRANSLIT: Record<string, string> = { А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', У: 'Y', Х: 'X' };
 const CODE_TOKEN_RE = /(?<![А-Яа-яЁёA-Za-z])(?=[^\s]*[АВЕКМНОРСТУХ])(?=[^\s]*[\d•*])[АВЕКМНОРСТУХA-Z0-9•*.\-]{2,}(?![А-Яа-яЁёa-z])/g;
 
@@ -272,8 +292,12 @@ function transliterateCodes(value: string): string {
   return value.replace(CODE_TOKEN_RE, (token) => token.replace(/[АВЕКМНОРСТУХ]/g, (ch) => PLATE_TRANSLIT[ch] ?? ch));
 }
 
-function applyStructuredTokens(value: string, _language: TranslatedLanguageCode): string {
-  return transliterateCodes(value);
+function applyStructuredTokens(value: string, language: TranslatedLanguageCode): string {
+  let next = value;
+  for (const [pattern, en, zh] of STRUCTURED_TOKENS) {
+    next = next.replace(pattern, language === 'en' ? en : zh);
+  }
+  return transliterateCodes(next);
 }
 
 const fragmentRegexCache = new Map<string, RegExp>();

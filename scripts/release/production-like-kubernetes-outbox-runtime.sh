@@ -46,77 +46,424 @@ DEFAULT_INSTALLED=1
 BASE_SCRIPT="$BASE_SCRIPT" GENERATED_SCRIPT="$GENERATED_SCRIPT" node <<'NODE'
 const fs = require('node:fs');
 const source = fs.readFileSync(process.env.BASE_SCRIPT, 'utf8');
+const shell = (value) => value.replaceAll('\\${', '${');
+const raw = (strings) => shell(String.raw({ raw: strings.raw }));
+
+const outboxSqlBefore = raw`outbox_sql() {
+  local sql="$1"
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$outbox_password" \
+    psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc "$sql"
+}`;
+const outboxSqlAfter = raw`outbox_sql() {
+  local sql="$1"
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$outbox_password" \
+    psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc "$sql"
+}
+
+# Acceptance-only helper: exercise the same restricted principal and v2 claim
+# protocol fence as DurableOutboxWorker instead of bypassing the fence as admin.
+outbox_claim_sql() {
+  local sql="$1"
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$outbox_password" \
+    psql -q -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc \
+      "BEGIN; SET LOCAL pc_crop.outbox_claim_protocol = '2'; $sql; COMMIT;"
+}`;
+
+const gracefulClaimBefore = raw`FAILURE_REASON="graceful shutdown did not stop claims and safely finish the active drain"
+kubectl scale deployment kafka -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --timeout=180s
+graceful_suffix="graceful"
+test "$(seed_small_entries "$graceful_suffix" 1 20)" = "1"
+wait_for_sql "graceful entry claim" "PROCESSING" 45 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;" \
+  >/dev/null
+graceful_owner="$(admin_sql "SELECT \"leaseOwner\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;")"`;
+const gracefulClaimAfter = raw`FAILURE_REASON="graceful shutdown during Kafka unavailability claimed durable work or failed to terminate cleanly"
+kubectl scale deployment kafka -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --timeout=180s
+graceful_suffix="graceful"
+test "$(seed_small_entries "$graceful_suffix" 1 20)" = "1"
+# Live Kafka readiness is now the claim boundary. Keep the broker absent long
+# enough for several worker intervals and prove the durable row remains wholly
+# unclaimed before exercising SIGTERM on one idle worker.
+sleep 8
+graceful_pre_shutdown="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text,
+    CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"lastAttemptAt\" IS NULL THEN 'not-attempted' ELSE 'attempted' END,
+    CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}'
+  LIMIT 1;
+")"
+printf '%s\n' "$graceful_pre_shutdown" > "$RUNTIME_DIR/graceful-pre-shutdown.txt"
+test "$graceful_pre_shutdown" = "PENDING|no-lease|not-attempted|unsent"
+graceful_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o jsonpath='{.items[0].metadata.name}')"`;
 
 const gracefulBefore = '[[ "$graceful_row" == PENDING:::unsent || "$graceful_row" == DEAD_LETTER:::unsent ]]';
-const gracefulAfter = [
-  'IFS=\':\' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"',
-  'test "$graceful_delivery" = "unsent"',
-  'if [[ "$graceful_status" = "PROCESSING" ]]; then',
-  '  test -n "$graceful_current_owner"',
-  '  test -n "$graceful_current_token"',
-  '  test "$graceful_current_owner" != "$graceful_owner"',
-  'else',
-  '  [[ "$graceful_status" = "PENDING" || "$graceful_status" = "DEAD_LETTER" ]]',
-  '  test -z "$graceful_current_owner"',
-  '  test -z "$graceful_current_token"',
-  'fi',
-].join('\n');
+const gracefulAfter = raw`IFS=':' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"
+test "$graceful_status" = "PENDING"
+test -z "$graceful_current_owner"
+test -z "$graceful_current_token"
+test "$graceful_delivery" = "unsent"
+graceful_attempt_evidence="$(admin_sql "SELECT CASE WHEN \"lastAttemptAt\" IS NULL THEN 'NOT_ATTEMPTED' ELSE 'ATTEMPTED' END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;")"
+test "$graceful_attempt_evidence" = "NOT_ATTEMPTED"`;
 
-const consumerBefore = [
-  'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
-  'set +e',
-  'kubectl exec -n "$NAMESPACE" "pod/${kafka_pod}" -- \\',
-  '  kafka-console-consumer \\',
-  '    --bootstrap-server localhost:9092 \\',
-  '    --topic grainflow.domain.events \\',
-  '    --from-beginning \\',
-  '    --timeout-ms 30000 \\',
-  '    --property print.headers=true \\',
-  '    --property print.value=false \\',
-  '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
-  'consumer_status=$?',
-  'set -e',
-  '# Kafka console consumer exits non-zero on timeout after draining available records.',
-  'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
-].join('\n');
+const killClaimBefore = raw`wait_for_sql "kill scenario claim" "PROCESSING" 45 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null`;
+const killClaimAfter = raw`# Kafka is intentionally absent in this scenario. The hardened worker must not
+# claim new durable work while broker readiness is false, so waiting for a
+# natural PROCESSING row here would contradict the production invariant. Seed
+# only the durable crash-window state under the identity of a real Ready worker;
+# the PostgreSQL exact-head acceptance separately proves that production code
+# persists lastAttemptAt before invoking the external handler. This runtime
+# scenario then proves that a killed owner cannot cause that ambiguous state to
+# be replayed automatically after lease expiry.
+kill_fixture_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort | sed -n '1{s#^pod/##;p;}')"
+test -n "$kill_fixture_owner"
+escaped_kill_fixture_owner="$(sql_literal "$kill_fixture_owner")"
+kill_fixture_count="$(outbox_claim_sql "
+  WITH changed AS (
+    UPDATE \"outbox_entries\"
+    SET \"status\"='PROCESSING',
+        \"leaseOwner\"='\${escaped_kill_fixture_owner}',
+        \"leaseToken\"=md5('\${RUN_ID}.\${kill_suffix}.forced-kill'),
+        \"leaseExpiresAt\"=NOW()+INTERVAL '60 seconds',
+        \"heartbeatAt\"=NOW(),
+        \"lastAttemptAt\"=NOW()
+    WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}'
+      AND \"status\"='PENDING'
+      AND \"leaseOwner\" IS NULL
+      AND \"leaseToken\" IS NULL
+    RETURNING 1
+  )
+  SELECT count(*) FROM changed;
+")"
+test "$kill_fixture_count" = "1"
+wait_for_sql "kill scenario durable attempted lease" "ATTEMPTED" 5 \
+  "SELECT CASE WHEN \"status\"='PROCESSING' AND \"lastAttemptAt\" IS NOT NULL AND \"leaseOwner\"='\${escaped_kill_fixture_owner}' THEN 'ATTEMPTED' ELSE COALESCE(\"status\"::text,'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null`;
 
-const consumerAfter = [
-  '# The hardened Kafka deployment exposes a loopback-only PROBE listener for broker-local evidence.',
-  '# Using it avoids widening NetworkPolicy and avoids creating an additional network identity.',
-  'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
-  'set +e',
-  'kubectl exec -n "$NAMESPACE" "pod/${kafka_pod}" -- \\',
-  '  kafka-console-consumer \\',
-  '    --bootstrap-server 127.0.0.1:19092 \\',
-  '    --topic grainflow.domain.events \\',
-  '    --from-beginning \\',
-  '    --timeout-ms 30000 \\',
-  '    --property print.headers=true \\',
-  '    --property print.value=false \\',
-  '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
-  'consumer_status=$?',
-  'set -e',
-  '# Kafka console consumer exits non-zero on timeout after draining available records.',
-  'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
-].join('\n');
+const killRecoveryBefore = raw`lease_recovery_started="$(date +%s)"
+wait_for_sql "lease-expired entry recovery" "SENT" 90 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null
+lease_recovery_seconds=$(( $(date +%s) - lease_recovery_started ))
+printf '%s\n' "$lease_recovery_seconds" > "$RUNTIME_DIR/lease-recovery-seconds.txt"
+sent_epoch="$(admin_sql "
+  SELECT extract(epoch FROM \"sentAt\")::bigint
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}'
+  LIMIT 1;
+")"
+test "$sent_epoch" -ge "$lease_expiry_epoch"
+printf '1\n' > "$RUNTIME_DIR/recovered-after-lease-expiry.txt"
+printf 'killedOwner=%s leaseExpiryEpoch=%s sentEpoch=%s recoverySeconds=%s\n' \
+  "$killed_owner" "$lease_expiry_epoch" "$sent_epoch" "$lease_recovery_seconds" \
+  > "$RUNTIME_DIR/lease-recovery-summary.txt"`;
+const killRecoveryAfter = raw`lease_recovery_started="$(date +%s)"
+wait_for_sql "lease-expired attempted entry quarantine" "MANUAL_REVIEW" 90 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null
+lease_recovery_seconds=$(( $(date +%s) - lease_recovery_started ))
+printf '%s\n' "$lease_recovery_seconds" > "$RUNTIME_DIR/lease-recovery-seconds.txt"
+kill_ambiguity="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text, COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+    COALESCE(extract(epoch FROM \"manualReviewAt\")::bigint::text,''),
+    CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}'
+  LIMIT 1;
+")"
+printf '%s\n' "$kill_ambiguity" > "$RUNTIME_DIR/lease-recovery-ambiguity.txt"
+IFS='|' read -r kill_final_status kill_category kill_code quarantine_epoch kill_lease_state kill_sent_state <<< "$kill_ambiguity"
+test "$kill_final_status" = "MANUAL_REVIEW"
+test "$kill_category" = "AMBIGUOUS"
+test "$kill_code" = "WORKER_CRASH_OUTCOME_UNKNOWN"
+test -n "$quarantine_epoch"
+test "$quarantine_epoch" -ge "$lease_expiry_epoch"
+test "$kill_lease_state" = "no-lease"
+test "$kill_sent_state" = "unsent"
+sleep 8
+test "$(admin_sql "SELECT concat_ws('|', \"status\"::text, CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;")" = "MANUAL_REVIEW|unsent"
+printf '1\n' > "$RUNTIME_DIR/recovered-after-lease-expiry.txt"
+printf 'killedOwner=%s leaseExpiryEpoch=%s quarantineEpoch=%s recoverySeconds=%s state=MANUAL_REVIEW code=WORKER_CRASH_OUTCOME_UNKNOWN delivery=unsent\n' \
+  "$killed_owner" "$lease_expiry_epoch" "$quarantine_epoch" "$lease_recovery_seconds" \
+  > "$RUNTIME_DIR/lease-recovery-summary.txt"`;
 
-if (!source.includes(gracefulBefore)) {
-  throw new Error('graceful shutdown assertion boundary not found');
+const poisonBefore = raw`test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"
+wait_for_sql "healthy entries beside poison" "20" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${healthy_suffix}' AND \"status\"='SENT';" \
+  >/dev/null
+admin_sql "
+  UPDATE \"outbox_entries\"
+  SET \"nextRetryAt\"=NOW()-INTERVAL '1 second'
+  WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='PENDING';
+" >/dev/null
+wait_for_sql "poison dead letter" "1" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='DEAD_LETTER';" \
+  >/dev/null`;
+const poisonAfter = raw`# The 2 MiB fixture is not a transient transport outage. Kafka protocol error
+# MESSAGE_TOO_LARGE (10) is an explicit broker rejection and KafkaJS marks it
+# non-retriable. Prove that the exact immutable payload is dead-lettered once,
+# with durable PERMANENT evidence, rather than retried or quarantined as an
+# unknown acknowledgement outcome.
+wait_for_sql "poison definitive broker rejection" "DEAD_LETTER" 60 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;" \
+  >/dev/null
+poison_rejection="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text, \"retryCount\"::text,
+    COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+    CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}'
+  LIMIT 1;
+")"
+printf '%s\n' "$poison_rejection" > "$RUNTIME_DIR/poison-definitive-rejection.txt"
+test "$poison_rejection" = "DEAD_LETTER|1|PERMANENT|KAFKA_MESSAGE_TOO_LARGE|no-lease|unsent"
+# A permanently rejected poison entry must not block independent healthy work.
+test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"
+wait_for_sql "healthy entries beside permanently rejected poison" "20" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${healthy_suffix}' AND \"status\"='SENT';" \
+  >/dev/null
+sleep 3
+test "$(admin_sql "SELECT concat_ws('|', \"status\"::text, \"retryCount\"::text, CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;")" = "DEAD_LETTER|1|unsent"`;
+
+const consumerBefore = raw`kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath='{.items[0].metadata.name}')"
+set +e
+kubectl exec -n "$NAMESPACE" "pod/\${kafka_pod}" -- \
+  kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic grainflow.domain.events \
+    --from-beginning \
+    --timeout-ms 30000 \
+    --property print.headers=true \
+    --property print.value=false \
+  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"
+consumer_status=$?
+set -e
+# Kafka console consumer exits non-zero on timeout after draining available records.
+test "$consumer_status" = "0" || test "$consumer_status" = "1"`;
+const consumerAfter = raw`# The hardened Kafka deployment exposes a loopback-only PROBE listener for broker-local evidence.
+# Using it avoids widening NetworkPolicy and avoids creating an additional network identity.
+kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath='{.items[0].metadata.name}')"
+set +e
+kubectl exec -n "$NAMESPACE" "pod/\${kafka_pod}" -- \
+  kafka-console-consumer \
+    --bootstrap-server 127.0.0.1:19092 \
+    --topic grainflow.domain.events \
+    --from-beginning \
+    --timeout-ms 30000 \
+    --property print.headers=true \
+    --property print.value=false \
+  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"
+consumer_status=$?
+set -e
+# Kafka console consumer exits non-zero on timeout after draining available records.
+test "$consumer_status" = "0" || test "$consumer_status" = "1"`;
+
+const finalLogsBefore = raw`kubectl logs -n "$NAMESPACE" -l "$WORKER_SELECTOR" --all-containers=true --prefix=true --tail=1000 \
+  > "$RUNTIME_DIR/final-worker-logs.txt" 2>&1`;
+const finalLogsAfter = raw`# Snapshot exactly the two current Ready workers after scale-down.
+# A selector-based log read can include the terminating third pod and fail with NotFound.
+final_worker_pods_file="$RUNTIME_DIR/final-worker-pods.txt"
+for _ in $(seq 1 30); do
+  : > "$final_worker_pods_file"
+  while IFS= read -r final_worker_pod; do
+    test -n "$final_worker_pod"
+    final_worker_deleting="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || true)"
+    final_worker_ready="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+    if [[ -z "$final_worker_deleting" && "$final_worker_ready" = "True" ]]; then
+      printf '%s\n' "$final_worker_pod" >> "$final_worker_pods_file"
+    fi
+  done < <(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort)
+  final_worker_pod_count="$(wc -l < "$final_worker_pods_file" | tr -d ' ')"
+  [[ "$final_worker_pod_count" = "2" ]] && break
+  sleep 1
+done
+test "\${final_worker_pod_count:-0}" = "2"
+: > "$RUNTIME_DIR/final-worker-logs.txt"
+while IFS= read -r final_worker_pod; do
+  test -n "$final_worker_pod"
+  kubectl logs -n "$NAMESPACE" "$final_worker_pod" --all-containers=true --prefix=true --tail=1000 \
+    >> "$RUNTIME_DIR/final-worker-logs.txt" 2>&1
+done < "$final_worker_pods_file"`;
+
+const terminalCountsBefore = 'delete_run_rows\nRESULT="PASS"';
+const terminalCountsAfter = raw`# Capture measured terminal outcomes while the scenario rows still exist.
+# This read-only query does not claim, acknowledge, redrive or alter any row.
+admin_sql "
+  WITH observed AS (
+    SELECT * FROM \"outbox_entries\"
+    WHERE \"correlationId\" LIKE '\${RUN_ID}.%'
+  ), grouped AS (
+    SELECT substring(\"correlationId\" FROM char_length('\${RUN_ID}') + 2) AS scenario,
+      count(*) AS total,
+      count(*) FILTER (WHERE \"status\"='SENT') AS delivered,
+      count(*) FILTER (WHERE \"status\"='DEAD_LETTER') AS dead,
+      count(*) FILTER (WHERE \"status\"='MANUAL_REVIEW') AS quarantined,
+      count(*) FILTER (WHERE NOT COALESCE(
+        \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL
+        AND (
+          (\"status\"='SENT' AND \"sentAt\" IS NOT NULL)
+          OR (\"status\"='DEAD_LETTER' AND \"sentAt\" IS NULL AND \"retryCount\"=1
+            AND \"lastErrorCategory\"='PERMANENT' AND \"lastErrorCode\"='KAFKA_MESSAGE_TOO_LARGE')
+          OR (\"status\"='MANUAL_REVIEW' AND \"sentAt\" IS NULL AND \"lastAttemptAt\" IS NOT NULL
+            AND \"manualReviewAt\" IS NOT NULL AND \"lastErrorCategory\"='AMBIGUOUS'
+            AND \"lastErrorCode\"='WORKER_CRASH_OUTCOME_UNKNOWN')
+        ), false)) AS invalid
+    FROM observed GROUP BY \"correlationId\"
+  )
+  SELECT jsonb_build_object(
+    'schemaVersion', 1, 'commitSha', '\${EXACT_HEAD}', 'runId', '\${RUN_ID}',
+    'outcomes', (SELECT jsonb_agg(jsonb_build_object(
+      'scenario', scenario, 'total', total, 'delivered', delivered,
+      'dead', dead, 'quarantined', quarantined, 'invalid', invalid
+    ) ORDER BY scenario) FROM grouped),
+    'quarantineEvidence', (SELECT concat_ws('|', \"status\"::text,
+      COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+      COALESCE(extract(epoch FROM \"manualReviewAt\")::bigint::text,''),
+      CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+      CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END
+    ) FROM observed WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}')
+  );
+" > "$RUNTIME_DIR/terminal-outcome-counts.json"
+test -s "$RUNTIME_DIR/terminal-outcome-counts.json"
+delete_run_rows
+RESULT="PASS"`;
+
+const replacements = [
+  [outboxSqlBefore, outboxSqlAfter, 'restricted outbox v2 claim helper boundary'],
+  [gracefulClaimBefore, gracefulClaimAfter, 'graceful readiness-gated claim boundary'],
+  [gracefulBefore, gracefulAfter, 'graceful shutdown assertion boundary'],
+  [killClaimBefore, killClaimAfter, 'forced-kill attempted-lease fixture boundary'],
+  [killRecoveryBefore, killRecoveryAfter, 'forced-kill ambiguity recovery boundary'],
+  [poisonBefore, poisonAfter, 'poison isolation permanent-rejection boundary'],
+  [consumerBefore, consumerAfter, 'Kafka delivery probe boundary'],
+  [finalLogsBefore, finalLogsAfter, 'final worker log collection boundary'],
+  [terminalCountsBefore, terminalCountsAfter, 'final measured terminal outcome boundary'],
+];
+
+let rendered = source;
+for (const [before, after, message] of replacements) {
+  const beforeOccurrences = rendered.split(before).length - 1;
+  if (beforeOccurrences !== 1) {
+    throw new Error(`${message} must exist exactly once`);
+  }
+  const intentionalResidualOccurrences = after.split(before).length - 1;
+  rendered = rendered.replace(before, after);
+  const residualOccurrences = rendered.split(before).length - 1;
+  if (residualOccurrences !== intentionalResidualOccurrences) {
+    throw new Error(`${message} replacement residual mismatch`);
+  }
 }
-if (!source.includes(consumerBefore)) {
-  throw new Error('Kafka delivery probe boundary not found');
-}
-
-let rendered = source.replace(gracefulBefore, gracefulAfter);
-rendered = rendered.replace(consumerBefore, consumerAfter);
-if (
-  rendered === source ||
-  rendered.includes(gracefulBefore) ||
-  rendered.includes(consumerBefore)
-) {
-  throw new Error('acceptance boundaries were not replaced exactly once');
+if (rendered === source) {
+  throw new Error('acceptance boundaries were not replaced');
 }
 fs.writeFileSync(process.env.GENERATED_SCRIPT, rendered, { mode: 0o700 });
 NODE
 
-bash "$GENERATED_SCRIPT"
+# Diagnostics never change the acceptance result or mutate scenario rows. Keep
+# each remote request bounded so an unavailable dependency cannot hang cleanup.
+capture_failure_diagnostics() {
+  command -v timeout >/dev/null || return 0
+  local runtime_dir="${EVIDENCE_DIR:-artifacts/industrial-readiness}/kubernetes/outbox-runtime"
+  local diagnostic_run_id
+  diagnostic_run_id="$(jq -er --arg head "$EXACT_HEAD" '
+    select(.commitSha == $head and .result == "FAIL") | .runId
+    | select(test("^ir2649-[a-f0-9]{12}-[0-9]+$"))
+  ' "$runtime_dir/outbox-worker-runtime-acceptance.json" 2>/dev/null)" || return 0
+
+  # Only aggregate synthetic rows from this failed run. Do not export payloads,
+  # lease tokens, connection strings or unrestricted lastError messages.
+  timeout 8s kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$postgres_password" \
+    psql -q -v ON_ERROR_STOP=1 -U postgres -d grainflow -Atc "
+      SET statement_timeout = '5s';
+      WITH grouped AS (
+        SELECT substring(\"correlationId\" FROM char_length('$diagnostic_run_id') + 2) AS scenario,
+          \"status\"::text AS status,
+          CASE WHEN \"lastErrorCategory\" IN ('TRANSIENT','PERMANENT','AMBIGUOUS')
+            THEN \"lastErrorCategory\" ELSE NULL END AS category,
+          CASE WHEN \"lastErrorCode\" ~ '^[A-Z0-9_.:-]{1,64}$'
+            THEN \"lastErrorCode\" ELSE NULL END AS code,
+          \"retryCount\" AS retries,
+          (\"leaseOwner\" IS NOT NULL) AS leased,
+          (\"leaseExpiresAt\" < NOW()) AS expired,
+          (\"lastAttemptAt\" IS NOT NULL) AS attempted,
+          (\"sentAt\" IS NOT NULL) AS acknowledged,
+          count(*) AS count
+        FROM \"outbox_entries\"
+        WHERE \"correlationId\" LIKE '$diagnostic_run_id.%'
+        GROUP BY 1,2,3,4,5,6,7,8,9
+      )
+      SELECT jsonb_build_object('commitSha','$EXACT_HEAD','runId','$diagnostic_run_id',
+        'groups',COALESCE(jsonb_agg(to_jsonb(grouped)), '[]'::jsonb)) FROM grouped;
+    " > "$runtime_dir/failure-outcome-counts.json" 2>/dev/null || true
+
+  timeout 8s kubectl get pods -n "$NAMESPACE" \
+    -l app.kubernetes.io/name=grainflow-outbox-worker -o json 2>/dev/null |
+    jq --arg head "$EXACT_HEAD" --arg run "$diagnostic_run_id" '{
+      commitSha:$head, runId:$run,
+      workers:[.items[] | {pod:.metadata.name, phase:.status.phase,
+        deleting:(.metadata.deletionTimestamp != null),
+        containers:[.status.containerStatuses[]? | {name,ready,restartCount,
+          waitingReason:.state.waiting.reason, terminationReason:.state.terminated.reason,
+          lastExitCode:.lastState.terminated.exitCode}]}]
+    }' > "$runtime_dir/failure-worker-state.json" 2>/dev/null || true
+
+  # Filter in memory before saving. Only fixed drain counters and known error
+  # identifiers are retained; arbitrary exception text never enters the file.
+  timeout 8s kubectl logs -n "$NAMESPACE" \
+    -l app.kubernetes.io/name=grainflow-outbox-worker \
+    --all-containers=true --prefix=true --tail=300 2>/dev/null |
+    node -e '
+      let text = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", chunk => { text = (text + chunk).slice(-1000000); });
+      process.stdin.on("end", () => {
+        for (const line of text.split("\n")) {
+          const pod = line.match(/pod\/(grainflow-outbox-worker-[a-z0-9-]+)/)?.[1] ?? null;
+          const drain = line.match(/Outbox drain claimed=\d+ delivered=\d+ retried=\d+ dead=\d+ manualReview=\d+ leaseLost=\d+/)?.[0];
+          const codes = [...new Set(line.match(/\b(?:P20\d{2}|KAFKA_MESSAGE_TOO_LARGE|KAFKA_RECORD_LIST_TOO_LARGE|KAFKA_TRANSPORT_UNAVAILABLE|KafkaJSConnectionError|KafkaJSRequestTimeoutError|KafkaJSNumberOfRetriesExceeded|KafkaJSProtocolError|ETIMEDOUT|ECONNREFUSED|OutboxLeaseLostError)\b/g) ?? [])];
+          const categories = [
+            ["kafka-send-failed", /Kafka send failed/],
+            ["kafka-readiness-failed", /Kafka readiness probe failed/],
+            ["outbox-drain-failed", /Outbox drain failed/],
+            ["sequence-order-error", /out.of.order.sequence|out of order sequence/i],
+            ["unknown-producer", /UNKNOWN_PRODUCER_ID|unknown producer id/i],
+            ["timeout", /timed?\s*out|timeout/i],
+            ["sql-permission", /\b42501\b/],
+            ["sql-deadlock", /\b40P01\b/],
+            ["sql-serialization", /\b40001\b/],
+          ].filter(([, pattern]) => pattern.test(line)).map(([category]) => category);
+          if (drain || codes.length || categories.length) console.log(JSON.stringify({pod,drain:drain ?? null,codes,categories}));
+        }
+      });
+    ' > "$runtime_dir/failure-worker-events.jsonl" 2>/dev/null || true
+
+  timeout 8s kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$postgres_password" \
+    psql -q -v ON_ERROR_STOP=1 -U postgres -d grainflow -Atc "
+      SET statement_timeout = '5s';
+      SELECT COALESCE(jsonb_agg(to_jsonb(grouped)), '[]'::jsonb) FROM (
+        SELECT state, wait_event_type, wait_event, count(*) AS count
+        FROM pg_stat_activity WHERE usename='app_outbox'
+        GROUP BY state, wait_event_type, wait_event
+      ) AS grouped;
+    " > "$runtime_dir/failure-database-waits.json" 2>/dev/null || true
+}
+
+if bash "$GENERATED_SCRIPT"; then
+  exit 0
+else
+  runtime_status=$?
+fi
+capture_failure_diagnostics || true
+exit "$runtime_status"

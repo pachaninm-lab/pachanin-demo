@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4517,
+  "branch": "sec/security-policy-threat-model",
+  "status": "active",
+  "purpose": "Publish a coordinated vulnerability disclosure policy and a threat model whose prevention and detection entries cite controls that actually exist, stating residual risk plainly where they do not.",
+  "authorityBaseExactMain": "91d0546e938a870c01e35796bd844681041964e3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "SECURITY.md",
+    "docs/platform-v7/autopilot/scopes/sec-security-policy-threat-model-4517.json",
+    "docs/security/THREAT_MODEL.md"
+  ],
+  "requiredInvariants": [
+    "No exploitable detail, reproduction steps, secrets or CROWN_JEWEL source may be published.",
+    "No mitigation may be claimed that is not backed by an existing gate, migration or code path.",
+    "Absent controls must be stated as residual risk, never omitted to make the posture look better.",
+    "No personal contact data may be published; private reporting goes through GitHub's built-in channel.",
+    "The public status of the repository and the irreversibility of prior disclosure must be stated honestly.",
+    "Qwen remains THIRD_PARTY_INFRASTRUCTURE and must never be presented as the rights holder's own model.",
+    "No product code, dependency, workflow or production configuration may change.",
+    "Merge and CI success are not REG.RU production deployment evidence."
+  ],
+  "acceptance": [
+    "SECURITY.md gives a private reporting route that costs nothing and exposes no personal data.",
+    "The threat model covers the programme's required threat list including tenant breakout, settlement manipulation, supply chain, CI compromise, RAG poisoning, prompt injection and model extraction.",
+    "Every threat carries a residual risk and the open gaps are ranked rather than buried.",
+    "Claimed controls correspond to gates observable in CI or to code present in the tree.",
+    "The concurrent-scope guard accepts exactly the three authorized paths."
+  ]
+}

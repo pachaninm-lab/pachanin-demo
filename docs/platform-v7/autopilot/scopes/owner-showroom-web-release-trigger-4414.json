@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/showroom-web-release-trigger-4414",
+  "status": "active",
+  "purpose": "Issue #4414 operational follow-up: trigger the repository's canonical push-driven REG.RU exact-SHA web release for the already-merged owner showroom. The readiness route change is comment-only and intentionally carries no runtime behavior change.",
+  "authorityBaseExactMain": "18384323f7b77746f39797a50518f70f407fc763",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/health/ready/route.ts",
+    "docs/platform-v7/autopilot/scopes/owner-showroom-web-release-trigger-4414.json"
+  ],
+  "requiredInvariants": [
+    "The readiness endpoint response, headers and runtime behavior remain byte-for-byte semantically unchanged; only its source comment may change.",
+    "The change exists solely because production-web-exact-sha.yml explicitly treats this readiness file as a canonical push release trigger.",
+    "No auth, RBAC, database, migration, secret, business API, external integration or showroom implementation changes are allowed.",
+    "The resulting production release must still use the canonical exact-SHA web release workflow and its rollback/live-acceptance controls.",
+    "New recurring cost remains 0 RUB."
+  ],
+  "acceptance": [
+    "PR diff contains only the readiness comment and this scope manifest.",
+    "Required governance and web checks pass before merge.",
+    "Push to main starts canonical Docker web image build and Production Web Exact-SHA Release for the resulting exact merge SHA.",
+    "Production evidence records DEPLOYMENT_COMPLETE=1, exact running web revision and LIVE_ACCEPTANCE=PASS."
+  ]
+}

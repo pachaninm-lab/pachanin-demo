@@ -1,0 +1,701 @@
+name: Production P0 Staff API Origin Local Controller Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-staff-api-origin-local-controller-repair.yml'
+      - 'scripts/pc-tai-release-controller-core.sh'
+      - 'scripts/pc-p0-staff-api-origin-local-repair.sh'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-origin-local-controller-4559.json'
+      - 'apps/web/lib/server/server-api-origin.ts'
+      - 'apps/web/app/platform-v7/staff/page.tsx'
+      - 'apps/web/app/api/staff/capabilities/me/route.ts'
+      - 'apps/web/app/api/staff/*path*/route.ts'
+      - 'apps/web/tests/unit/serverApiOrigin.test.ts'
+      - 'apps/web/tests/unit/platformV7StaffControlCenter.test.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-base-prefix-4559.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-staff-api-origin-local-controller-repair
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: '3072'
+  COMMAND: '/production p0-staff-api-origin-repair-local current-main'
+
+jobs:
+  contract:
+    name: Validate outbound-only staff API origin repair contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-staff-api-origin-repair-local current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Prove bounded source contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller-core.sh
+          bash -n scripts/pc-p0-staff-api-origin-local-repair.sh
+          node scripts/check-pc-tai-release-controller.mjs
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/production-p0-staff-api-origin-local-controller-repair.yml')
+          core = Path('scripts/pc-tai-release-controller-core.sh')
+          repair = Path('scripts/pc-p0-staff-api-origin-local-repair.sh')
+          resolver = Path('apps/web/lib/server/server-api-origin.ts')
+          resolver_test = Path('apps/web/tests/unit/serverApiOrigin.test.ts')
+          staff_test = Path('apps/web/tests/unit/platformV7StaffControlCenter.test.ts')
+          staff_page = Path('apps/web/app/platform-v7/staff/page.tsx')
+          capabilities_route = Path('apps/web/app/api/staff/capabilities/me/route.ts')
+          staff_proxy = Path('apps/web/app/api/staff/[...path]/route.ts')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-base-prefix-4559.json')
+          wf = workflow.read_text(encoding='utf-8')
+          core_text = core.read_text(encoding='utf-8')
+          repair_text = repair.read_text(encoding='utf-8')
+          resolver_text = resolver.read_text(encoding='utf-8')
+          resolver_test_text = resolver_test.read_text(encoding='utf-8')
+          staff_test_text = staff_test.read_text(encoding='utf-8')
+          staff_page_text = staff_page.read_text(encoding='utf-8')
+          capabilities_text = capabilities_route.read_text(encoding='utf-8')
+          staff_proxy_text = staff_proxy.read_text(encoding='utf-8')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          allowed = {
+              str(workflow), str(repair), str(resolver), str(resolver_test), str(staff_test),
+              str(staff_page), str(capabilities_route), str(staff_proxy), str(scope_path),
+          }
+          if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1': raise SystemExit('SCOPE_SCHEMA')
+          if scope.get('branch') != 'fix/p0-staff-api-base-root-cause-4559': raise SystemExit('SCOPE_BRANCH')
+          if scope.get('status') != 'active' or set(scope.get('allowedPaths') or []) != allowed: raise SystemExit('SCOPE_PATHS')
+          if scope.get('issue') != 4559 or scope.get('registrationIssue') != 3785 or scope.get('releaseIssue') != 3072: raise SystemExit('SCOPE_AUTHORITY')
+          if scope.get('authorityBaseExactMain') != 'd92b2b7e66a805aea830afd6519af7dcd320e3fa': raise SystemExit('SCOPE_BASE')
+          if scope.get('newRecurringCostRub') != 0: raise SystemExit('SCOPE_COST')
+          boundaries = scope.get('boundaries') or {}
+          for key in ('registrationOnly','sourceControlOnly','ownerCommandOnly','outboundOnlyProductionRunner'):
+              if boundaries.get(key) is not True: raise SystemExit(f'SCOPE_TRUE_BOUNDARY:{key}')
+          required_false = (
+              'productionMutationInPr','installedControllerWrapperMutation','sudoAuthorityMutation','databaseMutation',
+              'migrationMutation','credentialMutation','passwordMutation','sessionMutation','mfaMutation','userMutation',
+              'roleOrMembershipMutation','dnsMutation','caddyMutation','sshPinMutation','dependencyMutation','imageBuild',
+              'imagePull','apiContainerMutation','nonWebContainerMutation','inboundSshRequired','privateSshKeyUse',
+              'secretPublication','rawLogPublication','protectedPathPublication','containerIdPublication',
+          )
+          if any(boundaries.get(key) is not False for key in required_false): raise SystemExit('SCOPE_FALSE_BOUNDARY')
+          if boundaries.get('productionMutation') != 'WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE': raise SystemExit('SCOPE_MUTATION')
+          required_core = (
+              '--pc-crop-staff-api-origin-repair-v1','run_pc_crop_staff_api_origin_repair',
+              'scripts/pc-p0-staff-api-origin-local-repair.sh','pc-crop.staff-api-origin-local-repair.v1',
+              'publish_file "$report" staff-api-origin-repair.json',
+          )
+          if any(marker not in core_text for marker in required_core): raise SystemExit('CORE_CONTRACT')
+          required_resolver = (
+              "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';",
+              'function normalizeConfiguredBaseUrl(', 'export function resolveServerApiBaseUrl(',
+              "if (url.origin !== 'http://api:3001') return '';",
+              "if (url.pathname !== '/api' && url.pathname !== '/api/') return '';",
+              'if (production) return COMPOSE_INTERNAL_API_BASE_URL;',
+              'export const CANONICAL_COMPOSE_API_BASE_URL = COMPOSE_INTERNAL_API_BASE_URL;',
+          )
+          if any(marker not in resolver_text for marker in required_resolver): raise SystemExit('RESOLVER_CONTRACT')
+          if 'resolveServerApiOrigin' in resolver_text or 'CANONICAL_COMPOSE_API_ORIGIN' in resolver_text: raise SystemExit('AMBIGUOUS_RESOLVER_NAME')
+          consumer_contracts = (
+              (staff_page_text, ('resolveServerApiBaseUrl();','fetch(`${API_BASE_URL}/auth/me`','fetch(`${API_BASE_URL}/staff/capabilities/me`')),
+              (capabilities_text, ('resolveServerApiBaseUrl();','fetch(`${API_BASE_URL}/staff/capabilities/me`')),
+              (staff_proxy_text, ('resolveServerApiBaseUrl();','const targetUrl = `${API_BASE_URL}/staff/${path}')),
+          )
+          if any(marker not in text for text, markers in consumer_contracts for marker in markers): raise SystemExit('CONSUMER_BASE_CONTRACT')
+          required_resolver_tests = (
+              "CANONICAL_COMPOSE_API_BASE_URL", "API_URL: 'http://api:3001/api'", "API_URL: 'http://api:3001'",
+              "'http://api:3002/api'", "'http://api:3001/api/extra'", "NEXT_PUBLIC_API_URL",
+          )
+          if any(marker not in resolver_test_text for marker in required_resolver_tests): raise SystemExit('RESOLVER_TEST_CONTRACT')
+          required_staff_tests = (
+              "app.setGlobalPrefix('api'", "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';",
+              'resolveServerApiBaseUrl();', 'fetch(`${API_BASE_URL}/auth/me`', 'fetch(`${API_BASE_URL}/staff/capabilities/me`',
+          )
+          if any(marker not in staff_test_text for marker in required_staff_tests): raise SystemExit('STAFF_TEST_CONTRACT')
+          required_repair = (
+              "CANONICAL_BASE_URL='http://api:3001/api'",
+              "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';",
+              "if (production) return COMPOSE_INTERNAL_API_BASE_URL;",
+              "canonical='http://api:3001/api'", "const canonical='http://api:3001/api';",
+              "const base='http://api:3001/api';", 'fetch(base+path',
+              "await p('/auth/me','AUTH_STATUS')", "await p('/staff/capabilities/me','CAP_STATUS')",
+              '.pc-staff-api-origin.override.yml', 'API_URL: http://api:3001/api',
+              "candidate_env.get('API_URL') != 'http://api:3001/api'",
+              'up -d --no-deps --no-build --pull never web', "rollback_state='CONFIRMED'",
+              "trap 'rollback 143' TERM", 'fsync_file_and_parent', 'CANDIDATE_CONFIG_CHANGED_BEYOND_API_URL',
+              'IMAGE_UNCHANGED=PASS', 'NONWEB_UNCHANGED=PASS',
+          )
+          if any(marker not in repair_text for marker in required_repair): raise SystemExit('REPAIR_CONTRACT')
+          for forbidden in (
+              "readonly CANONICAL_ORIGIN='http://api:3001'", "const origin='http://api:3001';",
+              "const canonical='http://api:3001';", "API_URL: http://api:3001\n",
+              "const COMPOSE_INTERNAL_API_ORIGIN = 'http://api:3001';",
+          ):
+              if forbidden in repair_text: raise SystemExit(f'PATHLESS_REPAIR_AUTHORITY:{forbidden}')
+          if re.search(r"API_URL:\s*http://api:3001\s*$", repair_text, re.M): raise SystemExit('PATHLESS_OVERRIDE')
+          required_wf = (
+              '/production p0-staff-api-origin-repair-local current-main',
+              'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+              'sudo -n /usr/local/sbin/pc-tai-release-controller', '--pc-crop-staff-api-origin-repair-v1',
+              'TAI REG.RU Preflight', 'STALE_AUTOMATIC_REG_RU_PREFLIGHT_PROVEN',
+              'pc-crop.staff-api-origin-local-repair.v1', '/api/auth/me', '/api/staff/capabilities/me',
+          )
+          if any(marker not in wf for marker in required_wf): raise SystemExit('WORKFLOW_CONTRACT')
+          repair_job = wf[wf.index('\n  repair:\n'):wf.index('\n  publish:\n')]
+          for forbidden in ('secrets.', 'ssh-keyscan', 'sshpass', 'StrictHostKeyChecking=no', 'StrictHostKeyChecking=accept-new'):
+              if forbidden in repair_job: raise SystemExit(f'REPAIR_JOB_FORBIDDEN:{forbidden}')
+          PY
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            git fetch --no-tags origin main
+            bash scripts/p7-autopilot-guard.sh
+            git diff --check "origin/main...HEAD"
+          fi
+
+
+  resolve:
+    name: Resolve exact main and reject concurrent production mutations
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-staff-api-origin-repair-local current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - name: Resolve exact current main
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Reject concurrent production mutation workflows
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        with:
+          script: |
+            const active = [];
+            const provenOrphanedRuns = new Map([
+              [32219738787, { name: 'Production P0 REG.RU Live Resend Recovery', workflowId: 332213597, path: '.github/workflows/production-p0-regru-live-resend-recover.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:31:28Z', actor: 'chatgpt-codex-connector[bot]', mode: 'MUTATION_NEUTRALIZED' }],
+              [32219737778, { name: 'Production P0 Reviewer SMTP 451 Detail', workflowId: 334513498, path: '.github/workflows/production-p0-reviewer-smtp-451-detail.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:31:28Z', actor: 'chatgpt-codex-connector[bot]', mode: 'READ_ONLY' }],
+              [32219738538, { name: 'Production P0 Reviewer Inspect', workflowId: 330899844, path: '.github/workflows/production-p0-reviewer-inspect.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:31:28Z', actor: 'chatgpt-codex-connector[bot]', mode: 'READ_ONLY' }],
+              [32218490249, { name: 'Production P0 Reuse Existing Auth Runtime', workflowId: 332013279, path: '.github/workflows/production-p0-reuse-existing-auth-runtime.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:11:23Z', actor: 'pachaninm-lab', mode: 'MUTATION_NEUTRALIZED' }],
+              [32218487944, { name: 'Production P0 REG.RU Mail Auth Diagnostic', workflowId: 332723955, path: '.github/workflows/production-p0-regru-mail-auth-diagnostic.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:11:21Z', actor: 'pachaninm-lab', mode: 'READ_ONLY' }],
+            ]);
+            const nonProductionCiProfiles = new Map([
+              ['TAI Release Acceptance', {
+                path: '.github/workflows/tai-release-acceptance.yml',
+                required: [
+                  'permissions:\n  actions: read\n  contents: read',
+                  'runs-on: ubuntu-latest',
+                  'production_operational_status") != "NOT_ATTESTED"',
+                ],
+              }],
+              ['Production-like Kubernetes Acceptance', {
+                path: '.github/workflows/production-like-kubernetes-acceptance.yml',
+                required: [
+                  'permissions:\n  contents: read',
+                  'runs-on: ubuntu-latest',
+                  'KIND_VERSION=v0.23.0',
+                  'kind delete cluster --name grainflow-acceptance || true',
+                  'docker rm -f kind-registry || true',
+                ],
+              }],
+              ['TAI REG.RU Preflight', {
+                path: '.github/workflows/tai-reg-ru-preflight.yml',
+                proofMode: 'REG_RU_READONLY_PREFLIGHT',
+                required: [
+                  'permissions:\n  contents: read',
+                  'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+                  '[[ "$(id -u)" -ne 0 ]]',
+                  'if docker version >/dev/null 2>&1; then exit 21; fi',
+                  '[[ ! -r /etc/pc-release-authority/actions-runner.json ]]',
+                  'sudo -n /usr/local/sbin/pc-tai-release-controller preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"',
+                ],
+              }],
+            ]);
+
+            async function fetchExactTargetText(path) {
+              const response = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path,
+                ref: process.env.TARGET_SHA,
+              });
+              const data = response.data;
+              if (Array.isArray(data) || data?.type !== 'file' || data?.encoding !== 'base64' || typeof data?.content !== 'string') throw new Error('invalid content');
+              return Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8');
+            }
+
+            async function mutationNeutralizersPresent() {
+              try {
+                const [liveResend, provisioner] = await Promise.all([
+                  fetchExactTargetText('scripts/production-p0-regru-live-resend-recover.sh'),
+                  fetchExactTargetText('scripts/provision-production-p0-password-reset-runtime.sh'),
+                ]);
+                return liveResend.includes("if [[ \"${GITHUB_RUN_ID:-}\" == '32219738787' ]]; then") &&
+                  liveResend.includes('STALE_ACTIONS_ORPHAN_NEUTRALIZED') &&
+                  provisioner.includes('pc-auth-runtime-reconcile-32218490249.sh') &&
+                  provisioner.includes('STALE_ACTIONS_ORPHAN_NEUTRALIZED');
+              } catch (error) {
+                core.warning(`Exact-target orphan neutralizer proof failed; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+            }
+
+            async function proveKnownOrphan(run) {
+              const spec = provenOrphanedRuns.get(Number(run.id));
+              if (!spec) return false;
+              const exactMetadata =
+                String(run.status || '') === 'queued' &&
+                run.event === 'issue_comment' &&
+                String(run.name || '') === spec.name &&
+                Number(run.workflow_id) === spec.workflowId &&
+                String(run.path || '') === spec.path &&
+                String(run.head_sha || '') === spec.headSha &&
+                String(run.created_at || '') === spec.createdAt &&
+                String(run.updated_at || '') === spec.createdAt &&
+                Number(run.run_attempt || 0) === 1 &&
+                String(run.actor?.login || '') === spec.actor &&
+                String(run.triggering_actor?.login || '') === spec.actor;
+              if (!exactMetadata) return false;
+              let jobs;
+              try {
+                jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id,
+                  per_page: 100,
+                });
+              } catch (error) {
+                core.warning(`Known orphan jobs proof failed for run ${run.id}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+              if (jobs.length !== 0) return false;
+              if (spec.mode === 'MUTATION_NEUTRALIZED' && !await mutationNeutralizersPresent()) return false;
+              core.notice(`ORPHANED_API_RECORD_READONLY_PROVEN id=${run.id} name=${run.name} mode=${spec.mode}`);
+              return true;
+            }
+
+            async function proveStaleAutomaticRegRuPreflight(run) {
+              const name = String(run.name || '');
+              const headSha = String(run.head_sha || '');
+              if (name !== 'TAI Automatic REG.RU Preflight') return false;
+              if (String(run.status || '') !== 'queued') return false;
+              if (run.event !== 'workflow_run' || Number(run.workflow_id) !== 328831221) return false;
+              if (String(run.path || '') !== '.github/workflows/tai-automatic-reg-ru-preflight.yml') return false;
+              if (!/^[0-9a-f]{40}$/.test(headSha) || headSha === process.env.TARGET_SHA) return false;
+              if (Number(run.run_attempt || 0) !== 1) return false;
+
+              let jobs;
+              try {
+                jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id,
+                  per_page: 100,
+                });
+              } catch (error) {
+                core.warning(`Stale automatic preflight jobs proof failed for run ${run.id}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+              if (jobs.length !== 4) return false;
+              const byName = new Map(jobs.map((job) => [String(job.name || ''), job]));
+              const completed = [
+                'Require successful canonical image build',
+                'Least-privilege preflight contract',
+                'Exact-main canonical TAI image authority',
+              ];
+              if (!completed.every((jobName) => {
+                const job = byName.get(jobName);
+                return job && job.status === 'completed' && job.conclusion === 'success';
+              })) return false;
+              const live = byName.get('Exact-main REG.RU controller inventory');
+              if (!live || String(live.status || '') !== 'queued' || live.conclusion != null) return false;
+
+              async function fetchAt(path, ref) {
+                const response = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path,
+                  ref,
+                });
+                const data = response.data;
+                if (Array.isArray(data) || data?.type !== 'file' || data?.encoding !== 'base64' || typeof data?.content !== 'string') throw new Error('invalid content');
+                return Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8');
+              }
+
+              let source, wrapper, controller;
+              try {
+                [source, wrapper, controller] = await Promise.all([
+                  fetchAt('.github/workflows/tai-automatic-reg-ru-preflight.yml', headSha),
+                  fetchAt('scripts/pc-tai-release-controller.sh', headSha),
+                  fetchAt('scripts/pc-tai-release-controller-core.sh', headSha),
+                ]);
+              } catch (error) {
+                core.warning(`Stale automatic preflight exact-head source proof failed for run ${run.id}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+              const required = [
+                'name: TAI Automatic REG.RU Preflight\n',
+                'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+                'sudo -n /usr/local/sbin/pc-tai-release-controller \\\n            preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"',
+                "if report.get('mode') != 'READ_ONLY_PREFLIGHT': raise SystemExit('mode mismatch')",
+                "if report.get('productionMutationAllowed') is not False: raise SystemExit('mutation boundary mismatch')",
+                '[[ "$state" == success ]]',
+                'tai-restricted-qwen-reg-ru-activation.yml/dispatches',
+              ];
+              if (!required.every((marker) => source.includes(marker))) return false;
+              const liveStart = source.indexOf('\n  live_preflight:\n');
+              const liveEnd = source.indexOf('\n  publish_status:\n', liveStart + 1);
+              if (liveStart < 0 || liveEnd <= liveStart) return false;
+              const liveSource = source.slice(liveStart, liveEnd);
+              const hosted = [...source.matchAll(/runs-on:\s*\[[^\]]*self-hosted[^\]]*\]/gi)].map((m) => m[0]);
+              if (hosted.length !== 1 || hosted[0] !== 'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]') return false;
+              if (/\$\{\{\s*secrets\./i.test(liveSource)) return false;
+              if (/(?:^|[\s;|&])(?:ssh|scp|sftp|rsync)(?:[\s;|&]|$)/im.test(liveSource) || /ssh-keyscan/i.test(liveSource)) return false;
+              const controllerCalls = [...liveSource.matchAll(/sudo -n \/usr\/local\/sbin\/pc-tai-release-controller/g)];
+              if (controllerCalls.length !== 1) return false;
+              if (!liveSource.includes('sudo -n /usr/local/sbin/pc-tai-release-controller \\\n            preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"')) return false;
+              if (/docker\s+(?:run|exec|compose|restart|stop|rm|kill|update|build|push)\b/i.test(liveSource)) return false;
+
+              const wrapperFetch = `git -C "$REPOSITORY_ROOT" fetch --force --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main' >/dev/null`;
+              const wrapperMainCheck = `[[ "$(git -C "$REPOSITORY_ROOT" rev-parse refs/remotes/origin/main)" == "$TARGET_SHA" ]] || fail TARGET_IS_NOT_CURRENT_MAIN 22`;
+              const wrapperCheckout = `git -C "$REPOSITORY_ROOT" checkout --force --detach "$TARGET_SHA" >/dev/null`;
+              const wrapperExact = `[[ "$(sha256sum "$INSTALLED_CONTROLLER" | awk '{print $1}')" == "$(sha256sum "$WRAPPER_PATH" | awk '{print $1}')" ]] || fail INSTALLED_CONTROLLER_NOT_EXACT_TARGET 27`;
+              const wrapperDelegate = `bash "$CORE_PATH" "$@"`;
+              const wrapperOrder = [wrapperFetch, wrapperMainCheck, wrapperCheckout, wrapperExact, wrapperDelegate].map((marker) => wrapper.indexOf(marker));
+              if (wrapperOrder.some((index) => index < 0)) return false;
+              if (!wrapperOrder.every((index, i) => i === 0 || wrapperOrder[i - 1] < index)) return false;
+              const beforeMainCheck = wrapper.slice(0, wrapperOrder[1]);
+              if (/docker\s+(?:run|exec|compose|restart|stop|rm|kill|update|build|push)\b/i.test(beforeMainCheck)) return false;
+              if (/(?:systemctl|service)\s+(?:start|restart|stop|enable|disable)\b/i.test(beforeMainCheck)) return false;
+
+              if (!controller.includes('if [[ "$ACTION" == finalize-activation ]]; then sync_target false; else sync_target true; fi')) return false;
+              if (!controller.includes('[[ "$(git -C "$REPOSITORY_ROOT" rev-parse refs/remotes/origin/main)" == "$TARGET_SHA" ]] || fail TARGET_IS_NOT_CURRENT_MAIN 21')) return false;
+
+              let latestRun, latestJobs;
+              try {
+                [latestRun, latestJobs] = await Promise.all([
+                  github.rest.actions.getWorkflowRun({ owner: context.repo.owner, repo: context.repo.repo, run_id: run.id }),
+                  github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner: context.repo.owner, repo: context.repo.repo, run_id: run.id, per_page: 100 }),
+                ]);
+              } catch (error) {
+                core.warning(`Stale automatic preflight final revalidation failed for run ${run.id}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+              const latest = latestRun.data || {};
+              if (String(latest.status || '') !== 'queued' || latest.event !== 'workflow_run' ||
+                  Number(latest.workflow_id) !== 328831221 || String(latest.path || '') !== '.github/workflows/tai-automatic-reg-ru-preflight.yml' ||
+                  String(latest.head_sha || '') !== headSha || Number(latest.run_attempt || 0) !== 1) return false;
+              if (latestJobs.length !== 4) return false;
+              const latestLive = latestJobs.find((job) => String(job.name || '') === 'Exact-main REG.RU controller inventory');
+              if (!latestLive || String(latestLive.status || '') !== 'queued' || latestLive.conclusion != null) return false;
+
+              core.notice(`STALE_AUTOMATIC_REG_RU_PREFLIGHT_PROVEN id=${run.id} head_sha=${headSha} current_main=${process.env.TARGET_SHA}`);
+              return true;
+            }
+
+            async function proveNonProductionCi(run) {
+              const profile = nonProductionCiProfiles.get(String(run.name || ''));
+              if (!profile) return false;
+              if (String(run.path || '') !== profile.path || !/^[0-9a-f]{40}$/.test(String(run.head_sha || ''))) {
+                core.warning(`Non-production CI proof metadata mismatch for run ${run.id}:${run.name}`);
+                return false;
+              }
+              let data;
+              try {
+                const response = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: profile.path,
+                  ref: run.head_sha,
+                });
+                data = response.data;
+              } catch (error) {
+                core.warning(`Exact-head non-production CI workflow fetch failed for run ${run.id}:${run.name}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+              if (Array.isArray(data) || data?.type !== 'file' || data?.encoding !== 'base64' || typeof data?.content !== 'string') return false;
+              const source = Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8');
+              if (!source.startsWith(`name: ${run.name}\n`)) return false;
+              if (!profile.required.every((marker) => source.includes(marker))) return false;
+
+              if (profile.proofMode === 'REG_RU_READONLY_PREFLIGHT') {
+                if (/\$\{\{\s*secrets\./i.test(source) || /\bPC_PROD(?:_|\b)/.test(source)) return false;
+                if (/(?:^|[\s;|&])(?:ssh|scp|sftp|rsync)(?:[\s;|&]|$)/im.test(source) || /ssh-keyscan/i.test(source)) return false;
+                const writes = [...source.matchAll(/^\s{2,}(actions|checks|contents|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses):\s*write\s*$/gmi)].map((m) => m[1]);
+                if (writes.some((permission) => permission !== 'statuses')) return false;
+                const liveStart = source.indexOf('\n  live_preflight:\n');
+                const liveEnd = source.indexOf('\n  publish_status:\n', liveStart + 1);
+                if (liveStart < 0 || liveEnd <= liveStart) return false;
+                const live = source.slice(liveStart, liveEnd);
+                const hosted = [...source.matchAll(/runs-on:\s*\[[^\]]*self-hosted[^\]]*\]/gi)].map((m) => m[0]);
+                if (hosted.length !== 1 || hosted[0] !== 'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]') return false;
+                if (!live.includes('[[ "$(id -u)" -ne 0 ]]')) return false;
+                if (!live.includes("! id -nG | tr ' ' '\\n' | grep -Fxq docker")) return false;
+                if (!live.includes('if docker version >/dev/null 2>&1; then exit 21; fi')) return false;
+                if (!live.includes('[[ ! -r /etc/pc-release-authority/actions-runner.json ]]')) return false;
+                if (!live.includes("sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'")) return false;
+                const ops = [...live.matchAll(/sudo -n \/usr\/local\/sbin\/pc-tai-release-controller\s+([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+                if (ops.length !== 1 || ops[0] !== 'preflight') return false;
+                if (/docker\s+(?:run|exec|compose|restart|stop|rm|kill|update|build|push)\b/i.test(live)) return false;
+                core.notice(`RESTRICTED_REG_RU_READONLY_PREFLIGHT_PROVEN id=${run.id} name=${run.name} head_sha=${run.head_sha}`);
+                return true;
+              }
+
+              const forbidden = [
+                /\$\{\{\s*secrets\./i,
+                /\bPC_PROD(?:_|\b)/,
+                /(?:^|[\s;|&])(?:ssh|scp|sftp|rsync)(?:[\s;|&]|$)/im,
+                /ssh-keyscan/i,
+                /appleboy\/ssh-action/i,
+                /runs-on:\s*(?:self-hosted|\[[^\]]*self-hosted)/i,
+                /permissions:\s*(?:write-all|read-all)/i,
+                /(?:actions|checks|contents|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses):\s*write\b/i,
+              ];
+              if (forbidden.some((pattern) => pattern.test(source))) return false;
+              core.notice(`NON_PRODUCTION_CI_PROVEN id=${run.id} name=${run.name} head_sha=${run.head_sha}`);
+              return true;
+            }
+
+            for (const status of ['queued', 'in_progress']) {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                status,
+                per_page: 100,
+              });
+              for (const run of runs) {
+                if (Number(run.id) === Number(context.runId)) continue;
+                const name = String(run.name || '');
+                if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling|repair)/i.test(name)) continue;
+                if (provenOrphanedRuns.has(Number(run.id)) && await proveKnownOrphan(run)) continue;
+                if (await proveStaleAutomaticRegRuPreflight(run)) continue;
+                if (nonProductionCiProfiles.has(name) && await proveNonProductionCi(run)) continue;
+                active.push({ id: run.id, name, status, head_sha: run.head_sha, event: run.event });
+              }
+            }
+            if (active.length) core.setFailed(`Concurrent production workflow detected: ${JSON.stringify(active)}`);
+
+  repair:
+    name: Repair Web API origin through restricted outbound runner
+    needs: resolve
+    if: needs.resolve.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
+      controller_rc: ${{ steps.invoke.outputs.rc }}
+    env:
+      TARGET_SHA: ${{ needs.resolve.outputs.target_sha }}
+    steps:
+      - name: Prove restricted runner boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
+          [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/pc-tai-release-controller)" == root:pcactions:750 ]]
+          sudo -n -l > "$RUNNER_TEMP/p0-sudo-authority.txt" 2>/dev/null
+          mapfile -t nopasswd_rules < <(grep -E 'NOPASSWD:' "$RUNNER_TEMP/p0-sudo-authority.txt")
+          (( ${#nopasswd_rules[@]} == 1 ))
+          grep -Eq '^\s*\(root\) NOPASSWD: /usr/local/sbin/pc-tai-release-controller\s*$' <<< "${nopasswd_rules[0]}"
+          rm -f "$RUNNER_TEMP/p0-sudo-authority.txt"
+      - name: Execute bounded local repair
+        id: invoke
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +e
+          sudo -n /usr/local/sbin/pc-tai-release-controller \
+            deploy "$TARGET_SHA" "$GITHUB_RUN_ID" --pc-crop-staff-api-origin-repair-v1 \
+            > "$RUNNER_TEMP/p0-staff-api-origin-controller.log" 2>&1
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Export sanitized bounded evidence
+        id: evidence
+        if: always()
+        env:
+          CONTROLLER_RC: ${{ steps.invoke.outputs.rc }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'rm -f "$RUNNER_TEMP/p0-staff-api-origin-controller.log"' EXIT
+          report="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/staff-api-origin-repair.json"
+          python3 - "$report" "$TARGET_SHA" "$GITHUB_OUTPUT" "${CONTROLLER_RC:-99}" <<'PY'
+          import json, sys
+          path, target, output, rc_raw = sys.argv[1:]
+          rc = int(rc_raw or '99')
+          allowed = {
+            'schemaVersion','targetSha','deployedRevision','result','activeBefore','composeBefore','repairMode','activeAfter',
+            'authStatus','capStatus','webImageUnchanged','apiContainerUnchanged','nonWebContainersUnchanged','revisionUnchanged',
+            'failStage','rollback','productionMutation','newRecurringCostRub','passed'
+          }
+          try:
+              raw = open(path, 'rb').read()
+              if not raw or len(raw) > 32768: raise ValueError('size')
+              value = json.loads(raw.decode('utf-8'))
+              if not isinstance(value, dict) or set(value) != allowed: raise ValueError('keys')
+              if value.get('schemaVersion') != 'pc-crop.staff-api-origin-local-repair.v1' or value.get('targetSha') != target: raise ValueError('authority')
+              deployed = value.get('deployedRevision')
+              if deployed != 'UNKNOWN' and (not isinstance(deployed, str) or not __import__('re').fullmatch(r'[0-9a-f]{40}', deployed)): raise ValueError('deployed')
+              origin = {'NOT_EVALUATED','UNSET','CANONICAL','ACCEPTED_HTTPS','INVALID_PARSE','INVALID_SCHEME','INVALID_COMPONENTS','INVALID_HTTP_AUTHORITY','INVALID_HTTP_PATH'}
+              if value.get('activeBefore') not in origin or value.get('composeBefore') not in origin or value.get('activeAfter') not in origin: raise ValueError('origin')
+              if value.get('repairMode') not in {'NOT_EVALUATED','NONE_REQUIRED','OVERRIDE_CREATED','OVERRIDE_PRESENT_RECREATE'}: raise ValueError('repairMode')
+              if value.get('authStatus') not in {'NOT_EVALUATED','401','TIMEOUT','FETCH_ERROR'} or value.get('capStatus') not in {'NOT_EVALUATED','401','TIMEOUT','FETCH_ERROR'}: raise ValueError('probe')
+              if value.get('rollback') not in {'NOT_REQUIRED','CONFIRMED','FAILED'}: raise ValueError('rollback')
+              if value.get('productionMutation') not in {'NONE','WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE','NONE_OR_ROLLED_BACK','UNKNOWN_REQUIRES_OPERATOR_REVIEW'}: raise ValueError('mutation')
+              if value.get('result') not in {'PASS_ALREADY_CANONICAL','PASS_REPAIRED','FAIL_CLOSED'}: raise ValueError('result')
+              if not isinstance(value.get('failStage'), str) or not __import__('re').fullmatch(r'(?:NONE|UNKNOWN|[A-Z][A-Z0-9_]{0,63})', value['failStage']): raise ValueError('failStage')
+              for key in ('webImageUnchanged','apiContainerUnchanged','nonWebContainersUnchanged','revisionUnchanged','passed'):
+                  if not isinstance(value.get(key), bool): raise ValueError(key)
+              if value.get('newRecurringCostRub') != 0: raise ValueError('cost')
+              if value.get('passed'):
+                  common = value['deployedRevision'] != 'UNKNOWN' and value['authStatus'] == value['capStatus'] == '401' and value['webImageUnchanged'] and value['apiContainerUnchanged'] and value['nonWebContainersUnchanged'] and value['revisionUnchanged'] and value['rollback'] == 'NOT_REQUIRED' and value['failStage'] == 'NONE'
+                  if value['result'] == 'PASS_ALREADY_CANONICAL':
+                      shape = value['activeBefore'] in {'UNSET','CANONICAL'} and value['activeAfter'] == value['activeBefore'] and value['repairMode'] == 'NONE_REQUIRED' and value['productionMutation'] == 'NONE'
+                  elif value['result'] == 'PASS_REPAIRED':
+                      shape = value['activeBefore'].startswith('INVALID_') and value['activeAfter'] == 'CANONICAL' and value['repairMode'] in {'OVERRIDE_CREATED','OVERRIDE_PRESENT_RECREATE'} and value['productionMutation'] == 'WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE'
+                  else:
+                      shape = False
+                  if not common or not shape: raise ValueError('success-shape')
+          except Exception:
+              value = {
+                'schemaVersion':'pc-crop.staff-api-origin-local-repair.v1','targetSha':target,'deployedRevision':'UNKNOWN',
+                'result':'FAIL_CLOSED','activeBefore':'NOT_EVALUATED','composeBefore':'NOT_EVALUATED','repairMode':'NOT_EVALUATED',
+                'activeAfter':'NOT_EVALUATED','authStatus':'NOT_EVALUATED','capStatus':'NOT_EVALUATED','webImageUnchanged':False,
+                'apiContainerUnchanged':False,'nonWebContainersUnchanged':False,'revisionUnchanged':False,
+                'failStage':'CONTROLLER_EVIDENCE_MISSING','rollback':'FAILED','productionMutation':'UNKNOWN_REQUIRES_OPERATOR_REVIEW',
+                'newRecurringCostRub':0,'passed':False,
+              }
+          if value.get('newRecurringCostRub') != 0 or not isinstance(value.get('passed'), bool):
+              raise SystemExit('invalid evidence cost/pass')
+          if value.get('passed') is True and rc != 0:
+              raise SystemExit('controller failed despite passed evidence')
+          canonical = json.dumps(value, ensure_ascii=True, separators=(',', ':'))
+          if '\n' in canonical or '\r' in canonical or len(canonical) > 8192: raise SystemExit('invalid canonical evidence')
+          with open(output, 'a', encoding='utf-8') as handle:
+              handle.write(f'json={canonical}\n')
+          PY
+          rm -f "$RUNNER_TEMP/p0-staff-api-origin-controller.log"
+      - name: Enforce repair result
+        if: always()
+        env:
+          CONTROLLER_RC: ${{ steps.invoke.outputs.rc }}
+          EVIDENCE_JSON: ${{ steps.evidence.outputs.json }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$CONTROLLER_RC" "$EVIDENCE_JSON" <<'PY'
+          import json, sys
+          rc = int(sys.argv[1] or '99')
+          value = json.loads(sys.argv[2])
+          if rc != 0 or value.get('passed') is not True:
+              raise SystemExit('bounded production repair did not pass')
+          PY
+
+  publish:
+    name: Publish sanitized production evidence
+    needs: [resolve, repair]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-staff-api-origin-repair-local current-main' &&
+      needs.resolve.result == 'success' &&
+      needs.repair.outputs.evidence_json != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EVIDENCE_JSON: ${{ needs.repair.outputs.evidence_json }}
+      RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - name: Publish bounded result
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_ISSUE_NUMBER" == 3072 || "$RELEASE_ISSUE_NUMBER" == 4637 ]]
+          python3 - "$EVIDENCE_JSON" > "$RUNNER_TEMP/body.md" <<'PY'
+          import json, sys
+          v=json.loads(sys.argv[1])
+          status='PASS' if v.get('passed') else 'FAIL_CLOSED'
+          print('## Production P0 staff API origin local repair')
+          print()
+          print(f"- target SHA: `{v['targetSha']}`")
+          print(f"- deployed API/Web revision: `{v['deployedRevision']}`")
+          print(f"- result: `{status}` / `{v['result']}`")
+          print(f"- active origin before: `{v['activeBefore']}`")
+          print(f"- resolved Compose origin before: `{v['composeBefore']}`")
+          print(f"- repair mode: `{v['repairMode']}`")
+          print(f"- active origin after: `{v['activeAfter']}`")
+          print(f"- internal anonymous /api/auth/me: `{v['authStatus']}`")
+          print(f"- internal anonymous /api/staff/capabilities/me: `{v['capStatus']}`")
+          print(f"- Web image unchanged: `{str(v['webImageUnchanged']).upper()}`")
+          print(f"- API container unchanged: `{str(v['apiContainerUnchanged']).upper()}`")
+          print(f"- all non-Web containers unchanged: `{str(v['nonWebContainersUnchanged']).upper()}`")
+          print(f"- API/Web revision unchanged: `{str(v['revisionUnchanged']).upper()}`")
+          print(f"- fail stage: `{v['failStage']}`")
+          print(f"- rollback: `{v['rollback']}`")
+          print(f"- production mutation: `{v['productionMutation']}`")
+          print(f"- passed: `{str(v['passed']).upper()}`")
+          print('- secrets / API origin value / protected paths / Compose project / container IDs / raw logs: `NOT_PUBLISHED`')
+          print('- new recurring cost: `0 RUB`')
+          PY
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/body.md" >/dev/null

@@ -3,10 +3,10 @@ import { getLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
+import { getVerifiedOwnerControlledCabinet } from '@/lib/platform-v7/owner-controlled-cabinet-server';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
   mapApiRoleToCabinetRole,
@@ -16,16 +16,16 @@ import {
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
-  description: 'Цифровой контур исполнения зерновой сделки: допуск, логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
-  keywords: ['зерно', 'агроторговля', 'элеватор', 'логистика зерна', 'сделка', 'документы', 'расчёты'],
+  description: 'Управление агросделкой в растениеводстве: товар, контрагент, логистика, качество, документы, расчёт и исключения.',
+  keywords: ['растениеводство', 'агроторговля', 'хранение', 'агрологистика', 'сделка', 'документы', 'расчёты'],
   creator: 'Прозрачная Цена',
   robots: { index: false, follow: false },
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'Прозрачная Цена',
-    title: 'Прозрачная Цена — контур исполнения зерновой сделки',
-    description: 'Логистика, приёмка, качество, документы, расчёты, спор и доказательства в одном проверяемом процессе.',
+    title: 'Прозрачная Цена — управление агросделкой',
+    description: 'Товар, контрагент, логистика, качество, документы, расчёт и исключения в одной связной Сделке.',
   },
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
@@ -55,7 +55,10 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/roadmap',
   '/platform-v7/deal-flow',
   '/platform-v7/how-it-works',
+  '/platform-v7/capabilities',
+  '/platform-v7/market',
   '/platform-v7/ai-in-action',
+  '/platform-v7/gekta',
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
@@ -185,6 +188,7 @@ const ALIAS_DYNAMIC_PATHS = [
   /^\/platform-v7\/counterparty\/[^/]+$/,
   /^\/platform-v7\/deal-drafts\/[^/]+$/,
   /^\/platform-v7\/deals\/[^/]+$/,
+  /^\/platform-v7\/deals\/[^/]+\/clean$/,
   /^\/platform-v7\/dispute\/[^/]+$/,
   /^\/platform-v7\/disputes\/[^/]+\/hold$/,
   /^\/platform-v7\/disputes\/[^/]+$/,
@@ -202,6 +206,17 @@ function normalizePath(value: string | null) {
 
 function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
+const CANONICAL_PUBLIC_GEKTA_PATHS = new Set([
+  '/platform-v7', '/platform-v7/market', '/platform-v7/how-it-works', '/platform-v7/capabilities',
+  '/platform-v7/ai-in-action', '/platform-v7/gekta', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact',
+  '/platform-v7/register', '/platform-v7/login', '/platform-v7/deal-flow',
+]);
+
+function shouldMountLegacyPublicDock(pathname: string) {
+  if (CANONICAL_PUBLIC_GEKTA_PATHS.has(pathname)) return false;
+  return true;
 }
 
 function isStaffPath(pathname: string) {
@@ -225,6 +240,13 @@ function isOrganizationCabinetPath(pathname: string): boolean {
 }
 
 async function verifiedCabinetRole(): Promise<VerifiedCabinetRole | null> {
+  // A real platform owner may open only the fixed controlled test cabinet bound
+  // by the owner-access endpoint. The helper verifies the signed cabinet token,
+  // controlled tenant/org, active PLATFORM_OWNER assignment and MFA. It never
+  // changes the API bearer identity or grants a business membership.
+  const ownerControlled = await getVerifiedOwnerControlledCabinet();
+  if (ownerControlled) return ownerControlled.role;
+
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   if (!secret) return null;
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -257,10 +279,32 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // The contact dock is mounted at the route boundary so supporting pages that
   // do not render PublicSiteHeader still expose the same AI/support/call entry.
   if (isPublicPath(pathname)) {
+    const linkedSurfacePath = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
+      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs'
+      ? pathname
+      : null;
+    const PublicLinkedSurfaceShell = linkedSurfacePath
+      ? (await import('@/components/platform-v7/PublicLinkedSurfaceShell')).PublicLinkedSurfaceShell
+      : null;
+    const canonicalGekta = CANONICAL_PUBLIC_GEKTA_PATHS.has(pathname);
+    const HydrationSafeChatSupport = (canonicalGekta || shouldMountLegacyPublicDock(pathname))
+      ? (await import('@/components/platform-v7/HydrationSafeChatSupport')).HydrationSafeChatSupport
+      : null;
+    const PublicContactDock = canonicalGekta
+      ? (await import('@/components/platform-v7/PublicContactDock')).PublicContactDock
+      : null;
+    const publicContent = PublicLinkedSurfaceShell && linkedSurfacePath
+      ? <PublicLinkedSurfaceShell pathname={linkedSurfacePath} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
+      : children;
     return (
       <>
-        {children}
-        <HydrationSafeChatSupport />
+        {publicContent}
+        {PublicContactDock ? <PublicContactDock assistantContext='public' publicMode='gekta' /> : null}
+        {HydrationSafeChatSupport
+          ? canonicalGekta
+            ? <HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />
+            : <HydrationSafeChatSupport />
+          : null}
       </>
     );
   }

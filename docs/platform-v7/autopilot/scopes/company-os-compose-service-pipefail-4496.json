@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/company-os-compose-service-pipefail-4496",
+  "status": "active",
+  "purpose": "Remove a post-cutover false negative caused by grep -q early-reader SIGPIPE under pipefail while preserving complete Docker Compose command execution and fail-closed service membership checks.",
+  "authorityBaseExactMain": "5525a431d321a7b43a0d7a26d2299ffc65f3a13e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-readiness-v2.yml",
+    ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+    "docs/platform-v7/autopilot/scopes/company-os-compose-service-pipefail-4496.json"
+  ],
+  "requiredInvariants": [
+    "The Docker Compose service enumeration command must run to completion and its nonzero exit status must fail closed.",
+    "Exact service membership for both web and caddy remains mandatory.",
+    "No grep -q reader may terminate the producer early under pipefail.",
+    "Readiness remains read-only and publishes only bounded redacted evidence.",
+    "The cutover remains exact-main, owner-authorized, concurrency-guarded, canonical-DNS, absent-AAAA and pinned-SSH.",
+    "The enabled-state no-op path still revalidates persistent wiring, unique web-bound upstream, immutable revision/image identity and Caddy state before returning success.",
+    "No DNS, Caddy, Compose, container, environment, application, image, database or production mutation is authorized by this repair.",
+    "Backup, rollback, TLS, host-isolation, ten-round acceptance and GO gates remain unchanged or stricter."
+  ],
+  "acceptance": [
+    "Both workflows capture complete docker compose config --services output before exact web and caddy membership checks.",
+    "A Docker Compose command failure cannot be hidden by process substitution or a downstream successful grep.",
+    "The stale config --services pipe to grep -q pattern is absent from both workflows.",
+    "Workflow Syntax Guard, autopilot guard and exact-head security/runtime checks pass.",
+    "A post-merge read-only readiness run reports TLS valid, gate enabled and ALREADY_READY_REVALIDATED without production mutation.",
+    "No guarded cutover mutation is required to prove the diagnostic repair."
+  ]
+}

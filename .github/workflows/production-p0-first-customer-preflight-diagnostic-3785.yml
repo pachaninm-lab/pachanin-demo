@@ -1,0 +1,110 @@
+name: Production P0 First-Customer Read-Only Preflight Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-preflight-diagnostic-3785.yml'
+      - 'scripts/production-p0-first-customer-preflight-diagnostic-3785.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  DIAGNOSTIC_COMMAND: /production p0-first-customer-preflight-diagnostic 280c
+
+jobs:
+  contract:
+    name: Validate bounded read-only preflight diagnostic
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-first-customer-preflight-diagnostic 280c'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate shell and immutable read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          script='scripts/production-p0-first-customer-preflight-diagnostic-3785.sh'
+          bash -n "$script"
+          python3 - "$script" <<'PY'
+          from pathlib import Path
+          import sys
+          text = Path(sys.argv[1]).read_text(encoding='utf-8')
+          required = [
+              "SUBJECT_PRODUCTION_SHA='280c63ab70d428bfe893bade9ad6acc4446c88c5'",
+              "COMMAND='/production p0-first-customer-preflight-diagnostic 280c'",
+              'SET TRANSACTION READ ONLY',
+              'SET LOCAL ROLE pc_registration_receipt_authority',
+              'P0_PREFLIGHT_DIAGNOSTIC',
+              'COMPOSE_PHASE', 'AUTH_PHASE', 'ADMIN_PHASE', 'ERROR_CODE',
+              "PRODUCTION_MUTATION='NONE'",
+              'StrictHostKeyChecking=yes', 'UserKnownHostsFile=',
+              'org.opencontainers.image.revision',
+              'row_security_active',
+              'auth.emit_registration_lifecycle_receipt(text,text)',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit('missing invariant: ' + ' | '.join(missing))
+          forbidden = [
+              'docker compose up', 'docker compose down', 'docker restart', 'docker rm',
+              'docker run', '--force-recreate', 'prisma migrate', 'prisma db execute',
+              'curl -X POST', 'curl --request POST', 'INSERT INTO', 'UPDATE auth.',
+              'DELETE FROM', 'TRUNCATE TABLE', 'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE',
+              'GRANT ', 'REVOKE ', 'gh secret set', 'gh variable set', 'set -x',
+          ]
+          bad = [item for item in forbidden if item in text]
+          if bad:
+              raise SystemExit('mutation surface forbidden: ' + ' | '.join(bad))
+          PY
+
+  diagnostic:
+    name: Classify exact deployed first-customer preflight without mutation
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-first-customer-preflight-diagnostic 280c'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_P0_PREFLIGHT_DIAGNOSTIC_COMMAND: /production p0-first-customer-preflight-diagnostic 280c
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Execute bounded read-only classifier
+        shell: bash
+        run: bash scripts/production-p0-first-customer-preflight-diagnostic-3785.sh

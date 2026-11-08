@@ -469,6 +469,15 @@
   }
 }
 
+@media (max-width: 760px) {
+  .pc-recovery-page .pc-recovery-shell {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  .pc-recovery-page :where(input, button, a) {
+    scroll-margin-bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pc-skip-link,
   .pc-auth-page *,

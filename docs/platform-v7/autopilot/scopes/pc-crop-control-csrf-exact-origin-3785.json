@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-csrf-exact-origin-3785",
+  "status": "active",
+  "issue": 3785,
+  "baseCommit": "411e5b8af7f6b0a6527bd77959115b7aeccd2b21",
+  "operationalStatus": "P0_CONTROL_CSRF_EXACT_ORIGIN_REPAIR",
+  "allowedPaths": [
+    "apps/web/lib/server-request-security.ts",
+    "apps/web/tests/unit/serverRequestSecurity.test.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-csrf-exact-origin-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "RELEASE_ONLY_AFTER_GATES",
+    "runtimeBusinessBehaviorChange": true,
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "rlsMutation": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "originValidationDisabled": false,
+    "csrfTokenValidationDisabled": false,
+    "wildcardOriginAccepted": false,
+    "untrustedForwardedHostAccepted": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "configured PC_PUBLIC_ORIGIN or NEXT_PUBLIC_SITE_URL remains the primary target-origin authority",
+    "the canonical control host is derived as a second platform origin only when the configured origin hostname is the exact canonical primary platform host and the received Host is the exact canonical control platform host",
+    "no wildcard or suffix subdomain matching is accepted for the control origin",
+    "X-Forwarded-Host is never used to derive or authorize the control origin",
+    "cross-origin requests remain rejected before route business logic even when the double-submit token matches",
+    "CSRF cookie/header mismatches remain rejected after exact same-origin validation passes on both primary and control origins",
+    "a non-platform configured origin cannot derive the production control origin",
+    "no database, RLS, reviewer credential, MFA, staff-assignment, DNS or SSH-pin mutation is introduced",
+    "production remains unchanged until exact-head CI, governance merge and exact-SHA release gates pass",
+    "new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-ssh-host-key-attestation-3072",
+  "status": "active",
+  "purpose": "Read-only attestation of the REG.RU production SSH host public keys after the protected pin stopped matching. Compare fingerprints read locally on the existing restricted pc-prod runner with three stable external ssh-keyscan observations before any release or credential change.",
+  "approvedBy": "owner-production-release-3072",
+  "authorityBaseExactMain": "9da28a9078d487dcd679a581eaaa47153d9bdf46",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-ssh-host-key-attestation.yml",
+    ".scope/active/production-ssh-host-key-attestation-3072.json"
+  ],
+  "requiredBehavior": [
+    "run production-side attestation only on the existing self-hosted pc-prod tai-readonly runner",
+    "read only public SSH host keys from /etc/ssh and derive SHA256 fingerprints",
+    "observe the canonical production endpoint from a GitHub-hosted runner three times and require byte-stable ssh-keyscan output",
+    "require every externally observed fingerprint to exist in the locally attested production host-key set",
+    "report only public key types, SHA256 public fingerprints and boolean comparison with the protected stored pin",
+    "perform no production, database, container, filesystem, network, credential or application mutation"
+  ],
+  "forbiddenCapabilities": [
+    "changing or printing any private key or credential",
+    "updating GitHub secrets or accepting a new host key automatically",
+    "StrictHostKeyChecking=no or accept-new",
+    "SSH login to production",
+    "sudo, docker mutation, service restart, deployment, database mutation or application mutation",
+    "MFA, RBAC, RLS, tenant, session or authentication weakening"
+  ],
+  "acceptanceEvidence": [
+    "local production runner host-key fingerprint set",
+    "three identical external scan fingerprint sets",
+    "external subset of local production authority",
+    "protected stored pin match or mismatch stated without revealing any credential",
+    "PRODUCTION_MUTATION=NONE"
+  ]
+}

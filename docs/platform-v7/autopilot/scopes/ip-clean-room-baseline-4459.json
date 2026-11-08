@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ip-hardening/clean-room-2026-08-21",
+  "status": "active",
+  "purpose": "Establish the non-production IP clean-room baseline for owner authority issue #4459: proprietary policy, exact repository/history inventory, conservative file provenance, internal package publication controls, Node/Python CycloneDX and SPDX SBOMs, dependency-license evidence and offline-only similarity fingerprints. This slice must expose rather than erase every unresolved legal, origin, license or similarity remainder.",
+  "approvedBy": "repository-owner final proprietary-product IP/security specification and issue #4459 on 2026-08-21",
+  "authorityBaseExactMain": "7b636868365ed99e77e8164f70e98503772d0f8f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/CODEOWNERS",
+    ".github/workflows/sbom-scan.yml",
+    "COPYRIGHT",
+    "CONTRIBUTOR_IP_POLICY.md",
+    "IP_POLICY.md",
+    "LICENSE",
+    "LICENSE-PROPRIETARY.md",
+    "NOTICE",
+    "OPEN_SOURCE_POLICY.md",
+    "THIRD_PARTY_NOTICES.md",
+    "apps/api/package.json",
+    "apps/web/package.json",
+    "docs/ip/**",
+    "docs/platform-v7/autopilot/scopes/ip-clean-room-baseline-4459.json",
+    "package.json",
+    "packages/design-system-v8/package.json",
+    "packages/design-tokens/package.json",
+    "packages/domain-core/package.json",
+    "packages/integration-sdk/package.json",
+    "scripts/ip/**"
+  ],
+  "requiredBehavior": [
+    "classify absence of a license marker only as a screening observation, never as proof of ownership or originality",
+    "record unknown origin, unresolved rights and similarity corpus gaps as blocking final-state remainders",
+    "keep Qwen classified only as immutable third-party foundation-model infrastructure",
+    "generate both CycloneDX and SPDX evidence independently for Node/pnpm and Python/TAI",
+    "scan similarity only against an explicitly approved locally mounted corpus without sending proprietary source or source phrases to external services",
+    "pin every third-party Action introduced or modified by this slice to an immutable commit SHA",
+    "avoid application behavior, production runtime, database, deployment and lockfile changes"
+  ],
+  "forbiddenCapabilities": [
+    "production, database, DNS, SSH, registry or release mutation",
+    "application business-logic or UI behavior changes",
+    "apps/landing changes",
+    "public upload of proprietary source, snippets, prompts, fingerprints reversible to source or crown-jewel artifacts",
+    "renaming, formatting or AI paraphrasing third-party code to claim first-party authorship",
+    "retroactive erasure of historical public exposure",
+    "final proprietary-clean or legal ownership claims from baseline automation"
+  ],
+  "acceptanceEvidence": [
+    "exact-base and exact-head diff restricted to the listed metadata/evidence paths",
+    "source-controlled scope guard PASS",
+    "all internal root/apps/packages manifests discovered with no silent omission",
+    "exact four-file Node/TAI CycloneDX/SPDX SBOM set",
+    "complete tracked-file inventory and conservative provenance rows",
+    "offline similarity evidence with explicit corpus/final-eligibility status",
+    "no production deployment required"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-registration-ui-20260813",
+  "branch": "codex/gekta-registration-ui",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "claude/gekta-registration",
+    "commit": "e3a7c1641ad30d65bdb1ef2a366cff6d797267d3"
+  },
+  "purpose": "Реальный /gekta/register поверх общего User/password/MFA: отдельные согласия на условия и ПД, обязательный заявленный телефон без fake SMS, одноразовая email-ссылка через существующий transactional mail, обязательная TOTP/backup-code проверка до активной сессии, серверный запуск 30-дневного trial, refresh/logout и перенос истории в аккаунт. Verification bearer на безопасном GET запечатывается в purpose-bound HttpOnly ticket и потребляется только отдельным CSRF-защищённым POST после явного действия пользователя; он не попадает в React или публичный registration response. Прямая генерация ответа Гекты требует выданную сервером reservation или действующую product session.",
+  "allowedPaths": [
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/app/api/gekta/auth/email/verify/route.ts",
+    "apps/web/app/api/gekta/auth/login/route.ts",
+    "apps/web/app/api/gekta/auth/logout/route.ts",
+    "apps/web/app/api/gekta/auth/mfa/route.ts",
+    "apps/web/app/api/gekta/auth/refresh/route.ts",
+    "apps/web/app/api/gekta/auth/register/resend/route.ts",
+    "apps/web/app/api/gekta/auth/register/route.ts",
+    "apps/web/app/api/gekta/entitlement/route.ts",
+    "apps/web/app/gekta/register/page.tsx",
+    "apps/web/components/gekta/GektaAccessGate.tsx",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaRegistrationClient.tsx",
+    "apps/web/lib/gekta/anonymous-session.ts",
+    "apps/web/lib/gekta/server-workspace.ts",
+    "apps/web/lib/server/auth-session-response.ts",
+    "apps/web/lib/server/gekta-auth-route.ts",
+    "apps/web/lib/server/gekta-mfa-ticket.ts",
+    "apps/web/lib/server/transactional-mail.ts",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-registration-ui-20260813.json"
+  ],
+  "forbiddenChanges": [
+    "ИНН, организация, тенант, членство или платформенная роль в регистрации Гекты",
+    "вторая система пользователей, паролей, email verification или MFA",
+    "verification bearer в публичном ответе регистрации, localStorage, аналитике или журнале",
+    "активная сессия до подтверждения email и MFA",
+    "клиентский запуск trial или клиентское решение о праве на ответ",
+    "SMS-заглушка или формулировка, что заявленный телефон подтверждён",
+    "платёж, эквайринг, НПД или включение billing",
+    "передача refresh/access/MFA challenge в JavaScript-доступное хранилище"
+  ],
+  "requiredChecks": [
+    "Gekta registration security unit tests",
+    "Gekta entitlement and server-history regressions",
+    "Web TypeScript and production build",
+    "exact-head CI and Production-like Kubernetes Acceptance",
+    "live email delivery and mandatory MFA E2E",
+    "production mobile acceptance 320/375/390/430"
+  ],
+  "deploymentState": "not-deployed"
+}

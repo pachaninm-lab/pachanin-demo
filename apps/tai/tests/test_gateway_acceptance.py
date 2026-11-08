@@ -205,7 +205,12 @@ def test_it_catches_cancellation_being_replaced_by_a_fixed_deadline(tree: Path) 
 
 
 def test_it_catches_the_stream_gaining_a_demo_form(tree: Path) -> None:
-    _rewrite(tree, PROXY, "!streamPath && (!API_URL || demoToken)", "!API_URL || demoToken")
+    _rewrite(
+        tree,
+        PROXY,
+        "const strictRealPath = streamPath || requiresRealBackend(path);",
+        "const strictRealPath = requiresRealBackend(path);",
+    )
 
     assert _fails_with(tree, "H05.stream-has-no-demo-form")
 
@@ -236,7 +241,10 @@ def test_it_catches_generation_running_before_the_admission_gate(tree: Path) -> 
     path = tree / CONTROLLER
     source = path.read_text(encoding="utf-8")
     gate = "    if (!admission.allowed) {"
-    call = "      answer = await this.assistant.chat(request, user);"
+    call = (
+        "    for await (const event of "
+        "this.assistant.chatStream(request, user, aborter.signal)) {"
+    )
     assert gate in source and call in source
     # Move the generation call above the gate: the refusal would then hide an
     # answer that had already been produced, rather than prevent one.

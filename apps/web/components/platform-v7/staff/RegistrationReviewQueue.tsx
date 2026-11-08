@@ -56,7 +56,21 @@ type DecisionResponse = QueueResponse & {
   notificationDelivered?: boolean;
 };
 
+type CancellationResponse = {
+  applicationId?: string;
+  status?: string;
+  replayed?: boolean;
+  code?: string;
+  message?: string;
+};
+
+type SessionContextResponse = {
+  active?: boolean;
+  session?: { staffRole?: string } | null;
+};
+
 const P0_ACCEPTANCE_LEGAL_NAME_PREFIX = 'Production P0 exact-run organization ';
+const OWNER_CANCELLATION_REASON = 'Удалено владельцем из очереди';
 
 const COPY = {
   ru: {
@@ -83,6 +97,15 @@ const COPY = {
     decide: 'Зафиксировать решение',
     deciding: 'Фиксируем…',
     success: 'Решение записано. Заявка обновлена.',
+    cancel: 'Удалить заявку',
+    canceling: 'Удаляем…',
+    cancelConfirmText: 'Заявка исчезнет из рабочей очереди. Действие будет записано в журнале аудита.',
+    cancelSuccess: 'Заявка удалена из очереди.',
+    cancelMfa: 'Подтвердите действие через MFA.',
+    cancelActivated: 'Активированную заявку удалить нельзя.',
+    cancelConflict: 'Очередь обновлена: заявка была изменена другим действием.',
+    cancelForbidden: 'Операция недоступна.',
+    cancelDismiss: 'Отмена',
     decisions: {
       APPROVE: 'Одобрить и активировать',
       REQUEST_INFORMATION: 'Запросить уточнение',
@@ -114,6 +137,15 @@ const COPY = {
     decide: 'Record decision',
     deciding: 'Recording…',
     success: 'The decision was recorded and the queue was refreshed.',
+    cancel: 'Remove application',
+    canceling: 'Removing…',
+    cancelConfirmText: 'The application will disappear from the work queue. The action will be recorded in the audit log.',
+    cancelSuccess: 'Application removed from the queue.',
+    cancelMfa: 'Confirm the action with MFA.',
+    cancelActivated: 'An activated application cannot be removed.',
+    cancelConflict: 'The queue was refreshed because the application changed.',
+    cancelForbidden: 'The operation is unavailable.',
+    cancelDismiss: 'Cancel',
     decisions: {
       APPROVE: 'Approve and activate',
       REQUEST_INFORMATION: 'Request information',
@@ -145,6 +177,15 @@ const COPY = {
     decide: '记录决定',
     deciding: '正在记录…',
     success: '决定已记录，队列已更新。',
+    cancel: '删除申请',
+    canceling: '正在删除…',
+    cancelConfirmText: '该申请将从工作队列中消失，操作会写入审计日志。',
+    cancelSuccess: '申请已从队列中删除。',
+    cancelMfa: '请通过 MFA 确认此操作。',
+    cancelActivated: '已激活的申请不能删除。',
+    cancelConflict: '申请已发生变化，队列已刷新。',
+    cancelForbidden: '此操作不可用。',
+    cancelDismiss: '取消',
     decisions: {
       APPROVE: '批准并激活',
       REQUEST_INFORMATION: '请求补充信息',
@@ -154,20 +195,40 @@ const COPY = {
   },
 } as const;
 
-function newIdempotencyKey(applicationId: string) {
-  return `registration-review:${applicationId}:${crypto.randomUUID()}`;
+async function decisionMarker(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 16)
+    .map((item) => item.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function p0CeremonyHeaders(applicationId: string, phase: 'approve' | 'replay') {
-  const bytes = new TextEncoder().encode(applicationId);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const marker = Array.from(new Uint8Array(digest))
-    .slice(0, 16)
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
+  const marker = await decisionMarker(applicationId);
   return {
     idempotencyKey: `p0-human-review:${marker}`,
     correlationId: `p0-human-${phase}:${marker}`,
+  };
+}
+
+async function ordinaryDecisionHeaders(
+  applicationId: string,
+  version: string,
+  decision: ReviewDecision,
+) {
+  const marker = await decisionMarker(`${applicationId}${version}${decision}`);
+  return {
+    idempotencyKey: `registration-review:${marker}:${decision.toLowerCase()}`,
+    correlationId: `registration-review:${marker}:${crypto.randomUUID()}`,
+  };
+}
+
+async function cancellationHeaders(application: ReviewApplication) {
+  const marker = await decisionMarker(`${application.applicationId}${application.version}OWNER_CANCEL`);
+  return {
+    idempotencyKey: `owner-registration-cancel:${marker}`,
+    correlationId: `owner-registration-cancel:${marker}:${crypto.randomUUID()}`,
   };
 }
 
@@ -178,17 +239,27 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canCancel, setCanCancel] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<ReviewApplication | null>(null);
 
   async function load(signal?: AbortSignal) {
     setState('loading');
     setError(null);
     try {
-      const response = await fetch('/api/staff/registration/applications', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-        signal,
-      });
+      const [response, sessionResponse] = await Promise.all([
+        fetch('/api/staff/registration/applications', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal,
+        }),
+        fetch('/api/staff/session-context', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal,
+        }).catch(() => null),
+      ]);
       const payload = await response.json().catch(() => ({})) as QueueResponse;
       if (response.status === 403) {
         setState('forbidden');
@@ -196,6 +267,12 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
       }
       if (!response.ok || !Array.isArray(payload.applications)) {
         throw new Error(payload.message || copy.unavailable);
+      }
+      if (sessionResponse?.ok) {
+        const sessionPayload = await sessionResponse.json().catch(() => ({})) as SessionContextResponse;
+        setCanCancel(sessionPayload.active === true && sessionPayload.session?.staffRole === 'PLATFORM_OWNER');
+      } else {
+        setCanCancel(false);
       }
       setApplications(payload.applications);
       setState('ready');
@@ -230,10 +307,9 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
     try {
       const p0Ceremony = decision === 'APPROVE'
         && application.organization.legalName.startsWith(P0_ACCEPTANCE_LEGAL_NAME_PREFIX);
-      const ordinaryKey = newIdempotencyKey(application.applicationId);
       const firstHeaders = p0Ceremony
         ? await p0CeremonyHeaders(application.applicationId, 'approve')
-        : { idempotencyKey: ordinaryKey, correlationId: '' };
+        : await ordinaryDecisionHeaders(application.applicationId, application.version, decision);
       const endpoint = `/api/staff/registration/applications/${encodeURIComponent(application.applicationId)}/decision`;
       const requestBody = JSON.stringify({ decision, reason, locale });
       const response = await fetch(endpoint, {
@@ -284,6 +360,53 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
       formElement.reset();
     } catch (decisionError) {
       setError(decisionError instanceof Error ? decisionError.message : copy.unavailable);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function cancelApplication(application: ReviewApplication) {
+    if (busyId || !canCancel) return;
+    setBusyId(application.applicationId);
+    setError(null);
+    setNotice(null);
+    try {
+      const headers = await cancellationHeaders(application);
+      const response = await fetch(
+        `/api/staff/registration/applications/${encodeURIComponent(application.applicationId)}/cancel`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+            'Idempotency-Key': headers.idempotencyKey,
+            'X-Correlation-Id': headers.correlationId,
+          },
+          body: JSON.stringify({ reason: OWNER_CANCELLATION_REASON }),
+        },
+      );
+      const payload = await response.json().catch(() => ({})) as CancellationResponse;
+      if (!response.ok) {
+        if (payload.code === 'FRESH_MFA_REQUIRED') throw new Error(copy.cancelMfa);
+        if (payload.code === 'APPLICATION_ALREADY_ACTIVATED') throw new Error(copy.cancelActivated);
+        if (payload.code === 'REGISTRATION_VERSION_CONFLICT') {
+          await load();
+          throw new Error(copy.cancelConflict);
+        }
+        if (response.status === 403 || payload.code === 'FORBIDDEN') throw new Error(copy.cancelForbidden);
+        throw new Error(payload.message || copy.unavailable);
+      }
+      if (payload.applicationId !== application.applicationId || payload.status !== 'CANCELLED') {
+        throw new Error(copy.unavailable);
+      }
+      setApplications((current) => current.filter((item) => item.applicationId !== application.applicationId));
+      setCancelTarget(null);
+      setNotice(copy.cancelSuccess);
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : copy.unavailable);
     } finally {
       setBusyId(null);
     }
@@ -372,8 +495,46 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
                   {busyId === application.applicationId ? copy.deciding : copy.decide}
                 </button>
               </form>
+              {canCancel ? (
+                <div className={styles.ownerActions}>
+                  <button
+                    className={styles.destructive}
+                    type="button"
+                    disabled={!csrfToken || busyId !== null}
+                    onClick={() => setCancelTarget(application)}
+                  >
+                    {busyId === application.applicationId ? copy.canceling : copy.cancel}
+                  </button>
+                </div>
+              ) : null}
             </article>
           ))}
+        </div>
+      ) : null}
+
+      {cancelTarget ? (
+        <div className={styles.dialogBackdrop} role="presentation">
+          <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="registration-cancel-title">
+            <h3 id="registration-cancel-title">
+              {locale === 'ru'
+                ? `Удалить заявку «${cancelTarget.organization.legalName || cancelTarget.organization.name}»?`
+                : `${copy.cancel}: ${cancelTarget.organization.legalName || cancelTarget.organization.name}?`}
+            </h3>
+            <p>{copy.cancelConfirmText}</p>
+            <div className={styles.dialogActions}>
+              <button type="button" disabled={busyId !== null} onClick={() => setCancelTarget(null)}>
+                {copy.cancelDismiss}
+              </button>
+              <button
+                type="button"
+                className={styles.destructive}
+                disabled={!csrfToken || busyId !== null}
+                onClick={() => void cancelApplication(cancelTarget)}
+              >
+                {busyId === cancelTarget.applicationId ? copy.canceling : copy.cancel}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>

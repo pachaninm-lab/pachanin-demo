@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4616,
+  "branch": "marketing/autonomous-content-planner-p0",
+  "status": "active",
+  "purpose": "Implement the isolated fail-closed organic cadence envelope for the Autonomous APK Social Growth Engine, reusing the authoritative 70/20/10 editorial policy without enabling production outbound or paid promotion.",
+  "authorityBaseExactMain": "3a5e3099ea1d0ff4ca445ebeec995887bdf1b5ab",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/marketing-social-growth.yml",
+    "apps/api/src/modules/marketing/marketing-content-planner.spec.ts",
+    "apps/api/src/modules/marketing/marketing-content-planner.ts",
+    "docs/platform-v7/autopilot/scopes/marketing-content-planner-4616.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Only the fixed Russian-channel allowlist is accepted at runtime; unknown channels fail closed.",
+    "Timestamps require explicit RFC 3339 offsets; malformed, duplicate, excessive and materially future history fails closed instead of being ignored.",
+    "Daily caps use the Europe/Moscow operating day and channel-specific minimum intervals.",
+    "Audience and angle rotation is deterministic, channel-local and bounded to recent history.",
+    "The existing editorial core remains authoritative for the 70/20/10 useful, product-proof and conversion mix.",
+    "Pain-based angles are not selected for product-proof or conversion slots.",
+    "No copy generation, production credentials, social-account connection, outbound enablement, paid mode, database mutation, DNS change or REG.RU deployment.",
+    "No cold-DM automation, fake engagement, account farming, CAPTCHA bypass or platform-rule circumvention.",
+    "New mandatory and recurring spend remains 0 RUB."
+  ],
+  "acceptance": [
+    "API typecheck passes on the exact PR head.",
+    "Cadence tests prove strict request and history validation, Moscow-day caps, channel intervals, deterministic rotation and bounded history.",
+    "Cadence decisions inherit the authoritative 70/20/10 editorial pillar policy and exclude pain-based promotional angles.",
+    "The existing marketing exact-head gate executes both editorial-core and cadence-planner tests with immutable action revisions.",
+    "Every changed non-governance path is contained in allowedPaths."
+  ]
+}

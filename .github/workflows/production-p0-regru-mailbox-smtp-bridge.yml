@@ -36,8 +36,18 @@ jobs:
         github.event_name == 'issue_comment' &&
         github.event.issue.number == 3072 &&
         github.event.comment.user.login == github.repository_owner &&
-        github.actor == github.repository_owner &&
-        github.triggering_actor == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (
+            github.actor == github.repository_owner &&
+            github.triggering_actor == github.repository_owner
+          ) ||
+          (
+            github.actor == 'chatgpt-codex-connector[bot]' &&
+            github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+            github.event.comment.performed_via_github_app.id == 1144995
+          )
+        ) &&
         github.event.comment.body == '/production p0-regru-mailbox-smtp-bridge current-main'
       )
     runs-on: ubuntu-24.04
@@ -112,8 +122,18 @@ jobs:
       needs.contract.outputs.target_sha != '' &&
       github.event.issue.number == 3072 &&
       github.event.comment.user.login == github.repository_owner &&
-      github.actor == github.repository_owner &&
-      github.triggering_actor == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        ) ||
+        (
+          github.actor == 'chatgpt-codex-connector[bot]' &&
+          github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+          github.event.comment.performed_via_github_app.id == 1144995
+        )
+      ) &&
       github.event.comment.body == '/production p0-regru-mailbox-smtp-bridge current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -123,6 +143,9 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROBE_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+      SMTP_USER: ${{ secrets.PC_SMTP_USER || secrets.PC_PROD_SMTP_USER || secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.PC_SMTP_PASS || secrets.PC_PROD_SMTP_PASS || secrets.SMTP_PASSWORD || secrets.SMTP_PASS || secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
       MAILBOX_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
       MAILBOX_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
       IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}

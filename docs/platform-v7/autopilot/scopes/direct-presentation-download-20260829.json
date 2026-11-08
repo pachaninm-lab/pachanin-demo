@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/direct-presentation-download-20260829",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/lib/presentation-pdf/part-00.ts",
+    "apps/web/lib/presentation-pdf/part-01.ts",
+    "apps/web/lib/presentation-pdf/part-02.ts",
+    "apps/web/lib/presentation-pdf/part-03.ts",
+    "apps/web/lib/presentation-pdf/part-04.ts",
+    "apps/web/lib/presentation-pdf/part-05.ts",
+    "apps/web/lib/presentation-pdf/part-06.ts",
+    "apps/web/lib/presentation-pdf/part-07.ts",
+    "apps/web/lib/presentation-pdf/part-08.ts",
+    "apps/web/lib/presentation-pdf/part-09.ts",
+    "apps/web/lib/presentation-pdf/part-10.ts",
+    "apps/web/lib/presentation-pdf/part-11.ts",
+    "apps/web/lib/presentation-pdf/part-12.ts",
+    "apps/web/lib/presentation-pdf/part-13.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json",
+    "docs/security/cryptographic-inventory.json"
+  ]
+}

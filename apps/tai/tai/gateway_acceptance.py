@@ -525,7 +525,13 @@ def _private_contour_checks(root: Path) -> list[AcceptanceCheck]:
             "H.05",
             "The gateway stream is never answered from the demo bank",
             (PROXY_ROUTE,),
-            "!streamPath && (!API_URL || demoToken)" in proxy,
+            "const strictRealPath = streamPath || requiresRealBackend(path);" in proxy
+            and "const isDemo = !strictRealPath && demoToken && demoLoginAllowed();" in proxy
+            and (
+                "if (strictRealPath && demoToken) "
+                "return realBackendUnavailable('verified_real_session_required');"
+                in proxy
+            ),
             "a demo session cannot receive a demo gateway stream",
         )
     )
@@ -564,9 +570,9 @@ def _admission_checks(root: Path) -> list[AcceptanceCheck]:
     # The generation service must sit behind the admission gate: an early return
     # is what makes "no admitted model" mean "nothing was generated" rather than
     # "something was generated and then hidden".
-    gated = controller.index("if (!admission.allowed)") < controller.index(
-        "await this.assistant.chat("
-    )
+    gate_position = controller.find("if (!admission.allowed)")
+    generation_position = controller.find("this.assistant.chatStream(")
+    gated = gate_position >= 0 and generation_position >= 0 and gate_position < generation_position
     checks.append(
         _check(
             "ADM.generation-service-not-called",

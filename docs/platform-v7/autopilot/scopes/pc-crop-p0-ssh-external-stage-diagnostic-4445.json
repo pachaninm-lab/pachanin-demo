@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-ssh-external-stage-diagnostic-4445",
+  "status": "active",
+  "operationalStatus": "P0_SSH_EXTERNAL_STAGE_READ_ONLY_DIAGNOSTIC",
+  "purpose": "Classify the exact hosted-network failure stage blocking the already-authorized production SSH host-key observation, without opening an SSH session and without mutating production.",
+  "issue": 4445,
+  "registrationIssue": 3785,
+  "releaseIssue": 3072,
+  "authorityBaseExactMain": "63b6a34cd6dad8c78443ebeb50d526ea55d9ec93",
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-ssh-external-stage-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-external-stage-diagnostic-4445.json"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "readOnlyExternalObservationOnly": true,
+    "ownerCommandOnly": true,
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "migrationMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "roleOrMembershipMutation": false,
+    "dnsMutation": false,
+    "caddyMutation": false,
+    "sshPinMutation": false,
+    "serverMutation": false,
+    "imageBuildOrPull": false,
+    "privateKeyUse": false,
+    "protectedPortOutput": false,
+    "protectedFingerprintOutput": false,
+    "rawHostKeyOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "The implementation PR changes only the diagnostic workflow and this scope file.",
+    "The diagnostic is triggered only by the repository owner using the exact authority command.",
+    "The diagnostic performs DNS resolution and repeated ssh-keyscan observation from the hosted runner only; it does not open an SSH session.",
+    "The protected SSH port and fingerprint are consumed only as protected inputs and are never published.",
+    "No private key, SSH username, password, production environment value, raw host key or raw diagnostic log is published.",
+    "No database, migration, credential, session, MFA, role, DNS, Caddy, SSH-pin, container, image or production runtime mutation occurs.",
+    "The diagnostic emits only a coarse failure class and PRODUCTION_MUTATION=NONE; new recurring cost remains 0 RUB."
+  ]
+}

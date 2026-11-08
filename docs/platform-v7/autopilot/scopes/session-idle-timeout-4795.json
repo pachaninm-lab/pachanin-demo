@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4795,
+  "branch": "security/session-idle-timeout-4795",
+  "status": "active",
+  "purpose": "Close ASVS V7.3.1 by enforcing an inactivity timeout against a timestamp the sessions table already stored and already maintained but nobody read, and close V7.1.1 and V7.3.2 by writing down both session limits with the reasoning behind them. No schema change, no migration, no production deploy.",
+  "authorityBaseExactMain": "bdb013d0d6beb7e0b66de6cf65b1e569b1b66583",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/session-idle-timeout-4795.json",
+    "docs/security/SESSION_POLICY.md",
+    "docs/security/asvs-applicability-decisions.json",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/product-session.service.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "apps/api/src/modules/auth/session-idle-timeout.spec.ts",
+    "apps/api/src/modules/auth/auth.step-up.spec.ts",
+    "apps/api/src/modules/auth/product-session.spec.ts"
+  ],
+  "requiredInvariants": [
+    "No database schema change and no migration. auth.sessions.last_seen_at has existed since the table was created and is already maintained on every authenticated request through touchSession, throttled to one write a minute. The context queries read auth.sessions inline rather than through a SECURITY DEFINER function, so only the SELECT list changed.",
+    "The earlier verdict said no last-activity timestamp exists from which an inactivity timeout could be derived. It does. The correction is recorded rather than the verdict being quietly moved; this is the fourth decision in this programme found resting on a fact that had expired.",
+    "The check sits in sessionInvalidReason, the single place every admitted request passes through, so the platform login, the refresh rotation and the MFA challenge path inherit it without a second implementation.",
+    "One constant, exported and shared. The product pathway takes the same value rather than restating it, because two session stores with two idle rules would be exactly the inconsistency V6.3.4 is about; a mutation that gives the product pathway its own literal fails the suite.",
+    "The check runs before touchSession, so it reads the previous activity rather than the request making it. An idle session is revoked with reason SESSION_IDLE_TIMEOUT rather than merely refused, so it is not caught again on the next request.",
+    "The number is a stated risk decision, not a preference. Twelve hours clears the interruptions that occur inside a working day - this platform is used by drivers, elevator operators and surveyors whose work is interrupted by the job - because an idle limit that ends a session mid-shift is met by keeping a tab awake, which is the same exposure with the control evaded rather than followed. It is sixty times shorter than the absolute cap, so a found device carries a live session for a shift rather than a season.",
+    "The cost is named: users idle for more than twelve hours are logged out and must authenticate again. That is a behaviour change on an everyday path, it is one constant in one place, and the policy document says where a different number would go.",
+    "The absolute maximum is untouched. Thirty days is still set at creation and still not extended by activity; only its justification is new, and the document records honestly that the number preceded the reasoning.",
+    "Two existing spec fixtures gain the new field and not one assertion is relaxed; they exercise other reasons a session can be invalid, and a stale timestamp would have masked them.",
+    "No production, REG.RU, DNS, database or credential mutation. The 1C, marketing and presentation contours are not touched.",
+    "V7.4.4's note is corrected in the same file and its verdict is deliberately not moved. Two of the three surfaces the earlier note named were wrong - the staff plane sits under the protected layout and inherits its logout control, and the platform-v7r runtime is answered by a 308 redirect so its shell is never served - while the two that actually fail, /assistant through AppChrome and the Gekta owner console, were not named. Correcting a wrong reason without moving a verdict is the point: in this programme the wrong note has repeatedly been the larger risk."
+  ],
+  "acceptance": [
+    "A session idle beyond the limit is refused while its absolute lifetime still has 30 days to run, so an idle refusal is not an expiry refusal under another name.",
+    "The refused session is revoked with SESSION_IDLE_TIMEOUT, and is not touched by the request that refused it.",
+    "The boundary is decided at the limit rather than near it, checked from both sides.",
+    "Three mutations fail the suite: removing the platform check, giving the product pathway its own literal, widening the limit to the absolute cap.",
+    "The full apps/api/src/modules/auth suite passes: 41 suites, 622 tests; api tsc --noEmit exit 0.",
+    "The matrix rebuilds at applied 332 / rejected 0: PASS 107 to 110, FAIL 112 to 109, NOT_ASSESSED unchanged at 38.",
+    "V7.4.4 remains FAIL with conditions that revoke it if either surface gains a logout control or the unmounted SessionControls component is removed, so the corrected note cannot go stale the way the one it replaces did."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-mobile-locators-3824",
+  "branch": "fix/gekta-mobile-locators-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "5df16bc3b7443831e3a3b3f476637fa0e5f612b8"
+  },
+  "purpose": "Repair two false-negative locators in the exact production Gekta mobile acceptance suite while preserving the existing 320, 390 and 430 viewport, localization, source, overflow and touch-target criteria.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/fix-gekta-mobile-locators-3824.json"
+  ],
+  "forbiddenChanges": [
+    "Gekta runtime behavior",
+    "Qwen or llama.cpp runtime",
+    "public API or streaming behavior",
+    "registration, MFA, RBAC, RLS or database authority",
+    "production credentials",
+    "weakening mobile viewport, localization, source, overflow or touch-target assertions"
+  ],
+  "requiredChecks": [
+    "platform-v7 autopilot guard",
+    "Gekta production mobile Playwright suite",
+    "web-unit and exact-head CI",
+    "security quality gates",
+    "exact-SHA REG.RU Web release",
+    "production Gekta mobile acceptance at 320x700, 390x844 and 430x932"
+  ]
+}

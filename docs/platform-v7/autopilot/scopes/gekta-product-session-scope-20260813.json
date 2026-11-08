@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-product-session-scope-20260813",
+  "branch": "claude/gekta-product-session-scope",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "01dee6eb"
+  },
+  "purpose": "Гекта продаётся человеку, а не организации, но auth.resolve_session_identity_v2 внутренне соединяется с user_orgs и organizations, поэтому сессия без организации была неразрешима, а /gekta/* висел на JwtAuthGuard, требующем membershipId, orgId, tenantId и role. Вводится ограниченный тип сессии scope='GEKTA' в той же таблице auth.sessions, с той же цепочкой аудита, тем же форматом access-токена и той же ротацией refresh. Вторая система аккаунтов не создаётся. Прежние три NOT NULL для платформенной сессии сохранены CHECK-ограничением, а продуктовой сессии организационная принадлежность запрещена. Личность продуктовой сессии приходит из новой SECURITY DEFINER функции с теми же владельцем, search_path и row_security, что у платформенной: public.users закрыт RLS и напрямую не читается. Глобальный AppAuthGuard разрешает такой актор только на маршруте с явным AllowProductSession; метка стоит на пользовательском GektaController и отсутствует у операторской и всех платформенных поверхностей.",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260813060000_gekta_product_session_scope/migration.sql",
+    "apps/api/src/common/decorators/product-session.decorator.ts",
+    "apps/api/src/common/guards/auth.guard.ts",
+    "apps/api/src/common/guards/auth-product-session-boundary.spec.ts",
+    "apps/api/src/common/guards/auth-guard-wiring.spec.ts",
+    "apps/api/src/common/types/product-session.ts",
+    "apps/api/src/modules/auth/access-token.ts",
+    "apps/api/src/modules/auth/auth-audit.ts",
+    "apps/api/src/modules/auth/auth.module.ts",
+    "apps/api/src/modules/auth/auth.module.spec.ts",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "apps/api/src/modules/auth/product-session.service.ts",
+    "apps/api/src/modules/auth/product-session.spec.ts",
+    "apps/api/src/modules/gekta/gekta-session.guard.ts",
+    "apps/api/src/modules/gekta/gekta-session.spec.ts",
+    "apps/api/src/modules/gekta/gekta.controller.ts",
+    "apps/api/src/modules/gekta/gekta.module.ts",
+    "scripts/platform-v7-rls-integration.sh",
+    "scripts/sql/identity-rls-tenant-checks.sql",
+    "docs/platform-v7/autopilot/scopes/gekta-product-session-scope-20260813.json"
+  ],
+  "forbiddenChanges": [
+    "вторая система пользователей, паролей, email verification или MFA",
+    "второй формат access-токена или второй журнал аудита",
+    "ослабление NOT NULL для платформенной сессии",
+    "организация, тенант, членство или роль у продуктовой сессии",
+    "доступ продуктовой сессии к закрытым функциям «Прозрачной Цены»",
+    "прямое чтение public.users в обход SECURITY DEFINER функции",
+    "изменение auth.resolve_session_identity_v2"
+  ],
+  "requiredChecks": [
+    "PostgreSQL 16 RLS tenant isolation",
+    "product-session route opt-in boundary",
+    "API unit tests + TypeScript check",
+    "exact-head CI"
+  ],
+  "deploymentState": "not-deployed"
+}

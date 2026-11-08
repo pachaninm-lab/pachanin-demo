@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4647,
+  "branch": "security/conjunctive-conditions-auth-4647",
+  "status": "active",
+  "purpose": "First conversion batch for #4647: move 13 conjunctive PASS conditions in the session, authorization and token chapters from PRESENT_AT_PATH (which matches with .some()) to PRESENT_ALL_AT_PATH, and add a register-wide test that every conjunctive condition both holds today and stops holding when any single fact it names is removed.",
+  "authorityBaseExactMain": "1ee86b011b16649a23213122be1722bba89f62e8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/conjunctive-conditions-auth-4647.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Only the check type changes on the converted conditions - no pattern, path, verdict, evidence or note is edited, so no requirement's assessment moves.",
+    "V7.2.1 and V11.3.4 are deliberately NOT converted: each of their named paths carries only its own spelling of the control, so .some() per path is the correct semantics there and converting would reject two sound PASS decisions.",
+    "V16.2.5 is deliberately NOT converted: two of its three patterns match nothing anywhere in the repository, so it needs its evidence repaired rather than its check type changed.",
+    "Every converted condition is proven revocable by removing each named fact in turn, not by reading the condition - both defects behind #4647 were invisible to reading.",
+    "No application code changes; no production, REG.RU, DNS or database mutation."
+  ],
+  "acceptance": [
+    "13 conditions across V7.2.2, V7.2.3, V7.2.4, V7.4.1, V7.4.2, V7.4.5, V7.6.2, V9.1.1, V9.2.1 and V10.2.1 use PRESENT_ALL_AT_PATH.",
+    "Rebuilding the matrix keeps decisionsApplied at 332 and decisionsRejected at 0, with unchanged blockers.",
+    "The new register-wide test runs 29 removals across those conditions and every one revokes.",
+    "node --test scripts/security/*.test.mjs passes."
+  ]
+}

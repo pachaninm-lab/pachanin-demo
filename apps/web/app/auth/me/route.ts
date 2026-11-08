@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
 
   if (
     !claims
+    || !fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.identityProbe)
     || claims.testAccess !== true
     || expiresAt <= Math.floor(Date.now() / 1000)
     || typeof claims.email !== 'string'

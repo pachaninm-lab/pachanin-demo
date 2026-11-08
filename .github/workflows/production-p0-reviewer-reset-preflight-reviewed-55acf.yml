@@ -1,0 +1,219 @@
+name: Production P0 Reviewer Reset Exact-Signature Preflight 55acf
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-preflight-reviewed-55acf.yml'
+      - 'docs/platform-v7/autopilot/scopes/p0-reviewer-reset-preflight-reviewed-55acf-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-preflight-reviewed-55acf
+  cancel-in-progress: false
+
+env:
+  REVIEWED_FIX_SHA: 55acf811e3484cabe5d15c7197b24f0a6633d4c3
+  COMMAND: /production p0-reviewer-reset-preflight reviewed-55acf811-exact-main
+
+jobs:
+  contract:
+    name: Validate exact-signature reset preflight contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-preflight reviewed-55acf811-exact-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate immutable source and bounded exact-signature patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+          temp="$RUNNER_TEMP/p0-reviewed-reset-preflight-55acf.sh"
+          [[ "$(git hash-object "$source")" == '83d9c310c257844ac288fdfc2feb9e6fdddf900f' ]]
+          cp -- "$source" "$temp"
+          python3 - "$temp" "$REVIEWED_FIX_SHA" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          reviewed_sha = sys.argv[2]
+          original = path.read_text(encoding='utf-8')
+          reviewed_old = "REVIEWED_RESET_SHA='a9c16814960520b20e8ae0c722570d9a3b4147f9'"
+          reviewed_new = f"REVIEWED_RESET_SHA='{reviewed_sha}'"
+          parity_anchor = "failure_reason='RESET_CRITICAL_MANIFEST_INVALID'\n(( ${#RESET_CRITICAL_PATHS[@]} == 21 ))"
+          parity_guard = "failure_reason='DEPLOYED_MAIN_PARITY_REQUIRED'\n[[ \"$RUNTIME_DEPLOYED_SHA\" == \"$TARGET_SHA\" ]]\n\nfailure_reason='RESET_CRITICAL_MANIFEST_INVALID'\n(( ${#RESET_CRITICAL_PATHS[@]} == 21 ))"
+          text = original
+          for index, (old, new) in enumerate(((reviewed_old, reviewed_new), (parity_anchor, parity_guard)), start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
+              text = text.replace(old, new, 1)
+          if text.count(reviewed_new) != 1 or reviewed_old in text:
+              raise SystemExit('REVIEWED_REFERENCE_BINDING_INVALID')
+          if text.count("failure_reason='DEPLOYED_MAIN_PARITY_REQUIRED'") != 1:
+              raise SystemExit('EXACT_MAIN_PARITY_GUARD_INVALID')
+          if len(text.splitlines()) != len(original.splitlines()) + 3:
+              raise SystemExit('PATCH_LINE_DELTA_INVALID')
+          path.write_text(text, encoding='utf-8')
+          PY
+          bash -n "$temp"
+          grep -Fqx "REVIEWED_RESET_SHA='$REVIEWED_FIX_SHA'" "$temp"
+          grep -Fqx "failure_reason='DEPLOYED_MAIN_PARITY_REQUIRED'" "$temp"
+          grep -Fqx '[[ "$RUNTIME_DEPLOYED_SHA" == "$TARGET_SHA" ]]' "$temp"
+          grep -Fq 'SET TRANSACTION READ ONLY' "$temp"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$temp"
+          rm -f -- "$temp"
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-preflight reviewed-55acf811-exact-main
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git cat-file -e "${REVIEWED_FIX_SHA}^{commit}"
+          git merge-base --is-ancestor "$REVIEWED_FIX_SHA" "$target"
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  preflight:
+    name: Inspect exact-main runtime and authorize at most one reset
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git merge-base --is-ancestor "$REVIEWED_FIX_SHA" "$TARGET_SHA"
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Run exact-main reviewed-reference read-only production preflight
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+          temp="$RUNNER_TEMP/p0-reviewed-reset-preflight-55acf.sh"
+          out="$RUNNER_TEMP/p0-reviewed-reset-preflight-55acf.out"
+          [[ "$(git hash-object "$source")" == '83d9c310c257844ac288fdfc2feb9e6fdddf900f' ]]
+          cp -- "$source" "$temp"
+          chmod 0700 "$temp"
+          python3 - "$temp" "$REVIEWED_FIX_SHA" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          reviewed_sha = sys.argv[2]
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ("REVIEWED_RESET_SHA='a9c16814960520b20e8ae0c722570d9a3b4147f9'", f"REVIEWED_RESET_SHA='{reviewed_sha}'"),
+              ("failure_reason='RESET_CRITICAL_MANIFEST_INVALID'\n(( ${#RESET_CRITICAL_PATHS[@]} == 21 ))", "failure_reason='DEPLOYED_MAIN_PARITY_REQUIRED'\n[[ \"$RUNTIME_DEPLOYED_SHA\" == \"$TARGET_SHA\" ]]\n\nfailure_reason='RESET_CRITICAL_MANIFEST_INVALID'\n(( ${#RESET_CRITICAL_PATHS[@]} == 21 ))"),
+          ]
+          for index, (old, new) in enumerate(replacements, start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          bash -n "$temp"
+          set +e
+          bash "$temp" >"$out" 2>&1
+          rc=$?
+          set -e
+          cat "$out"
+          (( rc == 0 ))
+          grep -Fxq 'RESET_AUTHORIZED=YES' "$out"
+          grep -Fxq 'PRODUCTION_MUTATION=NONE' "$out"
+          runtime="$(grep -E '^RUNTIME_DEPLOYED_SHA=[0-9a-f]{40}$' "$out" | tail -n1 | cut -d= -f2-)"
+          [[ "$runtime" == "$TARGET_SHA" ]]
+          rm -f -- "$temp" "$out"
+          printf 'REVIEWED_REFERENCE=%s\n' "$REVIEWED_FIX_SHA"
+          printf 'EXACT_MAIN_RUNTIME_PARITY=PASS\n'
+          printf 'RESET_AUTHORIZED=YES\n'
+          printf 'PRODUCTION_MUTATION=NONE\n'

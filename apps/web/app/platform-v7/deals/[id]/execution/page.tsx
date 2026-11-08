@@ -1,6 +1,9 @@
 'use client';
 
+import '@/styles/platform-v7-canonical-public-v1.css';
+
 import { useParams } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 
@@ -14,6 +17,7 @@ import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
  */
 export default function PlatformV7DealExecutionPage() {
   const { id } = useParams<{ id: string }>();
+  const locale = useLocale();
   const role = usePlatformV7RStore((state) => state.role);
-  return <CanonicalDealWorkspace role={role} dealId={id} />;
+  return <CanonicalDealWorkspace role={role} dealId={id} locale={locale} />;
 }

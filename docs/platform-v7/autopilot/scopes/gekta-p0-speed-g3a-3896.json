@@ -1,14 +1,46 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/gekta-p0-speed-g3a-3896",
-  "status": "reverted-candidate-pending-baseline",
-  "purpose": "Reduce measured user-visible Gekta first-meaningful-text latency by shortening the first safe completed answer block without weakening the existing streaming safety gate, semantic coverage, context handling or production authority.",
-  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
-  "authorityBaseExactMain": "c801f913525437fba76b11de8ab344032d440256",
+  "branch": "revert/gekta-p0-speed-g3a-regression-3896",
+  "status": "active",
+  "purpose": "Reject the Gekta G3A first-safe-block candidate after a clean same-corpus production AFTER showed a c=1 p95 first-meaningful regression, and restore the exact pre-candidate prompt and focused-test state without changing StreamingAnswerGate, model runtime, safety, RU/EN/ZH, history/context, timeouts or any non-Gekta authority.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-15",
+  "authorityBaseExactMain": "4a06d3ec7f128fa694e1a9bd306b1a86897b44a3",
+  "candidateMergeCommit": "b08381504dd2c4604fca26e9544c31753371b198",
   "productionEvidence": {
-    "beforeRunId": 31512618588,
-    "beforeArtifactId": 9111025426,
-    "deployedWebRevision": "148407e9345f5f5a5edb53465cff0b1e2f5b9ba1"
+    "beforeRunId": 31839778862,
+    "beforeArtifactId": 9235052023,
+    "beforeTargetRevision": "24590ce52413ab28e23e6a50036923fbe0baaff0",
+    "beforeMeasurementToolSha": "24590ce52413ab28e23e6a50036923fbe0baaff0",
+    "beforeStatus": "success",
+    "beforeC1Completed": "24/24",
+    "beforeC1FirstMeaningfulP50Ms": 6240.4,
+    "beforeC1FirstMeaningfulP95Ms": 10434.3,
+    "beforeC2FirstMeaningfulP95Ms": 28444.4,
+    "beforeC4FirstMeaningfulP95Ms": 63413.2,
+    "afterRunId": 31848373538,
+    "afterArtifactId": 9237124086,
+    "afterTargetRevision": "033964e2e553c595482b774784cf808815eccbc7",
+    "afterMeasurementToolSha": "033964e2e553c595482b774784cf808815eccbc7",
+    "afterStatus": "success",
+    "afterC1Completed": "24/24",
+    "afterC1FirstMeaningfulP50Ms": 6144.9,
+    "afterC1FirstMeaningfulP95Ms": 12040.9,
+    "afterC2FirstMeaningfulP95Ms": 25118.5,
+    "afterC4FirstMeaningfulP95Ms": 56362.1,
+    "c1FirstMeaningfulP50DeltaMs": -95.5,
+    "c1FirstMeaningfulP50DeltaPct": -1.53,
+    "c1FirstMeaningfulP95DeltaMs": 1606.6,
+    "c1FirstMeaningfulP95DeltaPct": 15.4,
+    "c2FirstMeaningfulP95DeltaPct": -11.69,
+    "c4FirstMeaningfulP95DeltaPct": -11.12,
+    "afterRepositoryMainAdvancedDuringMeasurement": true,
+    "afterDeployedApplicationImmutableDuringMeasurement": true,
+    "afterErrors": 0
+  },
+  "verdict": {
+    "decision": "REJECT_AND_REVERT",
+    "reason": "The governing acceptance rule rejects G3A when c=1 p95 worsens. The clean AFTER increased c=1 first-meaningful p95 from 10434.3 ms to 12040.9 ms, a 1606.6 ms / 15.4% regression, despite improvements at c=2 and c=4.",
+    "revertAction": "Restore the exact pre-candidate service and focused-test blobs from first-parent pre-merge commit a38798a92082ef67feb7c01e5358c77fa6ec8593."
   },
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -19,29 +51,37 @@
   "requiredBehavior": [
     "StreamingAnswerGate remains unchanged and continues to release only syntactically complete safe blocks",
     "Qwen thinking remains disabled",
-    "every general-agro response starts with one short self-contained complete sentence before longer analysis unless a deterministic current-evidence boundary must lead",
+    "the G3A first-safe-block prompt instruction is absent from general-agro answers",
+    "the exact pre-candidate general-agro prompt behavior is restored",
     "RU EN and ZH remain supported",
-    "bounded history correction topic shift disease completeness current-information privacy write and secret boundaries remain semantically equivalent or stronger",
+    "bounded history correction topic shift disease completeness current-information privacy write and secret boundaries remain unchanged",
     "concise and detailed response modes remain distinct",
-    "focused tests prove the first-sentence instruction and all critical safety/domain instructions remain present",
-    "production acceptance uses the same Gekta SPEED corpus and before artifact from issue #3896"
+    "verified-platform behavior remains unchanged",
+    "model-host runtime remains outside this revert"
   ],
   "forbiddenCapabilities": [
     "changing StreamingAnswerGate or lowering its safety threshold",
     "raising model or gateway timeouts to hide overload",
-    "dropping difficult benchmark cases locales history correction or topic shift",
-    "changing llama.cpp model-host settings in G3A",
+    "dropping benchmark cases locales history correction or topic shift",
+    "changing llama.cpp model-host settings as part of this revert",
     "database migration read or write",
     "registration authentication tenant role Deal settlement payment or money behavior",
     "external model API SaaS new server or recurring cost"
   ],
   "acceptance": [
-    "focused Qwen service tests pass",
-    "full existing restricted-public-Qwen safety and quality tests pass",
-    "exact-head CI and security gates pass",
-    "after production release the same baseline shows material c=1 firstMeaningfulText improvement without quality regression",
-    "candidate is rejected if c=1 p95 worsens or any safety semantic or RU EN ZH gate regresses"
+    "service implementation equals the exact pre-candidate blob fc35c5f5663afa66c55a4c249ce371253405481a",
+    "focused service specification equals the exact pre-candidate blob efeca16ad091181650f8eb94f9f206c6d093c312",
+    "general-agro system prompt contains no G3A first-safe-block instruction",
+    "verified-platform prompt behavior is unchanged",
+    "StreamingAnswerGate model runtime timeouts and non-Gekta authority are untouched",
+    "changed paths are limited to the three declared allowed paths",
+    "production rejection evidence records c1 first-meaningful p95 regression from 10434.3 ms to 12040.9 ms"
   ],
-  "revertedBy": "premature-merge-before-exact-main-before",
-  "revertNote": "Merged into main before an accepted EXACT_MAIN_BEFORE existed. Releasing it would have put the tuning into production ahead of its own baseline, leaving nothing to compare it against. The functional diff is reverted and this scope is not an accepted tuning; it returns as a candidate once the exact-main BEFORE is accepted."
+  "history": {
+    "originalCandidateCommit": "5250e9f470d9b44b3b932d949d754abff5be09c5",
+    "originalRevertCommit": "1df6cef8b52402c03cceb5650004715697e701c6",
+    "originalRevertReason": "candidate reached main before an accepted BEFORE baseline; no negative candidate latency verdict was established",
+    "retestCandidateCodeCommit": "e38de5e70f589d97b4d98f35bc14531e8857dfa8",
+    "retestMergeCommit": "b08381504dd2c4604fca26e9544c31753371b198"
+  }
 }

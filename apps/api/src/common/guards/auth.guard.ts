@@ -1,9 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthService } from '../../modules/auth/auth.service';
+import { AuthService, requiresRoleMfa } from '../../modules/auth/auth.service';
+import { ProductSessionService } from '../../modules/auth/product-session.service';
 import { StaffAccessService } from '../../modules/staff-access/staff-access.service';
 import { FINANCIAL_MFA_THRESHOLD_KOPECKS } from '../types/request-user';
-import { PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
+import { PASSWORD_SESSION_AUTH_ACTION, PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
+import { PRODUCT_SESSION_ROUTE } from '../decorators/product-session.decorator';
 
 const FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA = new Set([
   'request_reserve',
@@ -28,6 +30,7 @@ export class AppAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly authService: AuthService,
     private readonly staffAccess: StaffAccessService,
+    private readonly productSessions: ProductSessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -41,11 +44,43 @@ export class AppAuthGuard implements CanActivate {
     ]);
     if (isPublic && enabled(options?.envFlag)) return true;
 
+    const allowsProductSession = this.reflector.getAllAndOverride<boolean>(PRODUCT_SESSION_ROUTE, [
+      context.getHandler(),
+      context.getClass(),
+    ]) === true;
+
     const req = context.switchToHttp().getRequest();
     const raw = req.headers.authorization;
     if (!raw?.startsWith('Bearer ')) throw new UnauthorizedException('Missing bearer token');
     const token = raw.slice('Bearer '.length);
+
+    // Продуктовый актор допустим только на явно помеченной поверхности.
+    // Наличие отдельного request.productUser не является само по себе
+    // авторизацией: многие маршруты платформы полагаются на этот глобальный
+    // guard и не имеют второго guard, который мог бы заметить пустой req.user.
+    if (allowsProductSession) {
+      const productUser = await this.productSessions.tryVerifyAccessToken(token);
+      if (productUser) {
+        req.productUser = productUser;
+        return true;
+      }
+    }
+
     req.user = await this.authService.verifyAccessToken(token);
+
+    const passwordSessionAuthAction = this.reflector.getAllAndOverride<boolean>(PASSWORD_SESSION_AUTH_ACTION, [
+      context.getHandler(), context.getClass(),
+    ]) === true;
+    const method = String(req.method || 'GET').toUpperCase();
+    // Formerly the role/org-admin MFA gate blocked the whole session, including
+    // sign-in and READ. Keep its command protection at the action boundary:
+    // this also covers legacy commands whose financial amount is server-owned.
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)
+      && !passwordSessionAuthAction
+      && (requiresRoleMfa(req.user.role) || req.user.isOrgAdmin === true)
+      && req.user.mfaVerified !== true) {
+      throw new ForbiddenException('MFA verification is required for this action');
+    }
 
     const staffHeader = req.headers['x-staff-access-session'];
     if (Array.isArray(staffHeader)) throw new UnauthorizedException('Multiple staff access session headers are not allowed');

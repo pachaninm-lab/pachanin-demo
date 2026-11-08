@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { REFRESH_COOKIE } from '../../../../lib/auth-cookies';
+import { isControlHostRequest } from '../../../../lib/platform-v7/control-host';
 import { assertCsrf } from '../../../../lib/server-request-security';
 import {
   applyAuthenticatedSession,
@@ -27,8 +28,10 @@ function json(body: Record<string, unknown>, status = 200) {
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
+    if (controlPlane) console.warn('control_plane_refresh_denied', JSON.stringify({ correlationId, reason: 'csrf' }));
     return json({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
   }
 
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
   const refreshToken = jar.get(REFRESH_COOKIE)?.value || '';
   if (!refreshToken || refreshToken.startsWith('demo-refresh.')) {
     const response = json({ ok: false, code: 'SESSION_NOT_REFRESHABLE', correlationId }, 401);
-    clearAuthenticatedSession(response);
+    clearAuthenticatedSession(response, { controlPlane });
     return response;
   }
   if (!API_URL) {
@@ -58,7 +61,8 @@ export async function POST(request: Request) {
     const payload = await upstream.json().catch(() => ({})) as Partial<AuthenticatedSessionPayload>;
     if (!upstream.ok) {
       const response = json({ ok: false, code: 'SESSION_NOT_REFRESHABLE', correlationId }, 401);
-      clearAuthenticatedSession(response);
+      clearAuthenticatedSession(response, { controlPlane });
+      if (controlPlane) console.warn('control_plane_refresh_denied', JSON.stringify({ correlationId, reason: 'upstream' }));
       return response;
     }
     if (!payload.accessToken || !payload.refreshToken || !payload.user) {
@@ -66,16 +70,22 @@ export async function POST(request: Request) {
     }
 
     const response = json({ ok: true, correlationId });
-    const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
+    const session = await applyAuthenticatedSession(
+      response,
+      payload as AuthenticatedSessionPayload,
+      { controlPlane },
+    );
     if (!session) {
       const failed = json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', correlationId }, 502);
-      clearAuthenticatedSession(failed);
+      clearAuthenticatedSession(failed, { controlPlane });
       return failed;
     }
+    if (controlPlane) console.info('control_plane_refresh_success', JSON.stringify({ correlationId }));
     return response;
   } catch (error) {
     console.error('auth_refresh_transport_failure', JSON.stringify({
       correlationId,
+      controlPlane,
       reason: error instanceof Error ? error.name : 'unknown',
     }));
     return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 503);

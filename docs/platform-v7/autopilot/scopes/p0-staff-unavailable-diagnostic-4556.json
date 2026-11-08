@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4556,
+  "releaseIssue": 3072,
+  "branch": "diag/p0-staff-unavailable-4556",
+  "status": "active",
+  "purpose": "Classify the live PC-CROP owner/reviewer staff-control unavailable state without credentials or production mutation.",
+  "authorityBaseExactMain": "829eb17b0df96ea55155fc71cca436f8b6862d67",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-staff-unavailable-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/p0-staff-unavailable-diagnostic-4556.json",
+    "scripts/check-production-p0-staff-unavailable-diagnostic.mjs",
+    "scripts/production-p0-staff-unavailable-diagnostic.sh"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "readOnlyProductionDiagnostic": true,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "loginOrSessionMutation": false,
+    "passwordResetOrRecovery": false,
+    "mfaMutation": false,
+    "roleOrMembershipMutation": false,
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "dnsMutation": false,
+    "sshPinMutation": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "deployed API and Web revisions are equal and are an ancestor of diagnostic main",
+    "repository drift after the deployed runtime is proven runtime-neutral before the production probe proceeds",
+    "effective Web server API authority is classified without printing API_URL or any environment value",
+    "Web-to-API /auth/me and /staff/capabilities/me are probed without credentials and only HTTP status classes are emitted",
+    "AUTH_DATABASE_URL staff-control table privileges are inspected inside a READ ONLY transaction and only booleans/count classes are emitted",
+    "Web and API logs for 2026-08-23T12:05:00Z through 2026-08-23T12:15:00Z are reduced to bounded marker counts; raw logs never leave the VPS",
+    "no password, TOTP, cookie, bearer token, email address, account hash, database URL, container id, project name, raw log line or protected path is published",
+    "PRODUCTION_MUTATION=NONE"
+  ]
+}

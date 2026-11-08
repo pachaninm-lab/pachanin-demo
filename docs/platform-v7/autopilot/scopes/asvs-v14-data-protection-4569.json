@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4569,
+  "branch": "sec/asvs-v14-data-protection-4569",
+  "status": "active",
+  "purpose": "Assess ASVS V14 Data Protection, where almost every control that exists was built without a rule saying what it should protect.",
+  "authorityBaseExactMain": "5fce40bb6dea6997f1cd4169ad46b0f8f753761d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v14-data-protection-4569.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "A coverage claim names the denominator it measured, and pairs it with the negative check that makes it conclusive.",
+    "A framework directive is not a response header; force-dynamic and revalidate are never counted as anti-caching coverage.",
+    "Masking in logs is not masking in responses, and neither is minimization during processing.",
+    "A FAIL must name where the gap is; a missing control elsewhere is not evidence that a given endpoint over-returns.",
+    "A keyword match that turns out to classify code provenance rather than data is named as such, not silently dropped.",
+    "Evidence that lives outside the repository is NOT_ASSESSED, never FAIL, consistently with V4, V11, V12 and V16.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V14.3.2 states all 118 handlers and the full split (86 / 1 / 4 / 27), and says why the 4 framework-directive handlers are not coverage.",
+    "V14.2.3 establishes that the root layout reaches the authenticated surface by checking the nested layouts, rather than assuming it.",
+    "V14.2.4 names the Sentry filter's exact limits instead of calling it insufficient.",
+    "V14.2.6 is NOT_ASSESSED, not FAIL, because no over-returning endpoint was identified — an unearned FAIL is the same error as an unearned PASS.",
+    "V14.1.1 names the IP provenance documents that match a classification search and says why they are not one.",
+    "V14.2.7 credits both retention mechanisms that exist before recording the gap.",
+    "V14.3.3 credits the machine-checked absence of credentials in browser storage before recording the personal data that is there.",
+    "All 13 V14 requirements are decided: 0 PASS, 10 FAIL, 3 not assessed — and the zero is reported plainly.",
+    "finalPass stays false."
+  ]
+}

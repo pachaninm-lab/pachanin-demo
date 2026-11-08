@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/api-last-resort-handlers-16-5-4",
+  "status": "active",
+  "purpose": "ASVS V16.5.4. Both outbox workers install process-level uncaughtException and unhandledRejection handlers that log and shut down deliberately; the API process installed neither and registered no global exception filter. The requirement asks about the last resort, and the worker being covered does not answer for the API.",
+  "authorityBaseExactMain": "b515d5c5e85250dcea68b41f659279e4e226c271",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/api-last-resort-handlers-4459.json",
+    "apps/api/src/common/process/last-resort-handlers.ts",
+    "apps/api/src/common/process/last-resort-handlers.spec.ts",
+    "apps/api/src/main.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The process still exits non-zero on a fatal error. A handler that logs and keeps serving is worse than the crash it replaces: it leaves an application whose invariants have already failed accepting traffic. This direction is asserted by test, not left to review.",
+    "Signals are NOT handled here. app.enableShutdownHooks() already owns SIGTERM and SIGINT for the API; the workers install their own only because they run an application context with no HTTP server to own them. A second handler for the same signal would run two shutdowns.",
+    "The workers keep their own handlers. This is not one process covered at the cost of another, and a condition asserts the worker still has them.",
+    "Close is bounded and the exit code is set BEFORE close(), so a close() that throws or hangs cannot turn a fatal error into a successful-looking exit.",
+    "once() rather than on(): a second fatal arriving mid-handling falls through to Node's default, which is the correct outcome. A handler looping on its own failure is not.",
+    "No dependency, no schema change, no migration, no route or policy change. Nothing outside apps/api/src. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured on Node v22.22.2, not taken from documentation: with a live setInterval keeping the loop busy, an uncaught exception and an unhandled rejection each terminate the process immediately with exit code 1. So the prior behaviour was never 'Node carries on' - it was a hard stop skipping every shutdown path, and what changes is the SHAPE of the stop, not whether it stops. Claimed as exactly that and no more.",
+    "The stderr write is awaited. console.error to a pipe is asynchronous, so a process exiting in the same tick loses the message explaining why - the failure this requirement exists to prevent.",
+    "Eight handler mutations applied and all eight caught: swallowing the fatal, dropping the non-zero exit code, dropping the stderr report, removing the re-entrancy guard, unbounding the close timeout, covering only one of the two events, on() instead of once(), and duplicating SIGTERM.",
+    "One matrix mutation was NOT caught on the first attempt and is recorded rather than quietly fixed: removing the post-shutdown forceExit left V16.5.4 at PASS, because the condition matched the literal forceExit(1) that the timeout branch also contains. The condition was wrong, not the mutation; the post-shutdown exit now uses a named FATAL_EXIT_CODE and the condition pins that. Re-run after the fix drives the requirement to NOT_ASSESSED.",
+    "V16.5.4 PASS is machine-revocable: removing the call from main.ts, removing the post-shutdown exit, and removing the swallow-direction test each drive it to NOT_ASSESSED and the totals back to 127/92/88/39.",
+    "V16.5.3 stays PASS and is not disturbed: it covers failure INSIDE a request and is a different control.",
+    "Matrix on this head: PASS 127 -> 128, FAIL 92 -> 91. api typecheck exit 0, full @pc/api suite green, scripts/security 130/130."
+  ]
+}

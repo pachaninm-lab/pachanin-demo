@@ -432,6 +432,7 @@ export async function provisionDeal(
   prisma: PrismaService,
   slug: string,
   totalKopecks: bigint,
+  currency = 'RUB',
 ): Promise<DealFixture> {
   const dealId = `DEAL-E2E-${slug}`;
   const sellerOrgId = `org-e2e-${slug}-seller`;
@@ -499,7 +500,7 @@ export async function provisionDeal(
         sellerOrgId,
         buyerOrgId,
         totalKopecks,
-        currency: 'RUB',
+        currency,
         culture: 'Пшеница',
         region: 'Контролируемый тестовый регион',
         sagaState: { logisticsBasis },

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-prod-runner-recovery-3365",
+  "status": "active",
+  "purpose": "Recover only the already-registered REG.RU pc-prod GitHub Actions runner after a lost-communication incident, through the existing pinned production SSH identity, without touching application runtime, Docker objects, databases, model runtime or customer data.",
+  "approvedBy": "repository-owner direct continuation of Gekta SPEED #3896 and protected REG.RU release authority on 2026-08-14",
+  "authorityBaseExactMain": "f75bfd014ec67253713bd501be051fa8447a37a8",
+  "newRecurringCostRub": 0,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-prod-runner-recovery-3365.json",
+    ".github/workflows/tai-reg-ru-runner-recovery-owner-command.yml"
+  ],
+  "requiredBehavior": [
+    "owner-only command is bound to issue 3365 and the exact literal /tai recover-pc-prod-runner current-main",
+    "execute from a GitHub-hosted runner through the existing protected REG.RU root SSH key and pinned host fingerprint",
+    "resolve and record exact current main immediately before recovery",
+    "require exactly one pre-existing pc-prod actions.runner systemd service and require its configured user to be pcactions",
+    "perform only a bounded restart of that existing runner service and require it to return active",
+    "prove the running pcactions process has no Docker supplementary group and that pcactions has no direct Docker socket authority",
+    "collect read-only available-space counters for Docker and containerd filesystems so the interrupted headroom reclaim can be classified safely",
+    "publish only bounded runner state, capacity counters and the GitHub run URL",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "runner registration re-registration removal or registration-token consumption",
+    "creating a new runner service runner directory user group or package installation",
+    "changing the release controller sudoers known_hosts runner labels or runner configuration",
+    "docker pull push prune rm rmi system prune image prune builder prune container volume or network mutation",
+    "application deployment rollback restart or configuration mutation",
+    "database model-host deal role money registration credential or customer-data mutation",
+    "unbounded remote shell input or user-controlled remote command arguments",
+    "new server paid API SaaS or recurring cost"
+  ]
+}

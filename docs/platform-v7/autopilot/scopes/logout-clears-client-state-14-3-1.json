@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/logout-clears-client-state-14-3-1",
+  "status": "active",
+  "purpose": "V14.3.1 is level 1 and FAIL: logout ends the session but does not clear what the session left behind. The route is otherwise careful - CSRF, upstream revoke, cookies cleared, no-store - which is why the gap was worth stating precisely. No response anywhere in the web application sent Clear-Site-Data, and assistant conversations, per-deal document lists and checklists, and the support profile all survived logout. This closes it on both sides and moves the requirement to PASS.",
+  "authorityBaseExactMain": "80054c826",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/logout-clears-client-state-14-3-1.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    ".github/workflows/ci.yml",
+    "apps/web/app/api/auth/logout/route.ts",
+    "apps/web/lib/client-session-cleanup.ts",
+    "apps/web/components/session-controls.tsx",
+    "apps/web/components/demo-banner.tsx",
+    "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+    "apps/web/components/platform-v7/OrganizationAccessShell.tsx",
+    "apps/web/tests/unit/logoutClearsClientState.spec.ts"
+  ],
+  "requiredInvariants": [
+    "V14.3.3 is NOT touched and stays FAIL. That the support profile, assistant conversations and per-deal document lists are written to browser storage at all is a different requirement from clearing them at logout, and closing the second does not close the first.",
+    "V14.3.2 is NOT claimed either. The Clear-Site-Data value includes \"cache\" precisely because 27 route handlers still set no Cache-Control, but requesting a cache clear at logout is not the same as those handlers setting no-store, which is what V14.3.2 asks for.",
+    "\"cookies\" is deliberately NOT in the Clear-Site-Data value. A browser would clear cookies across the whole registrable domain, and this platform runs a separate control host whose session this logout must not touch. Cookie clearing stays with clearAuthenticatedSession, which clears exactly its own.",
+    "The CSRF-rejected path keeps no Clear-Site-Data header. A request that failed the check is not a logout, and a test asserts that direction so the header cannot be sprayed onto every response.",
+    "No production, REG.RU, DNS, database or credential mutation. No schema change, no migration, no dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The gap was measured before it was closed: zero occurrences of Clear-Site-Data anywhere in apps/web, and 99 tracked files touching localStorage, sessionStorage, indexedDB or caches. The persisted content was read rather than assumed - Gekta conversation history and project lists, DocumentsDropzone per-deal document lists and checklists under dynamic per-deal keys, the ChatSupportWidget support profile, command palette history and the header note.",
+    "Two mechanisms, and the second exists because the first has a boundary. Server: every response through the shared response() helper carries Clear-Site-Data \"cache\", \"storage\". Client: clearClientSessionState() clears both web storages synchronously and is called from the finally block of all four logout callers, so it runs when the request never reached the server - the exact gap the previous decision note named as missing.",
+    "The client path clears everything rather than a curated list of sensitive keys. A hand-maintained list means any new component that starts writing to storage silently falls outside it; deny-by-default is cheaper and safer. The cost is stated rather than hidden: interface theme and density reset to default at logout, which on a shared or borrowed device is closer to correct than to a loss.",
+    "The cleanup is synchronous on purpose, because logout navigates immediately afterwards and asynchronous work could be cut off. caches and service worker registrations are deliberately left to Clear-Site-Data in production and to V7CacheGuard on the next load - and unregistering service workers is not a new behaviour here, V7CacheGuard already does exactly that on a version change.",
+    "Seven cases. Four on the route, including the negative direction (a CSRF-rejected logout carries no header) and the placement assertion (the header lives in the shared response() helper, not on one path). Two on the helper, including a localStorage that throws on access, which is what a private window or disabled site data does - the logout must not fail and sessionStorage must still be cleared. One completeness test that enumerates logout callers by searching tracked sources rather than listing them by hand, so a fifth caller added later without the cleanup fails there rather than at review.",
+    "Four mutations against the tests, each caught by exactly the intended case: removing the header fails 3 of 7; adding \"cookies\" fails the case that forbids it; removing the cleanup from one caller fails the completeness test; making the helper a no-op fails 2.",
+    "The PASS is machine-revocable, and that was run rather than asserted. Three mutations were applied to the tree and the matrix rebuilt each time: removing the header, removing the cleanup from one of four callers, and making the helper a no-op. All three drove V14.3.1 from PASS to NOT_ASSESSED and the totals from 127/92 back to 126/92 with NOT_ASSESSED 38 -> 39. The decision carries three PRESENT_ALL_AT_PATH conditions, which require every named path to carry every named pattern.",
+    "web tsc --noEmit exit 0. node --test scripts/security/*.test.mjs 117/117. verify-decision-evidence exit 0 - it caught the new helper first as a cited file that was not yet tracked by git, which is the gate doing its job. verify-web-unit-coverage exit 0 with the new spec in the executed list. Cryptographic inventory regenerated with the tool because the new helper is tracked source (2202 -> 2203).",
+    "Matrix moves for the first time in this run: PASS 126 -> 127, FAIL 93 -> 92, NOT_APPLICABLE 88, NOT_ASSESSED 38. One control closed, honestly, with its two remaining boundaries named: Clear-Site-Data is honoured only in a secure context, and this covers explicit logout rather than idle session expiry.",
+    "The coverage registry is in scope because this pass adds a spec to the executed list, so its executedCount/discoveredCount describe this change: 21/915. The autopilot guard caught the omission before merge - the file had been edited without being declared - which is the scope gate doing exactly its job."
+  ]
+}

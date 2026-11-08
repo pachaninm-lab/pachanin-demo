@@ -32,10 +32,10 @@ function snapshot(status: GatewayStreamSnapshot['status'], text: string): Gatewa
 describe('public assistant production-safe UI', () => {
   it('uses one fullscreen control and preserves the canonical Gekta identity', () => {
     expect(assistantSource).toContain("title: 'Гекта'");
-    expect(assistantSource).toContain("subtitle: 'Аграрный интеллект для земли, урожая и решений.'");
+    expect(assistantSource).toContain("subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»'");
     expect(assistantSource).toContain("title: 'Gekta'");
-    expect(assistantSource).toContain("subtitle: 'Agricultural intelligence for land, crops and decisions.'");
-    expect(assistantSource).toContain("subtitle: '服务于土地、作物与决策的农业智能。'");
+    expect(assistantSource).toContain("subtitle: 'AI for farming and agribusiness by Prozrachnaya Tsena'");
+    expect(assistantSource).toContain("subtitle: '“透明价格”推出的农业与农业经营 AI'");
     expect(controllerSource).not.toContain('PUBLIC_ASSISTANT_BRANDING');
     expect(controllerSource).not.toContain('ИИ для агробизнеса');
     expect(controllerSource).not.toContain('AI for agribusiness');

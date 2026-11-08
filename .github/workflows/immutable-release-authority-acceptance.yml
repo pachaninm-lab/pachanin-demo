@@ -12,6 +12,10 @@ on:
       - 'infra/helm/grainflow/**'
       - 'infra/release/**'
       - 'scripts/release/**'
+      - 'docs/platform-v7/autopilot/evaluate-trivy-report.mjs'
+      - 'docs/platform-v7/autopilot/check-security-release-gate.mjs'
+      - 'docs/platform-v7/autopilot/security-exceptions.schema.json'
+      - 'docs/platform-v7/autopilot/security-exceptions.json'
       - '.github/workflows/immutable-release-authority-acceptance.yml'
   push:
     branches: [main]
@@ -25,6 +29,10 @@ on:
       - 'infra/helm/grainflow/**'
       - 'infra/release/**'
       - 'scripts/release/**'
+      - 'docs/platform-v7/autopilot/evaluate-trivy-report.mjs'
+      - 'docs/platform-v7/autopilot/check-security-release-gate.mjs'
+      - 'docs/platform-v7/autopilot/security-exceptions.schema.json'
+      - 'docs/platform-v7/autopilot/security-exceptions.json'
       - '.github/workflows/immutable-release-authority-acceptance.yml'
   workflow_dispatch:
 

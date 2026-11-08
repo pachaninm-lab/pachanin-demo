@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-reg-ru-docker-headroom-3365",
+  "status": "active",
+  "purpose": "Restore only the Docker disk headroom required by the accepted REG.RU preflight after exact-main canonical images are built, using the existing protected release controller and deleting only old unused canonical grainflow images while preserving current, rollback and exact-main authority.",
+  "approvedBy": "repository-owner continuation of protected REG.RU release authority on 2026-08-12",
+  "authorityBaseExactMain": "37153d25ccc70f211345fc484c17b26d2ec13d04",
+  "newRecurringCostRub": 0,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-docker-headroom-3365.json",
+    ".github/workflows/tai-reg-ru-docker-headroom-owner-command.yml",
+    "scripts/pc-tai-release-controller-core.sh"
+  ],
+  "requiredBehavior": [
+    "owner-only command is bound to issue 3365 and exact current main",
+    "reuse the already installed pcactions NOPASSWD protected release-controller wrapper without changing the wrapper or sudoers",
+    "reclaim is a reserved one-argument maintenance submode of the existing deploy controller action and cannot accept freeform paths image names or thresholds",
+    "delete only local ghcr.io/pachaninm-lab/grainflow-api web migration or tai images that are unused by every running or stopped container",
+    "protect every image referenced by any container, every image whose OCI revision equals exact current main, and the two newest local images per canonical component",
+    "never remove containers volumes networks build cache arbitrary third-party images or model-host artifacts",
+    "stop reclaim when Docker filesystem available space reaches 6 GiB and fail closed if the hard 5 GiB preflight threshold is still not met",
+    "publish only bounded counts capacity and reclaimed-byte evidence without image ids paths credentials environment values or customer data",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "docker system prune docker image prune docker builder prune or forced image deletion",
+    "docker container volume or network deletion",
+    "deleting an image referenced by any running or stopped container",
+    "deleting exact-main images or reducing the two-image rollback reserve per canonical component",
+    "changing the installed release-controller wrapper sudoers runner identity or Docker group membership",
+    "database application model-host deal role money registration or customer-data mutation",
+    "new server paid API SaaS or recurring cost"
+  ]
+}

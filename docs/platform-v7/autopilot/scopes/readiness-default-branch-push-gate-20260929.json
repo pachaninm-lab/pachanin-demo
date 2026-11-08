@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "readiness-default-branch-push-gate-20260929",
+  "branch": "fix/readiness-default-branch-push-gate-20260929",
+  "status": "active",
+  "authorizedBy": "trusted-base-immutable-scope-admission-5731",
+  "baseline": {
+    "branch": "main",
+    "commit": "de38d8138d702e4d955816db2cdf61e0d0867791"
+  },
+  "intent": "Stop admitting workflow_run events triggered by a push to the default branch into the engineering-readiness job. Such runs have no open pull request: the evaluator only re-scores already merged heads via listPullRequestsAssociatedWithCommit and occupies the serial readiness queue about 29 times per main push.",
+  "allowedPaths": [
+    ".github/workflows/automerge.yml",
+    "docs/platform-v7/autopilot/scopes/readiness-default-branch-push-gate-20260929.json"
+  ],
+  "requiredInvariants": [
+    "Replace exactly the single existing anchor line of the engineering-readiness job gate; every other workflow byte is unchanged.",
+    "Only workflow_run events whose triggering event is push AND whose head_branch equals the repository default branch are excluded.",
+    "pull_request_target, issue_comment /merge-readiness, workflow_dispatch and workflow_run events from pull_request or from pushes to PR branches stay admitted.",
+    "Permissions, concurrency lease, exact-head verifier, status publication and manual-only merge semantics are unchanged.",
+    "Treat this manifest as documentation; only the exact two-path trusted-base state from merged #5731 grants scope."
+  ],
+  "forbidden": [
+    "changing any other workflow byte",
+    "broadening the event exclusion beyond default-branch push",
+    "relaxing substantive CI, security, independent-review or readiness gates",
+    "automatic merge, force merge, new recurring cost or unsupported production claim"
+  ],
+  "acceptance": [
+    "baseline.commit is pinned to accepted main de38d8138d702e4d955816db2cdf61e0d0867791",
+    "trusted-base guard accepts the exact workflow transform (READINESS_DEFAULT_BRANCH_PUSH_CHANGE_EXCEEDS_EXACT_TRANSFORM not raised)",
+    "workflow syntax, exact-head CI and independent review pass before manual SHA-bound merge"
+  ]
+}

@@ -1442,6 +1442,87 @@
   outline-offset: 2px;
 }
 
+/* Standalone Gekta product entry. Deliberately distinct from the platform
+   scenario above it so the two Gekta entry points never read as one thing. */
+.gektaProduct {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 20px 22px;
+  border: 1px solid #cfe0d5;
+  border-radius: 17px;
+  background: linear-gradient(180deg, #f4faf6 0%, #ffffff 100%);
+}
+
+.gektaProductBody {
+  min-width: 0;
+}
+
+.gektaProductEyebrow {
+  display: block;
+  color: #07572e;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.gektaProductBody h3 {
+  margin: 7px 0 0;
+  max-width: 26ch;
+  color: #102019;
+  font-size: clamp(21px, 2.3vw, 26px);
+  line-height: 1.14;
+  font-weight: 850;
+  letter-spacing: -.02em;
+}
+
+.gektaProductBody p {
+  margin: 8px 0 0;
+  max-width: 68ch;
+  color: #4a5a52;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.gektaProductLink {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: #087a3b;
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 760;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.gektaProductLink:hover {
+  background: #07572e;
+}
+
+.gektaProductLink:focus-visible {
+  outline: 3px solid rgba(8, 122, 59, .38);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .gektaProduct {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .gektaProductLink {
+    width: 100%;
+  }
+}
+
 .trustGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

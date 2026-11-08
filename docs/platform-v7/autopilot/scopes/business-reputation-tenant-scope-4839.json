@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4839,
+  "branch": "security/business-reputation-tenant-scope",
+  "status": "active",
+  "purpose": "BusinessReputationService computed a counterparty reputation score from platform-wide deals. computeScore read deals by sellerOrgId and buyerOrgId with no tenant predicate and looked the organization up by id alone, so any authenticated user could score an organization belonging to another tenant - and the batch endpoint took an arbitrary array of organization ids, making it an enumeration primitive. The controller already received the caller and discarded it as _user.",
+  "authorityBaseExactMain": "5f44991763900b7d9b832b9a8f3f9036f9ef9af6",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/business-reputation-tenant-scope-4839.json",
+    "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+    "apps/api/src/modules/business-reputation/business-reputation.controller.ts",
+    "apps/api/src/modules/business-reputation/business-reputation-tenant-scope.spec.ts"
+  ],
+  "requiredInvariants": [
+    "A foreign organization is indistinguishable from a missing one: findFirst on the id+tenant pair, never findUnique on the id alone.",
+    "The in-memory score cache is keyed on the tenant as well as the organization. A cache keyed on organizationId alone would serve one tenant's computed score to another and reopen the boundary behind the fix.",
+    "A database failure must reach the caller. Swallowing it produces a fabricated score presented as a real assessment of a named company, which is the factoring defect (#4984) in a second file.",
+    "The batch endpoint stays scoped to the caller's tenant and omits organizations outside it rather than scoring them.",
+    "No schema change, no migration, no RLS policy edit, no dependency. Nothing outside apps/api/src/modules/business-reputation. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "No ASVS decision is edited in this pass and no requirement is claimed to move."
+  ],
+  "acceptance": [
+    "Deals scoped by tenantId; organization resolved by the id+tenant pair; disputes counted over exactly the selected deals.",
+    "The dispute component was measured to be permanently inert before this pass: computeScore selected only status and totalRub, then mapped d.id - never selected - so every dealId in the dispute filter was the empty string and disputeCount was always 0. The `as any` cast hid it from the compiler. Fixing it changes scores for organizations that actually have disputes; that behavioural change is stated, not hidden.",
+    "A database failure propagates instead of yielding the fabricated score of roughly 30 that the swallowed path produced from zeros.",
+    "Reverse direction tested: an organization of the caller's own tenant still scores, the no-database demo path still works, and the cache still serves a repeat call within the same tenant.",
+    "Mutation-tested: each predicate, the cache key and the error propagation removed one at a time, each verified to have actually applied, each caught.",
+    "api typecheck exit 0 and the full @pc/api suite green."
+  ]
+}
