@@ -2,6 +2,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { join } from 'node:path';
 
 import { classifyLicenseExpression } from './license-expression-policy.mjs';
+import { tallyBy } from './tally.mjs';
 
 const sbomDir = process.argv[2] ?? 'artifacts/ip-clean-room/sbom';
 const outDir = process.argv[3] ?? 'artifacts/ip-clean-room';
@@ -259,14 +260,8 @@ const rows = [...byKey.values()].map((item) => {
   };
 }).sort((a, b) => a.purl.localeCompare(b.purl) || a.version.localeCompare(b.version));
 
-const summary = rows.reduce((acc, row) => {
-  acc[row.classification] = (acc[row.classification] ?? 0) + 1;
-  return acc;
-}, {});
-const scopeSummary = rows.reduce((acc, row) => {
-  acc[row.dependencyScope] = (acc[row.dependencyScope] ?? 0) + 1;
-  return acc;
-}, {});
+const summary = tallyBy(rows, (row) => row.classification, 'license-summary.classifications');
+const scopeSummary = tallyBy(rows, (row) => row.dependencyScope, 'license-summary.dependencyScopes');
 
 writeFileSync(join(outDir, 'license-map.csv'), [
   'component,version,purl,type,dependency_scope,workspaces,detected_license,resolved_license,elected_license,classification,evidence,sbom_sources',
