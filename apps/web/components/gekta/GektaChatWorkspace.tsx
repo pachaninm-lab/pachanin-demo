@@ -5,7 +5,9 @@ import { ArrowDown, Menu, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PublicAssistantDocument } from '@/components/platform-v7/PublicAssistantAttachmentPicker';
+import { DOCUMENT_CONTEXT_COPY, GektaDocumentRetryCache, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import {
+  PUBLIC_STREAM_TIMEOUT_MS,
   readGatewayStream,
   refusalCopy,
   type GatewayStreamSnapshot,
@@ -32,7 +34,7 @@ import {
   type ServerProjectRow,
   type WorkspaceMode,
 } from '@/lib/gekta/server-workspace';
-import { GektaComposer } from './GektaComposer';
+import { ATTACHMENT_ONLY_PROMPT, GektaComposer } from './GektaComposer';
 import { GektaEmptyState } from './GektaEmptyState';
 import { GektaMessageList } from './GektaMessageList';
 import { GektaMobileDrawer } from './GektaMobileDrawer';
@@ -54,6 +56,11 @@ const MAX_CONVERSATIONS = 60;
 const MAX_MESSAGES = 80;
 /** Заглушка тикета для аккаунта: у него нет квоты анонимного режима. */
 const ACCOUNT_TICKET = 'account';
+const ACCESS_ERROR: Record<GektaLocale, string> = {
+  ru: 'Не удалось проверить доступ к Гекте. Проверь соединение и отправь вопрос ещё раз.',
+  en: 'Could not check access to Gekta. Check your connection and send the question again.',
+  zh: '无法检查 Gekta 访问权限。请检查网络连接后重新发送问题。',
+};
 /** Порог, ниже которого поиск не уходит на сервер: один символ найдёт всё. */
 const GEKTA_SEARCH_MIN_LENGTH = 2;
 const GEKTA_SEARCH_MAX_LENGTH = 120;
@@ -145,12 +152,6 @@ function finalText(locale: GektaLocale, snapshot: GatewayStreamSnapshot): string
   return snapshot.text || refusalCopy(locale, snapshot.refusal);
 }
 
-function requestWithDocuments(question: string, documents: readonly PublicAssistantDocument[]): string {
-  if (!documents.length) return question;
-  const context = documents.map((document) => `Document: ${document.name}\n${document.text.slice(0, 12_000)}`).join('\n\n').slice(0, 32_000);
-  return `${question}\n\n--- ATTACHED DOCUMENTS ---\n${context}`;
-}
-
 function track(event: string, locale: GektaLocale, extra?: Record<string, string | number | boolean>) {
   if (typeof window === 'undefined') return;
   const detail = { event, locale, ...(extra || {}) };
@@ -173,7 +174,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     root.setAttribute('lang', language);
     contentLanguage?.setAttribute('content', language);
     return () => {
-      // A newly mounted page may already own these attributes. Never overwrite it.
+      // Restore only attributes that still carry this effect's value.
       if (root.getAttribute('lang') === language) {
         if (previousLanguage === null) root.removeAttribute('lang');
         else root.setAttribute('lang', previousLanguage);
@@ -186,6 +187,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   }, [locale]);
   const product = getGektaCopy(locale);
   const ui = CHAT_UI[locale];
+  const accessError = ACCESS_ERROR[locale];
   const [messages, setMessages] = React.useState<GektaMessage[]>([]);
   const [conversations, setConversations] = React.useState<GektaConversation[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -209,6 +211,15 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [legalPresentation, setLegalPresentation] = React.useState<AnonymousConsentPresentation | null>(null);
   const [acceptingConsent, setAcceptingConsent] = React.useState(false);
   const [consentError, setConsentError] = React.useState(false);
+  const [consentRequested, setConsentRequested] = React.useState(false);
+  const [resumeConsentedPrompt, setResumeConsentedPrompt] = React.useState(false);
+  const pendingConsentedPrompt = React.useRef<{ question: string; locale: GektaLocale } | null>(null);
+  const promptIntentRevision = React.useRef(0);
+  const reservationController = React.useRef<AbortController | null>(null);
+  const entitlementProbeController = React.useRef<AbortController | null>(null);
+  const submittingPrompt = React.useRef<number | null>(null);
+  // A probe started before a reserve/consent POST must not roll back its newer result.
+  const entitlementRequestRevision = React.useRef(0);
   const [voiceInputEnabled, setVoiceInputEnabled] = React.useState(true);
   const [speechEnabled, setSpeechEnabled] = React.useState(true);
   const [loggingOut, setLoggingOut] = React.useState(false);
@@ -218,6 +229,11 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [serverSearch, setServerSearch] = React.useState<ServerSearchState>({ state: 'idle', query: '', results: null });
   const serverConversationIds = React.useRef(new Map<string, string>());
   const sentMessageIds = React.useRef(new Set<string>());
+  const documentRetries = React.useRef(new GektaDocumentRetryCache());
+  React.useEffect(() => {
+    documentRetries.current.clear();
+    return () => documentRetries.current.clear();
+  }, [locale, workspaceMode]);
   /**
    * Открытый диалог, читаемый из асинхронной догрузки реплик. Значение
    * зеркалится эффектом, а не присваивается во время рендера: запись в ref
@@ -521,20 +537,37 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     return () => window.removeEventListener(GEKTA_ENTER_CHAT_EVENT, open);
   }, [enterChat, locale]);
 
+  const cancelPendingPrompt = React.useCallback(() => {
+    promptIntentRevision.current += 1;
+    reservationController.current?.abort();
+    reservationController.current = null;
+    pendingConsentedPrompt.current = null;
+    setResumeConsentedPrompt(false);
+    setConsentRequested(false);
+  }, []);
+
+  React.useEffect(() => { cancelPendingPrompt(); }, [cancelPendingPrompt, locale]);
+  React.useEffect(() => () => { reservationController.current?.abort(); }, []);
+
   const newChat = React.useCallback(() => {
+    cancelPendingPrompt();
     stop();
     setActiveId(null);
     setMessages([]);
     setInput('');
     setDocuments([]);
+    pendingConsentedPrompt.current = null;
+    setResumeConsentedPrompt(false);
+    setConsentRequested(false);
     setError('');
     setCopiedId('');
     setDrawerOpen(false);
     track('gekta_new_chat', locale);
-  }, [locale, stop]);
+  }, [cancelPendingPrompt, locale, stop]);
 
   const logout = React.useCallback(async () => {
     if (loggingOut) return;
+    documentRetries.current.clear();
     setLoggingOut(true);
     await logoutGektaAccount();
     window.location.assign(GEKTA_PATHS[locale]);
@@ -561,8 +594,17 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const currentLegalPresentation = legalPresentation?.locale === locale ? legalPresentation : null;
 
+  const captureConsentPrompt = React.useCallback(() => {
+    const question = cleanText(input.trim() || (documents.length ? ATTACHMENT_ONLY_PROMPT[locale] : '')).slice(0, 1_200);
+    if (question) pendingConsentedPrompt.current = { question, locale };
+    setConsentRequested(true);
+  }, [documents.length, input, locale]);
+
   const acceptConsent = React.useCallback(async () => {
     if (acceptingConsent || !legalPresentation || legalPresentation.locale !== locale) return;
+    entitlementProbeController.current?.abort();
+    entitlementProbeController.current = null;
+    entitlementRequestRevision.current += 1;
     setAcceptingConsent(true);
     setConsentError(false);
     try {
@@ -574,7 +616,11 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       });
       const payload = await response.json();
       const confirmed = applyEntitlement(payload);
-      if (response.ok && confirmed === true) track('gekta_legal_consent_accepted', locale);
+      if (response.ok && confirmed === true) {
+        track('gekta_legal_consent_accepted', locale);
+        setConsentRequested(false);
+        setResumeConsentedPrompt(true);
+      }
       else { setConsentRequired(true); setConsentError(true); }
     } catch {
       setConsentRequired(true);
@@ -586,26 +632,38 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   React.useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    entitlementProbeController.current = controller;
+    const revision = entitlementRequestRevision.current;
     void (async () => {
       try {
-        const response = await fetch(`/api/gekta/entitlement?lang=${locale}`, { cache: 'no-store' });
+        const response = await fetch(`/api/gekta/entitlement?lang=${locale}`, { cache: 'no-store', signal: controller.signal });
         if (!response.ok) return;
         const payload: unknown = await response.json();
-        if (!cancelled) applyEntitlement(payload);
+        if (!cancelled && revision === entitlementRequestRevision.current) applyEntitlement(payload);
       } catch {
         // Access is decided by the server on every request; a failed probe only
         // means the badge is not shown yet.
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (entitlementProbeController.current === controller) entitlementProbeController.current = null;
+    };
   }, [applyEntitlement, locale]);
 
   /** Server decides whether another answer may be generated. */
-  const reserveAnswer = React.useCallback(async (): Promise<string | null> => {
+  const reserveAnswer = React.useCallback(async (onConsentRequired?: () => void, isCurrentIntent: () => boolean = () => true, signal?: AbortSignal): Promise<string | null> => {
+    if (!isCurrentIntent() || signal?.aborted) return null;
+    entitlementProbeController.current?.abort();
+    entitlementProbeController.current = null;
+    entitlementRequestRevision.current += 1;
     // У вошедшего пользователя доступ решает аккаунт, а не квота анонимного
     // режима: иначе пробный период упирался бы в десять бесплатных ответов.
     if (workspaceMode === 'server') {
       const decision = await accountApi<{ entitlement: GektaEntitlementSnapshot }>('entitlement');
+      if (!isCurrentIntent() || signal?.aborted) return null;
       if (decision.ok && decision.data?.entitlement) {
         const snapshot = { ...decision.data.entitlement, remaining: null, limit: null };
         setEntitlement(snapshot);
@@ -624,21 +682,32 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reserve', locale }),
+        signal,
       });
-      if (!response.ok) return null;
+      if (!isCurrentIntent() || signal?.aborted) return null;
+      if (!response.ok) { setError(accessError); return null; }
       const payload = await response.json() as { allowed?: boolean; ticket?: string | null; reason?: string };
+      if (!isCurrentIntent() || signal?.aborted) return null;
       applyEntitlement(payload);
-      if (payload.reason === 'consent_required') return null;
+      if (payload.reason === 'consent_required') {
+        setConsentRequired(true);
+        onConsentRequired?.();
+        if (!('legalPresentation' in payload)) setError(accessError);
+        return null;
+      }
       if (!payload.allowed) {
         track('gekta_anonymous_limit_reached', locale);
         track('gekta_registration_gate_view', locale);
         return null;
       }
-      return typeof payload.ticket === 'string' ? payload.ticket : null;
+      if (typeof payload.ticket === 'string' && payload.ticket) return payload.ticket;
+      setError(accessError);
+      return null;
     } catch {
+      if (isCurrentIntent() && !signal?.aborted) setError(accessError);
       return null;
     }
-  }, [applyEntitlement, locale, workspaceMode]);
+  }, [accessError, applyEntitlement, locale, workspaceMode]);
 
   const settleAnswer = React.useCallback(async (ticket: string) => {
     // Счётчик аккаунта двигает сервер, когда сохраняет ответ ассистента.
@@ -656,7 +725,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     }
   }, [applyEntitlement]);
 
-  const runGeneration = React.useCallback(async ({ question, history, conversationId, baseMessages, ticket }: { question: string; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
+  const runGeneration = React.useCallback(async ({ question, documents: requestDocuments = [], history, conversationId, baseMessages, ticket }: { question: string; documents?: readonly GektaDocumentContext[]; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
     if (sending) return;
     const assistantId = id('assistant');
     const startedAt = new Date().toISOString();
@@ -668,45 +737,38 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     track('gekta_answer_started', locale);
 
     let terminal: GatewayStreamSnapshot | null = null;
-    let received = false;
-    let attempt = 0;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let deadlineReached = false;
+    const timeout = window.setTimeout(() => {
+      deadlineReached = true;
+      controller.abort();
+    }, PUBLIC_STREAM_TIMEOUT_MS + 5_000);
     try {
-      while (attempt < 2) {
-        const controller = new AbortController();
-        abortRef.current = controller;
-        const timeout = window.setTimeout(() => controller.abort(), 90_000);
-        try {
-          const response = await fetch('/api/agro-chat?stream=1', {
-            method: 'POST',
-            cache: 'no-store',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'text/event-stream',
-              'x-gekta-answer-ticket': ticket,
-            },
-            signal: controller.signal,
-            body: JSON.stringify({ message: question, locale: answerLocale === 'auto' ? locale : answerLocale, context: 'gekta-standalone', conversationId, history }),
-          });
-          terminal = await readGatewayStream(response, {
-            mode: 'public',
-            signal: controller.signal,
-            onSnapshot: (snapshot) => {
-              if (snapshot.text) received = true;
-              const text = snapshot.status === 'refused' ? finalText(locale, snapshot) : snapshot.text;
-              setMessages([...baseMessages, { ...assistantBase, text: cleanText(text), status: snapshot.status, refusal: snapshot.refusal, citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) }]);
-            },
-          });
-          window.clearTimeout(timeout);
-          break;
-        } catch (reason) {
-          window.clearTimeout(timeout);
-          const aborted = reason instanceof DOMException && reason.name === 'AbortError';
-          if (aborted || received || attempt > 0) throw reason;
-          attempt += 1;
-          setError(ui.reconnecting);
-          track('gekta_answer_reconnect', locale);
-        }
-      }
+      // A lost response does not prove that the one-use ticket is unconsumed.
+      // Explicit Retry obtains fresh admission before another generation.
+      const response = await fetch('/api/agro-chat?stream=1', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          'x-gekta-answer-ticket': ticket,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({ message: question, documents: requestDocuments, locale: answerLocale === 'auto' ? locale : answerLocale, context: 'gekta-standalone', conversationId, history }),
+      });
+      terminal = await readGatewayStream(response, {
+        mode: 'public',
+        signal: controller.signal,
+        onSnapshot: (snapshot) => {
+          if (deadlineReached && !stopRequested.current) return;
+          const text = snapshot.status === 'refused' ? finalText(locale, snapshot) : snapshot.text;
+          setMessages([...baseMessages, { ...assistantBase, text: cleanText(text), status: snapshot.status, refusal: snapshot.refusal, citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) }]);
+        },
+      });
+      window.clearTimeout(timeout);
+      if (deadlineReached && !stopRequested.current) throw new DOMException('generation-deadline', 'AbortError');
       if (!terminal) throw new Error('stream-ended-without-terminal-snapshot');
       const text = terminal.status === 'refused' ? finalText(locale, terminal) : terminal.text;
       const finalMessage: GektaMessage = { ...assistantBase, text: cleanText(text), status: terminal.status, refusal: terminal.refusal, citations: terminal.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) };
@@ -725,54 +787,101 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       saveConversation(conversationId, finalMessages);
       setError(text);
     } finally {
+      window.clearTimeout(timeout);
       abortRef.current = null;
       stopRequested.current = false;
       setSending(false);
     }
-  }, [answerLocale, locale, saveConversation, sending, settleAnswer, ui.error, ui.reconnecting, ui.stopped, ui.timeout]);
+  }, [answerLocale, locale, saveConversation, sending, settleAnswer, ui.error, ui.stopped, ui.timeout]);
 
-  const submit = React.useCallback(async (override?: string) => {
-    if (sending) return;
+  const submit = React.useCallback(async (override?: string, resumed = false) => {
+    if (sending || submittingPrompt.current === promptIntentRevision.current) return;
     const question = cleanText(override ?? input).slice(0, 1_200);
     if (!question) return;
-    const ticket = await reserveAnswer();
-    if (!ticket) return;
-    const conversationId = activeId || id('conversation');
-    const history = historyFrom(messages);
-    const attached = documents.map((document) => ({ name: document.name, size: document.size, mediaType: document.mediaType }));
-    const userMessage: GektaMessage = { id: id('user'), role: 'user', text: question, createdAt: new Date().toISOString(), attachments: attached };
-    const baseMessages = [...messages, userMessage];
-    setActiveId(conversationId);
-    setMessages(baseMessages);
-    saveConversation(conversationId, baseMessages, activeId ? undefined : titleFrom(question));
-    setInput('');
-    setDocuments([]);
-    onEnteredChat?.();
-    track(override ? 'gekta_starter_used' : 'gekta_prompt_submitted', locale, { hasAttachments: attached.length > 0 });
-    await runGeneration({ question: requestWithDocuments(question, documents), history, conversationId, baseMessages, ticket });
+    let requestDocuments: readonly GektaDocumentContext[];
+    try { requestDocuments = readDocumentContext(documents); }
+    catch { setError(DOCUMENT_CONTEXT_COPY[locale].invalid); return; }
+    const revision = promptIntentRevision.current;
+    submittingPrompt.current = revision;
+    const controller = new AbortController();
+    reservationController.current = controller;
+    setError('');
+    try {
+      const ticket = await reserveAnswer(() => {
+        if (revision !== promptIntentRevision.current) return;
+        pendingConsentedPrompt.current = { question, locale };
+        setConsentRequested(true);
+        setEnteredChat(true);
+      }, () => revision === promptIntentRevision.current, controller.signal);
+      if (!ticket || revision !== promptIntentRevision.current) return;
+      pendingConsentedPrompt.current = null;
+      const conversationId = activeId || id('conversation');
+      const history = historyFrom(messages);
+      const attached = documents.map((document) => ({ name: document.name, size: document.size, mediaType: document.mediaType }));
+      const userMessage: GektaMessage = { id: id('user'), role: 'user', text: question, createdAt: new Date().toISOString(), attachments: attached };
+      documentRetries.current.remember(userMessage.id, requestDocuments);
+      const baseMessages = [...messages, userMessage];
+      setActiveId(conversationId);
+      setMessages(baseMessages);
+      saveConversation(conversationId, baseMessages, activeId ? undefined : titleFrom(question));
+      setInput('');
+      setDocuments([]);
+      onEnteredChat?.();
+      track(override && !resumed ? 'gekta_starter_used' : 'gekta_prompt_submitted', locale, { hasAttachments: attached.length > 0 });
+      await runGeneration({ question, documents: requestDocuments, history, conversationId, baseMessages, ticket });
+    } finally {
+      if (reservationController.current === controller) reservationController.current = null;
+      if (submittingPrompt.current === revision) submittingPrompt.current = null;
+    }
   }, [activeId, documents, input, locale, messages, onEnteredChat, reserveAnswer, runGeneration, saveConversation, sending]);
 
+  React.useEffect(() => {
+    if (!resumeConsentedPrompt || acceptingConsent || consentRequired) return;
+    setResumeConsentedPrompt(false);
+    const pending = pendingConsentedPrompt.current;
+    pendingConsentedPrompt.current = null;
+    if (pending?.locale === locale) void submit(pending.question, true);
+  }, [acceptingConsent, consentRequired, locale, resumeConsentedPrompt, submit]);
+
   const retry = React.useCallback(async (assistantIndex: number) => {
-    if (sending) return;
+    if (sending || submittingPrompt.current === promptIntentRevision.current) return;
     let userIndex = -1;
     for (let index = assistantIndex - 1; index >= 0; index -= 1) { if (messages[index]?.role === 'user') { userIndex = index; break; } }
     if (userIndex < 0) return;
-    const ticket = await reserveAnswer();
-    if (!ticket) return;
-    const conversationId = activeId || id('conversation');
-    const question = messages[userIndex].text;
-    const baseMessages = messages.slice(0, userIndex + 1);
-    setMessages(baseMessages);
-    saveConversation(conversationId, baseMessages);
-    track('gekta_retry', locale);
-    await runGeneration({ question, history: historyFrom(messages.slice(0, userIndex)), conversationId, baseMessages, ticket });
-  }, [activeId, locale, messages, reserveAnswer, runGeneration, saveConversation, sending]);
+    const original = messages[userIndex];
+    const requestDocuments = documentRetries.current.read(original.id);
+    if (original.attachments?.length && !requestDocuments) {
+      setError(DOCUMENT_CONTEXT_COPY[locale].missing);
+      setInput(original.text);
+      focusComposer();
+      return;
+    }
+    const revision = promptIntentRevision.current;
+    submittingPrompt.current = revision;
+    const controller = new AbortController();
+    reservationController.current = controller;
+    try {
+      const ticket = await reserveAnswer(undefined, () => revision === promptIntentRevision.current, controller.signal);
+      if (!ticket || revision !== promptIntentRevision.current || controller.signal.aborted) return;
+      const conversationId = activeId || id('conversation');
+      const question = messages[userIndex].text;
+      const baseMessages = messages.slice(0, userIndex + 1);
+      setMessages(baseMessages);
+      saveConversation(conversationId, baseMessages);
+      track('gekta_retry', locale);
+      await runGeneration({ question, documents: requestDocuments, history: historyFrom(messages.slice(0, userIndex)), conversationId, baseMessages, ticket });
+    } finally {
+      if (reservationController.current === controller) reservationController.current = null;
+      if (submittingPrompt.current === revision) submittingPrompt.current = null;
+    }
+  }, [activeId, focusComposer, locale, messages, reserveAnswer, runGeneration, saveConversation, sending]);
 
   const copyMessage = React.useCallback(async (message: GektaMessage) => {
     try { await navigator.clipboard.writeText(message.text); setCopiedId(message.id); window.setTimeout(() => setCopiedId(''), 1_500); } catch {}
   }, []);
 
   const selectConversation = React.useCallback((conversation: GektaConversation) => {
+    cancelPendingPrompt();
     stop();
     setActiveId(conversation.id);
     setMessages([...conversation.messages]);
@@ -804,7 +913,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       // чистым, иначе StrictMode выполнит побочный эффект дважды.
       if (activeIdRef.current === conversation.id) setMessages([...restored.messages]);
     })();
-  }, [onEnteredChat, stop, workspaceMode]);
+  }, [cancelPendingPrompt, onEnteredChat, stop, workspaceMode]);
 
   /**
    * Серверный адрес диалога. Для загруженной из аккаунта переписки он совпадает
@@ -823,14 +932,17 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const deleteConversation = React.useCallback((conversationId: string) => {
     if (!window.confirm(ui.deleteConfirm)) return;
+    documentRetries.current.clear();
     setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
-    if (activeId === conversationId) { setActiveId(null); setMessages([]); setDocuments([]); }
+    if (activeId === conversationId) { cancelPendingPrompt(); setActiveId(null); setMessages([]); setDocuments([]); }
     const serverId = serverIdOf(conversationId);
     if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' });
-  }, [activeId, serverIdOf, ui.deleteConfirm]);
+  }, [activeId, cancelPendingPrompt, serverIdOf, ui.deleteConfirm]);
 
   const clearHistory = React.useCallback(() => {
     if (!window.confirm(ui.clearConfirm)) return;
+    documentRetries.current.clear();
+    cancelPendingPrompt();
     // Очистка адресована текущему языку, поэтому на сервер уходят ровно те
     // диалоги, которые исчезли с экрана. Общий DELETE стёр бы и остальные
     // языки — пользователь этого не подтверждал.
@@ -843,7 +955,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       const serverId = serverConversationIds.current.get(conversation.id);
       if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' });
     }
-  }, [conversations, locale, ui.clearConfirm, workspaceMode]);
+  }, [cancelPendingPrompt, conversations, locale, ui.clearConfirm, workspaceMode]);
 
   const createProject = React.useCallback((name: string, description: string) => {
     const cleanName = normaliseProjectName(name);
@@ -975,7 +1087,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         </main>
       </div>
       <GektaMobileDrawer open={drawerOpen} closeLabel={ui.closeMenu} onClose={() => setDrawerOpen(false)}><GektaSidebar {...sidebarProps} /></GektaMobileDrawer>
-      {consentRequired && activeChat && currentLegalPresentation ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()}
+      {consentRequired && activeChat && currentLegalPresentation ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()} requested={consentRequested} onRequest={captureConsentPrompt}
         termsHref={currentLegalPresentation.termsHref} privacyHref={currentLegalPresentation.privacyHref}
         disabled={acceptingConsent} failed={consentError} /> : null}
       {settingsOpen ? (

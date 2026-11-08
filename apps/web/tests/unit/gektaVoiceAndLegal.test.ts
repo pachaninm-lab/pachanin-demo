@@ -1,7 +1,8 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { encodeFrame, type GatewayFrame } from '@pc/ai-assistant-stream-contract';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GektaChatWorkspace } from '@/components/gekta/GektaChatWorkspace';
@@ -164,10 +165,17 @@ describe('Gekta interface language inheritance', () => {
   });
 });
 
-
 describe('Gekta standalone document language lifecycle', () => {
   let meta: HTMLMetaElement;
+  let previousLanguage: string | null;
+  let previousUrl: string;
+  let previousScrollTo: PropertyDescriptor | undefined;
+
   beforeEach(() => {
+    previousLanguage = document.documentElement.getAttribute('lang');
+    previousUrl = window.location.href;
+    previousScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
     window.localStorage.clear();
     document.documentElement.lang = 'ru';
     meta = document.createElement('meta');
@@ -176,17 +184,23 @@ describe('Gekta standalone document language lifecycle', () => {
     document.head.appendChild(meta);
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 401 }));
   });
+
   afterEach(() => {
     cleanup();
     meta.remove();
-    window.history.replaceState(null, '', '/');
-    document.documentElement.lang = 'ru';
+    window.history.replaceState(null, '', previousUrl);
+    if (previousLanguage === null) document.documentElement.removeAttribute('lang');
+    else document.documentElement.setAttribute('lang', previousLanguage);
+    if (previousScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', previousScrollTo);
+    else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
     vi.restoreAllMocks();
   });
 
-  it('updates the actual mounted workspace and root on RU -> EN -> ZH -> RU client navigation', async () => {
+  it('updates the mounted workspace and document on RU -> EN -> ZH -> RU client navigation', async () => {
     window.history.replaceState(null, '', '/gekta');
     const view = render(createElement(GektaChatWorkspace, { locale: 'ru' }));
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
     for (const [locale, pathname, language] of [
       ['en', '/gekta/en', 'en'], ['zh', '/gekta/zh', 'zh-CN'], ['ru', '/gekta', 'ru'],
     ] as const) {
@@ -198,32 +212,59 @@ describe('Gekta standalone document language lifecycle', () => {
     }
   });
 
-  it.each(['/platform-v7', '/gekta/console', '/gekta/register', '/gekta/en/price', '/gekta/en-extra', '/gekta'])
-  ('never changes platform or mismatched document language at %s', (pathname) => {
+  it.each([
+    { pathname: '/platform-v7', locale: 'en' as const },
+    { pathname: '/gekta/console', locale: 'en' as const },
+    { pathname: '/gekta/register', locale: 'en' as const },
+    { pathname: '/gekta/en/price', locale: 'en' as const },
+    { pathname: '/gekta/en-extra', locale: 'en' as const },
+    { pathname: '/gekta', locale: 'en' as const },
+    { pathname: '/gekta/en', locale: 'ru' as const },
+    { pathname: '/gekta/en', locale: 'zh' as const },
+  ])('leaves document language unchanged at $pathname with locale $locale', ({ pathname, locale }) => {
     window.history.replaceState(null, '', pathname);
-    render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    render(createElement(GektaChatWorkspace, { locale }));
     expect(document.documentElement.lang).toBe('ru');
     expect(meta.content).toBe('ru');
   });
 
-  it('restores pre-existing document metadata when the standalone workspace unmounts', async () => {
+  it('restores the Russian document when leaving the English workspace for a legal page', async () => {
     window.history.replaceState(null, '', '/gekta/en');
     const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
     await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    expect(meta.content).toBe('en');
+    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
     view.unmount();
     expect(document.documentElement.lang).toBe('ru');
     expect(meta.content).toBe('ru');
   });
 
-  it('does not overwrite metadata acquired by a newer page owner', async () => {
-    window.history.replaceState(null, '', '/gekta/zh');
-    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
-    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
-    document.documentElement.lang = 'fr';
-    meta.content = 'fr';
+  it('keeps the matching locale when React replaces the single workspace before a legal exit', async () => {
+    window.history.replaceState(null, '', '/gekta/en');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en', key: 'first' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    view.rerender(createElement(GektaChatWorkspace, { locale: 'en', key: 'replacement' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    expect(meta.content).toBe('en');
+    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
     view.unmount();
-    expect(document.documentElement.lang).toBe('fr');
-    expect(meta.content).toBe('fr');
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+  });
+
+  it.each([
+    { changed: 'both attributes', root: 'fr', content: 'fr', afterRoot: 'fr', afterContent: 'fr' },
+    { changed: 'root language', root: 'fr', content: 'en', afterRoot: 'fr', afterContent: 'ru' },
+    { changed: 'content language', root: 'en', content: 'fr', afterRoot: 'ru', afterContent: 'fr' },
+  ])('preserves differently-valued $changed while restoring unchanged attributes', async ({ root, content, afterRoot, afterContent }) => {
+    window.history.replaceState(null, '', '/gekta/en');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    document.documentElement.lang = root;
+    meta.content = content;
+    view.unmount();
+    expect(document.documentElement.lang).toBe(afterRoot);
+    expect(meta.content).toBe(afterContent);
   });
 
   it('preserves absent metadata instead of inventing a head element or an old lang', async () => {
@@ -232,8 +273,396 @@ describe('Gekta standalone document language lifecycle', () => {
     document.documentElement.removeAttribute('lang');
     const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
     await waitFor(() => expect(document.documentElement.lang).toBe('en'));
-    expect(document.head.querySelector('meta[http-equiv="Content-Language"]')).toBeNull();
+    expect(document.head.querySelector('meta[http-equiv="Content-Language" i]')).toBeNull();
     view.unmount();
     expect(document.documentElement.hasAttribute('lang')).toBe(false);
   });
+
+  it('matches Content-Language case-insensitively and restores an absent content attribute', async () => {
+    window.history.replaceState(null, '', '/gekta/zh');
+    meta.httpEquiv = 'content-language';
+    meta.removeAttribute('content');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
+    expect(meta.content).toBe('zh-CN');
+    view.unmount();
+    expect(meta.hasAttribute('content')).toBe(false);
+  });
+});
+
+// Behavioral coverage runs in the existing CI-executed consent suite.
+describe('G-A02 first prompt behavioral regressions', () => {
+const QUESTION = 'Как подготовить почву под пшеницу?';
+const originalFetch = globalThis.fetch;
+const legalPresentation = {
+  locale: 'ru', snapshot: 'synthetic-ui-notice',
+  termsHref: '/legal/test-terms', privacyHref: '/legal/test-privacy',
+};
+const entitlement = { state: 'ANONYMOUS_FREE', canAsk: true, remaining: 10, limit: 10, serverTime: '2026-11-01T00:00:00Z', expiresAt: null };
+const envelope = (consentCurrent: boolean) => ({ legalVersion: 'synthetic-test-version', consentCurrent, legalPresentation, entitlement });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+function stream() {
+  const streamId = 'stream-consent-test';
+  const frames: GatewayFrame[] = [
+    { event: 'meta', streamId, mode: 'public', modelIdentity: null },
+    { event: 'token', streamId, text: 'Сначала уточни тип почвы.' },
+    { event: 'done', streamId, complete: true },
+  ];
+  return new Response(frames.map(encodeFrame).join(''), { headers: { 'content-type': 'text/event-stream' } });
+}
+function installServer(options: { consentFails?: boolean; reserveFails?: boolean; delayedProbe?: Promise<Response>; reserveGate?: Promise<void>; firstReserveGate?: Promise<void>; completeGate?: Promise<void>; generation?: (init: RequestInit | undefined, ordinal: number) => Response | Promise<Response> } = {}) {
+  let accepted = false;
+  let reserveCount = 0;
+  let ticketCount = 0;
+  let generationCount = 0;
+  const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('/api/gekta/account/')) return json({}, 401);
+    if (url.includes('/api/gekta/entitlement')) {
+      if (init?.method !== 'POST') return options.delayedProbe ?? json(envelope(false));
+      const body = JSON.parse(String(init.body));
+      if (body.action === 'consent') {
+        if (options.consentFails) return json(envelope(false), 503);
+        accepted = true;
+        return json(envelope(true));
+      }
+      if (body.action === 'reserve') {
+        const reservation = accepted ? { ...envelope(true), allowed: true, ticket: `synthetic-ticket-${++ticketCount}` } : { ...envelope(false), allowed: false, reason: 'consent_required' };
+        if (options.firstReserveGate && reserveCount++ === 0) await options.firstReserveGate;
+        if (options.reserveGate) await options.reserveGate;
+        if (options.reserveFails) return json({}, 503);
+        return json(reservation);
+      }
+      if (body.action === 'complete' && options.completeGate) await options.completeGate;
+      return json(envelope(accepted));
+    }
+    if (url === '/api/public-platform-assistant/attachments') return json({ documents: [{ id: 'synthetic-doc', name: 'soil.txt', size: 50, mediaType: 'text/plain', text: 'Почва суглинок. QA_SOIL_DOC_754.', checksumSha256: 'a'.repeat(64), truncated: false }], rejected: [] });
+    if (url.startsWith('/api/agro-chat')) return options.generation?.(init, generationCount++) ?? stream();
+    throw new Error(`Unexpected test network ${url}`);
+  });
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: spy });
+  return spy;
+}
+const generations = (spy: ReturnType<typeof installServer>) => spy.mock.calls.filter(([url]) => String(url).startsWith('/api/agro-chat'));
+const consentWrites = (spy: ReturnType<typeof installServer>) => spy.mock.calls.filter(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'consent');
+async function draft() {
+  render(createElement(GektaChatWorkspace, { discoveryHero: createElement('h1', null, 'Гекта') }));
+  const box = screen.getByRole('textbox');
+  fireEvent.input(box, { target: { value: QUESTION } });
+  await act(async () => {});
+  return box;
+}
+beforeEach(() => {
+  localStorage.clear();
+  window.history.replaceState({}, '', '/gekta');
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: originalFetch });
+  vi.restoreAllMocks();
+});
+
+describe('G-A02 first manual question from discovery', () => {
+  it.each(['click', 'enter'])('reveals consent on the first %s and resumes exactly once only after confirmation', async (intent) => {
+    const spy = installServer();
+    const box = await draft();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    if (intent === 'click') fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    else fireEvent.keyDown(box, { key: 'Enter', code: 'Enter' });
+    const dialog = await screen.findByRole('dialog', { name: 'Перед началом' });
+    expect(dialog).toBeTruthy();
+    expect(screen.getByRole('textbox')).toHaveValue(QUESTION);
+    expect(generations(spy)).toHaveLength(0);
+    expect(consentWrites(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe(QUESTION);
+    expect(consentWrites(spy)).toHaveLength(1);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+  it('keeps a failed confirmation visible and never starts generation', async () => {
+    const spy = installServer({ consentFails: true });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить подтверждение');
+    expect(screen.getByRole('textbox')).toHaveValue(QUESTION);
+    expect(generations(spy)).toHaveLength(0);
+  });
+  it('shows a visible access error without losing the draft when reserve fails', async () => {
+    const spy = installServer({ reserveFails: true });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось проверить доступ');
+    expect(screen.getByRole('textbox')).toHaveValue(QUESTION);
+    expect(generations(spy)).toHaveLength(0);
+  });
+  it('coalesces rapid first clicks while reserve is pending', async () => {
+    let release!: () => void;
+    const spy = installServer({ reserveGate: new Promise<void>((resolve) => { release = resolve; }) });
+    await draft();
+    const send = screen.getByRole('button', { name: 'Отправить' });
+    fireEvent.click(send); fireEvent.click(send); fireEvent.click(send);
+    await act(async () => release());
+    await screen.findByRole('dialog');
+    const reserves = spy.mock.calls.filter(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'reserve');
+    expect(reserves).toHaveLength(1);
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+  });
+  it('resumes a deferred intent in chat=new after a late probe without stealing typing focus', async () => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>((resolve) => { release = resolve; }) });
+    window.history.replaceState({}, '', '/gekta?chat=new');
+    await draft();
+    const box = screen.getByRole('textbox');
+    box.focus();
+    expect(document.activeElement).toBe(box);
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(box);
+    fireEvent.keyDown(box, { key: 'Enter', code: 'Enter' });
+    await screen.findByRole('dialog');
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe(QUESTION);
+  });
+  it('ignores the older initial consent probe after a confirmed submission', async () => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>((resolve) => { release = resolve; }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    const initialProbe = spy.mock.calls.find(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method !== 'POST');
+    expect(initialProbe?.[1]?.signal?.aborted).toBe(true);
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(generations(spy)).toHaveLength(1);
+  });
+  it('never resumes a cancelled first question after New Chat while reserve is pending', async () => {
+    let release!: () => void;
+    const spy = installServer({ reserveGate: new Promise<void>((resolve) => { release = resolve; }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const headerNew = document.querySelector<HTMLButtonElement>('[data-gekta-header-new-chat]')!;
+    fireEvent.click(headerNew);
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    await act(async () => release());
+    const accept = screen.queryByRole('button', { name: 'Понятно, начать' });
+    if (accept) {
+      fireEvent.click(accept);
+      await waitFor(() => expect(consentWrites(spy)).toHaveLength(1));
+    }
+    await act(async () => {});
+    expect(generations(spy)).toHaveLength(0);
+  });
+  it.each(['', '   '])('resumes an attachment-only deferred submit with the same extracted document (draft=%j)', async (emptyDraft) => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>((resolve) => { release = resolve; }) });
+    window.history.replaceState({}, '', '/gekta?chat=new');
+    render(createElement(GektaChatWorkspace, { discoveryHero: createElement('h1', null, 'Гекта') }));
+    await act(async () => {});
+    const fileInput = document.querySelector<HTMLInputElement>('[data-gekta-drop-target] input[type=file]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['Почва суглинок'], 'soil.txt', { type: 'text/plain' })] } });
+    await screen.findByText('soil.txt');
+    const box = screen.getByRole('textbox');
+    if (emptyDraft) fireEvent.input(box, { target: { value: emptyDraft } });
+    box.focus();
+    expect(document.activeElement).toBe(box);
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    const payload = JSON.parse(String(generations(spy)[0][1]?.body));
+    expect(payload.message).toBe('Проанализируй приложенные материалы.');
+    expect(payload.documents).toEqual([{ name: 'soil.txt', text: 'Почва суглинок. QA_SOIL_DOC_754.', truncated: false }]);
+    expect(payload.message).not.toContain('QA_SOIL_DOC_754');
+    expect(JSON.stringify(localStorage)).not.toContain('QA_SOIL_DOC_754');
+  });
+  it('does not let a cancelled old reservation roll back a newer confirmed question', async () => {
+    let release!: () => void;
+    const spy = installServer({ firstReserveGate: new Promise<void>((resolve) => { release = resolve; }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-gekta-header-new-chat]')!);
+    fireEvent.input(screen.getByRole('textbox'), { target: { value: 'Как хранить овёс?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    const firstReserve = spy.mock.calls.find(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'reserve');
+    expect(firstReserve?.[1]?.signal?.aborted).toBe(true);
+    await act(async () => release());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(generations(spy)).toHaveLength(1);
+    expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe('Как хранить овёс?');
+  });
+  it.each(['network', '401', '503'])('does not replay an uncertain one-use generation after %s; explicit Retry obtains a fresh ticket and document', async failure => {
+    const spy = installServer({ generation: (_init, ordinal) => {
+      if (ordinal > 0) return stream();
+      if (failure === 'network') throw new TypeError('synthetic response lost after ticket admission');
+      return json({}, Number(failure));
+    } });
+    await draft();
+    const fileInput = document.querySelector<HTMLInputElement>('[data-gekta-drop-target] input[type=file]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['Почва суглинок'], 'soil.txt', { type: 'text/plain' })] } });
+    await screen.findByText('soil.txt');
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Понятно, начать' }));
+    const retryButton = await screen.findByRole('button', { name: 'Повторить' });
+    expect(generations(spy)).toHaveLength(1);
+    const first = generations(spy)[0][1]!;
+    expect(new Headers(first.headers).get('x-gekta-answer-ticket')).toBe('synthetic-ticket-1');
+    expect(spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete')).toHaveLength(0);
+    fireEvent.click(retryButton);
+    await screen.findByText('Сначала уточни тип почвы.');
+    await waitFor(() => expect(generations(spy)).toHaveLength(2));
+    const second = generations(spy)[1][1]!;
+    expect(new Headers(second.headers).get('x-gekta-answer-ticket')).toBe('synthetic-ticket-2');
+    for (const init of [first, second]) {
+      expect(JSON.parse(String(init.body))).toMatchObject({ message: QUESTION, documents: [{ name: 'soil.txt', text: 'Почва суглинок. QA_SOIL_DOC_754.', truncated: false }] });
+    }
+    await waitFor(() => {
+      const completions = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+      expect(completions).toHaveLength(1);
+      expect(JSON.parse(String(completions[0][1]?.body)).ticket).toBe('synthetic-ticket-2');
+    });
+    expect(JSON.stringify(localStorage)).not.toContain('QA_SOIL_DOC_754');
+  });
+
+  it('aborts one pending generation on Stop without replay or completion and exposes Retry', async () => {
+    let signal: AbortSignal | undefined;
+    const spy = installServer({ generation: init => new Promise<Response>((_resolve, reject) => {
+      signal = init?.signal ?? undefined;
+      signal?.addEventListener('abort', () => reject(new DOMException('stopped', 'AbortError')), { once: true });
+    }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Понятно, начать' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Остановить' }));
+    await screen.findByRole('button', { name: 'Повторить' });
+    expect(signal?.aborted).toBe(true);
+    expect(generations(spy)).toHaveLength(1);
+    expect(spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete')).toHaveLength(0);
+  });
+
+  it.each(['late-success', 'never-headers'])('waits beyond ninety seconds while retaining a finite overall deadline: %s', async mode => {
+    let signal: AbortSignal | undefined;
+    const spy = installServer({ generation: init => new Promise<Response>((resolve, reject) => {
+      signal = init?.signal ?? undefined;
+      if (mode === 'late-success') window.setTimeout(() => resolve(stream()), 100_000);
+      signal?.addEventListener('abort', () => reject(new DOMException('deadline', 'AbortError')), { once: true });
+    }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const confirm = await screen.findByRole('button', { name: 'Понятно, начать' });
+    vi.useFakeTimers();
+    await act(async () => { fireEvent.click(confirm); });
+    expect(generations(spy)).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_001); });
+    expect(signal?.aborted).toBe(false);
+    if (mode === 'late-success') {
+      await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+      expect(screen.getByText('Сначала уточни тип почвы.')).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(signal?.aborted).toBe(false);
+    } else {
+      await act(async () => { await vi.advanceTimersByTimeAsync(59_998); });
+      expect(signal?.aborted).toBe(false);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(signal?.aborted).toBe(true);
+      expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    }
+    expect(generations(spy)).toHaveLength(1);
+    const completed = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+    expect(completed).toHaveLength(mode === 'late-success' ? 1 : 0);
+  });
+
+  it('labels a stalled partial stream at the overall deadline as timeout, without claiming the user pressed Stop', async () => {
+    let signal: AbortSignal | undefined;
+    let bodyCancelled = false;
+    const spy = installServer({ generation: init => new Promise<Response>(resolve => {
+      signal = init?.signal ?? undefined;
+      window.setTimeout(() => {
+        const streamId = 'synthetic-stalled-partial';
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode([
+              { event: 'meta', streamId, mode: 'public', modelIdentity: null },
+              { event: 'token', streamId, text: 'Незавершённый синтетический ответ.' },
+            ].map(frame => encodeFrame(frame as GatewayFrame)).join('')));
+          },
+          cancel() { bodyCancelled = true; },
+        });
+        resolve(new Response(body, { headers: { 'content-type': 'text/event-stream' } }));
+      }, 10_000);
+    }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const confirm = await screen.findByRole('button', { name: 'Понятно, начать' });
+    vi.useFakeTimers();
+    await act(async () => { fireEvent.click(confirm); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(screen.getByText('Незавершённый синтетический ответ.')).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(139_999); });
+    expect(signal?.aborted).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(signal?.aborted).toBe(true);
+    expect(bodyCancelled).toBe(true);
+    expect(screen.getAllByText('Время ожидания ответа истекло. Повтори запрос.').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Ответ остановлен.')).toBeNull();
+    expect(screen.queryByText('Незавершённый синтетический ответ.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(generations(spy)).toHaveLength(1);
+    const completed = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+    expect(completed).toHaveLength(0);
+    const stored = JSON.stringify(localStorage);
+    expect(stored).toContain('UPSTREAM_ERROR');
+    expect(stored).not.toContain('CANCELLED');
+  });
+
+  it('disarms the completed generation deadline while its separate completion acknowledgement is pending', async () => {
+    let release!: () => void;
+    let signal: AbortSignal | undefined;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const spy = installServer({ completeGate: gate, generation: init => {
+      signal = init?.signal ?? undefined;
+      return stream();
+    } });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const confirm = await screen.findByRole('button', { name: 'Понятно, начать' });
+    vi.useFakeTimers();
+    try {
+      await act(async () => { fireEvent.click(confirm); });
+      expect(screen.getByText('Сначала уточни тип почвы.')).toBeTruthy();
+      const completed = spy.mock.calls.filter(([url, init]) => String(url).includes('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'complete');
+      expect(completed).toHaveLength(1);
+      await act(async () => { await vi.advanceTimersByTimeAsync(160_000); });
+      expect(signal?.aborted).toBe(false);
+      expect(generations(spy)).toHaveLength(1);
+      expect(JSON.stringify(localStorage)).toContain('answered');
+      expect(screen.queryByRole('button', { name: 'Повторить' })).toBeNull();
+    } finally { await act(async () => release()); }
+  });
+
+  it('uses the reserve notice when the initial probe is still pending', async () => {
+    const spy = installServer({ delayedProbe: new Promise<Response>(() => {}) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog', { name: 'Перед началом' });
+    expect(generations(spy)).toHaveLength(0);
+  });
+});
+
 });

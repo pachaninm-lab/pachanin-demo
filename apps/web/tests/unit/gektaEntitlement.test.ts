@@ -80,17 +80,20 @@ describe('Gekta anonymous entitlement', () => {
   ])('classifies the actual workspace reservation decision without confusing consent with quota: $reason $allowed', async ({ expected, expectedEvents, ...payload }) => {
     const source = read('components/gekta/GektaChatWorkspace.tsx');
     const start = source.indexOf('const reserveAnswer = React.useCallback(');
-    const terminator = '}, [applyEntitlement, locale, workspaceMode]);';
-    const end = source.indexOf(terminator, start);
+    const end = source.indexOf('\n  }, [', start);
+    const finish = source.indexOf(']);', end) + 3;
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    const callback = source.slice(start, end + terminator.length);
+    expect(finish).toBeGreaterThan(end);
+    const callback = source.slice(start, finish);
     const applyEntitlement = vi.fn();
     const track = vi.fn();
     const fetch = vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }));
     const context = {
       React: { useCallback: (callback: () => Promise<string | null>) => callback },
       workspaceMode: 'local', locale: 'ru', fetch, applyEntitlement, track,
+      entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, accessError: 'synthetic access error',
+      setConsentRequired: vi.fn(), setError: vi.fn(),
     };
     const compiled = transpileModule(`${callback}\nglobalThis.result = reserveAnswer();`, {}).outputText;
     const result = runInNewContext(`${compiled}\nglobalThis.result`, context, { timeout: 1_000 });
@@ -291,8 +294,10 @@ describe('Gekta anonymous entitlement', () => {
 
   it('asks the server before every generation and never decides access in the browser', () => {
     const workspace = read('components/gekta/GektaChatWorkspace.tsx');
-    expect(workspace).toContain('const ticket = await reserveAnswer();');
-    expect(workspace).toContain('if (!ticket) return;');
+    const retry = workspace.slice(workspace.indexOf('const retry = React.useCallback('), workspace.indexOf('const copyMessage = React.useCallback('));
+    expect(retry).toContain('const ticket = await reserveAnswer(undefined, () => revision === promptIntentRevision.current, controller.signal);');
+    expect(retry).toContain('if (!ticket || revision !== promptIntentRevision.current || controller.signal.aborted) return;');
+    expect(retry.indexOf('await reserveAnswer(')).toBeLessThan(retry.indexOf('await runGeneration('));
     expect(workspace).toContain("'x-gekta-answer-ticket': ticket");
     expect(workspace).toContain("if (finalMessage.status === 'answered') await settleAnswer(ticket);");
     expect(workspace).toContain('entitlement && !entitlement.canAsk ? <GektaAccessGate');

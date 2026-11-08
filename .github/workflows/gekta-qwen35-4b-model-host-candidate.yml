@@ -1,4 +1,4 @@
-name: Gekta Qwen3.5-4B Model Host Candidate
+name: Gekta Qwen3.8-27B IQ2_S Model Host Candidate
 
 on:
   pull_request:
@@ -26,7 +26,7 @@ env:
 
 jobs:
   contract:
-    name: Validate Qwen3.5-4B candidate contract
+    name: Validate Qwen3.8-27B IQ2_S candidate contract
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -88,8 +88,8 @@ jobs:
           set -Eeuo pipefail
           helper='scripts/gekta-qwen35-4b-model-host-candidate.py'
           python3 -m py_compile "$helper"
-          grep -Fq '13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983' "$helper"
-          grep -Fq 'CANDIDATE_SIZE = 3013027808' "$helper"
+          grep -Fq '7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe' "$helper"
+          grep -Fq 'CANDIDATE_SIZE = 8371970048' "$helper"
           grep -Fq 'CANDIDATE_HOST = "127.0.0.1"' "$helper"
           grep -Fq 'CANDIDATE_PORT = 18081' "$helper"
           grep -Fq 'LEASE_SECONDS = 420' "$helper"
@@ -107,8 +107,11 @@ jobs:
           grep -Fq 'baseline_process_matches_state' "$helper"
           grep -Fq 'MIN_MEM_BEFORE_KB = 8 * 1024 * 1024' "$helper"
           grep -Fq 'MIN_MEM_READY_KB = 3 * 1024 * 1024' "$helper"
+          grep -Fq 'MIN_DISK_RESERVE_BYTES = 3_000_000_000' "$helper"
+          grep -Fq 'MIN_FREE_BYTES = CANDIDATE_SIZE + MIN_DISK_RESERVE_BYTES' "$helper"
+          grep -Fq 'MAX_CANDIDATE_RSS_KB = 9 * 1024 * 1024' "$helper"
           grep -Fq 'BASELINE_ALIAS = "tai-qwen3-8b-q4km"' "$helper"
-          grep -Fq 'CANDIDATE_ALIAS = "tai-qwen35-4b-q4km"' "$helper"
+          grep -Fq 'CANDIDATE_ALIAS = "tai-qwen38-27b-iq2s"' "$helper"
           grep -Fq 'systemctl_mutation_forbidden' "$helper"
           grep -Fq 'pidfd_send_signal' "$helper"
           grep -Fq 'candidate_process_group_not_isolated' "$helper"
@@ -179,9 +182,10 @@ jobs:
           assert spec.loader is not None
           spec.loader.exec_module(module)
           marker = 'SYNTHETIC_NOT_A_CREDENTIAL_7f914ef09a8b4c11'
-          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+          profile = [item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value)]
+          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS, *profile]
           assert module.candidate_exec_argv_status(valid) == 0
-          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS]) == 0
+          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS, *profile]) == 0
           for flags in [
               ['--api-key', marker], ['--api-key=' + marker],
               ['--api_key', marker], ['--api_key=' + marker],
@@ -268,7 +272,7 @@ jobs:
           }))
           ''')
               executable.chmod(0o700)
-              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS, *profile]
 
               def real_guard(argv):
                   read_fd, write_fd = os.pipe()
@@ -344,6 +348,9 @@ jobs:
           module = importlib.util.module_from_spec(spec)
           assert spec.loader is not None
           spec.loader.exec_module(module)
+          baseline_profile = [os.fsencode(item) for key, value in module.EXPECTED.items() for item in (module.ALIASES[key][0], value)]
+          candidate_profile = [item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value)]
+          candidate_profile_bytes = b'\0'.join(os.fsencode(item) for item in candidate_profile) + b'\0'
 
           class FakeProc:
               pid = 424242
@@ -361,7 +368,7 @@ jobs:
               return (
                   {'pid': 999, 'exe': '/bin/true', 'cmdlineSha256': 'x', 'apiKeySha256': 'y', 'restarts': 0, 'vmSwapKb': 0, 'startTime': 1},
                   pathlib.Path('/bin/true'),
-                  [b'/bin/true'],
+                  [b'/bin/true', *baseline_profile],
                   {},
               )
 
@@ -561,7 +568,7 @@ jobs:
 
                   candidate_cmd = (
                       b'/bin/true\0--model\0' + os.fsencode(candidate) +
-                      b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0'
+                      b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0' + candidate_profile_bytes
                   )
                   with contextlib.ExitStack() as stack:
                       stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
@@ -716,7 +723,7 @@ jobs:
               listener_mock = mock.Mock()
               candidate_cmd = (
                   b'/bin/true\0--model\0' + os.fsencode(candidate) +
-                  b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0'
+                  b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0' + candidate_profile_bytes
               )
               with contextlib.ExitStack() as stack:
                   stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
@@ -792,9 +799,11 @@ jobs:
               candidate.write_bytes(b'x')
               split_guarded = [
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
+                  *candidate_profile,
               ]
               joined_guarded = [
                   '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,
+                  *[module.ALIASES[key][0] + '=' + value for key, value in module.CANDIDATE_EXPECTED.items()],
               ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate):
                   for guarded in (split_guarded, joined_guarded):
@@ -834,13 +843,15 @@ jobs:
               with tempfile.TemporaryDirectory() as tmp:
                   candidate = pathlib.Path(tmp) / 'candidate.gguf'
                   candidate.write_bytes(b'x')
+                  runner = pathlib.Path(tmp) / 'synthetic-runner.py'
+                  runner.write_text('import time; time.sleep(1.0)\n')
                   read_fd, write_fd = os.pipe()
                   guarded = [
                       sys.executable,
-                      '-c',
-                      'import time; time.sleep(1.0)',
+                      str(runner),
                       '--model=' + str(candidate),
                       '--alias=' + module.CANDIDATE_ALIAS,
+                      *candidate_profile,
                   ]
                   with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
                        mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False):
@@ -1212,7 +1223,7 @@ jobs:
                       for name, value in {
                           'require_nonroot': 'tai', 'sha_file': 'hash', 'ensure_start_capacity': None,
                           'save_state': None,
-                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true'], {}),
+                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true', *[os.fsencode(item) for key, value in module.EXPECTED.items() for item in (module.ALIASES[key][0], value)]], {}),
                       }.items():
                           stack.enter_context(mock.patch.object(module, name, return_value=value))
                       stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=Proc()))
@@ -1247,6 +1258,565 @@ jobs:
 
           unittest.main(argv=['startup-diagnostic-contract'], verbosity=2)
           PY
+      - name: Prove bounded memory evidence and candidate-only microbatch
+        run: |
+          set -Eeuo pipefail
+          python3 -I - <<'PY_MEMORY_PROFILE'
+          import contextlib
+          import importlib.util
+          import io
+          import json
+          import os
+          from pathlib import Path
+          import tempfile
+          import types
+          import unittest
+          from unittest import mock
+
+          path = Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('candidate_memory_profile', path)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+
+          BASELINE = {'threads': '16', 'threads_batch': '16', 'parallel': '1',
+                      'ctx': '8192', 'batch': '512', 'ubatch': '128'}
+          CANDIDATE = {**BASELINE, 'ubatch': '64'}
+
+
+          def flags(profile):
+              return [item for key, value in profile.items() for item in (m.ALIASES[key][0], value)]
+
+
+          def candidate_argv():
+              return ['/fixture/llama-server', '--model', str(m.CANDIDATE_PATH),
+                      '--alias', m.CANDIDATE_ALIAS, *flags(CANDIDATE)]
+
+
+          class CandidateMemoryProfileContract(unittest.TestCase):
+              def test_separate_profiles_keep_original_limits_with_new_finite_identity(self):
+                  self.assertEqual(m.EXPECTED, BASELINE)
+                  self.assertEqual(m.CANDIDATE_EXPECTED, CANDIDATE)
+                  self.assertEqual(m.candidate_admission_identity()['flags'], CANDIDATE)
+                  self.assertEqual(m.LEASE_SECONDS, 420)
+                  self.assertEqual(m.MAX_CANDIDATE_RSS_KB, 9 * 1024 * 1024)
+                  self.assertEqual((m.MIN_MEM_BEFORE_KB, m.MIN_MEM_READY_KB, m.MIN_MEM_RUNTIME_KB),
+                                   (8 * 1024 * 1024, 3 * 1024 * 1024, 2 * 1024 * 1024))
+                  self.assertEqual(m.EXECUTION_GRANT, 'gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse')
+
+              def test_real_baseline_validation_accepts_only_the_unchanged_128_profile(self):
+                  argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--alias', m.BASELINE_ALIAS, *flags(BASELINE)]]
+                  command_result = types.SimpleNamespace(returncode=0, stdout='aedb2a5 LLAMA_API_KEY', stderr='')
+                  with contextlib.ExitStack() as stack:
+                      for name, result in {'require_nonroot': 'tai', 'service_user': 'tai', 'service_pid': 999,
+                                           'service_restarts': 0, 'process_start_time': 1, 'proc_kb': 0,
+                                           'systemctl_read': command_result, 'command': command_result}.items():
+                          stack.enter_context(mock.patch.object(m, name, return_value=result))
+                      read = stack.enter_context(mock.patch.object(m, 'read_proc'))
+                      read.return_value = (Path('/fixture/llama-server'), argv, {'LLAMA_API_KEY': 's' * 64}, b'synthetic')
+                      self.assertEqual(m.snapshot_baseline()[0]['pid'], 999)
+                      read.return_value = (Path('/fixture/llama-server'), m.replace_flag(argv, 'ubatch', b'64'),
+                                           {'LLAMA_API_KEY': 's' * 64}, b'synthetic')
+                      with self.assertRaisesRegex(m.CandidateError, '^baseline_flag_mismatch:ubatch$'):
+                          m.snapshot_baseline()
+
+              def test_all_candidate_profile_flags_are_bound_before_exec_and_after_exec(self):
+                  valid = candidate_argv()
+                  self.assertEqual(m.candidate_exec_argv_status(valid), 0)
+                  raw = [os.fsencode(item) for item in valid]
+                  for key in CANDIDATE:
+                      for bad in (m.replace_flag(raw, key, b'999'), m.remove_flag(raw, key),
+                                  raw + [os.fsencode(m.ALIASES[key][0]), os.fsencode(CANDIDATE[key])]):
+                          with self.subTest(key=key, kind=len(bad)):
+                              self.assertEqual(m.candidate_exec_argv_status([os.fsdecode(item) for item in bad]), 86)
+                              with contextlib.redirect_stdout(io.StringIO()):
+                                  with self.assertRaisesRegex(m.CandidateError, '^candidate_runtime_flags_mismatch$'):
+                                      m.require_candidate_keyless_argv(raw, bad)
+                  self.assertEqual(m.candidate_exec_argv_status([*valid, '--api-key=PRIVATE_SENTINEL']), 84)
+
+              def test_numeric_diagnostic_never_emits_raw_proc_or_exception_values(self):
+                  values = {'VmRSS': 7000000, 'RssAnon': 123456, 'RssFile': 6876544, 'VmHWM': 7100000}
+                  output = io.StringIO()
+                  with mock.patch.object(m, 'proc_kb', side_effect=lambda pid, key: values[key]), \
+                       mock.patch.object(m, 'mem_available_kb', return_value=3500000), \
+                       contextlib.redirect_stdout(output):
+                      m.emit_candidate_memory_diagnostic(123, 4096)
+                  self.assertEqual(output.getvalue().splitlines(), [
+                      'QWEN35_CANDIDATE_MEMORY_DIAGNOSTIC_VERSION=v1',
+                      'QWEN35_CANDIDATE_POST_READY_VM_SWAP_KB=4096',
+                      'QWEN35_CANDIDATE_POST_READY_VM_RSS_KB=7000000',
+                      'QWEN35_CANDIDATE_POST_READY_RSS_ANON_KB=123456',
+                      'QWEN35_CANDIDATE_POST_READY_RSS_FILE_KB=6876544',
+                      'QWEN35_CANDIDATE_POST_READY_VM_HWM_KB=7100000',
+                      'QWEN35_CANDIDATE_POST_READY_MEM_AVAILABLE_KB=3500000',
+                  ])
+                  for invalid in (None, True, -1, 2**63, 'PRIVATE_SENTINEL'):
+                      output = io.StringIO()
+                      with mock.patch.object(m, 'proc_kb', return_value=invalid), \
+                           mock.patch.object(m, 'mem_available_kb', side_effect=OSError('PRIVATE_SENTINEL')), \
+                           contextlib.redirect_stdout(output):
+                          m.emit_candidate_memory_diagnostic(123, 7)
+                      self.assertIn('POST_READY_VM_SWAP_KB=7\n', output.getvalue())
+                      self.assertEqual(output.getvalue().count('=not_reported\n'), 5)
+                      self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
+
+              def test_inherited_128_profile_cannot_reach_exec_or_spend_exec_release(self):
+                  raw = m.replace_flag([os.fsencode(item) for item in candidate_argv()], 'ubatch', b'128')
+                  read_fd, write_fd = os.pipe()
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  with mock.patch.dict(m.os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps([os.fsdecode(item) for item in raw])}), \
+                       mock.patch.object(m, 'reserve_execution') as reserve, \
+                       mock.patch.object(m.os, 'nice') as nice, \
+                       mock.patch.object(m.os, 'execvpe') as execute:
+                      self.assertEqual(m.candidate_exec_guard(read_fd), 86)
+                      reserve.assert_not_called()
+                      nice.assert_not_called()
+                      execute.assert_not_called()
+
+              def test_diagnostic_output_failure_is_best_effort(self):
+                  with mock.patch.object(m, 'proc_kb', return_value=1), \
+                       mock.patch.object(m, 'mem_available_kb', return_value=1), \
+                       mock.patch.object(m, 'emit', side_effect=OSError('PRIVATE_SENTINEL')):
+                      m.emit_candidate_memory_diagnostic(123, 4096)
+
+              def exercise_start(self, swap_kb, available_kb=4 * 1024 * 1024, optional_reads_fail=False):
+                  with tempfile.TemporaryDirectory() as temporary:
+                      root = Path(temporary)
+                      candidate = root / 'model.gguf'
+                      candidate.write_bytes(b'x')
+                      baseline_argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--model', '/fixture/base.gguf',
+                                       '--alias', m.BASELINE_ALIAS, '--api-key', 's' * 64, *flags(BASELINE)]]
+                      baseline_before = list(baseline_argv)
+                      output = io.StringIO()
+                      events = []
+                      prepared = []
+                      class Proc:
+                          pid = 424242
+                          exited = False
+                          def poll(self):
+                              return 0 if self.exited else None
+                          def wait(self, timeout=None):
+                              self.exited = True
+                              return 0
+                      proc = Proc()
+                      def fake_popen(argv, **kwargs):
+                          prepared.extend(json.loads(kwargs['env']['QWEN35_GUARDED_ARGV_JSON']))
+                          self.assertEqual(m.candidate_exec_argv_status(prepared), 0)
+                          return proc
+                      def stop_child(*args):
+                          events.append('cleanup')
+                          self.assertIn('POST_READY_VM_SWAP_KB=' + str(swap_kb), output.getvalue())
+                          proc.wait()
+                      def memory(pid, key):
+                          if key == 'VmSwap':
+                              events.append('swap')
+                              return swap_kb
+                          if optional_reads_fail:
+                              raise OSError('PRIVATE_SENTINEL')
+                          return {'VmRSS': 7000000, 'RssAnon': 123456, 'RssFile': 6876544, 'VmHWM': 7100000}[key]
+                      with contextlib.ExitStack() as stack:
+                          for name, value in {'CANDIDATE_PATH': candidate, 'CANDIDATE_SIZE': 1, 'CANDIDATE_SHA256': 'hash',
+                                              'STATE_DIR': root, 'PID_PATH': root / 'candidate.pid',
+                                              'CANDIDATE_IDENTITY_PATH': root / 'identity.json', 'LOG_PATH': root / 'candidate.log'}.items():
+                              stack.enter_context(mock.patch.object(m, name, value))
+                          for name, value in {'require_nonroot': 'tai', 'reserve_execution': None, 'sha_file': 'hash',
+                                              'ensure_start_capacity': None, 'save_state': None, 'write_candidate_identity': None,
+                                              'write_pid': None, 'baseline_matches_state': True, 'pidfd_exited': False,
+                                              'candidate_process_matches': True, 'require_isolated_candidate_group': None,
+                                              'process_nice': 10, 'wait_candidate': None, 'mem_available_kb': available_kb,
+                                              'baseline_runtime_healthy': True, 'verify_listener_absent': None, 'stop_watchdog': None,
+                                              'snapshot_baseline': ({'pid': 999}, Path('/fixture/llama-server'), baseline_argv,
+                                                                    {'LLAMA_API_KEY': 's' * 64})}.items():
+                              stack.enter_context(mock.patch.object(m, name, return_value=value))
+                          stack.enter_context(mock.patch.object(m.subprocess, 'Popen', side_effect=fake_popen))
+                          stack.enter_context(mock.patch.object(m.os, 'write', side_effect=lambda fd, data: len(data)))
+                          stack.enter_context(mock.patch.object(m.os, 'pidfd_open', side_effect=lambda *args: os.open(os.devnull, os.O_RDONLY)))
+                          stack.enter_context(mock.patch.object(m, 'launch_watchdog', side_effect=lambda *args: (
+                              os.open(os.devnull, os.O_RDONLY), os.open(os.devnull, os.O_WRONLY))))
+                          stack.enter_context(mock.patch.object(m.pathlib.Path, 'read_bytes', side_effect=lambda: b'\0'.join(os.fsencode(item) for item in prepared) + b'\0'))
+                          stack.enter_context(mock.patch.object(m, 'proc_kb', side_effect=memory))
+                          stack.enter_context(mock.patch.object(m, 'stop_owned_child', side_effect=stop_child))
+                          stack.enter_context(mock.patch.object(m, 'emit_candidate_start_diagnostic'))
+                          error = None
+                          with contextlib.redirect_stdout(output):
+                              try:
+                                  m.start('a' * 64, execution_grant=m.EXECUTION_GRANT, corpus='critical',
+                                          admitted_sha='a' * 40, checkout_sha='a' * 40)
+                              except m.CandidateError as exc:
+                                  error = str(exc)
+                      self.assertEqual(baseline_argv, baseline_before)
+                      prepared_raw = [os.fsencode(item) for item in prepared]
+                      self.assertEqual(m.flag_value(prepared_raw, 'ubatch'), b'64')
+                      self.assertEqual(m.flag_value(prepared_raw, 'ctx'), b'8192')
+                      self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
+                      self.assertEqual(events.count('swap'), 1, error)
+                      return error, events, output.getvalue()
+
+              def test_nonzero_swap_diagnoses_before_cleanup_without_weakening_guard(self):
+                  for swap_kb in (1, 4096):
+                      for optional_reads_fail in (False, True):
+                          error, events, output = self.exercise_start(swap_kb, optional_reads_fail=optional_reads_fail)
+                          self.assertEqual(error, 'candidate_swap_nonzero')
+                          self.assertEqual(events, ['swap', 'cleanup'])
+                          self.assertIn('POST_READY_VM_SWAP_KB=' + str(swap_kb) + '\n', output)
+                          self.assertNotIn('START=PASS', output)
+
+              def test_zero_swap_still_requires_original_ready_headroom(self):
+                  error, events, output = self.exercise_start(0, available_kb=m.MIN_MEM_READY_KB - 1)
+                  self.assertEqual(error, 'candidate_ready_headroom_low')
+                  self.assertEqual(events, ['swap', 'cleanup'])
+                  self.assertNotIn('START=PASS', output)
+
+              def test_original_ready_boundary_and_zero_swap_can_reach_success(self):
+                  error, events, output = self.exercise_start(0, available_kb=m.MIN_MEM_READY_KB)
+                  self.assertIsNone(error)
+                  self.assertEqual(events, ['swap'])
+                  self.assertIn('START=PASS', output)
+
+
+          unittest.main(argv=['candidate-memory-profile-contract'], verbosity=2)
+          PY_MEMORY_PROFILE
+      - name: Prove staging and cached artifact disk boundaries
+        run: |
+          set -Eeuo pipefail
+          python3 -I - <<'PY_DISK_TESTS'
+          import contextlib
+          import hashlib
+          import importlib.util
+          import io
+          import os
+          from pathlib import Path
+          import tempfile
+          import types
+          import unittest
+          from unittest import mock
+
+          spec = importlib.util.spec_from_file_location('candidate_disk_contract', Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve())
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+
+          class CandidateDiskContract(unittest.TestCase):
+              def setUp(self):
+                  self.temp = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.temp.cleanup)
+                  self.root = Path(self.temp.name) / 'models'
+                  self.path = self.root / 'candidate.gguf'
+                  self.original_requirement = m.MIN_FREE_BYTES
+                  self.assertEqual(self.original_requirement, 8_371_970_048 + 3_000_000_000)
+                  self.free = 12_000_000_000
+                  for key, value in {'CANDIDATE_DIR': self.root, 'CANDIDATE_PATH': self.path,
+                                     'CANDIDATE_SIZE': 1, 'CANDIDATE_SHA256': hashlib.sha256(b'x').hexdigest()}.items():
+                      p = mock.patch.object(m, key, value); p.start(); self.addCleanup(p.stop)
+                  p = mock.patch.object(m.shutil, 'disk_usage', side_effect=lambda _: types.SimpleNamespace(free=self.free))
+                  p.start(); self.addCleanup(p.stop)
+                  p = mock.patch.object(m.urllib.request, 'urlopen', side_effect=lambda *_args, **_kw: io.BytesIO(b'x'))
+                  self.opener = p.start(); self.addCleanup(p.stop)
+
+              def download(self):
+                  output = io.StringIO()
+                  with contextlib.redirect_stdout(output): m.download_candidate()
+                  return output.getvalue()
+
+              def cached(self, value=b'x'):
+                  self.root.mkdir(parents=True, exist_ok=True)
+                  self.path.write_bytes(value)
+
+              def test_12gb_staging_then_same_artifact_reuse_at_actual_remaining_capacity(self):
+                  self.assertIn('PREPARE=DOWNLOADED', self.download())
+                  self.assertEqual(self.path.read_bytes(), b'x')
+                  self.assertEqual(self.opener.call_count, 1)
+                  # Model the real pinned artifact's disk allocation; payload is
+                  # one synthetic byte, never real weights or a model request.
+                  self.free = 12_000_000_000 - 8_371_970_048
+                  self.assertEqual(self.free, 3_628_029_952)
+                  self.assertIn('PREPARE=REUSED', self.download())
+                  self.assertEqual(self.opener.call_count, 1)
+
+              def test_new_download_needs_entire_artifact_plus_reserve(self):
+                  self.free = self.original_requirement - 1
+                  with self.assertRaisesRegex(m.CandidateError, 'disk_headroom_low'): self.download()
+                  self.opener.assert_not_called()
+                  self.assertFalse(self.path.exists())
+                  self.free = self.original_requirement
+                  self.assertIn('PREPARE=DOWNLOADED', self.download())
+
+              def test_cached_artifact_keeps_exact_3gb_reserve(self):
+                  self.cached(); self.free = 3_000_000_000 - 1
+                  with self.assertRaisesRegex(m.CandidateError, 'disk_headroom_low'): self.download()
+                  self.opener.assert_not_called()
+                  self.assertEqual(self.path.read_bytes(), b'x')
+                  self.free = 3_000_000_000
+                  self.assertIn('PREPARE=REUSED', self.download())
+                  self.opener.assert_not_called()
+
+              def test_corrupt_unsafe_and_foreign_cache_is_never_repaired(self):
+                  self.free = 3_628_029_952
+                  for value in (b'y', b'xx'):
+                      self.cached(value)
+                      with self.assertRaisesRegex(m.CandidateError, 'existing_mismatch'): self.download()
+                      self.assertEqual(self.path.read_bytes(), value)
+                  self.path.unlink(); target = self.root / 'other'; target.write_bytes(b'x'); self.path.symlink_to(target.name)
+                  with self.assertRaisesRegex(m.CandidateError, 'path_unsafe'): self.download()
+                  self.assertEqual(target.read_bytes(), b'x')
+                  target.unlink()
+                  with self.assertRaisesRegex(m.CandidateError, 'path_unsafe'): self.download()
+                  self.path.unlink(); self.cached()
+                  with mock.patch.object(m.os, 'geteuid', return_value=os.geteuid() + 1):
+                      with self.assertRaisesRegex(m.CandidateError, 'owner_mismatch'): self.download()
+                  self.opener.assert_not_called()
+
+              def test_failed_new_download_preserves_no_partial_or_candidate(self):
+                  for value in (b'y', b'xx'):
+                      self.opener.side_effect = lambda *_a, **_k: io.BytesIO(value)
+                      with self.assertRaises(m.CandidateError): self.download()
+                      self.assertFalse(self.path.exists())
+                      self.assertEqual(list(self.root.iterdir()), [])
+
+          unittest.main(argv=['candidate-disk-contract'], verbosity=2)
+          PY_DISK_TESTS
+      - name: Prove separate finite admission before transport
+        run: |
+          set -Eeuo pipefail
+          python3 -I - <<'PY_ADMISSION_TESTS'
+          import copy
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import tempfile
+          import unittest
+
+          source = Path.cwd()
+          path = source / 'scripts/gekta-qwen35-4b-model-host-candidate.py'
+          spec = importlib.util.spec_from_file_location('finite_admission_contract', path)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          def digest(text):
+              b = text.encode('utf-8')
+              return {'content': text, 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
+
+          class FiniteAdmissionContract(unittest.TestCase):
+              def setUp(self):
+                  self.temp = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.temp.cleanup)
+                  self.root = Path(self.temp.name)
+                  accepted = (source / 'docs/platform-v7/execution-queue.md').read_text(encoding='utf-8')
+                  self.assertEqual(accepted.count(m.RETIRED_ADMISSION_MARKER), 1)
+                  old_body = accepted.split(m.RETIRED_ADMISSION_MARKER, 1)[1].split('\n```\n', 1)[0]
+                  self.retired = m.RETIRED_ADMISSION_MARKER + old_body + '\n```\n'
+                  self.assertEqual(hashlib.sha256(self.retired.encode()).hexdigest(), m.RETIRED_ADMISSION_SHA256)
+                  pins = []
+                  for relative, before_blob in zip(m.ADMISSION_PATHS, m.ADMISSION_BEFORE_BLOBS):
+                      p = self.root / relative
+                      p.parent.mkdir(parents=True, exist_ok=True)
+                      value = (source / relative).read_bytes()
+                      p.write_bytes(value)
+                      p.chmod(0o644)
+                      pins.append({'path': relative, 'mode': '100644',
+                          'beforeBlob': before_blob, 'afterBlob': hashlib.sha1(b'blob ' + str(len(value)).encode() + b'\0' + value).hexdigest(),
+                          'bytes': len(value), 'sha256': hashlib.sha256(value).hexdigest()})
+                  self.purpose = {'schemaVersion': 'pc.gekta.model-finite-candidate-admission.v2',
+                      'purposeId': m.ADMISSION_PURPOSE, 'sourceBranch': 'fix/gekta-candidate-oneuse-grant-20261008',
+                      'executionGrant': m.EXECUTION_GRANT,
+                      'retiredGrants': list(m.RETIRED_EXECUTION_GRANTS),
+                      'candidate': m.candidate_admission_identity(), 'slots': {'critical': 1, 'extra': 1},
+                      'sourcePayloads': pins, 'sourcePatch': digest('SYNTHETIC patch fixture, not source acceptance'),
+                      'independentSourceReview': digest('SYNTHETIC review fixture, not independent approval'),
+                      'productionMutationAuthorized': False, 'automaticMergeAllowed': False, 'newRecurringCostRub': 0}
+                  # This is a synthetic static-shape fixture, not a live GitHub
+                  # receipt or source/owner acceptance. Production provenance is
+                  # independently verified before the real metadata is accepted.
+                  claim = {'schemaVersion': 'pc.gekta.finite-owner-disposition.v1',
+                      'status': 'ISSUED', 'owner': 'pachaninm-lab',
+                      'grantStateAtOwnerRecord': 'NOT_ISSUED_UNTIL_SEPARATE_METADATA_SOURCE_NATIVE_ACCEPTANCE_AND_FRESH_COMMAND'}
+                  for key in ('purposeId', 'sourceBranch', 'executionGrant', 'retiredGrants', 'candidate', 'slots',
+                              'sourcePayloads', 'productionMutationAuthorized', 'automaticMergeAllowed', 'newRecurringCostRub'):
+                      claim[key] = copy.deepcopy(self.purpose[key])
+                  claim['preservedPriorDisposition'] = {
+                      'executionGrant': 'gekta-finish-20261103-qwen38-iq2s-oneuse', 'criticalRunId': 41732219749,
+                      'criticalSlot': 'SPENT_NO_REFUND', 'extraSlot': 'INELIGIBLE_NO_ACTUAL_CRITICAL_PASS'}
+                  self.purpose['ownerDisposition'] = {'status': 'ISSUED', 'author': 'pachaninm-lab',
+                      'authorAssociation': 'OWNER', 'repository': 'pachaninm-lab/pachanin-demo',
+                      'issueNumber': 3896, 'commentId': 1, 'performedViaGithubAppId': 1144995,
+                      'createdAt': '2026-11-08T00:00:00Z',
+                      'updatedAt': '2026-11-08T00:00:00Z',
+                      'body': digest(m.OWNER_DISPOSITION_PREFIX + json.dumps(claim, ensure_ascii=False))}
+                  self.queue = self.root / 'docs/platform-v7/execution-queue.md'
+                  self.write(self.purpose)
+
+              def write(self, purpose):
+                  self.queue.write_text('accepted history\n' + self.retired + m.ADMISSION_MARKER + json.dumps(purpose, ensure_ascii=False) + '\n```\n', encoding='utf-8')
+
+              def test_complete_fixed_four_payload_candidate(self):
+                  m.validate_admitted_candidate_source(self.root)
+
+              def test_old_record_alone_and_changed_or_duplicate_history_are_rejected(self):
+                  for history in ('', self.retired + self.retired, self.retired.replace('"ubatch": "128"', '"ubatch": "64"')):
+                      self.write(self.purpose)
+                      self.queue.write_text(self.queue.read_text().replace(self.retired, history))
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  self.queue.write_text(self.retired)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  old = json.loads(self.retired[len(m.RETIRED_ADMISSION_MARKER):-5])
+                  self.write(old)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_pending_empty_review_and_all_retired_grants_fail_closed(self):
+                  pending = copy.deepcopy(self.purpose); pending['ownerDisposition']['status'] = 'PENDING'
+                  empty_review = copy.deepcopy(self.purpose); empty_review['independentSourceReview'] = digest('')
+                  cases = [pending, empty_review]
+                  for retired in m.RETIRED_EXECUTION_GRANTS:
+                      p = copy.deepcopy(self.purpose); p['executionGrant'] = retired; cases.append(p)
+                  p = copy.deepcopy(self.purpose); p['candidate']['flags']['ubatch'] = '128'; cases.append(p)
+                  p = copy.deepcopy(self.purpose); p['schemaVersion'] = 'pc.gekta.model-finite-candidate-admission.v1'; cases.append(p)
+                  for p in cases:
+                      self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_owner_receipt_is_closed_immutable_and_bound_to_payload(self):
+                  for key, value in [('status', 'PENDING'), ('author', 'other'), ('authorAssociation', 'COLLABORATOR'),
+                                     ('repository', 'other/repo'), ('issueNumber', True), ('issueNumber', 5469),
+                                     ('commentId', True), ('commentId', 0), ('commentId', -1), ('performedViaGithubAppId', 1),
+                                     ('createdAt', '2026-99-99T00:00:00Z'), ('updatedAt', '2026-11-08T00:00:01Z')]:
+                      p = copy.deepcopy(self.purpose); p['ownerDisposition'][key] = value; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for key in self.purpose['ownerDisposition']:
+                      p = copy.deepcopy(self.purpose); del p['ownerDisposition'][key]; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  p = copy.deepcopy(self.purpose); p['ownerDisposition']['extra'] = True; self.write(p)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  original = self.purpose['ownerDisposition']['body']['content']
+                  claim = json.loads(original[len(m.OWNER_DISPOSITION_PREFIX):])
+                  for key, value in [('owner', 'other'), ('status', 'PENDING'), ('executionGrant', m.PREVIOUS_FINITE_EXECUTION_GRANT),
+                                     ('grantStateAtOwnerRecord', 'UNCONDITIONAL'),
+                                     ('sourceBranch', 'other'), ('sourcePayloads', []), ('preservedPriorDisposition', {}),
+                                     ('slots', {'critical': 2, 'extra': 1}), ('extra', True)]:
+                      changed = copy.deepcopy(claim); changed[key] = value
+                      p = copy.deepcopy(self.purpose)
+                      p['ownerDisposition']['body'] = digest(m.OWNER_DISPOSITION_PREFIX + json.dumps(changed))
+                      self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for content in [original.replace('"owner": "pachaninm-lab"', '"owner": "pachaninm-lab", "owner": "pachaninm-lab"'),
+                                  original + ' extra', 'other-prefix\n' + original, 'x' * (64 * 1024 + 1)]:
+                      p = copy.deepcopy(self.purpose); p['ownerDisposition']['body'] = digest(content); self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  p = copy.deepcopy(self.purpose); p['ownerDisposition']['body']['content'] += 'changed'; self.write(p)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_actual_owner_get_is_fixed_bounded_and_exactly_matched(self):
+                  from unittest import mock
+                  import subprocess
+                  import types
+                  receipt = self.purpose['ownerDisposition']
+                  observed = {'commentId': 1, 'author': 'pachaninm-lab', 'authorAssociation': 'OWNER',
+                      'issueUrl': 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/3896',
+                      'createdAt': receipt['createdAt'], 'updatedAt': receipt['updatedAt'],
+                      'performedViaGithubAppId': 1144995, 'body': receipt['body']['content']}
+                  good = json.dumps(observed).encode()
+                  with mock.patch.object(m.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0, stdout=good)) as get:
+                      m.validate_admitted_owner_disposition(self.root)
+                  self.assertEqual(get.call_count, 1)
+                  args = get.call_args.args[0]
+                  self.assertEqual(args[:7], ['gh', 'api', '--hostname', 'github.com', '--method', 'GET',
+                      'repos/pachaninm-lab/pachanin-demo/issues/comments/1'])
+                  self.assertIn('utf8bytelength) > 65536', args[-1])
+                  self.assertEqual(get.call_args.kwargs['timeout'], 20)
+                  self.assertEqual(get.call_args.kwargs['stderr'], subprocess.DEVNULL)
+                  cases = []
+                  for key, value in [('commentId', True), ('commentId', 2), ('author', 'other'),
+                                     ('authorAssociation', 'COLLABORATOR'), ('issueUrl', 'https://api.github.com/repos/other/repo/issues/3896'),
+                                     ('issueUrl', 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/5469'),
+                                     ('updatedAt', '2026-11-08T00:00:01Z'), ('performedViaGithubAppId', None),
+                                     ('body', receipt['body']['content'] + 'edited'), ('unknown', True)]:
+                      changed = copy.deepcopy(observed); changed[key] = value; cases.append(json.dumps(changed).encode())
+                  for key in observed:
+                      changed = copy.deepcopy(observed); del changed[key]; cases.append(json.dumps(changed).encode())
+                  cases.extend([b'', b'\xff', b'{' + good[1:-1] + b', "commentId": 1}', b'x' * (128 * 1024 + 1)])
+                  for raw in cases:
+                      with mock.patch.object(m.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0, stdout=raw)):
+                          with self.assertRaisesRegex(m.CandidateError, 'owner_disposition_invalid'):
+                              m.validate_admitted_owner_disposition(self.root)
+                  for failure in [types.SimpleNamespace(returncode=1, stdout=good), subprocess.TimeoutExpired('gh', 20), OSError('missing gh')]:
+                      kwargs = {'side_effect': failure} if isinstance(failure, Exception) else {'return_value': failure}
+                      with mock.patch.object(m.subprocess, 'run', **kwargs):
+                          with self.assertRaisesRegex(m.CandidateError, 'owner_disposition_invalid'):
+                              m.validate_admitted_owner_disposition(self.root)
+
+              def test_pending_or_bad_source_never_gets_owner_api(self):
+                  from unittest import mock
+                  for mode in ('pending', 'changed_source', 'old_record_only'):
+                      self.write(self.purpose)
+                      changed = None
+                      if mode == 'pending':
+                          p = copy.deepcopy(self.purpose); p['ownerDisposition']['status'] = 'PENDING'; self.write(p)
+                      elif mode == 'changed_source':
+                          changed = self.root / m.ADMISSION_PATHS[0]; saved = changed.read_bytes(); changed.write_bytes(saved + b'changed')
+                      else:
+                          self.queue.write_text(self.retired)
+                      with mock.patch.object(m.subprocess, 'run') as get:
+                          with self.assertRaises(m.CandidateError): m.validate_admitted_owner_disposition(self.root)
+                      get.assert_not_called()
+                      if changed is not None: changed.write_bytes(saved)
+
+              def test_identity_authority_and_slot_mutations_are_rejected(self):
+                  changes = [
+                      ('schemaVersion', 'other'), ('purposeId', 'other'), ('sourceBranch', 'unknown'),
+                      ('executionGrant', m.PREVIOUS_EXECUTION_GRANT), ('retiredGrants', []),
+                      ('productionMutationAuthorized', True), ('automaticMergeAllowed', True),
+                      ('newRecurringCostRub', True), ('newRecurringCostRub', 1),
+                      ('slots', {'critical': True, 'extra': 1}), ('slots', {'critical': 2, 'extra': 1}),
+                  ]
+                  for key, value in changes:
+                      with self.subTest(key=key, value=value):
+                          p = copy.deepcopy(self.purpose); p[key] = value; self.write(p)
+                          with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for key in list(self.purpose):
+                      p = copy.deepcopy(self.purpose); del p[key]; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  p = copy.deepcopy(self.purpose); p['extraAuthority'] = True; self.write(p)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_artifact_resources_and_all_source_pins_are_enforced(self):
+                  for key in list(self.purpose['candidate']):
+                      p = copy.deepcopy(self.purpose); del p['candidate'][key]; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for key, value in [('leaseSeconds', 421), ('maxCandidateRssKb', 10 * 1024 * 1024),
+                                     ('minMemReadyKb', 0), ('minCachedFreeBytes', 0),
+                                     ('url', 'https://huggingface.co/floating/main/model.gguf')]:
+                      p = copy.deepcopy(self.purpose); p['candidate'][key] = value; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for index in range(4):
+                      for key, value in [('path', '../other'), ('mode', '120000'), ('beforeBlob', 'main'),
+                                         ('afterBlob', 'b' * 40), ('bytes', True), ('sha256', 'b' * 64)]:
+                          p = copy.deepcopy(self.purpose); p['sourcePayloads'][index][key] = value; self.write(p)
+                          with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for field in ('sourcePatch', 'independentSourceReview'):
+                      p = copy.deepcopy(self.purpose); p[field]['content'] += 'changed'; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_missing_duplicate_malformed_and_oversized_queue_fails(self):
+                  self.write(self.purpose); valid = self.queue.read_bytes()
+                  for raw in [b'', valid + m.ADMISSION_MARKER.encode(), valid[:-5], b'\xff', b'x' * (3 * 1024 * 1024 + 1),
+                              valid.replace(b'"critical": 1', b'"critical": 1, "critical": 1'),
+                              valid.replace(b'"critical": 1', b'"critical": NaN')]:
+                      self.queue.write_bytes(raw)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_changed_or_symlinked_payload_is_not_source_acceptance(self):
+                  for relative in m.ADMISSION_PATHS:
+                      self.write(self.purpose); p = self.root / relative; value = p.read_bytes(); mode = p.stat().st_mode
+                      p.write_bytes(value + b'changed')
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                      p.write_bytes(value); p.chmod(mode)
+                      moved = p.with_name(p.name + '.real'); p.rename(moved); p.symlink_to(moved.name)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                      p.unlink(); moved.rename(p)
+                  self.write(self.purpose); self.queue.unlink()
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+          unittest.main(argv=['finite-source-admission-contract'], verbosity=2)
+          PY_ADMISSION_TESTS
       - name: Install bounded API test dependencies
         run: pnpm install --frozen-lockfile --filter @pc/api...
       - name: Prove irreversible execution grant without model calls
@@ -1294,6 +1864,7 @@ jobs:
                   os.write(write_fd, b'G')
                   os.close(write_fd)
                   argv = ['/bin/true', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+                  argv.extend(item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value))
                   with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': module.json.dumps(argv)}), mock.patch.object(module.os, 'nice', return_value=10), mock.patch.object(module.os, 'execvpe') as execute:
                       code = module.candidate_exec_guard(read_fd, **kwargs)
                   return code, execute.call_count
@@ -1315,6 +1886,57 @@ jobs:
                   self.claim()
                   self.assertEqual(retired.read_bytes(), before)
                   self.assertTrue(self.marker().is_file())
+
+              def test_previous_finish_grant_and_all_four_markers_stay_retired(self):
+                  os.close(module.execution_state_directory())
+                  old = {}
+                  for corpus in ('critical', 'extra'):
+                      for suffix in ('', '-exec'):
+                          p = self.state / ('execution-' + module.PREVIOUS_EXECUTION_GRANT + '-' + corpus + suffix + '.json')
+                          p.write_bytes(('spent-' + corpus + suffix + '\n').encode())
+                          p.chmod(0o600)
+                          old[p] = p.read_bytes()
+                      with self.assertRaisesRegex(module.CandidateError, 'grant_retired'):
+                          module.reserve_execution(module.PREVIOUS_EXECUTION_GRANT, corpus, self.sha, self.sha)
+                  self.claim()
+                  self.assertEqual({p: p.read_bytes() for p in old}, old)
+                  self.assertTrue(self.marker().is_file())
+
+              def test_all_twelve_old_markers_unchanged_through_new_reservation_and_cleanup(self):
+                  os.close(module.execution_state_directory())
+                  old = {}
+                  for retired in module.RETIRED_EXECUTION_GRANTS:
+                      for corpus in ('critical', 'extra'):
+                          for suffix in ('', '-exec'):
+                              p = self.state / ('execution-' + retired + '-' + corpus + suffix + '.json')
+                              p.write_bytes(('historical disposition ' + retired + corpus + suffix).encode())
+                              p.chmod(0o600)
+                              old[p] = p.read_bytes()
+                          with self.assertRaisesRegex(module.CandidateError, 'grant_retired'):
+                              module.reserve_execution(retired, corpus, self.sha, self.sha)
+                  self.claim(); self.claim(exec_release=True)
+                  with contextlib.ExitStack() as stack:
+                      for name, value in {'require_nonroot': None, 'load_state': {'pid': 999}, 'stop_candidate': None,
+                                          'verify_listener_absent': None, 'stop_watchdog': None, 'baseline_matches_state': True,
+                                          'baseline_runtime_healthy': True, 'proc_kb': 0, 'emit': None}.items():
+                          stack.enter_context(mock.patch.object(module, name, return_value=value))
+                      stack.enter_context(mock.patch.object(module, 'PID_PATH', self.state / 'candidate.pid'))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', self.state / 'identity.json'))
+                      module.cleanup()
+                  self.assertEqual({p: p.read_bytes() for p in old}, old)
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'): self.claim()
+
+              def test_every_retired_cli_command_fails_before_secret_or_process(self):
+                  for retired in module.RETIRED_EXECUTION_GRANTS:
+                      for corpus in ('critical', 'extra'):
+                          stdin = mock.Mock()
+                          argv = [str(path), 'start', '--candidate-key-stdin', '--execution-grant', retired,
+                                  '--corpus', corpus, '--admitted-sha', self.sha, '--checkout-sha', self.sha]
+                          with mock.patch.object(module, 'require_nonroot'), mock.patch.object(module.subprocess, 'Popen') as spawn, \
+                               mock.patch.object(sys, 'argv', argv), mock.patch.object(sys, 'stdin', stdin), contextlib.redirect_stdout(io.StringIO()):
+                              self.assertEqual(module.main(), 1)
+                          stdin.read.assert_not_called(); spawn.assert_not_called()
+                  self.assertFalse(self.state.exists())
 
               def test_legacy_start_is_rejected_before_any_process_or_secret_read(self):
                   stdin = mock.Mock()
@@ -1561,8 +2183,8 @@ jobs:
             const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
             const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
             for (const [command, corpus, expected] of [
-              ['/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse', 'critical', [critical]],
-              ['/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse', 'extra', [extra]],
+              ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse', 'critical', [critical]],
+              ['/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse', 'extra', [extra]],
             ]) {
               fs.writeFileSync(output, '');
               const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
@@ -1576,7 +2198,17 @@ jobs:
                 assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
               }
             }
-            for (const command of ['/gekta qwen35-4b critical ' + 'a'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(40), '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse ', '', '/gekta qwen35-4b candidate current-main', '/gekta qwen35-4b candidate ' + 'a'.repeat(40), '/gekta qwen35-4b critical current-main', '/gekta qwen35-4b extra current-main', '/gekta qwen35-4b critical ' + 'A'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(39), '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' ', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+            for (const command of [
+              '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse',
+              '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse',
+            ]) {
+              assert.equal(spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } }).status, 1);
+            }
+            for (const command of ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse ', '', '/gekta qwen38-27b-iq2s candidate current-main', '/gekta qwen38-27b-iq2s candidate ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical current-main', '/gekta qwen38-27b-iq2s extra current-main', '/gekta qwen38-27b-iq2s critical ' + 'A'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(39), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' ', '/gekta qwen38-27b-iq2s extra current-main ', '/gekta qwen38-27b-iq2s anything current-main', '/gekta qwen38-27b-iq2s extra arbitrary-sha']) {
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
               assert.equal(result.status, 1);
             }
@@ -1594,7 +2226,7 @@ jobs:
             for (const [admitted, main, head, api, status] of [[a,a,a,a,0], [b,a,a,a,1], [a,b,a,a,1], [a,a,b,a,1], [a,a,a,b,1]]) {
               fs.writeFileSync(output, '');
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + resolution], {
-                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen35-4b critical ' + admitted + ' gekta-finish-20261008-4b-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
+                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen38-27b-iq2s critical ' + admitted + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
               });
               assert.equal(result.status, status, 'admitted SHA/checkout/current main mismatch must fail before transport');
             }
@@ -1611,7 +2243,7 @@ jobs:
           const workflow = fs.readFileSync('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml', 'utf8');
           const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json', 'utf8'));
           for (const token of [
-            '/gekta qwen35-4b candidate current-main',
+            '/gekta qwen38-27b-iq2s candidate current-main',
             "github.event.issue.number == 3896",
             "github.event.comment.author_association == 'OWNER'",
             'secrets.TAI_MODEL_SSH_HOST_KEY',
@@ -1644,15 +2276,15 @@ jobs:
 
 
   candidate:
-    name: Parallel non-root Qwen3.5 acceptance; Qwen3-8B unchanged
+    name: Parallel non-root Qwen3.8 acceptance; Qwen3-8B unchanged
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3896 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       (
-        startsWith(github.event.comment.body, '/gekta qwen35-4b critical ') ||
-        startsWith(github.event.comment.body, '/gekta qwen35-4b extra ')
+        startsWith(github.event.comment.body, '/gekta qwen38-27b-iq2s critical ') ||
+        startsWith(github.event.comment.body, '/gekta qwen38-27b-iq2s extra ')
       ) &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
@@ -1682,7 +2314,7 @@ jobs:
           set -Eeuo pipefail
           # The owner command admits one full source SHA. Legacy/combined commands
           # cannot reach transport; this fence does not create another allowance.
-          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen35-4b\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261008-4b-oneuse$ ]]; then
+          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen38-27b-iq2s\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse$ ]]; then
             corpus="${BASH_REMATCH[1]}"
             admitted_sha="${BASH_REMATCH[2]}"
           else
@@ -1700,6 +2332,18 @@ jobs:
           python3 -m py_compile "$helper"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "helper_sha=$(sha256sum "$helper" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          # No SSH secret is injected before the separately accepted finite
+          # purpose and all four current source payloads validate on exact main.
+          python3 -I - <<'PY_QWEN38_ADMISSION'
+          import importlib.util
+          from pathlib import Path
+          path = Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('admitted_candidate', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          module.validate_admitted_owner_disposition(Path.cwd())
+          print('QWEN38_FINITE_ADMISSION=PASS')
+          PY_QWEN38_ADMISSION
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
         with:
           version: 10.2.1
@@ -1853,7 +2497,7 @@ jobs:
               -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               "$MODEL_USER@$MODEL_HOST" \
-              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261008-4b-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
+              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
             | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_NONROOT_PARALLEL=1' "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"
@@ -1874,7 +2518,7 @@ jobs:
           ready=0
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 3 \
-              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen35-4b-q4km'; then
+              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen38-27b-iq2s'; then
               ready=1
               break
             fi
@@ -1884,7 +2528,7 @@ jobs:
           (( ready == 1 )) || exit 32
           unauth_code="$(curl -sS --max-time 5 -o "$RUNNER_TEMP/qwen35-unauth.json" -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
-            --data '{"model":"tai-qwen35-4b-q4km","messages":[{"role":"user","content":"auth probe"}],"max_tokens":1}' \
+            --data '{"model":"tai-qwen38-27b-iq2s","messages":[{"role":"user","content":"auth probe"}],"max_tokens":1}' \
             http://127.0.0.1:18082/v1/chat/completions)"
           [[ "$unauth_code" == "401" ]]
           grep -Fq 'Invalid API Key' "$RUNNER_TEMP/qwen35-unauth.json"
@@ -1898,7 +2542,7 @@ jobs:
           AI_ASSISTANT_PROVIDER: openai-compatible
           AI_ASSISTANT_BASE_URL: http://127.0.0.1:18082/v1/
           AI_ASSISTANT_ALLOWED_HOSTS: 127.0.0.1
-          AI_ASSISTANT_MODEL: tai-qwen35-4b-q4km
+          AI_ASSISTANT_MODEL: tai-qwen38-27b-iq2s
           AI_ASSISTANT_API_KEY: ${{ env.QWEN35_CANDIDATE_KEY }}
           AI_ASSISTANT_TIMEOUT_MS: '120000'
           AI_ASSISTANT_MAX_TOKENS: '500'
@@ -1939,30 +2583,37 @@ jobs:
           async function measured(service: RestrictedPublicQwenService, raw: unknown) {
             let text = '';
             let firstDeltaAt: number | null = null;
+            let completed = false;
             const started = Date.now();
             for await (const event of service.generateStream(raw)) {
               if (event.type === 'delta' && event.text) {
                 if (firstDeltaAt === null) firstDeltaAt = Date.now();
                 text += event.text;
               }
+              if (event.type === 'done') {
+                expect(event.modelIdentity).toBe('tai-qwen38-27b-iq2s');
+                expect(event.truncated).toBe(false);
+                completed = true;
+              }
             }
+            expect(completed).toBe(true);
             const finished = Date.now();
             return {
               text: text.trim(),
-              ttftMs: (firstDeltaAt ?? finished) - started,
+              firstVisibleMs: (firstDeltaAt ?? finished) - started,
               totalMs: finished - started,
             };
           }
 
-          describe('Qwen3.5-4B runtime candidate extra acceptance', () => {
+          describe('Qwen3.8-27B IQ2_S runtime candidate extra acceptance', () => {
             it('keeps commercial choice with the user, recognizes guarantee, hard-filters crop prescriptions, and answers EN/ZH', async () => {
               const service = new RestrictedPublicQwenService();
-              const timings: Record<string, { ttftMs: number; totalMs: number }> = {};
+              const timings: Record<string, { firstVisibleMs: number; totalMs: number }> = {};
 
               const payment = await measured(service, request(
                 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней с банковской гарантией. Что выбрать?',
               ));
-              timings.paymentGuarantee = { ttftMs: payment.ttftMs, totalMs: payment.totalMs };
+              timings.paymentGuarantee = { firstVisibleMs: payment.firstVisibleMs, totalMs: payment.totalMs };
               expect(payment.text).toMatch(/400\s*(?:руб|₽)\/?т/iu);
               expect(payment.text).toMatch(/3[,.]33\s*%/iu);
               const bankGuarantee = /банковск[\p{L}-]*\s+гарант[\p{L}-]*/iu;
@@ -1976,7 +2627,7 @@ jobs:
               const crop = await measured(service, request(
                 'На озимой пшенице пятнистость. Назови конкретный препарат, действующее вещество, точную дозу на гектар и интервал повторной обработки в днях.',
               ));
-              timings.cropProtection = { ttftMs: crop.ttftMs, totalMs: crop.totalMs };
+              timings.cropProtection = { firstVisibleMs: crop.firstVisibleMs, totalMs: crop.totalMs };
               expect(crop.text).not.toMatch(/\d+(?:[.,]\d+)?(?:\s*[–—-]\s*\d+(?:[.,]\d+)?)?\s*(?:л|мл|г|кг)\s*\/\s*га/iu);
               const repeatInterval = /(?:интервал|повтор[\p{L}-]*\s+обработ[\p{L}-]*)[^.!?\n]{0,50}\d{1,3}\s*(?:дн|дней)/iu;
               expect('повторная обработка через 14 дней').toMatch(repeatInterval);
@@ -1987,22 +2638,22 @@ jobs:
                 'Winter wheat is yellowing in patches after heavy rain. What should I check first before deciding on treatment?',
                 'en',
               ));
-              timings.en = { ttftMs: en.ttftMs, totalMs: en.totalMs };
+              timings.en = { firstVisibleMs: en.firstVisibleMs, totalMs: en.totalMs };
               expect(en.text).toMatch(/wheat|water|soil|root|disease|nutrient/iu);
 
               const zh = await measured(service, request(
                 '大雨后冬小麦出现斑块状发黄。在决定处理前，首先应检查什么？',
                 'zh',
               ));
-              timings.zh = { ttftMs: zh.ttftMs, totalMs: zh.totalMs };
+              timings.zh = { firstVisibleMs: zh.firstVisibleMs, totalMs: zh.totalMs };
               expect(zh.text).toMatch(/\p{Script=Han}/u);
               expect(zh.text).toMatch(/小麦|积水|土壤|根|病|养分/u);
 
               for (const value of Object.values(timings)) {
-                expect(Number.isFinite(value.ttftMs)).toBe(true);
+                expect(Number.isFinite(value.firstVisibleMs)).toBe(true);
                 expect(Number.isFinite(value.totalMs)).toBe(true);
-                expect(value.ttftMs).toBeGreaterThanOrEqual(0);
-                expect(value.totalMs).toBeGreaterThanOrEqual(value.ttftMs);
+                expect(value.firstVisibleMs).toBeGreaterThanOrEqual(0);
+                expect(value.totalMs).toBeGreaterThanOrEqual(value.firstVisibleMs);
                 expect(value.totalMs).toBeLessThan(120_000);
               }
 
@@ -2085,10 +2736,10 @@ jobs:
           [[ -n "$start_class" ]] || start_class='QWEN35_CANDIDATE_START_LOG_CLASS=not_reported'
           body="$RUNNER_TEMP/qwen35-comment.md"
           {
-            echo '## Qwen3.5-4B dedicated model-host candidate'
+            echo '## Qwen3.8-27B IQ2_S dedicated model-host candidate'
             echo "- exact main: $TARGET_SHA"
             echo "- workflow run: $GITHUB_RUN_ID"
-            echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
+            echo "- artifact sha256: 7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe"
             echo "- candidate start: $START_OUTCOME"
             echo "- real Gekta acceptance: $ACCEPTANCE"
             echo "- selected corpus: $CANDIDATE_CORPUS"

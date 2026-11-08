@@ -791,7 +791,195 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     `)).rejects.toBeTruthy();
   });
 
+  it.each([false, true])('commits one actor+intent creation across synchronized auth PostgreSQL connections (divergent=%s)', async divergent => {
+    const peer = new AuthPrismaService();
+    await peer.$connect();
+    const backendPids = new Set<number>();
+    const writeTransactions = new WeakSet<object>();
+    let arrivals = 0;
+    let release!: () => void;
+    let fail!: (error: Error) => void;
+    const barrier = new Promise<void>((resolve, reject) => { release = resolve; fail = reject; });
+    void barrier.catch(() => undefined);
+    const timer = setTimeout(() => fail(new Error('Two-connection create schedule timed out')), 5_000);
+    class CreateBarrierRepository extends StaffRuntimeAccessRepository {
+      private arrived = false;
+      override createIntentTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+        return super.createIntentTransaction(async tx => { writeTransactions.add(tx); return work(tx); });
+      }
+      override async getCreateEvent(tx: StaffSqlClient, eventId: string) {
+        const event = await super.getCreateEvent(tx, eventId);
+        if (!event && writeTransactions.has(tx) && !this.arrived) {
+          this.arrived = true;
+          const rows = await tx.$queryRaw<Array<{ pid: number }>>(Prisma.sql`SELECT pg_backend_pid() AS pid`);
+          backendPids.add(rows[0].pid); arrivals += 1;
+          if (arrivals === 2) release();
+          await barrier;
+        }
+        return event;
+      }
+    }
+    const intent = { createIntentId: randomUUID(), cabinetKey: 'buyer', organizationId: ids.otherOrg,
+      reason: 'Synchronized exact creation receipt acceptance', ticketId: `OWN-CREATE-RACE-${divergent}`, durationSeconds: 600 };
+    const firstService = new StaffAccessService(new CreateBarrierRepository(prisma, staffPrisma));
+    const secondService = new StaffAccessService(new CreateBarrierRepository(peer, staffPrisma));
+    try {
+      const results = await Promise.allSettled([
+        firstService.requestFounderRoleMode(owner, intent, 'create-race-first'),
+        secondService.requestFounderRoleMode(owner, divergent ? { ...intent, reason: 'A divergent body with the same immutable intent' } : intent, 'create-race-second'),
+      ]);
+      expect(arrivals).toBe(2); expect(backendPids.size).toBe(2);
+      const success = results.filter((item): item is PromiseFulfilledResult<Awaited<ReturnType<StaffAccessService['requestFounderRoleMode']>>> => item.status === 'fulfilled');
+      const rejected = results.filter((item): item is PromiseRejectedResult => item.status === 'rejected');
+      expect(success).toHaveLength(divergent ? 1 : 2); expect(rejected).toHaveLength(divergent ? 1 : 0);
+      if (divergent) expect(rejected[0].reason).toMatchObject({ status: 409, response: { code: 'STAFF_CREATE_INTENT_PAYLOAD_CONFLICT' } });
+      else expect(success[0].value).toEqual(success[1].value);
+      const receipt = success[0].value;
+      const counts = await prisma.$queryRaw<Array<{ requests: number; grants: number; events: number }>>(Prisma.sql`
+        SELECT (SELECT COUNT(*)::int FROM auth.staff_access_requests WHERE id = ${receipt.requestId}) AS requests,
+          (SELECT COUNT(*)::int FROM auth.staff_access_grants WHERE request_id = ${receipt.requestId}) AS grants,
+          (SELECT COUNT(*)::int FROM auth.staff_access_events WHERE resource_type = 'staff_access_request'
+            AND resource_id = ${receipt.requestId} AND action = 'staff.access.request') AS events
+      `);
+      expect(counts[0]).toEqual({ requests: 1, grants: 1, events: 1 });
+      const restarted = new StaffAccessService(new StaffRuntimeAccessRepository(peer, staffPrisma));
+      const recovered = await restarted.recoverCreateIntent({ ...owner, sessionId: 'renewed-authenticated-session' }, intent.createIntentId);
+      expect(recovered.originalReceipt).toEqual(receipt);
+      await expect(restarted.recoverCreateIntent({ ...owner, membershipId: 'foreign-membership' }, intent.createIntentId)).rejects.toMatchObject({ status: 404 });
+      const events = await prisma.$queryRaw<Array<{ correlation_id: string }>>(Prisma.sql`
+        SELECT correlation_id FROM auth.staff_access_events WHERE resource_type = 'staff_access_request' AND resource_id = ${receipt.requestId}
+      `);
+      expect(events).toHaveLength(1); expect(['create-race-first', 'create-race-second']).toContain(events[0].correlation_id);
+    } finally { clearTimeout(timer); release(); await peer.$disconnect(); }
+  });
+
+  it.each(['generic', 'founder'] as const)('rolls back %s create when PostgreSQL fails in the audit path, then commits one same-intent retry', async kind => {
+    const intent = { createIntentId: randomUUID(), reason: 'Native create audit rollback acceptance',
+      ticketId: `OWN-CREATE-AUDIT-${kind}`, durationSeconds: 600 };
+    const failedCorrelation = `create-audit-failed-${kind}`;
+    const retryCorrelation = `create-audit-retry-${kind}`;
+    let requestId = '';
+    let databaseFault: unknown;
+    let faults = 0;
+    let writtenBeforeFault: { requests: number; grants: number; events: number } | undefined;
+    class FailedCreateAuditRepository extends StaffRuntimeAccessRepository {
+      override async insertEvent(client: StaffSqlClient, input: Parameters<StaffRuntimeAccessRepository['insertEvent']>[1]): Promise<void> {
+        if (input.action === 'staff.access.request' && input.correlationId === failedCorrelation) {
+          requestId = input.resourceId!;
+          faults += 1;
+          const principal = await client.$queryRaw<Array<{ role: string; superuser: boolean; bypass: boolean }>>(Prisma.sql`
+            SELECT current_user AS role, rolsuper AS superuser, rolbypassrls AS bypass
+            FROM pg_roles WHERE rolname = current_user
+          `);
+          expect(principal).toEqual([{ role: new URL(process.env.AUTH_DATABASE_URL!).username, superuser: false, bypass: false }]);
+          const rows = await client.$queryRaw<Array<{ requests: number; grants: number; events: number }>>(Prisma.sql`
+            SELECT (SELECT COUNT(*)::int FROM auth.staff_access_requests WHERE id = ${requestId}) AS requests,
+              (SELECT COUNT(*)::int FROM auth.staff_access_grants WHERE request_id = ${requestId}) AS grants,
+              (SELECT COUNT(*)::int FROM auth.staff_access_events WHERE resource_id = ${requestId}
+                AND resource_type = 'staff_access_request') AS events
+          `);
+          writtenBeforeFault = rows[0];
+          // This SQL fails on the real confined transaction after request/grant
+          // INSERTs. No mocked rejection or fixture-admin write supplies rollback.
+          try { await client.$queryRaw(Prisma.sql`SELECT 1 / 0`); }
+          catch (error) { databaseFault = error; throw error; }
+          throw new Error('Expected PostgreSQL division-by-zero fault');
+        }
+        return super.insertEvent(client, input);
+      }
+    }
+    const faulted = new StaffAccessService(new FailedCreateAuditRepository(prisma, staffPrisma));
+    const invoke = (service: StaffAccessService, correlation: string) => kind === 'founder'
+      ? service.requestFounderRoleMode(owner, { ...intent, cabinetKey: 'buyer', organizationId: ids.otherOrg }, correlation)
+      : service.requestAccess(owner, { ...intent, assignmentId: ids.ownerAssignment,
+        accessMode: StaffAccessMode.VIEW_AS, permissions: [StaffPermission.CABINET_VIEW_AS, StaffPermission.DEAL_READ],
+        targetOrganizationId: ids.otherOrg, targetRole: ' BUYER ' }, correlation);
+    const failure = await invoke(faulted, failedCorrelation).catch(error => error);
+    expect(failure).toMatchObject({ status: 503, cause: databaseFault,
+      response: { code: 'STAFF_CREATE_OUTCOME_UNKNOWN', createIntentId: intent.createIntentId, recoveryRequired: true } });
+    expect(databaseFault).toMatchObject({ code: 'P2010', meta: { code: '22012' } });
+    expect(faults).toBe(1);
+    expect(writtenBeforeFault).toEqual({ requests: 1, grants: 1, events: 0 });
+    expect(requestId).not.toBe('');
+    const counts = () => prisma.$queryRaw<Array<{ requests: number; grants: number; events: number }>>(Prisma.sql`
+      SELECT (SELECT COUNT(*)::int FROM auth.staff_access_requests WHERE id = ${requestId}) AS requests,
+        (SELECT COUNT(*)::int FROM auth.staff_access_grants WHERE request_id = ${requestId}) AS grants,
+        (SELECT COUNT(*)::int FROM auth.staff_access_events WHERE resource_id = ${requestId}
+          AND resource_type = 'staff_access_request') AS events
+    `);
+    expect(await counts()).toEqual([{ requests: 0, grants: 0, events: 0 }]);
+    await expect(access.recoverCreateIntent(owner, intent.createIntentId)).rejects.toMatchObject({ status: 404 });
+    const receipt = await invoke(faulted, retryCorrelation);
+    expect(receipt.requestId).toBe(requestId);
+    expect(await counts()).toEqual([{ requests: 1, grants: 1, events: 1 }]);
+    expect((await access.recoverCreateIntent(owner, intent.createIntentId)).originalReceipt).toEqual(receipt);
+    expect(await invoke(faulted, retryCorrelation)).toEqual(receipt);
+    expect(faults).toBe(1);
+    const events = await prisma.$queryRaw<Array<{ correlation_id: string }>>(Prisma.sql`
+      SELECT correlation_id FROM auth.staff_access_events WHERE resource_id = ${requestId}
+        AND resource_type = 'staff_access_request'
+    `);
+    expect(events).toEqual([{ correlation_id: retryCorrelation }]);
+  });
+
+  it.each(['generic', 'founder'] as const)('recovers %s create after a real PostgreSQL commit and an application-boundary lost reply without another write transaction', async kind => {
+    const intent = { createIntentId: randomUUID(), reason: 'Native committed create lost reply acceptance',
+      ticketId: `OWN-CREATE-LOST-REPLY-${kind}`, durationSeconds: 600 };
+    const correlation = `create-committed-lost-reply-${kind}`;
+    const lostReply = new Error('Injected application-boundary reply loss after real PostgreSQL commit');
+    let committedReceipt: unknown;
+    let commits = 0;
+    class LostCreateReplyRepository extends StaffRuntimeAccessRepository {
+      override async createIntentTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+        const receipt = await super.createIntentTransaction(work);
+        committedReceipt = receipt;
+        commits += 1;
+        // The real PostgreSQL transaction already resolved after COMMIT. This
+        // models application response loss, not a driver COMMIT-ack interruption.
+        throw lostReply;
+      }
+    }
+    const invoke = (service: StaffAccessService) => kind === 'founder'
+      ? service.requestFounderRoleMode(owner, { ...intent, cabinetKey: 'buyer', organizationId: ids.otherOrg }, correlation)
+      : service.requestAccess(owner, { ...intent, assignmentId: ids.ownerAssignment,
+        accessMode: StaffAccessMode.VIEW_AS, permissions: [StaffPermission.CABINET_VIEW_AS, StaffPermission.DEAL_READ],
+        targetOrganizationId: ids.otherOrg, targetRole: ' BUYER ' }, correlation);
+    const faulted = new StaffAccessService(new LostCreateReplyRepository(prisma, staffPrisma));
+    await expect(invoke(faulted)).rejects.toMatchObject({ status: 503, cause: lostReply,
+      response: { code: 'STAFF_CREATE_OUTCOME_UNKNOWN', createIntentId: intent.createIntentId, recoveryRequired: true } });
+    expect(commits).toBe(1);
+    expect(committedReceipt).toBeDefined();
+    const peer = new AuthPrismaService();
+    await peer.$connect();
+    try {
+      const restartedRepository = new StaffRuntimeAccessRepository(peer, staffPrisma);
+      const writes = jest.spyOn(restartedRepository, 'createIntentTransaction');
+      const restarted = new StaffAccessService(restartedRepository);
+      const renewedActor = { ...owner, sessionId: `renewed-after-create-reply-${kind}` };
+      const recovered = await restarted.recoverCreateIntent(renewedActor, intent.createIntentId);
+      expect(recovered.originalReceipt).toEqual(committedReceipt);
+      expect(await invoke(restarted)).toEqual(committedReceipt);
+      expect(writes).not.toHaveBeenCalled();
+      expect(commits).toBe(1);
+      const counts = await peer.$queryRaw<Array<{ requests: number; grants: number; events: number }>>(Prisma.sql`
+        SELECT (SELECT COUNT(*)::int FROM auth.staff_access_requests WHERE id = ${recovered.originalReceipt.requestId}) AS requests,
+          (SELECT COUNT(*)::int FROM auth.staff_access_grants WHERE request_id = ${recovered.originalReceipt.requestId}) AS grants,
+          (SELECT COUNT(*)::int FROM auth.staff_access_events WHERE resource_id = ${recovered.originalReceipt.requestId}
+            AND resource_type = 'staff_access_request') AS events
+      `);
+      expect(counts).toEqual([{ requests: 1, grants: 1, events: 1 }]);
+      const events = await peer.$queryRaw<Array<{ correlation_id: string }>>(Prisma.sql`
+        SELECT correlation_id FROM auth.staff_access_events WHERE resource_id = ${recovered.originalReceipt.requestId}
+          AND resource_type = 'staff_access_request'
+      `);
+      expect(events).toEqual([{ correlation_id: correlation }]);
+    } finally { await peer.$disconnect(); }
+  });
+
   it('revokes every active grant and delegated session when a staff assignment is revoked', async () => {
+    const originalIntent = { createIntentId: randomUUID(), cabinetKey: 'buyer', organizationId: ids.otherOrg,
+      reason: 'Immutable receipt survives assignment revocation', ticketId: 'OWN-CREATE-REVOKED', durationSeconds: 600 };
+    const originalReceipt = await access.requestFounderRoleMode(owner, originalIntent);
     // Build both terminal history and a live session explicitly, including when
     // this case is selected alone. Earlier successful JIT sessions are ended via
     // the ordinary audited lifecycle rather than directly rewriting their state.
@@ -849,5 +1037,10 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     await expect(access.activateGrant(owner, activeGrant)).rejects.toMatchObject({
       status: 409, response: { message: 'Staff grant is not active' },
     });
+    const afterRevocation = await access.recoverCreateIntent(owner, originalIntent.createIntentId);
+    expect(afterRevocation.originalReceipt).toEqual(originalReceipt);
+    expect(afterRevocation.currentProjection.activationEligible).toBe(false);
+    expect(afterRevocation.currentProjection.grantStatus).toBe('REVOKED');
+    expect(await access.requestFounderRoleMode(owner, originalIntent)).toEqual(originalReceipt);
   });
 });

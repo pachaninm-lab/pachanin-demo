@@ -1,5 +1,100 @@
 # IR-20 isolated backup restore prerequisite
 
+## Stopped physical source prerequisite 2026 10 23
+
+The incident now has zero registered containers. The original logical executor
+below requires a running inspected source and remains byte-for-byte unchanged.
+It must not be invoked against a historical record or given invented Compose
+labels. The owner returned the sole next recovery source/main slot in Team Hub
+6368785509; continuation 6368803749 prepares this extension on the original
+`ops/ir20-isolated-restore-20260919` ref and its existing six paths.
+
+The additional `--stopped SHA RUN_ID` mode is source preparation only. This PR
+adds no production workflow event, protected credential, host command route or
+service startup authority. A production controller still needs separate accepted
+source/purpose binding, shared serialization, exact current main, pinned SSH,
+independent review, all native checks and a fresh concrete operational decision.
+Do not invoke this mode on REG.RU merely because a fixture or source PR passed.
+
+The mode reuses the exact accepted cold-preservation and read-only observation
+modules, with SHA-256 checks before local import or explicitly pinned in-memory
+transport. It selects the sole recorded PostgreSQL16 image and its volume from
+all eleven unchanged record hashes. It accepts only the existing PGDATA layout,
+numeric owner/group999, private regular files/directories, a complete PG16 cluster
+and bounded content. Links, special files, hardlinked regular files, extended
+attributes, recovery/standby markers, backup labels and unsupported permissions
+fail before copying. The two completed private ciphertexts and receipts are
+checked without reading either passphrase or decrypting an original archive.
+
+The complete source is captured through the existing no-follow/no-atime
+descriptors. A separate root-private one-use journal stores the owned disposable
+container identity durably before creation. An existing journal refuses replay,
+including an interrupted operation that might not have started. The original
+volumes, both ciphertexts/passphrases and original runtime remain untouched.
+
+Only a new owned non-root container is started, initially with an inert process.
+It has no network, published port, host/source mount or persistent data volume;
+PGDATA is bounded512MiB tmpfs. The root filesystem is read-only, capabilities
+are dropped, new privileges are disabled, memory/swap are768MiB, CPU is1 and the
+PID limit is128. No image is pulled and restart is disabled. Full-ID, label,
+image, user, mounts, network and resource inspection precedes startup.
+
+An exact enumerated archive enters the volatile clone. An independent archive
+of the clone verifies the complete path/type/owner/mode/mtime/size/content set.
+Only then can clone-local stale process files and automatic configuration be
+replaced. A fixed configuration disables networking, archive/restore/primary
+connections, preload libraries, background workers and autovacuum. The original
+configuration is not executed. The selected database must start as PostgreSQL16,
+leave recovery and expose the expected superuser through its local socket.
+
+The clone undergoes a complete logical `pg_dump` scan of the selected database,
+and `pg_amcheck` checks its supported relation types across connectable databases.
+Any required amcheck extension is installed only in this disposable clone.
+After clean clone shutdown, existing enabled page checksums are checked; disabled
+checksums remain `NOT_ENABLED` and are never enabled to manufacture acceptance.
+Unsupported amcheck relation types are outside its coverage. The result therefore
+retains `databaseIntegrity=NOT_FULLY_ATTESTED` and does not replace application,
+critical-state logical roundtrip, canonical API binding or full DR acceptance.
+
+Cleanup may remove only the exact newly owned container. A second all-states
+inventory must independently prove its absence. A failed or ambiguous create,
+recovery, source check, shutdown, cleanup or durability barrier cannot publish a
+successful report. After cleanup the full original snapshot/runtime and both
+preserved ciphertexts are checked again. The private finalized aggregate report
+is fsynced before success can leave the process; no raw database/configuration,
+archive, key, private path, principal or database name is published.
+
+Failed report publication invalidates both report markers and synchronizes their
+removal while retaining the exclusive owned-operation journal. Failed marker
+removal or synchronization reports `REPORT_CLEANUP_NOT_PROVEN`; the operation
+remains ambiguous and cannot be replayed. A surviving private report never
+overrides the pending journal or a failed process/transport result.
+
+Container work has a600second budget, including the remaining-time bounds on
+both physical-copy process waits. Producer termination and container cleanup
+share one separate60second budget that cannot renew itself. Source captures are
+separately bounded45second passes and each preserved-ciphertext read is bounded
+30seconds; a later admitted controller must enforce the overall host timeout.
+Source content is at most384MiB/20000entries, with a2GiB available-memory and disk reserve.
+The source-only CI fixture uses the existing verified CI PostgreSQL16 image with
+synthetic checksum-enabled data, substitutes only that fixture image ID in the
+in-memory test module, and exercises the actual copy/recovery/checksum/cleanup
+engine. It checks unchanged source descriptors afterwards. This does not execute
+the production Host observer, use actual archives or establish production PASS.
+
+Success classification is
+`ISOLATED_PHYSICAL_COPY_RECOVERY_VERIFIED_NOT_RELEASE_ACCEPTANCE`.
+`runtimeRestored=false`, `startupAuthorized=false`, canonical API binding and full
+DR remain unproved. Off-host recovery/custody is not established by same-host
+copies. The official overall remains5/100; UX/BANKS/FGIS remains open. A later
+accepted controller and actual REG.RU run remain required before any conclusion
+about the incident database.
+
+Primary PostgreSQL16 contracts rechecked2026-10-23:
+https://www.postgresql.org/docs/16/backup-file.html ;
+https://www.postgresql.org/docs/16/app-pgchecksums.html ;
+https://www.postgresql.org/docs/16/app-pgamcheck.html .
+
 ## Scope and decision
 
 Base: `126f4b17f0be87eab07a238dc3ffee35a4b8ed8b`, after PR #5428.

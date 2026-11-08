@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { getLocale } from 'next-intl/server';
+import { PLATFORM_V7_BANK_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from '@/lib/platform-v7/routes';
 import { InlineNotice, StatusChip } from '@pc/design-system-v8';
 import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import {
@@ -156,20 +158,21 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function BankReleaseSafetyPage(props: { searchParams?: Promise<PageSearchParams> }) {
   const searchParams = await props.searchParams;
   const locale = normalizeLocale(await getLocale());
+  const showBankReturn = (await headers()).get('x-pc-pathname') === PLATFORM_V7_RELEASE_SAFETY_ROUTE;
   const dealId = firstParam(searchParams?.dealId);
   const shipmentId = firstParam(searchParams?.shipmentId);
-  if (!dealId) return renderRegistry(locale);
+  if (!dealId) return renderRegistry(locale, showBankReturn);
 
   const workspace = await getCanonicalBankReleaseWorkspace(dealId);
   const projection = workspace ? buildBankReleaseProjection(workspace, shipmentId) : null;
-  return projection ? renderSelected(projection, locale) : renderUnavailable(locale);
+  return projection ? renderSelected(projection, locale) : renderUnavailable(locale, showBankReturn);
 }
 
-function renderRegistry(locale: Locale) {
+function renderRegistry(locale: Locale, showBankReturn: boolean) {
   const copy = COPY[locale];
   return (
     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={copy.eyebrow} title={copy.title} description={copy.description} statusLabel={copy.status} statusTone='warning' labels={copy.labels}
-      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{copy.bankAction}</Link> }}
+      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{copy.bankAction}</Link> : undefined }}
       facts={[{ label: copy.reserveLabel, value: copy.reserveValue, hint: copy.reserveHint }, { label: copy.evidenceLabel, value: copy.evidenceValue, hint: copy.evidenceHint }, { label: copy.requestLabel, value: copy.requestValue, hint: copy.requestHint }, { label: copy.callbackLabel, value: copy.callbackValue, hint: copy.callbackHint }]}
     >
       <MoneyBoundary>{copy.boundary}</MoneyBoundary>
@@ -365,12 +368,12 @@ function renderSelected(projection: BankReleaseProjection, locale: Locale) {
   );
 }
 
-function renderUnavailable(locale: Locale) {
+function renderUnavailable(locale: Locale, showBankReturn: boolean) {
   const common = COPY[locale];
   const copy = SELECTED_COPY[locale];
   return (
     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={common.eyebrow} title={copy.unavailableTitle} description={copy.unavailableDescription} statusLabel={copy.values.blocked} statusTone='critical' labels={common.labels}
-      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{common.bankAction}</Link> }} facts={[]}
+      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{common.bankAction}</Link> : undefined }} facts={[]}
     ><MoneyBoundary>{copy.boundary}</MoneyBoundary></MoneyObligationCockpit>
   );
 }

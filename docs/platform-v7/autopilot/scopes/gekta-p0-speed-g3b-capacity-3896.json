@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/gekta-p0-speed-g3b-capacity-3896",
   "status": "active",
-  "purpose": "Extend the existing Gekta P0 SPEED model-host diagnostic with bounded read-only capacity and runtime facts required to choose a safe llama.cpp G3B concurrency candidate without root access, service mutation, context loss or OOM risk.",
+  "purpose": "Extend the existing Gekta P0 SPEED diagnostic with bounded read-only capacity and separate baseline HTTP, model-alias and swap observations, without inference, root access, service mutation, context loss or OOM risk.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
   "authorityBaseExactMain": "b966f49f823e6fb29dd955f33ceec756d442851d",
   "newRecurringCostRub": 0,
@@ -15,8 +15,12 @@
     "reuse only the dedicated protected model-host SSH identity and pinned host key",
     "run entirely as the existing least-privilege model-host SSH principal",
     "perform read-only commands only",
-    "publish only whitelisted CPU topology memory PSS service policy executable identity and llama.cpp scheduling facts",
-    "never print environment contents credentials filesystem paths raw command line prompt response model bytes or customer data"
+    "publish the existing 28 whitelisted CPU topology memory PSS service policy executable identity and llama.cpp scheduling facts plus exactly four closed baseline HTTP/model-alias/swap observation fields",
+    "never print environment contents credentials filesystem paths raw command line prompt response model bytes or customer data",
+    "validate the existing non-root baseline owner, service PID, unchanged command line, process start time, same network namespace and an owned listening socket before one bounded GET /v1/models",
+    "allow only the accepted baseline private address or an actually bound loopback address at fixed port 18080 with the exact baseline alias and scheduling profile; reject arbitrary hosts ports DNS redirects and candidate port 18081",
+    "use a single existing baseline CLI or LLAMA_API_KEY credential only in memory; reject duplicates multiple values key files or ambiguous sources",
+    "report HTTP status model alias and swap independently; nonzero swap does not suppress an authorized read-only HTTP observation and HTTP success does not imply zero swap or inference acceptance"
   ],
   "forbiddenCapabilities": [
     "production VPS credentials as fallback model-host authority",
@@ -26,6 +30,32 @@
     "file write chmod chown package install process signal or alternate model process on the model host",
     "database or REG.RU application mutation",
     "printing any secret environment value filesystem path or arbitrary ExecStart argument",
-    "new server paid API SaaS or recurring cost"
-  ]
+    "new server paid API SaaS or recurring cost",
+    "model inference POST requests redirects arbitrary endpoints or a new control-plane transport",
+    "credential output or export to another process file runner argument environment or HTTP target",
+    "refunding resetting or reusing the spent candidate execution grant, or authorizing candidate retry extra service restart apply rollback or cleanup bypass"
+  ],
+  "httpObservationContract": {
+    "baselineService": "tai-qwen3-8b.service",
+    "baselineAlias": "tai-qwen3-8b-q4km",
+    "acceptedPort": 18080,
+    "acceptedLiteralHosts": [
+      "127.0.0.1",
+      "192.168.0.206"
+    ],
+    "targetMustHaveOwnedListeningSocket": true,
+    "httpMethod": "GET",
+    "httpPath": "/v1/models",
+    "totalSocketDeadlineSeconds": 3,
+    "maximumWireBytes": 32768,
+    "maximumJsonBodyBytes": 16384,
+    "publishedFields": [
+      "MODEL_DIAG_HTTP_STATUS",
+      "MODEL_DIAG_MODEL_ALIAS",
+      "MODEL_DIAG_HTTP_RESULT",
+      "MODEL_DIAG_SWAP_ZERO"
+    ],
+    "sourceTargetAuthority": ".github/workflows/tai-qwen-model-host-repair.yml accepted private listener and scripts/pc-tai-release-controller-core.sh baseline constants",
+    "sourceAcceptanceRequired": "Fresh exact-source independent review, separate owner audit, all applicable native CI/security and ordinary full-SHA manual merge. This scope proposal is not runtime success or a candidate grant."
+  }
 }

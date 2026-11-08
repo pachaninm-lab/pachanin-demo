@@ -57,6 +57,7 @@ function bffRequest(body: Record<string, unknown>): Request {
 
 function chatRequest(input: { ticket?: string; cookie?: string }): NextRequest {
   const url = 'https://example.test/api/agro-chat?stream=1';
+  const rawBody = JSON.stringify({ message: 'Посев озимой пшеницы', locale: 'ru', context: 'gekta-standalone', history: [] });
   return {
     url,
     nextUrl: new URL(url),
@@ -72,9 +73,8 @@ function chatRequest(input: { ticket?: string; cookie?: string }): NextRequest {
         : undefined,
     },
     signal: new AbortController().signal,
-    text: async () => JSON.stringify({
-      message: 'Посев озимой пшеницы', locale: 'ru', context: 'gekta-standalone', history: [],
-    }),
+    body: new Response(rawBody).body,
+    text: async () => rawBody,
   } as unknown as NextRequest;
 }
 
@@ -204,7 +204,7 @@ describe('Gekta registration security boundary', () => {
   );
 
   it('ignores a forged client legal receipt and forwards only the server-rendered documents', async () => {
-    const fetchMock = vi.fn(async () => Response.json({ status: 'EMAIL_VERIFICATION_REQUIRED' }));
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ status: 'EMAIL_VERIFICATION_REQUIRED' }));
     vi.stubGlobal('fetch', fetchMock);
     const response = await registerPost(bffRequest({ fullName: 'Иван Агроном', phone: '+7 916 000-00-00', email: 'new@example.test',
       password: 'Sever0oborot!2026', acceptedServiceTerms: true, acceptedPersonalData: true, locale: 'en',
@@ -279,7 +279,13 @@ describe('Gekta registration security boundary', () => {
       declaredPhone: '+7 916 000-00-00',
     });
     expect(openGektaMfaTicket(ticket, 1_601)).toBeNull();
-    expect(openGektaMfaTicket(`${ticket.slice(0, -1)}x`, 1_001)).toBeNull();
+    const tamperedParts = ticket.split('.');
+    const tamperedCiphertext = Buffer.from(tamperedParts[3], 'base64url');
+    tamperedCiphertext[0] ^= 1;
+    tamperedParts[3] = tamperedCiphertext.toString('base64url');
+    const tamperedTicket = tamperedParts.join('.');
+    expect(tamperedTicket).not.toBe(ticket);
+    expect(openGektaMfaTicket(tamperedTicket, 1_001)).toBeNull();
     expect(gektaMfaCookieOptions()).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/api/gekta/auth' });
     expect(clearGektaMfaCookieOptions().maxAge).toBe(0);
     expect(() => sealGektaMfaTicket({

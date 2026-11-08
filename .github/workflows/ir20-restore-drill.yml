@@ -39,7 +39,7 @@ jobs:
           bash -n scripts/release/test-ir20-restore-drill-integration.sh
       - name: Exercise executor rejection and cleanup paths
         run: sudo /usr/bin/python3 -B scripts/release/test-ir20-restore-drill.py
-      - name: Restore a synthetic PostgreSQL snapshot with the existing image authority
+      - name: Verify logical restore and stopped physical copy with the existing image authority
         shell: bash
         run: |
           set -euo pipefail
