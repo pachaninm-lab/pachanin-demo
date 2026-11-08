@@ -14939,14 +14939,16 @@ Complete frozen five-source patch, losslessly JSON-encoded (no omission):
 ```
 
 
-## Separate admission renewal: gekta-standalone-document-language-20261108
+## Proposed compact renewal: gekta-standalone-document-language-20261108
 
-- Owner continuation: Maxim requested completion on 2026-11-08. This queue-only renewal prospectively replaces the old language source expectation with exactly the two payloads below; the complete older admission, nineteen-path vector, state, prompts, guard, workflows and other owners remain unchanged. Queue-only metadata has accepted precedents #6119 and #6121. No scope expansion or new manifest.
-- Behavior remains the matching standalone Gekta workspace document-language effect, covering both existing client-navigation language controls. RU/EN/ZH map to ru/en/zh-CN. Embedded, nested and mismatched routes do not acquire document language. In the supported single-workspace React lifecycle, cleanup restores prior values or absence while the current value still equals its own. Differently-valued later writes are preserved; no general simultaneous-owner or same-value external-setter guarantee is made. SPA navigation is unchanged.
-- The review covers the exact after payloads and the context patch identified below. The complete zero-context carrier is separately byte-bound and reproduces those same after payloads from their exact before blobs; its different patch hash is not presented as a separately reviewed diff. Source syntax and forward/reverse patch checks passed; 16 mounted cases are defined, but native Vitest, project typecheck and full TSX parsing remain NOT_RUN in this private preparation. These mocked URL/render cases are not real Next navigation or language-control click coverage. The earlier overlap/same-value counterexample is not repaired: final review classifies it outside the inspected single-workspace scope and retains the evidence.
-- Accept this metadata only through its own independent review, separate author audit, applicable native gates and ordinary expected-full-SHA manual merge. Then derive only the pinned two-file source from the then-current accepted main after matching both before blobs, preserve retained-branch history by nonforce advancement, and require fresh actual-head independent review/audit/native readiness before manual merge. The published private source receipt is not approval of the old PR #5908 head or a later unpublished head. Release, image identity, live/browser acceptance and all existing consent/account/model/MFA/DB/cost boundaries remain separate.
+This prospective renewal takes effect only after its own separately accepted metadata merge under the review/audit/native/readiness requirements below; e20 is content evidence, not accepted authority.
 
-### Exact renewed source and genuine review reference
+- Same purpose and exact two-file payload as the original public renewal. Preserve the entire accepted prefix, old 20261015 admission, nineteen-path vector, state, prompts, guards, workflows, caps and other owners. No new scope/manifest or historical rewrite. Retain e20 in ordinary nonforce metadata ancestry.
+- Same matching standalone workspace effect for both existing client-navigation controls: RU/EN/ZH → ru/en/zh-CN; embedded/nested/mismatched paths excluded. Supported single-workspace cleanup restores prior values/absence only while its assigned value remains. Differently-valued later writes survive; arbitrary overlap/same-value-owner counterexample remains unrepaired and outside the reviewed lifecycle. SPA navigation is unchanged.
+- Existing private source review covers the pinned afters/context patch. The zero-context carrier has a different disclosed hash and reproduces the same payloads; it is not a separately reviewed diff. Prior syntax/forward/reverse checks are historical source evidence. The 16 mocked mounted cases are defined; private native Vitest, project typecheck and full TSX parsing are NOT_RUN. No real Next/navigation-click or production acceptance follows.
+- Only after separate exact-head metadata review/audit/native/readiness/manual expected-SHA acceptance, derive these two after-files from then-current accepted main with both before pins matched and retained source ancestry preserved. Require fresh actual-source-head review/audit/native/readiness/manual merge. Consent/account/model/MFA/DB/cost boundaries, images, release and live/browser acceptance remain separate.
+
+### Unchanged source and genuine historical review pins
 
 ```json
 {
@@ -14961,40 +14963,18 @@ Complete frozen five-source patch, losslessly JSON-encoded (no omission):
     {
       "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
       "mode": "100644",
-      "before": {
-        "blob": "9a0743075bc6898bb80d1cee0bc90e4507b30525",
-        "bytes": 64713,
-        "sha256": "4c9ce464b52c60425eee16854a265f0751bee46c109a87358ecc2fc7cea0c81b"
-      },
-      "after": {
-        "blob": "b56a2df456e4d06d5d699e9babce4df52588585b",
-        "bytes": 65962,
-        "sha256": "6e906bc5f28538fdeed132de2e5e9122bd5e717d94f82be3c63e7750301bc30c"
-      }
+      "before": {"blob":"9a0743075bc6898bb80d1cee0bc90e4507b30525","bytes":64713,"sha256":"4c9ce464b52c60425eee16854a265f0751bee46c109a87358ecc2fc7cea0c81b"},
+      "after": {"blob":"b56a2df456e4d06d5d699e9babce4df52588585b","bytes":65962,"sha256":"6e906bc5f28538fdeed132de2e5e9122bd5e717d94f82be3c63e7750301bc30c"}
     },
     {
       "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
       "mode": "100644",
-      "before": {
-        "blob": "030dc5091ce2c3c117b97480fa366f35e182e847",
-        "bytes": 33430,
-        "sha256": "5c8718555c27bb9cbdca5225fa13368a7775a04ae76c038b3e124335092a4ee5"
-      },
-      "after": {
-        "blob": "465549122dcfdc824703975b59e503380bf295ee",
-        "bytes": 39656,
-        "sha256": "b64cc3322b7e7548d4bca19b117dc4a5c7afa6a0d5d2ef64878ea6a07cc5e6bd"
-      }
+      "before": {"blob":"030dc5091ce2c3c117b97480fa366f35e182e847","bytes":33430,"sha256":"5c8718555c27bb9cbdca5225fa13368a7775a04ae76c038b3e124335092a4ee5"},
+      "after": {"blob":"465549122dcfdc824703975b59e503380bf295ee","bytes":39656,"sha256":"b64cc3322b7e7548d4bca19b117dc4a5c7afa6a0d5d2ef64878ea6a07cc5e6bd"}
     }
   ],
-  "reviewedContextPatch": {
-    "bytes": 8788,
-    "sha256": "f8fef977c7efa2ccbb1f986874e490163c9af940b6fcb3bced31686edb74a80e"
-  },
-  "completeZeroContextPatch": {
-    "bytes": 8296,
-    "sha256": "8973b2ff9b8db8b5e6c80262077aef7687136bb1699f6334f18277ca792a3ebb"
-  },
+  "reviewedContextPatch": {"bytes":8788,"sha256":"f8fef977c7efa2ccbb1f986874e490163c9af940b6fcb3bced31686edb74a80e"},
+  "completeZeroContextPatch": {"bytes":8296,"sha256":"8973b2ff9b8db8b5e6c80262077aef7687136bb1699f6334f18277ca792a3ebb"},
   "sourceReview": {
     "kind": "independent-private-source-session-review",
     "reviewer": "/root/pr6123_release_gate",
@@ -15011,167 +14991,25 @@ Complete frozen five-source patch, losslessly JSON-encoded (no omission):
 }
 ```
 
-### Complete zero-context source carrier
+### Immutable public recovery carrier
 
-Apply with `git apply --unidiff-zero` only to the exact pinned before blobs. Every source change is included.
+[Full original public append and source diff](https://github.com/pachaninm-lab/pachanin-demo/blob/e20c5b6c5881f51e6b14fd89c582bd3d19a77c4c/docs/platform-v7/execution-queue.md#separate-admission-renewal-gekta-standalone-document-language-20261108).
 
-```diff
-diff --git a/apps/web/components/gekta/GektaChatWorkspace.tsx b/apps/web/components/gekta/GektaChatWorkspace.tsx
-index 9a0743075bc6898bb80d1cee0bc90e4507b30525..b56a2df456e4d06d5d699e9babce4df52588585b 100644
---- a/apps/web/components/gekta/GektaChatWorkspace.tsx
-+++ b/apps/web/components/gekta/GektaChatWorkspace.tsx
-@@ -164,0 +165,23 @@
-+  React.useEffect(() => {
-+    // Next client navigation retains the root layout. Only a matching standalone
-+    // route may update document language; embedded chat keeps its host's locale.
-+    if (window.location.pathname !== GEKTA_PATHS[locale]) return;
-+    const root = document.documentElement;
-+    const language = locale === 'zh' ? 'zh-CN' : locale;
-+    const previousLanguage = root.getAttribute('lang');
-+    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
-+    const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
-+    root.setAttribute('lang', language);
-+    contentLanguage?.setAttribute('content', language);
-+    return () => {
-+      // Restore only attributes that still carry this effect's value.
-+      if (root.getAttribute('lang') === language) {
-+        if (previousLanguage === null) root.removeAttribute('lang');
-+        else root.setAttribute('lang', previousLanguage);
-+      }
-+      if (contentLanguage?.getAttribute('content') === language) {
-+        if (previousContentLanguage === null) contentLanguage.removeAttribute('content');
-+        else contentLanguage.setAttribute('content', previousContentLanguage);
-+      }
-+    };
-+  }, [locale]);
-diff --git a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
-index 030dc5091ce2c3c117b97480fa366f35e182e847..465549122dcfdc824703975b59e503380bf295ee 100644
---- a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
-+++ b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
-@@ -164,0 +165,125 @@
-+  });
-+});
-+
-+describe('Gekta standalone document language lifecycle', () => {
-+  let meta: HTMLMetaElement;
-+  let previousLanguage: string | null;
-+  let previousUrl: string;
-+  let previousScrollTo: PropertyDescriptor | undefined;
-+
-+  beforeEach(() => {
-+    previousLanguage = document.documentElement.getAttribute('lang');
-+    previousUrl = window.location.href;
-+    previousScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
-+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
-+    window.localStorage.clear();
-+    document.documentElement.lang = 'ru';
-+    meta = document.createElement('meta');
-+    meta.httpEquiv = 'Content-Language';
-+    meta.content = 'ru';
-+    document.head.appendChild(meta);
-+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 401 }));
-+  });
-+
-+  afterEach(() => {
-+    cleanup();
-+    meta.remove();
-+    window.history.replaceState(null, '', previousUrl);
-+    if (previousLanguage === null) document.documentElement.removeAttribute('lang');
-+    else document.documentElement.setAttribute('lang', previousLanguage);
-+    if (previousScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', previousScrollTo);
-+    else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
-+    vi.restoreAllMocks();
-+  });
-+
-+  it('updates the mounted workspace and document on RU -> EN -> ZH -> RU client navigation', async () => {
-+    window.history.replaceState(null, '', '/gekta');
-+    const view = render(createElement(GektaChatWorkspace, { locale: 'ru' }));
-+    expect(document.documentElement.lang).toBe('ru');
-+    expect(meta.content).toBe('ru');
-+    for (const [locale, pathname, language] of [
-+      ['en', '/gekta/en', 'en'], ['zh', '/gekta/zh', 'zh-CN'], ['ru', '/gekta', 'ru'],
-+    ] as const) {
-+      window.history.replaceState(null, '', pathname);
-+      view.rerender(createElement(GektaChatWorkspace, { locale }));
-+      await waitFor(() => expect(document.documentElement.lang).toBe(language));
-+      expect(meta.content).toBe(language);
-+      expect(view.container.querySelector('textarea')?.closest('[lang]')?.getAttribute('lang')).toBe(language);
-+    }
-+  });
-+
-+  it.each([
-+    { pathname: '/platform-v7', locale: 'en' as const },
-+    { pathname: '/gekta/console', locale: 'en' as const },
-+    { pathname: '/gekta/register', locale: 'en' as const },
-+    { pathname: '/gekta/en/price', locale: 'en' as const },
-+    { pathname: '/gekta/en-extra', locale: 'en' as const },
-+    { pathname: '/gekta', locale: 'en' as const },
-+    { pathname: '/gekta/en', locale: 'ru' as const },
-+    { pathname: '/gekta/en', locale: 'zh' as const },
-+  ])('leaves document language unchanged at $pathname with locale $locale', ({ pathname, locale }) => {
-+    window.history.replaceState(null, '', pathname);
-+    render(createElement(GektaChatWorkspace, { locale }));
-+    expect(document.documentElement.lang).toBe('ru');
-+    expect(meta.content).toBe('ru');
-+  });
-+
-+  it('restores the Russian document when leaving the English workspace for a legal page', async () => {
-+    window.history.replaceState(null, '', '/gekta/en');
-+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
-+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
-+    expect(meta.content).toBe('en');
-+    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
-+    view.unmount();
-+    expect(document.documentElement.lang).toBe('ru');
-+    expect(meta.content).toBe('ru');
-+  });
-+
-+  it('keeps the matching locale when React replaces the single workspace before a legal exit', async () => {
-+    window.history.replaceState(null, '', '/gekta/en');
-+    const view = render(createElement(GektaChatWorkspace, { locale: 'en', key: 'first' }));
-+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
-+    view.rerender(createElement(GektaChatWorkspace, { locale: 'en', key: 'replacement' }));
-+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
-+    expect(meta.content).toBe('en');
-+    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
-+    view.unmount();
-+    expect(document.documentElement.lang).toBe('ru');
-+    expect(meta.content).toBe('ru');
-+  });
-+
-+  it.each([
-+    { changed: 'both attributes', root: 'fr', content: 'fr', afterRoot: 'fr', afterContent: 'fr' },
-+    { changed: 'root language', root: 'fr', content: 'en', afterRoot: 'fr', afterContent: 'ru' },
-+    { changed: 'content language', root: 'en', content: 'fr', afterRoot: 'ru', afterContent: 'fr' },
-+  ])('preserves differently-valued $changed while restoring unchanged attributes', async ({ root, content, afterRoot, afterContent }) => {
-+    window.history.replaceState(null, '', '/gekta/en');
-+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
-+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
-+    document.documentElement.lang = root;
-+    meta.content = content;
-+    view.unmount();
-+    expect(document.documentElement.lang).toBe(afterRoot);
-+    expect(meta.content).toBe(afterContent);
-+  });
-+
-+  it('preserves absent metadata instead of inventing a head element or an old lang', async () => {
-+    window.history.replaceState(null, '', '/gekta/en');
-+    meta.remove();
-+    document.documentElement.removeAttribute('lang');
-+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
-+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
-+    expect(document.head.querySelector('meta[http-equiv="Content-Language" i]')).toBeNull();
-+    view.unmount();
-+    expect(document.documentElement.hasAttribute('lang')).toBe(false);
-+  });
-+
-+  it('matches Content-Language case-insensitively and restores an absent content attribute', async () => {
-+    window.history.replaceState(null, '', '/gekta/zh');
-+    meta.httpEquiv = 'content-language';
-+    meta.removeAttribute('content');
-+    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
-+    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
-+    expect(meta.content).toBe('zh-CN');
-+    view.unmount();
-+    expect(meta.hasAttribute('content')).toBe(false);
+```json
+{
+  "kind": "immutable-public-content-only-not-accepted-authority",
+  "commit": "e20c5b6c5881f51e6b14fd89c582bd3d19a77c4c",
+  "path": "docs/platform-v7/execution-queue.md",
+  "blob": "e40684cd386d29fa5e754201e3e346b1255328d6",
+  "bytes": 3141655,
+  "sha256": "22ac241c90e50b1084f8b71e2cbdbabc67f945068da6848245ca1769f8b9caa2",
+  "appendOffsetBytes": 3128300,
+  "appendBytes": 13355,
+  "appendSha256": "b0d7a3f5f2e23adcde7abc79a00be313b2534a50194ffe6ad8240ec4a333e9f2",
+  "patchHeading": "Complete zero-context source carrier"
+}
 ```
+
+Recover the raw Git blob from that exact commit/path or GitHub's Git Blob API, never a moving branch or rendered/truncated page. Verify blob identity, full byte count/SHA256, then the UTF-8 byte range [3128300,3141655): it must be the complete original 13,355-byte append with the pinned hash. Its full behavior/limitations and source-review qualifiers are incorporated unchanged; only carrier placement differs.
+
+Within that verified append extract the complete diff fence after the pinned heading. Require exactly 8,296 bytes and the completeZeroContextPatch hash above. Apply with `git apply --unidiff-zero` only to both exact before blobs; verify mode100644 and every after blob/byte/SHA256 pin, and reverse to the same before bytes. Missing carrier, mismatched bytes, scope or pins blocks derivation; no substitute or partial patch is authorized. Preserve the original public record and private freeze intact.
