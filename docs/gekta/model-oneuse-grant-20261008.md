@@ -1,3 +1,108 @@
+# Proposed separate finite ubatch64 operation, 2026-11-08
+
+**PRIVATE PROPOSAL — NOT ISSUED.** The current user instruction to finish Gekta
+allows complete preparation and necessary retained-owner coordination. These
+source bytes do not create an allowance. Actual automated OWNER continuation,
+separate accepted metadata, independently reviewed exact source/native/security
+and manual readiness acceptance, then a fresh exact owner command are required.
+No human MFA or operational PASS is inferred from an automated owner record.
+
+This proposal is based on accepted main
+`8fbfbd9f10fb84a534fcd2073adc2e1073a33afb`. Its four before-payloads are the
+accepted source-only ubatch64 profile. Proposed purpose:
+`gekta-qwen38-iq2s-ubatch64-finite-canary-20261108`.
+Proposed grant: `gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse`.
+Both names are **NOT_ISSUED** until their actual new disposition and gates.
+
+## Why this is a separate operation
+
+The previous critical run41732219749/job126252196225 failed at post_ready with
+candidate_swap_nonzero; inference was SKIPPED and cleanup PASS. Its critical
+allowance remains SPENT and its extra remains INELIGIBLE. The accepted64 profile
+is a specific graph-buffer reduction hypothesis, not measured RAM fit or quality.
+The proposed new finite decision is explicitly about testing that changed
+profile. Renaming a grant, accepting source or changing a run never refunds
+the previous operation. There is no automatic retry or standing execution budget.
+
+Keep all earlier grants retired: `gekta-critical-5974230017`,
+`gekta-finish-20261008-4b-oneuse`, and
+`gekta-finish-20261103-qwen38-iq2s-oneuse`. Preserve every old reservation/exec
+marker, including incomplete or ineligible history, in the unchanged OS-account
+state namespace. The unique original20261103 thirteen-key admission is preserved
+byte-for-byte, SHA256
+`65597d1309a6f6ef72b06344ba5dfaa10218784cb1b69f3afc947095e4a98e5e`.
+It is not rewritten, duplicated or used to admit64.
+
+## Separate admission and actual owner receipt
+
+The new unique queue marker is dated2026-11-08 and names ubatch64. Its schema is
+`pc.gekta.model-finite-candidate-admission.v2`, with exactly fourteen keys: the
+previous fixed thirteen names plus `ownerDisposition`. There is no v1 fallback.
+New purpose/grant, all three retired grants, artifact/runtime/resource identities,
+slots1+1, four exact regular100644 UTF8 after-payloads, full source patch/review,
+false production/automatic-merge flags and zero new recurring cost must match.
+Queue remains capped at3MiB and the record at256KiB. The source owner may not
+add its own admission; separate metadata acceptance precedes source publication.
+
+`ownerDisposition` has a closed shape. Real issue3896 comment ID/timestamps/body
+and body hash enter metadata only after an actual truthful automated OWNER
+continuation. No future ID or receipt hash is hardcoded in the source. The claim
+body binds this exact operation, all four source pins and the preserved earlier
+spent/ineligible outcome. The receipt must have OWNER/login and app1144995,
+unchanged created/updated timestamps and a bounded full UTF8 body/digest.
+
+Pure source validation checks that shape and exact payload. Before any SSH
+secret injection the existing exact-current-main step additionally performs one
+fixed GitHub comment GET using its existing GH_TOKEN, explicit github.com and
+GET method,20-second timeout,64KiB body projection and128KiB normalized output
+cap. It checks actual ID/owner/association/issue3896/timestamps/app/body against
+the pinned receipt; API failure, edits or mismatches fail closed. It prints no
+raw API body or stderr. Private PENDING owner or empty independent review fails
+before that GET. Static/synthetic fixtures are not real owner/source acceptance.
+Receipt/claim status ISSUED means that the conditional owner record itself was
+issued. Its fixed grantStateAtOwnerRecord explicitly keeps execution NOT_ISSUED
+until separate metadata/source/native acceptance and the fresh owner command.
+
+An independent actual-head review, separate owner audit, all applicable native
+and security gates and ordinary full-expected-SHA manual acceptance remain
+required. Neither the receipt checker nor a source merge is a review attestor.
+
+## Exact bounded candidate and future command shape
+
+Artifact remains Qwen3.8-27B IQ2_S revision
+`4ca720788d1e01f1bff70c033e0d0028fd02e502`,8,371,970,048 bytes, SHA256
+`7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe`.
+Runtime remains aedb2a5; candidate threads16/threads-batch16/parallel1/ctx8192/
+batch512/ubatch64. Baseline remains active healthy8B with ubatch128 and unchanged
+PID/identity/restart count. No other argv, resource, artifact, guard or corpus
+selection changes are proposed. The current source-only diagnostics are retained.
+
+At most one critical10 corpus and, only after the operator inspects actual
+same-SHA critical inference PASS, cleanup PASS and unchanged healthy8B, one
+extra4 corpus. A critical marker proves consumption only. Each retains420-second
+lease, non-root identity, pinned host, private tunnel/loopback127.0.0.1:18081,
+pidfd/pre-exec/watchdog and positive process/listener/baseline cleanup. Preserve
+8GiB prelaunch,3GiB ready,2GiB runtime headroom,9GiB candidateRSS limit,
+zero-swap and the existing disk/cached-artifact integrity rules. No new cost.
+
+Future sole-body command templates, **not invocation authority now**:
+
+```
+/gekta qwen38-27b-iq2s critical FULL_40_HEX_MAIN_SHA gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse
+/gekta qwen38-27b-iq2s extra FULL_40_HEX_MAIN_SHA gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse
+```
+
+There is no service stop/restart/signal, root/sudo/password/PROD-credential
+fallback, persistent bridge, public listener, production routing, API/Web/DB
+deployment or permanent model activation authority. Candidate PASS remains
+partial evidence, not1000-question quality or production acceptance. A failure
+is preserved with its consumed slot; no rerun, refund or automatic fallback.
+
+## Earlier phases — retained verbatim as history
+
+The following source-only and earlier finite records retain their original
+meaning. They create no new allowance for this proposal.
+
 # Source-only memory profile preparation, 2026-11-05
 
 This phase proposes only four reviewed source afters on the existing
