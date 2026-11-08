@@ -1293,7 +1293,7 @@ jobs:
 
 
           class CandidateMemoryProfileContract(unittest.TestCase):
-              def test_separate_profiles_keep_original_limits_and_admission_identity(self):
+              def test_separate_profiles_keep_original_limits_with_new_finite_identity(self):
                   self.assertEqual(m.EXPECTED, BASELINE)
                   self.assertEqual(m.CANDIDATE_EXPECTED, CANDIDATE)
                   self.assertEqual(m.candidate_admission_identity()['flags'], CANDIDATE)
@@ -1301,7 +1301,7 @@ jobs:
                   self.assertEqual(m.MAX_CANDIDATE_RSS_KB, 9 * 1024 * 1024)
                   self.assertEqual((m.MIN_MEM_BEFORE_KB, m.MIN_MEM_READY_KB, m.MIN_MEM_RUNTIME_KB),
                                    (8 * 1024 * 1024, 3 * 1024 * 1024, 2 * 1024 * 1024))
-                  self.assertEqual(m.EXECUTION_GRANT, 'gekta-finish-20261103-qwen38-iq2s-oneuse')
+                  self.assertEqual(m.EXECUTION_GRANT, 'gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse')
 
               def test_real_baseline_validation_accepts_only_the_unchanged_128_profile(self):
                   argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--alias', m.BASELINE_ALIAS, *flags(BASELINE)]]
@@ -1601,6 +1601,11 @@ jobs:
                   self.temp = tempfile.TemporaryDirectory()
                   self.addCleanup(self.temp.cleanup)
                   self.root = Path(self.temp.name)
+                  accepted = (source / 'docs/platform-v7/execution-queue.md').read_text(encoding='utf-8')
+                  self.assertEqual(accepted.count(m.RETIRED_ADMISSION_MARKER), 1)
+                  old_body = accepted.split(m.RETIRED_ADMISSION_MARKER, 1)[1].split('\n```\n', 1)[0]
+                  self.retired = m.RETIRED_ADMISSION_MARKER + old_body + '\n```\n'
+                  self.assertEqual(hashlib.sha256(self.retired.encode()).hexdigest(), m.RETIRED_ADMISSION_SHA256)
                   pins = []
                   for relative, before_blob in zip(m.ADMISSION_PATHS, m.ADMISSION_BEFORE_BLOBS):
                       p = self.root / relative
@@ -1611,22 +1616,148 @@ jobs:
                       pins.append({'path': relative, 'mode': '100644',
                           'beforeBlob': before_blob, 'afterBlob': hashlib.sha1(b'blob ' + str(len(value)).encode() + b'\0' + value).hexdigest(),
                           'bytes': len(value), 'sha256': hashlib.sha256(value).hexdigest()})
-                  self.purpose = {'schemaVersion': 'pc.gekta.model-finite-candidate-admission.v1',
+                  self.purpose = {'schemaVersion': 'pc.gekta.model-finite-candidate-admission.v2',
                       'purposeId': m.ADMISSION_PURPOSE, 'sourceBranch': 'fix/gekta-candidate-oneuse-grant-20261008',
                       'executionGrant': m.EXECUTION_GRANT,
-                      'retiredGrants': [m.RETIRED_EXECUTION_GRANT, m.PREVIOUS_EXECUTION_GRANT],
+                      'retiredGrants': list(m.RETIRED_EXECUTION_GRANTS),
                       'candidate': m.candidate_admission_identity(), 'slots': {'critical': 1, 'extra': 1},
                       'sourcePayloads': pins, 'sourcePatch': digest('SYNTHETIC patch fixture, not source acceptance'),
                       'independentSourceReview': digest('SYNTHETIC review fixture, not independent approval'),
                       'productionMutationAuthorized': False, 'automaticMergeAllowed': False, 'newRecurringCostRub': 0}
+                  # This is a synthetic static-shape fixture, not a live GitHub
+                  # receipt or source/owner acceptance. Production provenance is
+                  # independently verified before the real metadata is accepted.
+                  claim = {'schemaVersion': 'pc.gekta.finite-owner-disposition.v1',
+                      'status': 'ISSUED', 'owner': 'pachaninm-lab',
+                      'grantStateAtOwnerRecord': 'NOT_ISSUED_UNTIL_SEPARATE_METADATA_SOURCE_NATIVE_ACCEPTANCE_AND_FRESH_COMMAND'}
+                  for key in ('purposeId', 'sourceBranch', 'executionGrant', 'retiredGrants', 'candidate', 'slots',
+                              'sourcePayloads', 'productionMutationAuthorized', 'automaticMergeAllowed', 'newRecurringCostRub'):
+                      claim[key] = copy.deepcopy(self.purpose[key])
+                  claim['preservedPriorDisposition'] = {
+                      'executionGrant': 'gekta-finish-20261103-qwen38-iq2s-oneuse', 'criticalRunId': 41732219749,
+                      'criticalSlot': 'SPENT_NO_REFUND', 'extraSlot': 'INELIGIBLE_NO_ACTUAL_CRITICAL_PASS'}
+                  self.purpose['ownerDisposition'] = {'status': 'ISSUED', 'author': 'pachaninm-lab',
+                      'authorAssociation': 'OWNER', 'repository': 'pachaninm-lab/pachanin-demo',
+                      'issueNumber': 3896, 'commentId': 1, 'performedViaGithubAppId': 1144995,
+                      'createdAt': '2026-11-08T00:00:00Z',
+                      'updatedAt': '2026-11-08T00:00:00Z',
+                      'body': digest(m.OWNER_DISPOSITION_PREFIX + json.dumps(claim, ensure_ascii=False))}
                   self.queue = self.root / 'docs/platform-v7/execution-queue.md'
                   self.write(self.purpose)
 
               def write(self, purpose):
-                  self.queue.write_text('accepted history\n' + m.ADMISSION_MARKER + json.dumps(purpose, ensure_ascii=False) + '\n```\n', encoding='utf-8')
+                  self.queue.write_text('accepted history\n' + self.retired + m.ADMISSION_MARKER + json.dumps(purpose, ensure_ascii=False) + '\n```\n', encoding='utf-8')
 
               def test_complete_fixed_four_payload_candidate(self):
                   m.validate_admitted_candidate_source(self.root)
+
+              def test_old_record_alone_and_changed_or_duplicate_history_are_rejected(self):
+                  for history in ('', self.retired + self.retired, self.retired.replace('"ubatch": "128"', '"ubatch": "64"')):
+                      self.write(self.purpose)
+                      self.queue.write_text(self.queue.read_text().replace(self.retired, history))
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  self.queue.write_text(self.retired)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  old = json.loads(self.retired[len(m.RETIRED_ADMISSION_MARKER):-5])
+                  self.write(old)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_pending_empty_review_and_all_retired_grants_fail_closed(self):
+                  pending = copy.deepcopy(self.purpose); pending['ownerDisposition']['status'] = 'PENDING'
+                  empty_review = copy.deepcopy(self.purpose); empty_review['independentSourceReview'] = digest('')
+                  cases = [pending, empty_review]
+                  for retired in m.RETIRED_EXECUTION_GRANTS:
+                      p = copy.deepcopy(self.purpose); p['executionGrant'] = retired; cases.append(p)
+                  p = copy.deepcopy(self.purpose); p['candidate']['flags']['ubatch'] = '128'; cases.append(p)
+                  p = copy.deepcopy(self.purpose); p['schemaVersion'] = 'pc.gekta.model-finite-candidate-admission.v1'; cases.append(p)
+                  for p in cases:
+                      self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_owner_receipt_is_closed_immutable_and_bound_to_payload(self):
+                  for key, value in [('status', 'PENDING'), ('author', 'other'), ('authorAssociation', 'COLLABORATOR'),
+                                     ('repository', 'other/repo'), ('issueNumber', True), ('issueNumber', 5469),
+                                     ('commentId', True), ('commentId', 0), ('commentId', -1), ('performedViaGithubAppId', 1),
+                                     ('createdAt', '2026-99-99T00:00:00Z'), ('updatedAt', '2026-11-08T00:00:01Z')]:
+                      p = copy.deepcopy(self.purpose); p['ownerDisposition'][key] = value; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for key in self.purpose['ownerDisposition']:
+                      p = copy.deepcopy(self.purpose); del p['ownerDisposition'][key]; self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  p = copy.deepcopy(self.purpose); p['ownerDisposition']['extra'] = True; self.write(p)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  original = self.purpose['ownerDisposition']['body']['content']
+                  claim = json.loads(original[len(m.OWNER_DISPOSITION_PREFIX):])
+                  for key, value in [('owner', 'other'), ('status', 'PENDING'), ('executionGrant', m.PREVIOUS_FINITE_EXECUTION_GRANT),
+                                     ('grantStateAtOwnerRecord', 'UNCONDITIONAL'),
+                                     ('sourceBranch', 'other'), ('sourcePayloads', []), ('preservedPriorDisposition', {}),
+                                     ('slots', {'critical': 2, 'extra': 1}), ('extra', True)]:
+                      changed = copy.deepcopy(claim); changed[key] = value
+                      p = copy.deepcopy(self.purpose)
+                      p['ownerDisposition']['body'] = digest(m.OWNER_DISPOSITION_PREFIX + json.dumps(changed))
+                      self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  for content in [original.replace('"owner": "pachaninm-lab"', '"owner": "pachaninm-lab", "owner": "pachaninm-lab"'),
+                                  original + ' extra', 'other-prefix\n' + original, 'x' * (64 * 1024 + 1)]:
+                      p = copy.deepcopy(self.purpose); p['ownerDisposition']['body'] = digest(content); self.write(p)
+                      with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+                  p = copy.deepcopy(self.purpose); p['ownerDisposition']['body']['content'] += 'changed'; self.write(p)
+                  with self.assertRaises(m.CandidateError): m.validate_admitted_candidate_source(self.root)
+
+              def test_actual_owner_get_is_fixed_bounded_and_exactly_matched(self):
+                  from unittest import mock
+                  import subprocess
+                  import types
+                  receipt = self.purpose['ownerDisposition']
+                  observed = {'commentId': 1, 'author': 'pachaninm-lab', 'authorAssociation': 'OWNER',
+                      'issueUrl': 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/3896',
+                      'createdAt': receipt['createdAt'], 'updatedAt': receipt['updatedAt'],
+                      'performedViaGithubAppId': 1144995, 'body': receipt['body']['content']}
+                  good = json.dumps(observed).encode()
+                  with mock.patch.object(m.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0, stdout=good)) as get:
+                      m.validate_admitted_owner_disposition(self.root)
+                  self.assertEqual(get.call_count, 1)
+                  args = get.call_args.args[0]
+                  self.assertEqual(args[:7], ['gh', 'api', '--hostname', 'github.com', '--method', 'GET',
+                      'repos/pachaninm-lab/pachanin-demo/issues/comments/1'])
+                  self.assertIn('utf8bytelength) > 65536', args[-1])
+                  self.assertEqual(get.call_args.kwargs['timeout'], 20)
+                  self.assertEqual(get.call_args.kwargs['stderr'], subprocess.DEVNULL)
+                  cases = []
+                  for key, value in [('commentId', True), ('commentId', 2), ('author', 'other'),
+                                     ('authorAssociation', 'COLLABORATOR'), ('issueUrl', 'https://api.github.com/repos/other/repo/issues/3896'),
+                                     ('issueUrl', 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/5469'),
+                                     ('updatedAt', '2026-11-08T00:00:01Z'), ('performedViaGithubAppId', None),
+                                     ('body', receipt['body']['content'] + 'edited'), ('unknown', True)]:
+                      changed = copy.deepcopy(observed); changed[key] = value; cases.append(json.dumps(changed).encode())
+                  for key in observed:
+                      changed = copy.deepcopy(observed); del changed[key]; cases.append(json.dumps(changed).encode())
+                  cases.extend([b'', b'\xff', b'{' + good[1:-1] + b', "commentId": 1}', b'x' * (128 * 1024 + 1)])
+                  for raw in cases:
+                      with mock.patch.object(m.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0, stdout=raw)):
+                          with self.assertRaisesRegex(m.CandidateError, 'owner_disposition_invalid'):
+                              m.validate_admitted_owner_disposition(self.root)
+                  for failure in [types.SimpleNamespace(returncode=1, stdout=good), subprocess.TimeoutExpired('gh', 20), OSError('missing gh')]:
+                      kwargs = {'side_effect': failure} if isinstance(failure, Exception) else {'return_value': failure}
+                      with mock.patch.object(m.subprocess, 'run', **kwargs):
+                          with self.assertRaisesRegex(m.CandidateError, 'owner_disposition_invalid'):
+                              m.validate_admitted_owner_disposition(self.root)
+
+              def test_pending_or_bad_source_never_gets_owner_api(self):
+                  from unittest import mock
+                  for mode in ('pending', 'changed_source', 'old_record_only'):
+                      self.write(self.purpose)
+                      changed = None
+                      if mode == 'pending':
+                          p = copy.deepcopy(self.purpose); p['ownerDisposition']['status'] = 'PENDING'; self.write(p)
+                      elif mode == 'changed_source':
+                          changed = self.root / m.ADMISSION_PATHS[0]; saved = changed.read_bytes(); changed.write_bytes(saved + b'changed')
+                      else:
+                          self.queue.write_text(self.retired)
+                      with mock.patch.object(m.subprocess, 'run') as get:
+                          with self.assertRaises(m.CandidateError): m.validate_admitted_owner_disposition(self.root)
+                      get.assert_not_called()
+                      if changed is not None: changed.write_bytes(saved)
 
               def test_identity_authority_and_slot_mutations_are_rejected(self):
                   changes = [
@@ -1770,6 +1901,42 @@ jobs:
                   self.claim()
                   self.assertEqual({p: p.read_bytes() for p in old}, old)
                   self.assertTrue(self.marker().is_file())
+
+              def test_all_twelve_old_markers_unchanged_through_new_reservation_and_cleanup(self):
+                  os.close(module.execution_state_directory())
+                  old = {}
+                  for retired in module.RETIRED_EXECUTION_GRANTS:
+                      for corpus in ('critical', 'extra'):
+                          for suffix in ('', '-exec'):
+                              p = self.state / ('execution-' + retired + '-' + corpus + suffix + '.json')
+                              p.write_bytes(('historical disposition ' + retired + corpus + suffix).encode())
+                              p.chmod(0o600)
+                              old[p] = p.read_bytes()
+                          with self.assertRaisesRegex(module.CandidateError, 'grant_retired'):
+                              module.reserve_execution(retired, corpus, self.sha, self.sha)
+                  self.claim(); self.claim(exec_release=True)
+                  with contextlib.ExitStack() as stack:
+                      for name, value in {'require_nonroot': None, 'load_state': {'pid': 999}, 'stop_candidate': None,
+                                          'verify_listener_absent': None, 'stop_watchdog': None, 'baseline_matches_state': True,
+                                          'baseline_runtime_healthy': True, 'proc_kb': 0, 'emit': None}.items():
+                          stack.enter_context(mock.patch.object(module, name, return_value=value))
+                      stack.enter_context(mock.patch.object(module, 'PID_PATH', self.state / 'candidate.pid'))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', self.state / 'identity.json'))
+                      module.cleanup()
+                  self.assertEqual({p: p.read_bytes() for p in old}, old)
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'): self.claim()
+
+              def test_every_retired_cli_command_fails_before_secret_or_process(self):
+                  for retired in module.RETIRED_EXECUTION_GRANTS:
+                      for corpus in ('critical', 'extra'):
+                          stdin = mock.Mock()
+                          argv = [str(path), 'start', '--candidate-key-stdin', '--execution-grant', retired,
+                                  '--corpus', corpus, '--admitted-sha', self.sha, '--checkout-sha', self.sha]
+                          with mock.patch.object(module, 'require_nonroot'), mock.patch.object(module.subprocess, 'Popen') as spawn, \
+                               mock.patch.object(sys, 'argv', argv), mock.patch.object(sys, 'stdin', stdin), contextlib.redirect_stdout(io.StringIO()):
+                              self.assertEqual(module.main(), 1)
+                          stdin.read.assert_not_called(); spawn.assert_not_called()
+                  self.assertFalse(self.state.exists())
 
               def test_legacy_start_is_rejected_before_any_process_or_secret_read(self):
                   stdin = mock.Mock()
@@ -2016,8 +2183,8 @@ jobs:
             const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
             const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
             for (const [command, corpus, expected] of [
-              ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse', 'critical', [critical]],
-              ['/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse', 'extra', [extra]],
+              ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse', 'critical', [critical]],
+              ['/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse', 'extra', [extra]],
             ]) {
               fs.writeFileSync(output, '');
               const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
@@ -2036,10 +2203,12 @@ jobs:
               '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
               '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
               '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse',
+              '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse',
+              '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse',
             ]) {
               assert.equal(spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } }).status, 1);
             }
-            for (const command of ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261103-qwen38-iq2s-oneuse ', '', '/gekta qwen38-27b-iq2s candidate current-main', '/gekta qwen38-27b-iq2s candidate ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical current-main', '/gekta qwen38-27b-iq2s extra current-main', '/gekta qwen38-27b-iq2s critical ' + 'A'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(39), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' ', '/gekta qwen38-27b-iq2s extra current-main ', '/gekta qwen38-27b-iq2s anything current-main', '/gekta qwen38-27b-iq2s extra arbitrary-sha']) {
+            for (const command of ['/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen38-27b-iq2s critical ' + 'a'.repeat(40) + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse ', '', '/gekta qwen38-27b-iq2s candidate current-main', '/gekta qwen38-27b-iq2s candidate ' + 'a'.repeat(40), '/gekta qwen38-27b-iq2s critical current-main', '/gekta qwen38-27b-iq2s extra current-main', '/gekta qwen38-27b-iq2s critical ' + 'A'.repeat(40), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(39), '/gekta qwen38-27b-iq2s extra ' + 'a'.repeat(40) + ' ', '/gekta qwen38-27b-iq2s extra current-main ', '/gekta qwen38-27b-iq2s anything current-main', '/gekta qwen38-27b-iq2s extra arbitrary-sha']) {
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
               assert.equal(result.status, 1);
             }
@@ -2057,7 +2226,7 @@ jobs:
             for (const [admitted, main, head, api, status] of [[a,a,a,a,0], [b,a,a,a,1], [a,b,a,a,1], [a,a,b,a,1], [a,a,a,b,1]]) {
               fs.writeFileSync(output, '');
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + resolution], {
-                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen38-27b-iq2s critical ' + admitted + ' gekta-finish-20261103-qwen38-iq2s-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
+                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen38-27b-iq2s critical ' + admitted + ' gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
               });
               assert.equal(result.status, status, 'admitted SHA/checkout/current main mismatch must fail before transport');
             }
@@ -2145,7 +2314,7 @@ jobs:
           set -Eeuo pipefail
           # The owner command admits one full source SHA. Legacy/combined commands
           # cannot reach transport; this fence does not create another allowance.
-          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen38-27b-iq2s\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261103-qwen38-iq2s-oneuse$ ]]; then
+          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen38-27b-iq2s\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse$ ]]; then
             corpus="${BASH_REMATCH[1]}"
             admitted_sha="${BASH_REMATCH[2]}"
           else
@@ -2172,7 +2341,7 @@ jobs:
           spec = importlib.util.spec_from_file_location('admitted_candidate', path)
           module = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(module)
-          module.validate_admitted_candidate_source(Path.cwd())
+          module.validate_admitted_owner_disposition(Path.cwd())
           print('QWEN38_FINITE_ADMISSION=PASS')
           PY_QWEN38_ADMISSION
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
@@ -2328,7 +2497,7 @@ jobs:
               -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               "$MODEL_USER@$MODEL_HOST" \
-              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261103-qwen38-iq2s-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
+              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
             | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_NONROOT_PARALLEL=1' "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"

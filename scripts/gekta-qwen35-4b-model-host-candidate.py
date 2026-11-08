@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import http.client
 import json
@@ -34,7 +35,11 @@ LEASE_SECONDS = 420
 # workflow retries cannot replenish either slot; retired markers stay untouched.
 RETIRED_EXECUTION_GRANT = "gekta-critical-5974230017"
 PREVIOUS_EXECUTION_GRANT = "gekta-finish-20261008-4b-oneuse"
-EXECUTION_GRANT = "gekta-finish-20261103-qwen38-iq2s-oneuse"
+PREVIOUS_FINITE_EXECUTION_GRANT = "gekta-finish-20261103-qwen38-iq2s-oneuse"
+RETIRED_EXECUTION_GRANTS = (RETIRED_EXECUTION_GRANT, PREVIOUS_EXECUTION_GRANT, PREVIOUS_FINITE_EXECUTION_GRANT)
+# Proposed new operation, not issued by these source bytes. Its separately
+# accepted v2 admission must bind a real owner disposition and all four afters.
+EXECUTION_GRANT = "gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse"
 LEASE_TERM_MARGIN_SECONDS = 2.0
 LEASE_KILL_MARGIN_SECONDS = 1.0
 LEASE_POLL_SECONDS = 0.25
@@ -1325,8 +1330,11 @@ def emit_candidate_start_diagnostic(log, cursor: tuple, phase: str) -> None:
     except Exception:
         pass
 
-ADMISSION_PURPOSE = "gekta-qwen38-iq2s-finite-canary-20261103"
-ADMISSION_MARKER = "\n## Gekta Qwen3.8 IQ2_S finite candidate admission — 2026-11-03\n\n```json\n"
+ADMISSION_PURPOSE = "gekta-qwen38-iq2s-ubatch64-finite-canary-20261108"
+ADMISSION_MARKER = "\n## Gekta Qwen3.8 IQ2_S ubatch64 finite candidate admission — 2026-11-08\n\n```json\n"
+RETIRED_ADMISSION_MARKER = "\n## Gekta Qwen3.8 IQ2_S finite candidate admission — 2026-11-03\n\n```json\n"
+RETIRED_ADMISSION_SHA256 = "65597d1309a6f6ef72b06344ba5dfaa10218784cb1b69f3afc947095e4a98e5e"
+OWNER_DISPOSITION_PREFIX = "GEKTA_FINITE_MODEL_OWNER_DISPOSITION\n"
 ADMISSION_PATHS = (
     ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
     "scripts/gekta-qwen35-4b-model-host-candidate.py",
@@ -1334,10 +1342,10 @@ ADMISSION_PATHS = (
     "docs/gekta/model-oneuse-grant-20261008.md",
 )
 ADMISSION_BEFORE_BLOBS = (
-    "5c2c80eb7746937e84e7fb8481f6886aa88dca86",
-    "f71c03e5972106270ae3f63f88e9836227bccac4",
-    "cae8c009067076fe7a10d53498af118e71b2fea8",
-    "173b6ed2a7af99bbe7f4acc808f893970a1880b7",
+    "3c0b29666508d3978960b282c1d14fbec777fc58",
+    "e612f77a5e2d65d524fac28a97bdb9477ebe27f1",
+    "a6a865f5defc3c65f565fd7a76d317de5b698752",
+    "4b4cd2b8277aa1142ba15b6be05ef144c91c93ef",
 )
 
 def candidate_admission_identity() -> dict:
@@ -1352,10 +1360,12 @@ def candidate_admission_identity() -> dict:
         "minMemRuntimeKb": MIN_MEM_RUNTIME_KB, "maxCandidateRssKb": MAX_CANDIDATE_RSS_KB,
     }
 
-def validate_admitted_candidate_source(root: pathlib.Path) -> None:
+def validate_admitted_candidate_source(root: pathlib.Path) -> dict:
     """Read the separately accepted default-branch purpose before SSH secrets.
 
-    This checks fixed bytes and a finite grant; it is not a review attestor.
+    This pure check validates fixed bytes and a closed owner-receipt payload.
+    The runner additionally calls validate_admitted_owner_disposition() for the
+    actual GitHub receipt before SSH. Neither is a native/source review attestor.
     Source publication may not add its own queue admission within this owner.
     """
     def reject(*_):
@@ -1379,6 +1389,15 @@ def validate_admitted_candidate_source(root: pathlib.Path) -> None:
         if len(bounded) > 3 * 1024 * 1024:
             reject()
         raw = bounded.decode("utf-8", errors="strict")
+        if raw.count(RETIRED_ADMISSION_MARKER) != 1:
+            reject()
+        retired_tail = raw.split(RETIRED_ADMISSION_MARKER, 1)[1]
+        retired_end = retired_tail.find("\n```\n")
+        if retired_end < 0:
+            reject()
+        retired_record = (RETIRED_ADMISSION_MARKER + retired_tail[:retired_end] + "\n```\n").encode("utf-8")
+        if hashlib.sha256(retired_record).hexdigest() != RETIRED_ADMISSION_SHA256:
+            reject()
         if raw.count(ADMISSION_MARKER) != 1:
             reject()
         tail = raw.split(ADMISSION_MARKER, 1)[1]
@@ -1388,16 +1407,16 @@ def validate_admitted_candidate_source(root: pathlib.Path) -> None:
         p = json.loads(tail[:end], object_pairs_hook=unique, parse_constant=reject)
         keys = {"schemaVersion", "purposeId", "sourceBranch", "executionGrant", "retiredGrants",
                 "candidate", "slots", "sourcePayloads", "sourcePatch", "independentSourceReview",
-                "productionMutationAuthorized", "automaticMergeAllowed", "newRecurringCostRub"}
+                "productionMutationAuthorized", "automaticMergeAllowed", "newRecurringCostRub", "ownerDisposition"}
         if not isinstance(p, dict) or set(p) != keys:
             reject()
-        if (p["schemaVersion"] != "pc.gekta.model-finite-candidate-admission.v1"
+        if (p["schemaVersion"] != "pc.gekta.model-finite-candidate-admission.v2"
             or p["purposeId"] != ADMISSION_PURPOSE
             or p["sourceBranch"] != "fix/gekta-candidate-oneuse-grant-20261008"
             or p["executionGrant"] != EXECUTION_GRANT
             or p["productionMutationAuthorized"] is not False or p["automaticMergeAllowed"] is not False
             or type(p["newRecurringCostRub"]) is not int or p["newRecurringCostRub"] != 0
-            or not exact(p["retiredGrants"], [RETIRED_EXECUTION_GRANT, PREVIOUS_EXECUTION_GRANT])
+            or not exact(p["retiredGrants"], list(RETIRED_EXECUTION_GRANTS))
             or not exact(p["candidate"], candidate_admission_identity())
             or not exact(p["slots"], {"critical": 1, "extra": 1})):
             reject()
@@ -1431,13 +1450,105 @@ def validate_admitted_candidate_source(root: pathlib.Path) -> None:
             value = item["content"].encode("utf-8")
             if type(item["bytes"]) is not int or not 0 < len(value) == item["bytes"] <= 192 * 1024 or hashlib.sha256(value).hexdigest() != item["sha256"]:
                 reject()
+        receipt = p["ownerDisposition"]
+        receipt_keys = {"status", "author", "authorAssociation", "repository", "issueNumber",
+                        "commentId", "createdAt", "updatedAt", "performedViaGithubAppId", "body"}
+        if (not isinstance(receipt, dict) or set(receipt) != receipt_keys
+            or receipt["status"] != "ISSUED" or receipt["author"] != "pachaninm-lab"
+            or receipt["authorAssociation"] != "OWNER"
+            or receipt["repository"] != "pachaninm-lab/pachanin-demo"
+            or type(receipt["issueNumber"]) is not int or receipt["issueNumber"] != 3896
+            or type(receipt["performedViaGithubAppId"]) is not int or receipt["performedViaGithubAppId"] != 1144995
+            or type(receipt["commentId"]) is not int or not 0 < receipt["commentId"] < 2**63
+            or not isinstance(receipt["createdAt"], str)
+            or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", receipt["createdAt"])
+            or receipt["updatedAt"] != receipt["createdAt"]):
+            reject()
+        datetime.datetime.strptime(receipt["createdAt"], "%Y-%m-%dT%H:%M:%SZ")
+        body = receipt["body"]
+        if (not isinstance(body, dict) or set(body) != {"content", "bytes", "sha256"}
+            or not isinstance(body["content"], str) or type(body["bytes"]) is not int):
+            reject()
+        body_raw = body["content"].encode("utf-8")
+        if (not 0 < len(body_raw) == body["bytes"] <= 64 * 1024
+            or hashlib.sha256(body_raw).hexdigest() != body["sha256"]
+            or not body["content"].startswith(OWNER_DISPOSITION_PREFIX)):
+            reject()
+        claim = json.loads(body["content"][len(OWNER_DISPOSITION_PREFIX):], object_pairs_hook=unique, parse_constant=reject)
+        expected_claim = {"schemaVersion": "pc.gekta.finite-owner-disposition.v1", "status": "ISSUED",
+                          "owner": "pachaninm-lab",
+                          "grantStateAtOwnerRecord": "NOT_ISSUED_UNTIL_SEPARATE_METADATA_SOURCE_NATIVE_ACCEPTANCE_AND_FRESH_COMMAND"}
+        for field in ("purposeId", "sourceBranch", "executionGrant", "retiredGrants", "candidate", "slots",
+                      "sourcePayloads", "productionMutationAuthorized", "automaticMergeAllowed", "newRecurringCostRub"):
+            expected_claim[field] = p[field]
+        expected_claim["preservedPriorDisposition"] = {
+            "executionGrant": PREVIOUS_FINITE_EXECUTION_GRANT, "criticalRunId": 41732219749,
+            "criticalSlot": "SPENT_NO_REFUND", "extraSlot": "INELIGIBLE_NO_ACTUAL_CRITICAL_PASS"}
+        if not exact(claim, expected_claim):
+            reject()
+        return receipt
     except CandidateError:
         raise
     except Exception:
         reject()
 
+def validate_actual_owner_disposition(receipt: dict, raw: bytes) -> None:
+    """Validate the closed API projection against the separately pinned receipt."""
+    def reject(*_):
+        fail("candidate_owner_disposition_invalid")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                reject()
+            value[key] = item
+        return value
+    try:
+        if not isinstance(raw, bytes) or not 0 < len(raw) <= 128 * 1024:
+            reject()
+        observed = json.loads(raw.decode("utf-8", errors="strict"), object_pairs_hook=unique, parse_constant=reject)
+        expected = {
+            "commentId": receipt["commentId"], "author": receipt["author"],
+            "authorAssociation": receipt["authorAssociation"],
+            "issueUrl": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/3896",
+            "createdAt": receipt["createdAt"], "updatedAt": receipt["updatedAt"],
+            "performedViaGithubAppId": receipt["performedViaGithubAppId"], "body": receipt["body"]["content"]}
+        if json.dumps(observed, sort_keys=True, ensure_ascii=False, allow_nan=False) != json.dumps(expected, sort_keys=True, ensure_ascii=False, allow_nan=False):
+            reject()
+    except CandidateError:
+        raise
+    except Exception:
+        reject()
+
+def validate_admitted_owner_disposition(root: pathlib.Path) -> None:
+    """One fixed GitHub GET using the runner's existing GH_TOKEN, before SSH.
+
+    No comment ID or body hash is hardcoded in source. The trusted metadata
+    supplies them after an actual automated OWNER continuation. A private
+    PENDING record fails the pure source check before this network request.
+    """
+    receipt = validate_admitted_candidate_source(root)
+    projection = ('if ((.body | type) != "string" or (.body | utf8bytelength) > 65536) '
+                  'then error("owner_receipt_body_invalid") else '
+                  '{commentId: .id, author: .user.login, authorAssociation: .author_association, '
+                  'issueUrl: .issue_url, createdAt: .created_at, updatedAt: .updated_at, '
+                  'performedViaGithubAppId: .performed_via_github_app.id, body: .body} end')
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--hostname", "github.com", "--method", "GET",
+             "repos/pachaninm-lab/pachanin-demo/issues/comments/" + str(receipt["commentId"]),
+             "--jq", projection],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20, check=False)
+        if result.returncode != 0:
+            fail("candidate_owner_disposition_invalid")
+        validate_actual_owner_disposition(receipt, result.stdout)
+    except CandidateError:
+        raise
+    except Exception:
+        fail("candidate_owner_disposition_invalid")
+
 def validate_execution_arguments(execution_grant: str, corpus: str, admitted_sha: str, checkout_sha: str) -> None:
-    if execution_grant in (RETIRED_EXECUTION_GRANT, PREVIOUS_EXECUTION_GRANT):
+    if execution_grant in RETIRED_EXECUTION_GRANTS:
         fail("candidate_execution_grant_retired")
     if execution_grant != EXECUTION_GRANT or corpus not in ("critical", "extra"):
         fail("candidate_execution_grant_invalid")
