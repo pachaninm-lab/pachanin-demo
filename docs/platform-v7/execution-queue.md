@@ -14937,3 +14937,241 @@ Complete frozen five-source patch, losslessly JSON-encoded (no omission):
 ```json
 {"schema":"pc.docker-startup-source-admission.v1","core":{"purposeId":"docker-startup-exact-source-admission-20261108","owner":"ACCOUNT_1_CORE","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","governanceBranch":"governance/gekta-recovery-trusted-routes-20260927","metadataBranch":"governance/industrial-load-diagnostics-20260919","retainedMetadataScope":["docs/platform-v7/autopilot/autopilot-state.json","docs/platform-v7/execution-queue.md","docs/platform-v7/autopilot/prompts/current-codex-task.md","docs/platform-v7/autopilot/prompts/current-review-task.md","scripts/p7-autopilot-guard.sh","scripts/p7-autopilot-guard.test.mjs",".github/workflows/platform-v7-autopilot-guard.yml"],"metadataChangedPaths":["docs/platform-v7/execution-queue.md"],"authorityBaseExactMain":"f05fc11d816333e3539c75c648598b084ce51b33","ownerBasis":{"commentId":6615436499,"bodyBytes":19034,"bodySha256":"9a9dd28f9f91e3a7a03ed38807a0979e67f48635656c304ae00c4bcaa655adf6","updatedAt":"2026-11-05T02:10:01Z","section":3},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"},"sourcePaths":[".github/workflows/production-docker-headroom-diagnostic.yml","scripts/test_production_stopped_runtime_headroom.py"],"sourcePayloads":[{"before":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"3c79a43a5495848711e5e9518c9e933aba83fc82","bytes":477440,"sha256":"2860b9abd30a929a8e0538f5515f5ea34864d8b5e08cac8910511c296c19b22c"},"after":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"0f0dd1a2e367befd7083acba07b3853c648d56cf","bytes":539439,"sha256":"e8893355770b8db2db65618df178f9a79ee701c4095e4eee6c5322cebfeb2e60"}},{"before":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},"after":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"}}],"wholeBeforePrefixRequired":true,"governanceBefore":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"b2ba003b3f80897065cb582d66e4b9c32a267c4f","bytes":145288,"sha256":"e9b608594b5641c5a51dbe9c31f3095e01c6ecf1c499417bd8dba23885d175c7"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"dd38d18342d95c3dca92bcdf92fd6bee673b7283","bytes":189692,"sha256":"e138627ffcc74b64554f07762a9da70c7c160d9b270140f597602e0ce9310928"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"a1ca5ded38328f03f2a795e25be3e8004c6a54f0","bytes":318448,"sha256":"410fb425cf09642fe04aab57d21adcb2a6494cd9a4ff9fcd41dd49d3a87bf150"}],"state":{"path":"docs/platform-v7/autopilot/autopilot-state.json","mode":"100644","blob":"aee9ddbb7a45f145db6185c5289038d3a931c1de","bytes":3145513,"sha256":"8afad21d3db9fa5b20ab11fcc4d60cb164dcf47b6168b7e9b804ee4c1f3be570"},"unchangedHelpers":[{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},{"path":"scripts/production_stopped_runtime_headroom.py","mode":"100644","blob":"1577966d56b9cdd6a5ce586f9f63096a53a4e7b9","bytes":34619,"sha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"},{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","blob":"c205a662192d1d777a2f8db167e4fce86f92047d","bytes":174348,"sha256":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"path":".github/workflows/production-stopped-runtime-headroom.yml","mode":"100644","blob":"9d68f6ec4b032f6fae0dad8a68782b53423d1db2","bytes":16047,"sha256":"24530a00803c3d8858271fc566ccd19d201cb687439582ecf72ff84c8e93ca8b"},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","blob":"68eeba7446ec04da91facffcb2da81a64c90c706","bytes":92348,"sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af"},{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","blob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","bytes":18220,"sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943"},{"path":".github/workflows/production-full-stack-exact-sha.yml","mode":"100644","blob":"f0073b774c9448d8af497be02bbbe3c18f8c9b9d","bytes":61098,"sha256":"87aa4e5002aa68bf4476fe4a6af72e1fd9f3855c96e486b5dd097c7d55ba70cf"}],"sourcePatch":{"bytes":63529,"sha256":"08a2a0b8d59658df72887a3f84f8695f35f7e8d9198443cc17709f6c4756045c"},"sourceReviewArtifact":{"bytes":17317,"sha256":"0a88721124e28b1d34cb0bb2574c926c379708a5cd9935fb3cfb1c8367a106af"},"snapshot":{"exactFiles":8,"sharedCommand":["python3","-I","-B","scripts/test_production_stopped_runtime_headroom.py"],"wholeSharedSuiteRequired":true,"wholeNewStartupSuiteRequired":true,"unfilteredNodeRequired":true},"startupInline":[{"tag":"PY_DOCKER_STARTUP_CONTROLLER","filename":"docker-startup-controller.py","bytes":12869,"sha256":"3eea00d140637df95f776a4b280da65c4fc9372e8696d817d88f618d8b9cdfa0"},{"tag":"PY_DOCKER_STARTUP_FIXTURES","filename":"docker-startup-fixtures.py","bytes":22428,"sha256":"24b2ab640b48f0e7bd5d7992552f9ba0ccea39602ebabcfa300fdfc1b0d2215f"}],"bounds":{"maximumTransportsPerCommand":1,"maximumSequentialChildren":2,"argv":["/usr/bin/docker","--version"],"profiles":["INHERITED_AS","EXACT_AS_512_MIB"],"addressSpaceBytes":536870912,"commandSeconds":12,"comparisonSeconds":15,"transportSeconds":45,"maximumStreamBytes":16384,"commandFreshSeconds":300,"cpuSeconds":2,"coreBytes":0,"fileOutputBytes":0,"automaticReruns":0},"queueCapBytes":3145728,"stateCapBytes":3145728,"productionInvocationAuthorized":false,"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"},"governanceAfter":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"36c82539fe9609251f4df556ea7293bff746556b","bytes":162270,"sha256":"8bf0f867f23fecee396ac2096d999fb63dc67794387a0b2c1fb9022aebdeb5e3"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"c6dfcfae0b7362aba3407be3478e7288548f8e19","bytes":293410,"sha256":"9e3fff294b159352738bf03969b58c65d7efb9e43aade0984093b01265fd0d07"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"56869deea762403eb41cc4df34765ee6b15e2f70","bytes":332164,"sha256":"3dfd78cc82695f5a2675a782050b45ef1841c7c8133028509014e6291cb0e6b8"}],"governancePatch":{"bytes":138483,"sha256":"ecbf77bf2336bf709049a7c5f91692db463651dc043166cb4fe45c017024c75e"},"governanceReview":{"status":"CLEAN","reviewerIdentity":"/root/release_status_1357","authorIdentity":"/root/model_metadata_public_review","independent":true,"findings":{"P0":0,"P1":0,"P2":0},"artifact":{"bytes":20816,"sha256":"548676bb5ef20d647766a35b3778618855a1d44436510dfa3b2b699995ca4c98"},"payloads":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"36c82539fe9609251f4df556ea7293bff746556b","bytes":162270,"sha256":"8bf0f867f23fecee396ac2096d999fb63dc67794387a0b2c1fb9022aebdeb5e3"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"c6dfcfae0b7362aba3407be3478e7288548f8e19","bytes":293410,"sha256":"9e3fff294b159352738bf03969b58c65d7efb9e43aade0984093b01265fd0d07"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"56869deea762403eb41cc4df34765ee6b15e2f70","bytes":332164,"sha256":"3dfd78cc82695f5a2675a782050b45ef1841c7c8133028509014e6291cb0e6b8"}]}}
 ```
+
+
+## Separate admission renewal: gekta-standalone-document-language-20261108
+
+- Owner continuation: Maxim requested completion on 2026-11-08. This queue-only renewal prospectively replaces the old language source expectation with exactly the two payloads below; the complete older admission, nineteen-path vector, state, prompts, guard, workflows and other owners remain unchanged. Queue-only metadata has accepted precedents #6119 and #6121. No scope expansion or new manifest.
+- Behavior remains the matching standalone Gekta workspace document-language effect, covering both existing client-navigation language controls. RU/EN/ZH map to ru/en/zh-CN. Embedded, nested and mismatched routes do not acquire document language. In the supported single-workspace React lifecycle, cleanup restores prior values or absence while the current value still equals its own. Differently-valued later writes are preserved; no general simultaneous-owner or same-value external-setter guarantee is made. SPA navigation is unchanged.
+- The review covers the exact after payloads and the context patch identified below. The complete zero-context carrier is separately byte-bound and reproduces those same after payloads from their exact before blobs; its different patch hash is not presented as a separately reviewed diff. Source syntax and forward/reverse patch checks passed; 16 mounted cases are defined, but native Vitest, project typecheck and full TSX parsing remain NOT_RUN in this private preparation. These mocked URL/render cases are not real Next navigation or language-control click coverage. The earlier overlap/same-value counterexample is not repaired: final review classifies it outside the inspected single-workspace scope and retains the evidence.
+- Accept this metadata only through its own independent review, separate author audit, applicable native gates and ordinary expected-full-SHA manual merge. Then derive only the pinned two-file source from the then-current accepted main after matching both before blobs, preserve retained-branch history by nonforce advancement, and require fresh actual-head independent review/audit/native readiness before manual merge. The published private source receipt is not approval of the old PR #5908 head or a later unpublished head. Release, image identity, live/browser acceptance and all existing consent/account/model/MFA/DB/cost boundaries remain separate.
+
+### Exact renewed source and genuine review reference
+
+```json
+{
+  "purpose": "gekta-standalone-document-language-renewal-20261108",
+  "priorAdmissionPreserved": "gekta-standalone-document-language-20261015",
+  "sourceBase": "912daf6c710dd0cfd9677af39ebb8585c87206f9",
+  "metadataBranch": "governance/gekta-live-language-history-notice-20261011",
+  "implementationBranch": "fix/gekta-anonymous-document-evidence-20261009",
+  "existingScopeCount": 19,
+  "existingScopeCanonicalSha256": "403f362a83f2037dc2c71ef7ff399672a3b72f873de27686195a691bd29afe3e",
+  "paths": [
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "mode": "100644",
+      "before": {
+        "blob": "9a0743075bc6898bb80d1cee0bc90e4507b30525",
+        "bytes": 64713,
+        "sha256": "4c9ce464b52c60425eee16854a265f0751bee46c109a87358ecc2fc7cea0c81b"
+      },
+      "after": {
+        "blob": "b56a2df456e4d06d5d699e9babce4df52588585b",
+        "bytes": 65962,
+        "sha256": "6e906bc5f28538fdeed132de2e5e9122bd5e717d94f82be3c63e7750301bc30c"
+      }
+    },
+    {
+      "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+      "mode": "100644",
+      "before": {
+        "blob": "030dc5091ce2c3c117b97480fa366f35e182e847",
+        "bytes": 33430,
+        "sha256": "5c8718555c27bb9cbdca5225fa13368a7775a04ae76c038b3e124335092a4ee5"
+      },
+      "after": {
+        "blob": "465549122dcfdc824703975b59e503380bf295ee",
+        "bytes": 39656,
+        "sha256": "b64cc3322b7e7548d4bca19b117dc4a5c7afa6a0d5d2ef64878ea6a07cc5e6bd"
+      }
+    }
+  ],
+  "reviewedContextPatch": {
+    "bytes": 8788,
+    "sha256": "f8fef977c7efa2ccbb1f986874e490163c9af940b6fcb3bced31686edb74a80e"
+  },
+  "completeZeroContextPatch": {
+    "bytes": 8296,
+    "sha256": "8973b2ff9b8db8b5e6c80262077aef7687136bb1699f6334f18277ca792a3ebb"
+  },
+  "sourceReview": {
+    "kind": "independent-private-source-session-review",
+    "reviewer": "/root/pr6123_release_gate",
+    "verdict": "PASS_PRIVATE_SOURCE_REVIEW",
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6726983845",
+    "commentBodyBytes": 8710,
+    "commentBodySha256": "31c2f10bae686f7138ed1c97180b549a23064f72786cd9d39509d605c4fcf620",
+    "reportBytes": 8710,
+    "reportSha256": "31c2f10bae686f7138ed1c97180b549a23064f72786cd9d39509d605c4fcf620",
+    "receiptBytes": 14715,
+    "receiptSha256": "986091b589417b5ede5448f8f0bd084de7084e175c384b41e017eb7982657b9b",
+    "notCurrentPrHeadApproval": true
+  }
+}
+```
+
+### Complete zero-context source carrier
+
+Apply with `git apply --unidiff-zero` only to the exact pinned before blobs. Every source change is included.
+
+```diff
+diff --git a/apps/web/components/gekta/GektaChatWorkspace.tsx b/apps/web/components/gekta/GektaChatWorkspace.tsx
+index 9a0743075bc6898bb80d1cee0bc90e4507b30525..b56a2df456e4d06d5d699e9babce4df52588585b 100644
+--- a/apps/web/components/gekta/GektaChatWorkspace.tsx
++++ b/apps/web/components/gekta/GektaChatWorkspace.tsx
+@@ -164,0 +165,23 @@
++  React.useEffect(() => {
++    // Next client navigation retains the root layout. Only a matching standalone
++    // route may update document language; embedded chat keeps its host's locale.
++    if (window.location.pathname !== GEKTA_PATHS[locale]) return;
++    const root = document.documentElement;
++    const language = locale === 'zh' ? 'zh-CN' : locale;
++    const previousLanguage = root.getAttribute('lang');
++    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
++    const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
++    root.setAttribute('lang', language);
++    contentLanguage?.setAttribute('content', language);
++    return () => {
++      // Restore only attributes that still carry this effect's value.
++      if (root.getAttribute('lang') === language) {
++        if (previousLanguage === null) root.removeAttribute('lang');
++        else root.setAttribute('lang', previousLanguage);
++      }
++      if (contentLanguage?.getAttribute('content') === language) {
++        if (previousContentLanguage === null) contentLanguage.removeAttribute('content');
++        else contentLanguage.setAttribute('content', previousContentLanguage);
++      }
++    };
++  }, [locale]);
+diff --git a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
+index 030dc5091ce2c3c117b97480fa366f35e182e847..465549122dcfdc824703975b59e503380bf295ee 100644
+--- a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
++++ b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
+@@ -164,0 +165,125 @@
++  });
++});
++
++describe('Gekta standalone document language lifecycle', () => {
++  let meta: HTMLMetaElement;
++  let previousLanguage: string | null;
++  let previousUrl: string;
++  let previousScrollTo: PropertyDescriptor | undefined;
++
++  beforeEach(() => {
++    previousLanguage = document.documentElement.getAttribute('lang');
++    previousUrl = window.location.href;
++    previousScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
++    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
++    window.localStorage.clear();
++    document.documentElement.lang = 'ru';
++    meta = document.createElement('meta');
++    meta.httpEquiv = 'Content-Language';
++    meta.content = 'ru';
++    document.head.appendChild(meta);
++    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 401 }));
++  });
++
++  afterEach(() => {
++    cleanup();
++    meta.remove();
++    window.history.replaceState(null, '', previousUrl);
++    if (previousLanguage === null) document.documentElement.removeAttribute('lang');
++    else document.documentElement.setAttribute('lang', previousLanguage);
++    if (previousScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', previousScrollTo);
++    else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
++    vi.restoreAllMocks();
++  });
++
++  it('updates the mounted workspace and document on RU -> EN -> ZH -> RU client navigation', async () => {
++    window.history.replaceState(null, '', '/gekta');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'ru' }));
++    expect(document.documentElement.lang).toBe('ru');
++    expect(meta.content).toBe('ru');
++    for (const [locale, pathname, language] of [
++      ['en', '/gekta/en', 'en'], ['zh', '/gekta/zh', 'zh-CN'], ['ru', '/gekta', 'ru'],
++    ] as const) {
++      window.history.replaceState(null, '', pathname);
++      view.rerender(createElement(GektaChatWorkspace, { locale }));
++      await waitFor(() => expect(document.documentElement.lang).toBe(language));
++      expect(meta.content).toBe(language);
++      expect(view.container.querySelector('textarea')?.closest('[lang]')?.getAttribute('lang')).toBe(language);
++    }
++  });
++
++  it.each([
++    { pathname: '/platform-v7', locale: 'en' as const },
++    { pathname: '/gekta/console', locale: 'en' as const },
++    { pathname: '/gekta/register', locale: 'en' as const },
++    { pathname: '/gekta/en/price', locale: 'en' as const },
++    { pathname: '/gekta/en-extra', locale: 'en' as const },
++    { pathname: '/gekta', locale: 'en' as const },
++    { pathname: '/gekta/en', locale: 'ru' as const },
++    { pathname: '/gekta/en', locale: 'zh' as const },
++  ])('leaves document language unchanged at $pathname with locale $locale', ({ pathname, locale }) => {
++    window.history.replaceState(null, '', pathname);
++    render(createElement(GektaChatWorkspace, { locale }));
++    expect(document.documentElement.lang).toBe('ru');
++    expect(meta.content).toBe('ru');
++  });
++
++  it('restores the Russian document when leaving the English workspace for a legal page', async () => {
++    window.history.replaceState(null, '', '/gekta/en');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    expect(meta.content).toBe('en');
++    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
++    view.unmount();
++    expect(document.documentElement.lang).toBe('ru');
++    expect(meta.content).toBe('ru');
++  });
++
++  it('keeps the matching locale when React replaces the single workspace before a legal exit', async () => {
++    window.history.replaceState(null, '', '/gekta/en');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'en', key: 'first' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    view.rerender(createElement(GektaChatWorkspace, { locale: 'en', key: 'replacement' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    expect(meta.content).toBe('en');
++    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
++    view.unmount();
++    expect(document.documentElement.lang).toBe('ru');
++    expect(meta.content).toBe('ru');
++  });
++
++  it.each([
++    { changed: 'both attributes', root: 'fr', content: 'fr', afterRoot: 'fr', afterContent: 'fr' },
++    { changed: 'root language', root: 'fr', content: 'en', afterRoot: 'fr', afterContent: 'ru' },
++    { changed: 'content language', root: 'en', content: 'fr', afterRoot: 'ru', afterContent: 'fr' },
++  ])('preserves differently-valued $changed while restoring unchanged attributes', async ({ root, content, afterRoot, afterContent }) => {
++    window.history.replaceState(null, '', '/gekta/en');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    document.documentElement.lang = root;
++    meta.content = content;
++    view.unmount();
++    expect(document.documentElement.lang).toBe(afterRoot);
++    expect(meta.content).toBe(afterContent);
++  });
++
++  it('preserves absent metadata instead of inventing a head element or an old lang', async () => {
++    window.history.replaceState(null, '', '/gekta/en');
++    meta.remove();
++    document.documentElement.removeAttribute('lang');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    expect(document.head.querySelector('meta[http-equiv="Content-Language" i]')).toBeNull();
++    view.unmount();
++    expect(document.documentElement.hasAttribute('lang')).toBe(false);
++  });
++
++  it('matches Content-Language case-insensitively and restores an absent content attribute', async () => {
++    window.history.replaceState(null, '', '/gekta/zh');
++    meta.httpEquiv = 'content-language';
++    meta.removeAttribute('content');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
++    expect(meta.content).toBe('zh-CN');
++    view.unmount();
++    expect(meta.hasAttribute('content')).toBe(false);
+```
