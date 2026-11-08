@@ -1,3 +1,51 @@
+# Source-only memory profile preparation, 2026-11-05
+
+This phase proposes only four reviewed source afters on the existing
+`fix/gekta-candidate-oneuse-grant-20261008` lane. The new source-only purpose
+is `gekta-qwen38-iq2s-ubatch64-source-only-20261105`, prepared against accepted
+main `38bdca854f4fd94b0f533bac6ecd41b25b9dba29`. It creates no execution grant,
+slot, nonce, host window, credential, service-control or production authority.
+
+The candidate profile retains the same Qwen3.8-27B IQ2_S artifact, runtime
+aedb2a5, threads16/threads-batch16/parallel1/ctx8192/batch512 and changes only
+candidate ubatch128 to64. Baseline remains ubatch128 and must stay active and
+unchanged. This is an unmeasured graph-buffer reduction hypothesis, not proof
+of RAM fit, quality, speed or permission to shorten the production context.
+
+Before the unchanged zero-swap guard, record the same checked VmSwap value
+and best-effort VmRSS, RssAnon, RssFile, VmHWM and MemAvailable. Output is
+restricted to fixed field names, bounded integers or not_reported. Additional
+diagnostic failures cannot mask the original start failure. These sequential
+observations are not an atomic snapshot. Existing private-log diagnostics
+still require owned-process exit and listener absence; their limits remain.
+
+The separately accepted queue-only source-purpose append must preserve all
+existing queue bytes, state, owners, four-path scope membership and the unique
+2026-11-03 finite runtime admission. Complete private source and independent
+review precede metadata acceptance. The later actual four-path source head
+still needs fresh independent review, separate owner audit, every applicable
+native/security/current-readiness gate and ordinary expected-SHA manual merge.
+
+**No runtime command is authorized by this source-only phase.** The original
+finite admission remains bound to ubatch128 and the original four source
+hashes. The new helper must reject that unchanged admission before SSH secrets.
+Source acceptance must not be described as operational admission or a model
+PASS. Do not rewrite the old record to64, duplicate its marker, rename a grant,
+reset markers, repost or rerun a spent command to make this source executable.
+
+Historical critical run41732219749 / job126252196225 failed at post_ready with
+candidate_swap_nonzero; inference was SKIPPED and cleanup PASS. The critical
+allowance is spent. Extra is not eligible without actual same-SHA critical PASS.
+Later source changes, this document or the current owner finish instruction
+do not themselves change those dispositions. Any future operational proposal
+requires separate legitimate owner coordination; none is supplied here.
+
+## Prior finite candidate record — retained verbatim as history
+
+The commands and allowances in the following 2026-11-03 and 2026-10-08 records
+describe their original purposes. They are not invocation instructions or a
+new execution allowance for the source-only profile above.
+
 # Finite Qwen3.8 candidate, 2026-11-03
 
 The current owner instruction to finish Gekta covers preparing a current-host

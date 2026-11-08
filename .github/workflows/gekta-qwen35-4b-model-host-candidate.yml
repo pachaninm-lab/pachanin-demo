@@ -182,9 +182,10 @@ jobs:
           assert spec.loader is not None
           spec.loader.exec_module(module)
           marker = 'SYNTHETIC_NOT_A_CREDENTIAL_7f914ef09a8b4c11'
-          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+          profile = [item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value)]
+          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS, *profile]
           assert module.candidate_exec_argv_status(valid) == 0
-          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS]) == 0
+          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS, *profile]) == 0
           for flags in [
               ['--api-key', marker], ['--api-key=' + marker],
               ['--api_key', marker], ['--api_key=' + marker],
@@ -271,7 +272,7 @@ jobs:
           }))
           ''')
               executable.chmod(0o700)
-              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS, *profile]
 
               def real_guard(argv):
                   read_fd, write_fd = os.pipe()
@@ -347,6 +348,9 @@ jobs:
           module = importlib.util.module_from_spec(spec)
           assert spec.loader is not None
           spec.loader.exec_module(module)
+          baseline_profile = [os.fsencode(item) for key, value in module.EXPECTED.items() for item in (module.ALIASES[key][0], value)]
+          candidate_profile = [item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value)]
+          candidate_profile_bytes = b'\0'.join(os.fsencode(item) for item in candidate_profile) + b'\0'
 
           class FakeProc:
               pid = 424242
@@ -364,7 +368,7 @@ jobs:
               return (
                   {'pid': 999, 'exe': '/bin/true', 'cmdlineSha256': 'x', 'apiKeySha256': 'y', 'restarts': 0, 'vmSwapKb': 0, 'startTime': 1},
                   pathlib.Path('/bin/true'),
-                  [b'/bin/true'],
+                  [b'/bin/true', *baseline_profile],
                   {},
               )
 
@@ -564,7 +568,7 @@ jobs:
 
                   candidate_cmd = (
                       b'/bin/true\0--model\0' + os.fsencode(candidate) +
-                      b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0'
+                      b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0' + candidate_profile_bytes
                   )
                   with contextlib.ExitStack() as stack:
                       stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
@@ -719,7 +723,7 @@ jobs:
               listener_mock = mock.Mock()
               candidate_cmd = (
                   b'/bin/true\0--model\0' + os.fsencode(candidate) +
-                  b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0'
+                  b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0' + candidate_profile_bytes
               )
               with contextlib.ExitStack() as stack:
                   stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
@@ -795,9 +799,11 @@ jobs:
               candidate.write_bytes(b'x')
               split_guarded = [
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
+                  *candidate_profile,
               ]
               joined_guarded = [
                   '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,
+                  *[module.ALIASES[key][0] + '=' + value for key, value in module.CANDIDATE_EXPECTED.items()],
               ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate):
                   for guarded in (split_guarded, joined_guarded):
@@ -837,13 +843,15 @@ jobs:
               with tempfile.TemporaryDirectory() as tmp:
                   candidate = pathlib.Path(tmp) / 'candidate.gguf'
                   candidate.write_bytes(b'x')
+                  runner = pathlib.Path(tmp) / 'synthetic-runner.py'
+                  runner.write_text('import time; time.sleep(1.0)\n')
                   read_fd, write_fd = os.pipe()
                   guarded = [
                       sys.executable,
-                      '-c',
-                      'import time; time.sleep(1.0)',
+                      str(runner),
                       '--model=' + str(candidate),
                       '--alias=' + module.CANDIDATE_ALIAS,
+                      *candidate_profile,
                   ]
                   with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
                        mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False):
@@ -1215,7 +1223,7 @@ jobs:
                       for name, value in {
                           'require_nonroot': 'tai', 'sha_file': 'hash', 'ensure_start_capacity': None,
                           'save_state': None,
-                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true'], {}),
+                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true', *[os.fsencode(item) for key, value in module.EXPECTED.items() for item in (module.ALIASES[key][0], value)]], {}),
                       }.items():
                           stack.enter_context(mock.patch.object(module, name, return_value=value))
                       stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=Proc()))
@@ -1250,6 +1258,224 @@ jobs:
 
           unittest.main(argv=['startup-diagnostic-contract'], verbosity=2)
           PY
+      - name: Prove bounded memory evidence and candidate-only microbatch
+        run: |
+          set -Eeuo pipefail
+          python3 -I - <<'PY_MEMORY_PROFILE'
+          import contextlib
+          import importlib.util
+          import io
+          import json
+          import os
+          from pathlib import Path
+          import tempfile
+          import types
+          import unittest
+          from unittest import mock
+
+          path = Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('candidate_memory_profile', path)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+
+          BASELINE = {'threads': '16', 'threads_batch': '16', 'parallel': '1',
+                      'ctx': '8192', 'batch': '512', 'ubatch': '128'}
+          CANDIDATE = {**BASELINE, 'ubatch': '64'}
+
+
+          def flags(profile):
+              return [item for key, value in profile.items() for item in (m.ALIASES[key][0], value)]
+
+
+          def candidate_argv():
+              return ['/fixture/llama-server', '--model', str(m.CANDIDATE_PATH),
+                      '--alias', m.CANDIDATE_ALIAS, *flags(CANDIDATE)]
+
+
+          class CandidateMemoryProfileContract(unittest.TestCase):
+              def test_separate_profiles_keep_original_limits_and_admission_identity(self):
+                  self.assertEqual(m.EXPECTED, BASELINE)
+                  self.assertEqual(m.CANDIDATE_EXPECTED, CANDIDATE)
+                  self.assertEqual(m.candidate_admission_identity()['flags'], CANDIDATE)
+                  self.assertEqual(m.LEASE_SECONDS, 420)
+                  self.assertEqual(m.MAX_CANDIDATE_RSS_KB, 9 * 1024 * 1024)
+                  self.assertEqual((m.MIN_MEM_BEFORE_KB, m.MIN_MEM_READY_KB, m.MIN_MEM_RUNTIME_KB),
+                                   (8 * 1024 * 1024, 3 * 1024 * 1024, 2 * 1024 * 1024))
+                  self.assertEqual(m.EXECUTION_GRANT, 'gekta-finish-20261103-qwen38-iq2s-oneuse')
+
+              def test_real_baseline_validation_accepts_only_the_unchanged_128_profile(self):
+                  argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--alias', m.BASELINE_ALIAS, *flags(BASELINE)]]
+                  command_result = types.SimpleNamespace(returncode=0, stdout='aedb2a5 LLAMA_API_KEY', stderr='')
+                  with contextlib.ExitStack() as stack:
+                      for name, result in {'require_nonroot': 'tai', 'service_user': 'tai', 'service_pid': 999,
+                                           'service_restarts': 0, 'process_start_time': 1, 'proc_kb': 0,
+                                           'systemctl_read': command_result, 'command': command_result}.items():
+                          stack.enter_context(mock.patch.object(m, name, return_value=result))
+                      read = stack.enter_context(mock.patch.object(m, 'read_proc'))
+                      read.return_value = (Path('/fixture/llama-server'), argv, {'LLAMA_API_KEY': 's' * 64}, b'synthetic')
+                      self.assertEqual(m.snapshot_baseline()[0]['pid'], 999)
+                      read.return_value = (Path('/fixture/llama-server'), m.replace_flag(argv, 'ubatch', b'64'),
+                                           {'LLAMA_API_KEY': 's' * 64}, b'synthetic')
+                      with self.assertRaisesRegex(m.CandidateError, '^baseline_flag_mismatch:ubatch$'):
+                          m.snapshot_baseline()
+
+              def test_all_candidate_profile_flags_are_bound_before_exec_and_after_exec(self):
+                  valid = candidate_argv()
+                  self.assertEqual(m.candidate_exec_argv_status(valid), 0)
+                  raw = [os.fsencode(item) for item in valid]
+                  for key in CANDIDATE:
+                      for bad in (m.replace_flag(raw, key, b'999'), m.remove_flag(raw, key),
+                                  raw + [os.fsencode(m.ALIASES[key][0]), os.fsencode(CANDIDATE[key])]):
+                          with self.subTest(key=key, kind=len(bad)):
+                              self.assertEqual(m.candidate_exec_argv_status([os.fsdecode(item) for item in bad]), 86)
+                              with contextlib.redirect_stdout(io.StringIO()):
+                                  with self.assertRaisesRegex(m.CandidateError, '^candidate_runtime_flags_mismatch$'):
+                                      m.require_candidate_keyless_argv(raw, bad)
+                  self.assertEqual(m.candidate_exec_argv_status([*valid, '--api-key=PRIVATE_SENTINEL']), 84)
+
+              def test_numeric_diagnostic_never_emits_raw_proc_or_exception_values(self):
+                  values = {'VmRSS': 7000000, 'RssAnon': 123456, 'RssFile': 6876544, 'VmHWM': 7100000}
+                  output = io.StringIO()
+                  with mock.patch.object(m, 'proc_kb', side_effect=lambda pid, key: values[key]), \
+                       mock.patch.object(m, 'mem_available_kb', return_value=3500000), \
+                       contextlib.redirect_stdout(output):
+                      m.emit_candidate_memory_diagnostic(123, 4096)
+                  self.assertEqual(output.getvalue().splitlines(), [
+                      'QWEN35_CANDIDATE_MEMORY_DIAGNOSTIC_VERSION=v1',
+                      'QWEN35_CANDIDATE_POST_READY_VM_SWAP_KB=4096',
+                      'QWEN35_CANDIDATE_POST_READY_VM_RSS_KB=7000000',
+                      'QWEN35_CANDIDATE_POST_READY_RSS_ANON_KB=123456',
+                      'QWEN35_CANDIDATE_POST_READY_RSS_FILE_KB=6876544',
+                      'QWEN35_CANDIDATE_POST_READY_VM_HWM_KB=7100000',
+                      'QWEN35_CANDIDATE_POST_READY_MEM_AVAILABLE_KB=3500000',
+                  ])
+                  for invalid in (None, True, -1, 2**63, 'PRIVATE_SENTINEL'):
+                      output = io.StringIO()
+                      with mock.patch.object(m, 'proc_kb', return_value=invalid), \
+                           mock.patch.object(m, 'mem_available_kb', side_effect=OSError('PRIVATE_SENTINEL')), \
+                           contextlib.redirect_stdout(output):
+                          m.emit_candidate_memory_diagnostic(123, 7)
+                      self.assertIn('POST_READY_VM_SWAP_KB=7\n', output.getvalue())
+                      self.assertEqual(output.getvalue().count('=not_reported\n'), 5)
+                      self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
+
+              def test_inherited_128_profile_cannot_reach_exec_or_spend_exec_release(self):
+                  raw = m.replace_flag([os.fsencode(item) for item in candidate_argv()], 'ubatch', b'128')
+                  read_fd, write_fd = os.pipe()
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  with mock.patch.dict(m.os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps([os.fsdecode(item) for item in raw])}), \
+                       mock.patch.object(m, 'reserve_execution') as reserve, \
+                       mock.patch.object(m.os, 'nice') as nice, \
+                       mock.patch.object(m.os, 'execvpe') as execute:
+                      self.assertEqual(m.candidate_exec_guard(read_fd), 86)
+                      reserve.assert_not_called()
+                      nice.assert_not_called()
+                      execute.assert_not_called()
+
+              def test_diagnostic_output_failure_is_best_effort(self):
+                  with mock.patch.object(m, 'proc_kb', return_value=1), \
+                       mock.patch.object(m, 'mem_available_kb', return_value=1), \
+                       mock.patch.object(m, 'emit', side_effect=OSError('PRIVATE_SENTINEL')):
+                      m.emit_candidate_memory_diagnostic(123, 4096)
+
+              def exercise_start(self, swap_kb, available_kb=4 * 1024 * 1024, optional_reads_fail=False):
+                  with tempfile.TemporaryDirectory() as temporary:
+                      root = Path(temporary)
+                      candidate = root / 'model.gguf'
+                      candidate.write_bytes(b'x')
+                      baseline_argv = [os.fsencode(item) for item in ['/fixture/llama-server', '--model', '/fixture/base.gguf',
+                                       '--alias', m.BASELINE_ALIAS, '--api-key', 's' * 64, *flags(BASELINE)]]
+                      baseline_before = list(baseline_argv)
+                      output = io.StringIO()
+                      events = []
+                      prepared = []
+                      class Proc:
+                          pid = 424242
+                          exited = False
+                          def poll(self):
+                              return 0 if self.exited else None
+                          def wait(self, timeout=None):
+                              self.exited = True
+                              return 0
+                      proc = Proc()
+                      def fake_popen(argv, **kwargs):
+                          prepared.extend(json.loads(kwargs['env']['QWEN35_GUARDED_ARGV_JSON']))
+                          self.assertEqual(m.candidate_exec_argv_status(prepared), 0)
+                          return proc
+                      def stop_child(*args):
+                          events.append('cleanup')
+                          self.assertIn('POST_READY_VM_SWAP_KB=' + str(swap_kb), output.getvalue())
+                          proc.wait()
+                      def memory(pid, key):
+                          if key == 'VmSwap':
+                              events.append('swap')
+                              return swap_kb
+                          if optional_reads_fail:
+                              raise OSError('PRIVATE_SENTINEL')
+                          return {'VmRSS': 7000000, 'RssAnon': 123456, 'RssFile': 6876544, 'VmHWM': 7100000}[key]
+                      with contextlib.ExitStack() as stack:
+                          for name, value in {'CANDIDATE_PATH': candidate, 'CANDIDATE_SIZE': 1, 'CANDIDATE_SHA256': 'hash',
+                                              'STATE_DIR': root, 'PID_PATH': root / 'candidate.pid',
+                                              'CANDIDATE_IDENTITY_PATH': root / 'identity.json', 'LOG_PATH': root / 'candidate.log'}.items():
+                              stack.enter_context(mock.patch.object(m, name, value))
+                          for name, value in {'require_nonroot': 'tai', 'reserve_execution': None, 'sha_file': 'hash',
+                                              'ensure_start_capacity': None, 'save_state': None, 'write_candidate_identity': None,
+                                              'write_pid': None, 'baseline_matches_state': True, 'pidfd_exited': False,
+                                              'candidate_process_matches': True, 'require_isolated_candidate_group': None,
+                                              'process_nice': 10, 'wait_candidate': None, 'mem_available_kb': available_kb,
+                                              'baseline_runtime_healthy': True, 'verify_listener_absent': None, 'stop_watchdog': None,
+                                              'snapshot_baseline': ({'pid': 999}, Path('/fixture/llama-server'), baseline_argv,
+                                                                    {'LLAMA_API_KEY': 's' * 64})}.items():
+                              stack.enter_context(mock.patch.object(m, name, return_value=value))
+                          stack.enter_context(mock.patch.object(m.subprocess, 'Popen', side_effect=fake_popen))
+                          stack.enter_context(mock.patch.object(m.os, 'write', side_effect=lambda fd, data: len(data)))
+                          stack.enter_context(mock.patch.object(m.os, 'pidfd_open', side_effect=lambda *args: os.open(os.devnull, os.O_RDONLY)))
+                          stack.enter_context(mock.patch.object(m, 'launch_watchdog', side_effect=lambda *args: (
+                              os.open(os.devnull, os.O_RDONLY), os.open(os.devnull, os.O_WRONLY))))
+                          stack.enter_context(mock.patch.object(m.pathlib.Path, 'read_bytes', side_effect=lambda: b'\0'.join(os.fsencode(item) for item in prepared) + b'\0'))
+                          stack.enter_context(mock.patch.object(m, 'proc_kb', side_effect=memory))
+                          stack.enter_context(mock.patch.object(m, 'stop_owned_child', side_effect=stop_child))
+                          stack.enter_context(mock.patch.object(m, 'emit_candidate_start_diagnostic'))
+                          error = None
+                          with contextlib.redirect_stdout(output):
+                              try:
+                                  m.start('a' * 64, execution_grant=m.EXECUTION_GRANT, corpus='critical',
+                                          admitted_sha='a' * 40, checkout_sha='a' * 40)
+                              except m.CandidateError as exc:
+                                  error = str(exc)
+                      self.assertEqual(baseline_argv, baseline_before)
+                      prepared_raw = [os.fsencode(item) for item in prepared]
+                      self.assertEqual(m.flag_value(prepared_raw, 'ubatch'), b'64')
+                      self.assertEqual(m.flag_value(prepared_raw, 'ctx'), b'8192')
+                      self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
+                      self.assertEqual(events.count('swap'), 1, error)
+                      return error, events, output.getvalue()
+
+              def test_nonzero_swap_diagnoses_before_cleanup_without_weakening_guard(self):
+                  for swap_kb in (1, 4096):
+                      for optional_reads_fail in (False, True):
+                          error, events, output = self.exercise_start(swap_kb, optional_reads_fail=optional_reads_fail)
+                          self.assertEqual(error, 'candidate_swap_nonzero')
+                          self.assertEqual(events, ['swap', 'cleanup'])
+                          self.assertIn('POST_READY_VM_SWAP_KB=' + str(swap_kb) + '\n', output)
+                          self.assertNotIn('START=PASS', output)
+
+              def test_zero_swap_still_requires_original_ready_headroom(self):
+                  error, events, output = self.exercise_start(0, available_kb=m.MIN_MEM_READY_KB - 1)
+                  self.assertEqual(error, 'candidate_ready_headroom_low')
+                  self.assertEqual(events, ['swap', 'cleanup'])
+                  self.assertNotIn('START=PASS', output)
+
+              def test_original_ready_boundary_and_zero_swap_can_reach_success(self):
+                  error, events, output = self.exercise_start(0, available_kb=m.MIN_MEM_READY_KB)
+                  self.assertIsNone(error)
+                  self.assertEqual(events, ['swap'])
+                  self.assertIn('START=PASS', output)
+
+
+          unittest.main(argv=['candidate-memory-profile-contract'], verbosity=2)
+          PY_MEMORY_PROFILE
       - name: Prove staging and cached artifact disk boundaries
         run: |
           set -Eeuo pipefail
@@ -1507,6 +1733,7 @@ jobs:
                   os.write(write_fd, b'G')
                   os.close(write_fd)
                   argv = ['/bin/true', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+                  argv.extend(item for key, value in module.CANDIDATE_EXPECTED.items() for item in (module.ALIASES[key][0], value))
                   with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': module.json.dumps(argv)}), mock.patch.object(module.os, 'nice', return_value=10), mock.patch.object(module.os, 'execvpe') as execute:
                       code = module.candidate_exec_guard(read_fd, **kwargs)
                   return code, execute.call_count
