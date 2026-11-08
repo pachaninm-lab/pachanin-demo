@@ -52,6 +52,8 @@ type ExtractedDocument = Readonly<{
   checksumSha256: string;
   text: string;
   truncated: boolean;
+  encoding?: 'utf-8' | 'windows-1251';
+  encodingSource?: 'validated' | 'legacy-fallback';
 }>;
 
 function json(body: unknown, status = 200) {
@@ -82,6 +84,24 @@ function cleanText(value: string): { text: string; truncated: boolean } {
     text: normalized.slice(0, MAX_EXTRACTED_CHARS),
     truncated: normalized.length > MAX_EXTRACTED_CHARS,
   };
+}
+
+function extractCsv(bytes: Buffer) {
+  try {
+    return { ...cleanText(new TextDecoder('utf-8', { fatal: true }).decode(bytes)),
+      encoding: 'utf-8' as const, encodingSource: 'validated' as const };
+  } catch {
+    // Legacy Russian exports commonly omit a charset. Never replace invalid
+    // UTF-8 bytes silently, or reinterpret an already valid UTF-8 file.
+    const text = new TextDecoder('windows-1251', { fatal: true }).decode(bytes);
+    const cyrillic = /[А-Яа-яЁё]/gu;
+    if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u.test(text)
+      || !cyrillic.test(text) || !cyrillic.test(text)) {
+      throw new Error('CSV_ENCODING_UNSUPPORTED');
+    }
+    return { ...cleanText('Кодировка CSV выбрана как Windows-1251 после отказа UTF-8; проверьте правильность названий.\n' + text),
+      encoding: 'windows-1251' as const, encodingSource: 'legacy-fallback' as const };
+  }
 }
 
 function decodeXml(value: string): string {
@@ -343,7 +363,7 @@ async function extract(
   const ext = extension(file.name);
   const bytes: Buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()));
   const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
-  let extracted: { text: string; truncated: boolean };
+  let extracted: { text: string; truncated: boolean; encoding?: ExtractedDocument['encoding']; encodingSource?: ExtractedDocument['encodingSource'] };
 
   // До любого разбора: содержимое обязано соответствовать расширению, иначе
   // обработчик выбирается строкой, которую задаёт отправитель.
@@ -358,7 +378,9 @@ async function extract(
   // числа - единственное, что можно спросить у файла до этого.
   assertArchiveDeclared(ext, bytes, inflateBudget);
 
-  if (TEXT_EXTENSIONS.has(ext)) {
+  if (ext === 'csv') {
+    extracted = extractCsv(bytes);
+  } else if (TEXT_EXTENSIONS.has(ext)) {
     extracted = cleanText(bytes.toString('utf8'));
   } else if (ext === 'xlsx') {
     // Распаковывает ExcelJS, остановить его на потолке нельзя. Поэтому записи
@@ -388,6 +410,7 @@ async function extract(
     checksumSha256,
     text: extracted.text,
     truncated: extracted.truncated,
+    ...(extracted.encoding && { encoding: extracted.encoding, encodingSource: extracted.encodingSource }),
   };
 }
 

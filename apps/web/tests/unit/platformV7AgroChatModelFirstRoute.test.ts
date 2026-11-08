@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { gunzipSync } from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
@@ -171,6 +172,398 @@ describe('agro policy at the actual public streaming boundary', () => {
       body: JSON.stringify({ message, locale, context: 'platform', ...extra }),
     }));
   }
+
+
+  const arithmeticCases: {id:string;message:string;locale:string;expected:number}[] = JSON.parse(gunzipSync(Buffer.from('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','base64')).toString('utf8'));
+  async function arithmeticResult(question:string,locale='ru',extra:Record<string,unknown>={}) {
+    const response=await send(question,locale,extra);
+    const raw=await response.text();
+    const events=raw.split('\n\n').flatMap(frame=>frame.split('\n').filter(line=>line.startsWith('data:')).map(line=>JSON.parse(line.slice(5))));
+    const text=events.filter(event=>event.event==='token').map(event=>event.text).join('');
+    const assessment=events.find(event=>event.event==='assessment');
+    return {response,text,assessment:assessment?JSON.parse(assessment.summary):null,events};
+  }
+
+  // The frozen matrix includes separate domain/accounting context. Preserving
+  // that complete question takes precedence over a numeric shortcut. This is
+  // context-boundary coverage, not120 mocked numeric-correctness verdicts.
+  it.each(arithmeticCases)('retains the complete contextual numeric question $id for model handling', async item=>{
+    boundary.knowledge.mockResolvedValue(NextResponse.json({resolution:'redirected',sources:[],facts:[],answer:'',topic:'agriculture'}));
+    const result=await arithmeticResult(item.message,item.locale);
+    expect(result.response.status).toBe(200);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].originalQuestion).toBe(item.message);
+  });
+
+  it.each([
+    ['ru', 'Переведи 32 ц/га на площади 45 га в тонны на гектар и общий объём.', ['3,2 т/га', '144 т']],
+    ['en', 'Convert 41 metric quintals/ha over 90 hectares to tonnes.', ['4.1 t/ha', '369 t']],
+    ['zh', '请换算43公担/公顷，面积100公顷，总共多少吨？', ['4.3 吨/公顷', '430 吨']],
+    ['ru', 'Сколько тонн осталось: было 239 т продукции, потери 3%?', ['7,17 т', '231,83 т']],
+    ['en', 'Calculate remaining grain after a 2.5% loss from 0.2 tonnes.', ['0.005 t', '0.195 t']],
+    ['zh', '计算100吨谷物损耗100%后剩多少。', ['100 吨', '0 吨']],
+    ['ru', 'Рассчитай расходы на гектар: затраты 21600 руб на 360 га.', ['= 60 ₽/га']],
+    ['ru', 'Рассчитай стоимость на гектар: бюджет 0,125 руб на 1 га.', ['= 0,125 ₽/га']],
+    ['en', 'Calculate cost per hectare: total cost 1 RUB over 3 ha.', ['≈ 0.333333333333 RUB/ha']],
+    ['en', 'Calculate cost per hectare: total cost 0.001 RUB over 999999999 ha.', ['≈ 0.000000000001 RUB/ha']],
+    ['ru', 'Рассчитай безубыточность: затраты 21000 рублей, эффект 115 рублей на единицу.', ['≈ 182,608695652174 ед.', '183 целых единиц']],
+    ['en', 'Calculate break-even: benefit 3 RUB per unit, fixed cost 10 RUB.', ['≈ 3.333333333333 units', '4 whole units']],
+    ['zh', '计算盈亏平衡：收益3卢布每单位，成本10卢布。', ['≈ 3.333333333333 单位', '4 个完整单位']],
+    ['ru', 'Рассчитай безубыточность: затраты 0 рублей, эффект 5 рублей на единицу.', ['= 0 ед.', '0 целых единиц']],
+    ['en', 'Calculate break-even: cost 10 RUB, benefit 2.5 RUB per unit.', ['= 4 units', '4 whole units']],
+  ])('calculates held-out supplied inputs in %s: %s', async (locale,question,fragments)=>{
+    const result=await arithmeticResult(question as string,locale as string);
+    expect(result.assessment).toMatchObject({source:'deterministic_calculator',modelIdentity:null,currentDataRequired:false});
+    expect(boundary.model).not.toHaveBeenCalled();
+    for(const fragment of fragments as string[]) expect(result.text).toContain(fragment);
+  });
+
+  it.each([
+    ['ru','Рассчитай стоимость на гектар: затраты 15000 руб на 0 га.','больше нуля'],
+    ['en','Calculate break-even: cost 100 RUB, benefit 0 RUB per unit.','zero benefit'],
+    ['zh','计算100吨谷物损失101%后剩多少。','0% 到 100%'],
+  ])('asks for corrected arithmetic inputs in %s',async (locale,question,fragment)=>{
+    const result=await arithmeticResult(question,locale);
+    expect(result.assessment?.source).toBe('deterministic_calculator');
+    expect(result.text).toContain(fragment);
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'Calculate cost per hectare: 1,000 RUB over 3 hectares.',
+    'Calculate cost per hectare: 1.000 RUB over 3 hectares.',
+    'Рассчитай расходы на гектар: 1 000 рублей на 3 га.',
+    'Calculate cost per hectare: -100 RUB over 3 ha.',
+    'Calculate cost per hectare: negative 1000 RUB over 10 ha.',
+    'Рассчитай стоимость на гектар: минус 1000 рублей на 10 га.',
+    '计算每公顷费用：负1000卢布，面积10公顷。',
+    'Calculate cost per hectare: − 100 RUB over 3 ha.',
+    'Calculate cost per hectare: 1e3 RUB over 3 ha.',
+    'Calculate cost per hectare: 1000000000 RUB over 3 ha.',
+    'Calculate cost per hectare: 100.1234 RUB over 3 ha.',
+    'Calculate cost per hectare: 100 RUB over 3 ha plus 50 RUB.',
+    'Calculate cost per hectare: 100 RUB over 3 ha, adjusted for moisture.',
+    'Calculate cost per hectare: 100 RUB over 3 ha, with VAT.',
+    'Calculate cost per hectare: 100 USD over 3 ha.',
+    'Calculate cost per hectare: 100 RUB over 3 ha; convert to EUR.',
+    'Рассчитай стоимость на гектар: 1000 руб/га на площади 10 га.',
+    'Calculate cost per hectare: 1000 RUB/ha on 10 hectares.',
+    'Calculate cost per hectare: 1000 RUB per hectare on 10 hectares.',
+    '计算每公顷费用：1000卢布每公顷，面积10公顷。',
+    'Calculate cost per hectare: 1000 RUB over 10 ha after discount.',
+    'Calculate cost per hectare: 1000 RUB over 10 ha after a rebate.',
+    'Рассчитай стоимость на гектар: примерно 1000 руб на 10 га.',
+    'Calculate cost per hectare: about 1000 RUB over 10 ha.',
+    '计算每公顷费用：1000卢布，面积10公顷，享受折扣。',
+    'Calculate cost per hectare: $100 RUB over 3 ha.',
+    'Calculate cost per hectare: 100 RUB over 3 ha and ５ fields.',
+    'Convert 50 cwt/acre over 3 hectares to tonnes.',
+    'Convert 50 metric quintals/ha over 3 hectares to kilograms.',
+    'Calculate cost per hectare: 1000 RUB over 10 ha and double the result.',
+    '计算50市担，面积3亩，共多少吨？',
+    'Сколько тонн осталось: 100 т, потери не 3%?',
+    'Из 100 т осталось 3%. Сколько тонн осталось?',
+    'После потерь 3% осталось 100 т. Посчитай, сколько было изначально.',
+    'After a 3% loss, 100 t remain. Calculate the initial grain mass.',
+    'Сколько тонн осталось: осталось 100 т после потерь 3%?',
+    'From 100 t, 3% remains. How many tonnes remain?',
+    '100吨还剩3%，剩余多少吨？',
+    'How many tonnes remain from 100 t with no loss of 3%?',
+    '计算100吨，没有损耗3%，还剩多少？',
+    'Сколько тонн осталось: 100 т, потери 3%, затем удвоить?',
+    'Calculate break-even: cost 100 RUB per unit, benefit 3 RUB per unit.',
+    'Calculate farm break-even per unit: fixed cost 100 RUB, one-time benefit 3 RUB.',
+    'Calculate break-even: cost 120 RUB/year, benefit 1 RUB/month per unit.',
+    'Рассчитай безубыточность: затраты 120 руб в год, эффект 1 руб в месяц на единицу.',
+    '计算盈亏平衡：成本120卢布每年，收益1卢布每月每单位。',
+    'Calculate break-even: cost 100 RUB, benefit 3 RUB per tonne; how many per unit?',
+    'Calculate break-even: 100 RUB, 3 RUB per unit.',
+    'Calculate remaining grain when mixing a 3% dosage with 100 t; losses?',
+  ])('retains inference for ambiguous or adjusted arithmetic: %s',async question=>{
+    const result=await arithmeticResult(question,'en');
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {history:[{role:'user',text:'Также есть отдельные дополнительные расходы.'}]},
+    {documents:[{name:'grain.txt',text:'Есть дополнительные расходы и другой порядок расчёта.',truncated:false}]},
+  ])('retains model handling when arithmetic has contextual material',async extra=>{
+    const result=await arithmeticResult('Рассчитай расходы на гектар: 1000 руб на 10 га.','ru',extra);
+    expect(result.response.status).toBe(200);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps standalone reservation ahead of the arithmetic fast path',async()=>{
+    const response=await send('Рассчитай расходы на гектар: 1000 руб на 10 га.','ru',{context:'gekta-standalone'});
+    expect(response.status).toBe(401);
+    expect(await response.text()).toContain('GEKTA_ANSWER_RESERVATION_REQUIRED');
+    expect(boundary.context).not.toHaveBeenCalled();
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Calculate cost per hectare: 1000 RUB over 10 ha. password: example-secret-123456','SENSITIVE_INPUT_BLOCKED'],
+    ['How can I hide my farm income from tax authorities? Calculate cost per hectare: 1000 RUB over 10 ha.','SAFETY_BOUNDARY_BLOCKED'],
+    ['Recommend a movie. Calculate cost per hectare: 1000 RUB over 10 ha.','TOPIC_REDIRECTED'],
+  ])('retains the existing policy gate before arithmetic for %s',async(question,flag)=>{
+    const response=await send(question,'en');
+    expect(await response.text()).toContain(flag);
+    expect(boundary.model).not.toHaveBeenCalled();
+    expect(boundary.knowledge).not.toHaveBeenCalled();
+  });
+
+  it('does not substitute arithmetic for verified platform claims',async()=>{
+    boundary.knowledge.mockResolvedValue(NextResponse.json({resolution:'redirected'}));
+    const result=await arithmeticResult('На вашей платформе: рассчитай расходы на гектар 1000 рублей на 10 га.');
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.knowledge).toHaveBeenCalledTimes(1);
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'Calculate cost per hectare: total cost 1000 RUB over 10 ha. Square the result.',
+    'Calculate cost per hectare: total cost 1000 RUB over 10 ha each month.',
+    'Calculate cost per hectare: revenue 1000 RUB over 10 ha.',
+    'Calculate cost per hectare: total cost per hectare 1000 RUB over 10 ha.',
+    'Calculate cost per hectare: total cost negative 1000 RUB over 10 ha.',
+    'Сколько тонн осталось: осталось 100 т продукции, потери 3%?',
+    'Сколько тонн осталось: было 100 т продукции, остаток 3%?',
+    'Сколько тонн осталось: было 100 т/га продукции, потери 3%?',
+    'Сколько тонн осталось: было 100 т продукции, потери 3%? Прибавь резерв.',
+    '计算每公顷费用：每公顷总成本1000卢布，面积10公顷。',
+    '计算100吨谷物损耗3%后剩多少。将结果翻倍。',
+    'Calculate break-even: cost 100 RUB, benefit 3 RUB per unit each month.',
+    'Calculate break-even: cost 100 RUB, benefit 3 RUB per unit. How many more after already sold stock?',
+  ])('requires the entire supported calculation and its units/roles: %s',async question=>{
+    boundary.knowledge.mockResolvedValue(NextResponse.json({resolution:'redirected'}));
+    const result=await arithmeticResult(question,'en');
+    expect(result.response.status).toBe(200);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'All following monetary inputs are per hectare. ',
+    'Возведи результат в квадрат. ',
+    '以下金额为负数。',
+  ])('keeps a meaningful prefix instead of discarding it: %s',async prefix=>{
+    for(const question of [
+      'Рассчитай расходы на гектар: затраты 1000 руб на 10 га.',
+      'Сколько тонн осталось: было 100 т продукции, потери 3%?',
+      'Convert 50 metric quintals/ha over 3 ha to tonnes.',
+      'Calculate break-even: cost 100 RUB, benefit 3 RUB per unit.',
+    ]){
+      boundary.model.mockClear();
+      boundary.knowledge.mockResolvedValue(NextResponse.json({resolution:'redirected'}));
+      const result=await arithmeticResult(prefix+question,'en');
+      expect(result.response.status).toBe(200);
+      expect(result.assessment?.source).not.toBe('deterministic_calculator');
+      expect(boundary.model).toHaveBeenCalledTimes(1);
+      expect(boundary.model.mock.calls[0][1].originalQuestion).toBe(prefix+question);
+    }
+  });
+
+  it.each([
+    ['ru','Рассчитай расходы на гектар: затраты 1000 руб на 10 га.','Возведи результат в квадрат.'],
+    ['en','Calculate cost per hectare: total cost 1000 RUB over 10 ha.','Square the result.'],
+    ['zh','计算每公顷费用：总成本1000卢布，面积10公顷。','将结果翻倍。'],
+  ])('does not hide an arithmetic instruction beyond the existing input limit in %s',async(locale,question,extra)=>{
+    const original=question.padEnd(1201,' ')+extra;
+    const result=await arithmeticResult(original,locale);
+    expect(result.response.status).toBe(200);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    // Keep the existing model input budget; only the calculator's admission
+    // learns that the original question was longer than the bounded envelope.
+    expect(boundary.model.mock.calls[0][1].originalQuestion.length).toBeLessThanOrEqual(1200);
+  });
+
+  // Exact independent counterexamples from the rejected private cf284d6 head.
+  it.each([
+  {
+    "id": "per_area_input_ru",
+    "question": "Рассчитай расходы на гектар: 1000 руб/га на площади 10 га.",
+    "locale": "ru"
+  },
+  {
+    "id": "per_area_input_en",
+    "question": "Calculate farm cost per hectare: 1000 RUB per hectare over 10 ha.",
+    "locale": "en"
+  },
+  {
+    "id": "remaining_fraction_ru",
+    "question": "Из 100 т зерна осталось 3%. Посчитай, сколько тонн осталось.",
+    "locale": "ru"
+  },
+  {
+    "id": "remaining_fraction_en",
+    "question": "Calculate how many tonnes remain when only 3% of 100 tonnes remains.",
+    "locale": "en"
+  },
+  {
+    "id": "remaining_fraction_zh",
+    "question": "100吨粮食只剩3%，计算剩余吨数。",
+    "locale": "zh"
+  },
+  {
+    "id": "different_time_bases",
+    "question": "Calculate farm break-even per unit: fixed cost 120 RUB per year, benefit 1 RUB per month per unit.",
+    "locale": "en"
+  },
+  {
+    "id": "unknown_discount",
+    "question": "Calculate farm cost per hectare: 1000 RUB over 10 ha after discount.",
+    "locale": "en"
+  },
+  {
+    "id": "mass_is_remaining_not_initial",
+    "question": "После потерь 3% осталось 100 т зерна. Посчитай, сколько было изначально.",
+    "locale": "ru"
+  },
+  {
+    "id": "flat_benefit_not_per_unit",
+    "question": "Calculate farm break-even per unit: fixed cost 100 RUB, one-time benefit 3 RUB.",
+    "locale": "en"
+  },
+  {
+    "id": "word_negative_en",
+    "question": "Calculate farm cost per hectare: negative 1000 RUB over 10 ha.",
+    "locale": "en"
+  },
+  {
+    "id": "word_negative_ru",
+    "question": "Рассчитай расходы на гектар: минус 1000 рублей на 10 га.",
+    "locale": "ru"
+  },
+  {
+    "id": "word_negative_zh",
+    "question": "计算每公顷费用：成本负1000卢布，面积10公顷。",
+    "locale": "zh"
+  },
+  {
+    "id": "compound_double_en",
+    "question": "Calculate farm cost per hectare: 1000 RUB over 10 ha and double the result.",
+    "locale": "en"
+  }
+])('retains contextual handling for independent regression $id',async item=>{
+    const result=await arithmeticResult(item.question,item.locale);
+    expect(result.response.status).toBe(200);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  // Exact second-review probes; the complete grammar must reject all.
+  it.each([
+  {
+    "id": "lost_mass_ru",
+    "question": "Потери 3% составили 100 т зерна. Посчитай, сколько тонн осталось.",
+    "locale": "ru"
+  },
+  {
+    "id": "lost_mass_en",
+    "question": "A loss of 3% equals 100 tonnes of grain. How many tonnes remain?",
+    "locale": "en"
+  },
+  {
+    "id": "lost_mass_zh",
+    "question": "损耗3%为100吨，剩余多少吨？",
+    "locale": "zh"
+  },
+  {
+    "id": "known_remaining_ru",
+    "question": "Масса оставшегося зерна 100 т, потери 3%. Сколько тонн осталось?",
+    "locale": "ru"
+  },
+  {
+    "id": "known_remaining_en",
+    "question": "The remaining grain weighs 100 tonnes after a loss of 3%. How many tonnes remain?",
+    "locale": "en"
+  },
+  {
+    "id": "mass_rate_en",
+    "question": "How many tonnes remain per hectare from 100 t/ha with 3% losses?",
+    "locale": "en"
+  },
+  {
+    "id": "rate_prefix_ru",
+    "question": "Рассчитай расходы на гектар: цена за гектар 1000 руб, площадь 10 га.",
+    "locale": "ru"
+  },
+  {
+    "id": "rate_prefix_en",
+    "question": "Calculate farm cost per hectare: the rate per hectare is 1000 RUB; area 10 ha.",
+    "locale": "en"
+  },
+  {
+    "id": "rate_prefix_zh",
+    "question": "计算每公顷费用：每公顷成本1000卢布，面积10公顷。",
+    "locale": "zh"
+  },
+  {
+    "id": "rate_suffix_za",
+    "question": "Рассчитай расходы на гектар: 1000 рублей за гектар, площадь 10 га.",
+    "locale": "ru"
+  },
+  {
+    "id": "revenue_not_cost_en",
+    "question": "Calculate farm cost per hectare: revenue 1000 RUB over 10 ha.",
+    "locale": "en"
+  },
+  {
+    "id": "revenue_not_cost_ru",
+    "question": "Рассчитай затраты на гектар: выручка 1000 руб, площадь 10 га.",
+    "locale": "ru"
+  },
+  {
+    "id": "capital_not_cost_en",
+    "question": "Calculate farm cost per hectare: bank balance 1000 RUB and area 10 ha.",
+    "locale": "en"
+  },
+  {
+    "id": "time_each_en",
+    "question": "Calculate farm break-even per unit: fixed cost 120 RUB each year, benefit 1 RUB per unit each month.",
+    "locale": "en"
+  },
+  {
+    "id": "time_rate_ru",
+    "question": "Рассчитай безубыточность: затраты 120 руб ежегодно, эффект 1 руб на единицу ежемесячно.",
+    "locale": "ru"
+  },
+  {
+    "id": "extra_square_en",
+    "question": "Calculate farm cost per hectare: 1000 RUB over 10 ha and square the result.",
+    "locale": "en"
+  },
+  {
+    "id": "extra_double_zh",
+    "question": "计算每公顷费用：成本1000卢布，面积10公顷，将结果翻倍。",
+    "locale": "zh"
+  },
+  {
+    "id": "word_negative_ru",
+    "question": "Рассчитай расходы на гектар: 1000 руб на минус 10 га.",
+    "locale": "ru"
+  },
+  {
+    "id": "yield_wrong_area_role_en",
+    "question": "Convert 50 metric quintals/ha from a 3 ha test plot to total tonnes for the whole farm.",
+    "locale": "en"
+  },
+  {
+    "id": "benefit_sold_units_en",
+    "question": "Calculate farm break-even: cost 100 RUB, benefit 3 RUB per unit already sold. How many additional units are needed?",
+    "locale": "en"
+  }
+])('retains context for second independent role/basis probe $id',async item=>{
+    boundary.knowledge.mockResolvedValue(NextResponse.json({resolution:'redirected'}));
+    const result=await arithmeticResult(item.question,item.locale);
+    expect(result.response.status).toBe(200);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
 
   it('keeps the newest history under the shared character budget instead of retiring the latest turns', async () => {
     const history = Array.from({ length: 12 }, (_, index) => ({

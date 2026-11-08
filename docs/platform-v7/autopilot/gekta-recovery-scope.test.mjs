@@ -1369,3 +1369,146 @@ test('RG2P: accepted pin correction binds only two new checkout references', asy
   await rejects('corrected workflow mode remains regular100644',
     commit(good.head, [[workflowPath, pinned, '100755']]));
 });
+
+// Execute the actual CI SOURCE command against owned immutable Git fixtures.
+test('RG2C: native source reader binds eight files and preserves failure', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rg2-ci-real-git-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  coGit(root, ['init', '--initial-branch=main']);
+  for (const [key, value] of [['user.name', 'RG2C synthetic regression'], ['user.email', 'rg2c@example.invalid'],
+    ['maintenance.auto', 'false'], ['gc.auto', '0']]) coGit(root, ['config', key, value]);
+  write(root, '.git/objects/info/alternates', coObjectDirectory + '\n');
+  const g = (...args) => coGit(root, args);
+  const put = (file, raw, mode = '100644') => {
+    const oid = coGit(root, ['hash-object', '-w', '--stdin'], { input: raw }).toString().trim();
+    g('update-index', '--add', '--cacheinfo', mode, oid, file);
+  };
+  const commit = (from, edits = []) => {
+    g('read-tree', from); for (const [file, raw, mode] of edits) put(file, raw, mode);
+    return g('commit-tree', g('write-tree').toString().trim(), '-p', from, '-m', 'SYNTHETIC RG2C boundary').toString().trim();
+  };
+  const origin = '54a1130613cc1fabdec51fd3482d0c0b1d6818e3';
+  const carrierPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const ciPath = '.github/workflows/platform-v7-autopilot-guard.yml';
+  const sourcePath = '.github/workflows/production-docker-headroom-diagnostic.yml';
+  const helperPath = 'scripts/test_production_stopped_runtime_headroom.py';
+  const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md';
+  const fence = String.fromCharCode(96).repeat(3);
+  const marker = '\n## RG2C — Native source control reader admission, 2026-11-02\n\n' + fence + 'json\n';
+  const sourceMarker = '\n## RG2S — Closed geometry receipt source admission, 2026-11-02\n\n' + fence + 'json\n';
+  const pinMarker = '\n## RG2P — Pin-only source correction admission, 2026-11-02\n\n' + fence + 'json\n';
+  const carrier = g('show', origin + ':' + carrierPath).toString();
+  const encoded = carrier.split(marker)[1].split('\n' + fence + '\n')[0], controls = JSON.parse(encoded);
+  assert.equal(coSha(Buffer.from(encoded)), '6d45d456e1577534c15c4264ec001fcd9f0e8f297a340c700c0fb9239d43df5c');
+  const original = JSON.parse(carrier.split(sourceMarker)[1].split('\n' + fence + '\n')[0]);
+  const correction = JSON.parse(carrier.split(pinMarker)[1].split('\n' + fence + '\n')[0]);
+  const base = commit(origin, [
+    [ciPath, Buffer.from(workflow)],
+    ['docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs', fs.readFileSync('docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs')],
+  ]);
+  g('read-tree', base);
+  for (const patch of [original.fullSourcePatch.text, correction.pinOnlyPatch.text]) {
+    coGit(root, ['apply', '--cached', '--whitespace=nowarn', '-'], { input: Buffer.from(patch) });
+  }
+  const source = g('show', g('write-tree').toString().trim() + ':' + sourcePath);
+  assert.equal(coBlob(source), controls.sourceWorkflow.blob);
+  const generator = g('show', base + ':scripts/security/discover-cryptography.mjs');
+  const trusted = await import('data:text/javascript;base64,' + generator.toString('base64'));
+  const inventory = JSON.parse(g('show', base + ':docs/security/cryptographic-inventory.json'));
+  const makeSource = accepted => {
+    const s = commit(accepted, [[sourcePath, source]]);
+    return commit(s, [[mdPath, Buffer.from(trusted.renderMarkdown(inventory, { sourceSha: s }))]]);
+  };
+  const head = makeSource(base);
+  const section = workflow.split('      - name: Validate DC1 closed Docker source controls at exact accepted head\n')[1];
+  assert.ok(section);
+  const nativeRun = section.split('\n      - ')[0].split('        run: |\n')[1]
+    .split('\n').map(line => line.startsWith('          ') ? line.slice(10) : line).join('\n');
+  assert.ok(nativeRun.startsWith("python3 -I - <<'DC1_SOURCE_CONTROLS'\n"));
+  const python = execFileSync('python3', ['-c', 'import sys; print(sys.executable)'], { encoding: 'utf8' }).trim();
+  const shQuote = value => "'" + value.replace(/'/gu, "'\"'\"'") + "'";
+  const binary = path.join(root, '.git', 'test-bin'), callsPath = path.join(root, '.git', 'helper-calls');
+  fs.mkdirSync(binary); fs.mkdirSync(path.join(root, '.git', 'runner-temp'));
+  const launcher = [
+    '#!/bin/sh',
+    'if [ "$1" = "-I" ] && [ "$2" = "-B" ] && [ "$3" = "' + helperPath + '" ]; then',
+    "  printf '%s\\n' helper >> " + shQuote(callsPath),
+    '  if [ "$RG2_CI_TEST_FAIL_HELPER" = 1 ]; then exit 7; fi',
+    'fi',
+    'exec ' + shQuote(python) + ' "$@"', '',
+  ].join('\n');
+  fs.writeFileSync(path.join(binary, 'python3'), launcher, { mode: 0o700 });
+  const branch = 'fix/gekta-docker-diagnostic-route-20260927';
+  const run = (candidate = head, accepted = base, options = {}) => {
+    g('checkout', '--force', '--detach', candidate);
+    fs.rmSync(callsPath, { force: true });
+    options.prepare?.();
+    const result = spawnSync('bash', ['-e', '-c', nativeRun], { cwd: root, encoding: 'utf8',
+      timeout: 90000, maxBuffer: 4 * 1024 * 1024, env: {
+        ...process.env, BASE_SHA: accepted, HEAD_SHA: candidate, GITHUB_HEAD_REF: options.branch ?? branch,
+        PATH: binary + path.delimiter + process.env.PATH, RG2_CI_TEST_FAIL_HELPER: options.helperFailure ? '1' : '0',
+        TMPDIR: path.join(root, '.git', 'runner-temp'),
+      } });
+    const calls = fs.existsSync(callsPath) ? fs.readFileSync(callsPath, 'utf8').trim().split('\n').length : 0;
+    const line = result.stdout?.split('\n').find(value => value.startsWith('RG2_SOURCE_CONTROLS_PINNED_SNAPSHOT='));
+    const snapshot = line ? JSON.parse(line.slice('RG2_SOURCE_CONTROLS_PINNED_SNAPSHOT='.length)) : null;
+    if (snapshot) assert.equal(fs.existsSync(snapshot.cwd), false, 'owned snapshot must be removed on success and failure');
+    return { result, calls, snapshot };
+  };
+  await t.test('actual native command executes every helper test on exactly eight Git-bound files', () => {
+    const { result, calls, snapshot } = run();
+    assert.equal(result.status, 0, result.stdout + result.stderr); assert.equal(calls, 1);
+    assert.match(result.stderr, /Ran 50 tests[\s\S]*\bOK\b/u);
+    assert.match(result.stdout, /RG2_SOURCE_CONTROLS_EXACT_HEAD_PASS; SNAPSHOT_REMOVED; HOST_AUTHORITY=NONE/u);
+    assert.deepEqual(snapshot.files.map(pin => pin.path), [...controls.unchangedHelperInputs.map(pin => pin.path), sourcePath].sort());
+    assert.equal(snapshot.files.length, 8); assert.equal(snapshot.head, head);
+  });
+  await t.test('complete legacy CI code is byte-preserved after removing only the distinct new case', () => {
+    const begin = workflow.indexOf('          rg2_marker = '), end = workflow.indexOf('          elif dc2_marker in text:\n', begin);
+    assert.ok(begin >= 0 && end > begin);
+    assert.equal(workflow.slice(0, begin) + '          if dc2_marker in text:\n' +
+      workflow.slice(end + '          elif dc2_marker in text:\n'.length), g('show', origin + ':' + ciPath).toString());
+  });
+  const noPurposeBase = commit(base, [[carrierPath, Buffer.from(carrier.split(marker)[0])]]);
+  await t.test('missing accepted RG2C stops before helper execution', () => {
+    const { result, calls, snapshot } = run(makeSource(noPurposeBase), noPurposeBase);
+    assert.notEqual(result.status, 0); assert.equal(calls, 0); assert.equal(snapshot, null);
+    assert.match(result.stderr, /RG2_SOURCE_CONTROLS_PURPOSE_NOT_UNIQUE/u);
+  });
+  await t.test('candidate-owned admission cannot bootstrap the accepted case', () => {
+    const candidate = commit(makeSource(noPurposeBase), [[carrierPath, Buffer.from(carrier)]]);
+    const { result, calls } = run(candidate, noPurposeBase);
+    assert.notEqual(result.status, 0); assert.equal(calls, 0);
+  });
+  for (const [name, changed] of [
+    ['noncanonical record', carrier.replace(encoded, ' ' + encoded)],
+    ['duplicate record key', carrier.replace(encoded, encoded.replace('"owner":', '"owner":"FORGED","owner":'))],
+  ]) await t.test(name + ' stops before helper execution', () => {
+    const changedBase = commit(base, [[carrierPath, Buffer.from(changed)]]);
+    const { result, calls, snapshot } = run(makeSource(changedBase), changedBase);
+    assert.notEqual(result.status, 0); assert.equal(calls, 0); assert.equal(snapshot, null);
+    assert.match(result.stderr, /RG2_SOURCE_CONTROLS_(?:PURPOSE_NOT_ACCEPTED|DUPLICATE_KEY)/u);
+  });
+  for (const file of [helperPath, sourcePath]) await t.test('dirty physical bytes rejected before helper: ' + file, () => {
+    const { result, calls, snapshot } = run(head, base, { prepare: () => fs.appendFileSync(path.join(root, file), '\n# owned dirty fixture\n') });
+    assert.notEqual(result.status, 0); assert.equal(calls, 0); assert.equal(snapshot, null);
+    assert.match(result.stderr, /RG2_SOURCE_CONTROLS_WORKTREE_/u);
+  });
+  await t.test('physical helper symlink is never followed or executed', () => {
+    const { result, calls, snapshot } = run(head, base, { prepare: () => {
+      const saved = path.join(root, '.git', 'helper-copy');
+      fs.copyFileSync(path.join(root, helperPath), saved); fs.unlinkSync(path.join(root, helperPath));
+      fs.symlinkSync(saved, path.join(root, helperPath));
+    } });
+    assert.notEqual(result.status, 0); assert.equal(calls, 0); assert.equal(snapshot, null);
+  });
+  await t.test('wrong source branch is refused before helper execution', () => {
+    const { result, calls } = run(head, base, { branch: 'other-owner' });
+    assert.notEqual(result.status, 0); assert.equal(calls, 0); assert.match(result.stderr, /RG2_SOURCE_CONTROLS_BRANCH_OR_SCHEMA/u);
+  });
+  await t.test('nonzero helper remains failure and its snapshot is removed', () => {
+    const { result, calls, snapshot } = run(head, base, { helperFailure: true });
+    assert.notEqual(result.status, 0); assert.equal(calls, 1); assert.equal(snapshot.files.length, 8);
+    assert.doesNotMatch(result.stdout, /RG2_SOURCE_CONTROLS_EXACT_HEAD_PASS/u);
+  });
+});

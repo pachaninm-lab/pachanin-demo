@@ -42,7 +42,7 @@ jobs:
     name: Exact-head source and scope preflight
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review') && 10 || 8 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation') && 10 || 8 }}
     permissions:
       contents: read
     env:
@@ -88,7 +88,7 @@ jobs:
 
           class SourceBudgetChecks(unittest.TestCase):
               def expected_owned_guard_seconds(self, ref):
-                  return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review') else 300
+                  return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation') else 300
 
               def fixture(self, root, test_fail=False, guard_fail=False):
                       repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()
@@ -255,7 +255,7 @@ jobs:
                       return report, calls, group_proof
 
               def test_named_owned_refs_keep_300_except_admitted_measured_pair(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'PASS')
@@ -265,14 +265,14 @@ jobs:
                           self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
 
               def test_other_and_empty_refs_keep_guard_180_outer_195(self):
-                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'codex/gekta-security-review-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra']:
+                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'codex/gekta-security-review-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra', 'test/bank-acceptance-contract-6085-extra', 'fix/bank-acceptance-preflight-budget-6089-extra']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)
                           self.assertEqual(report['result'], 'PASS')
                           self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_fork_name_collision_and_missing_identity_keep_original_budget(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
                       for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
                           with self.subTest(ref=ref, head_repository=head_repo, repository=repo):
                               report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180,
@@ -281,7 +281,7 @@ jobs:
                               self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
                       with self.subTest(ref=ref):
                           report, calls, group = self.execute_collector('guard-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'FAIL')
@@ -290,7 +290,7 @@ jobs:
                           self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
 
               def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'FAIL')
@@ -298,7 +298,7 @@ jobs:
                           self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
 
               def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'FAIL')
@@ -335,6 +335,30 @@ jobs:
                           self.assertEqual(report['result'], 'PASS')
                           self.assertEqual(calls[0]['outer_timeout'], 195)
 
+              def test_bank_acceptance_refs_have_bounded_same_repository_budget(self):
+                  for ref in ['test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+                      with self.subTest(ref=ref):
+                          report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual([c['budget_seconds'] for c in report['checks']], [420, 180])
+                          self.assertEqual([c['outer_timeout_seconds'] for c in report['checks']], [435, 195])
+                          self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])
+                      for candidate, head_repo, repo in [
+                          (ref + '-extra', 'fixture/repository', 'fixture/repository'),
+                          (ref.upper(), 'fixture/repository', 'fixture/repository'),
+                          ('prefix/' + ref, 'fixture/repository', 'fixture/repository'),
+                          (ref + ' ', 'fixture/repository', 'fixture/repository'),
+                          (ref, 'fork/repository', 'fixture/repository'),
+                          (ref, 'fixture/repository/', 'fixture/repository'),
+                          (ref, '', ''),
+                      ]:
+                          with self.subTest(ref=candidate, head=head_repo, repo=repo):
+                              report, calls, _ = self.execute_collector(head_ref=candidate, guard_seconds=180,
+                                  head_repository=head_repo, repository=repo)
+                              self.assertEqual(report['result'], 'PASS')
+                              self.assertEqual([c['budget_seconds'] for c in report['checks']], [180, 180])
+                              self.assertEqual([c['outer_timeout'] for c in calls], [195, 195])
+
               def test_incomplete_skipped_and_inconsistent_tap_cannot_pass(self):
                   for behavior in ['header-only','skipped-tap','inconsistent-tap']:
                       with self.subTest(behavior=behavior):
@@ -349,7 +373,7 @@ jobs:
                       '\n  production-like-kubernetes:\n', 1)[0]
                   runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
                       '\n  production-like-kubernetes-gate:\n', 1)[0]
-                  self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review') && 10 || 8 }}\n", preflight)
+                  self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation') && 10 || 8 }}\n", preflight)
                   self.assertIn('    timeout-minutes: 300\n', runtime)
                   self.assertIn("          node-version: '24.8.0'\n", preflight)
                   self.assertIn('      - name: Retain source-bound result without raw errors\n'
@@ -362,6 +386,89 @@ jobs:
                   self.assertIn('      - name: Cleanup disposable acceptance environment\n'
                                 '        if: always()\n', runtime)
 
+
+              def test_codeql_provenance_ref_uses_only_the_existing_owned_bounded_class(self):
+                  ref = 'fix/codeql-v2-26-3-upstream-lock-4072'
+                  report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
+                  self.assertEqual(report['result'], 'PASS')
+                  self.assertEqual([c['budget_seconds'] for c in report['checks']], [420, 180])
+                  self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])
+                  for candidate, head_repo, repo in [
+                      (ref + '-extra', 'fixture/repository', 'fixture/repository'),
+                      (ref.upper(), 'fixture/repository', 'fixture/repository'),
+                      ('prefix/' + ref, 'fixture/repository', 'fixture/repository'),
+                      (ref + ' ', 'fixture/repository', 'fixture/repository'),
+                      (ref, 'fork/repository', 'fixture/repository'),
+                      (ref, 'fixture/repository/', 'fixture/repository'),
+                      (ref, '', ''),
+                  ]:
+                      with self.subTest(ref=candidate, head=head_repo, repository=repo):
+                          report, calls, _ = self.execute_collector(head_ref=candidate, guard_seconds=180,
+                              head_repository=head_repo, repository=repo)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual([c['budget_seconds'] for c in report['checks']], [180, 180])
+                          self.assertEqual([c['outer_timeout'] for c in calls], [195, 195])
+
+              def test_codeql_provenance_ref_timeouts_remain_failed_and_preserve_artifacts(self):
+                  ref = 'fix/codeql-v2-26-3-upstream-lock-4072'
+                  report, calls, group = self.execute_collector('guard-timeout', head_ref=ref, guard_seconds=420)
+                  self.assertEqual(report['result'], 'FAIL')
+                  self.assertEqual(group['exit_code'], 124)
+                  self.assertEqual([c['exit_code'] for c in report['checks']], [124, 0])
+                  report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref, guard_seconds=420)
+                  self.assertEqual(report['result'], 'FAIL')
+                  self.assertEqual([c['exit_code'] for c in report['checks']], [0, 124])
+                  self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])
+                  report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref, guard_seconds=420)
+                  self.assertEqual(report['result'], 'FAIL')
+                  self.assertEqual(report['stage'], 'guard-regressions')
+                  self.assertEqual(report['checks'], [])
+                  self.assertEqual(len(calls), 1)
+                  self.assertEqual(calls[0]['outer_timeout'], 435)
+
+              def test_transitive_security_ref_requires_exact_same_repository_identity(self):
+                  ref = 'agent/ir-sec-transitive-runtime-remediation'
+                  report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
+                  self.assertEqual(report['result'], 'PASS')
+                  self.assertEqual([c['budget_seconds'] for c in report['checks']], [420, 180])
+                  self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])
+                  for candidate, head_repo, repo in [
+                      (ref + '-extra', 'fixture/repository', 'fixture/repository'),
+                      (ref + '/extra', 'fixture/repository', 'fixture/repository'),
+                      (ref.upper(), 'fixture/repository', 'fixture/repository'),
+                      ('prefix/' + ref, 'fixture/repository', 'fixture/repository'),
+                      (ref + ' ', 'fixture/repository', 'fixture/repository'),
+                      ('', 'fixture/repository', 'fixture/repository'),
+                      (ref, 'fork/repository', 'fixture/repository'),
+                      (ref, 'fixture/repository/', 'fixture/repository'),
+                      (ref, '', 'fixture/repository'),
+                      (ref, '', ''),
+                  ]:
+                      with self.subTest(ref=candidate, head=head_repo, repository=repo):
+                          report, calls, _ = self.execute_collector(head_ref=candidate, guard_seconds=180,
+                              head_repository=head_repo, repository=repo)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual([c['budget_seconds'] for c in report['checks']], [180, 180])
+                          self.assertEqual([c['outer_timeout'] for c in calls], [195, 195])
+
+              def test_transitive_security_timeouts_and_incomplete_tap_still_fail(self):
+                  ref = 'agent/ir-sec-transitive-runtime-remediation'
+                  for behavior in ('guard-timeout', 'branch-timeout', 'outer-timeout',
+                                   'header-only', 'skipped-tap', 'inconsistent-tap'):
+                      with self.subTest(behavior=behavior):
+                          report, calls, group = self.execute_collector(
+                              behavior, head_ref=ref, guard_seconds=420)
+                          self.assertEqual(report['result'], 'FAIL')
+                          if behavior == 'guard-timeout':
+                              self.assertEqual(group['exit_code'], 124)
+                              self.assertEqual([c['exit_code'] for c in report['checks']], [124, 0])
+                          elif behavior == 'branch-timeout':
+                              self.assertEqual([c['exit_code'] for c in report['checks']], [0, 124])
+                          elif behavior == 'outer-timeout':
+                              self.assertEqual(report['stage'], 'guard-regressions')
+                              self.assertEqual(report['checks'], [])
+                              self.assertEqual(len(calls), 1)
+                              self.assertEqual(calls[0]['outer_timeout'], 435)
 
           unittest.main(verbosity=2)
           PY_SOURCE_BUDGET_TESTS
@@ -463,12 +570,15 @@ jobs:
                       'fix/gekta-document-text-fidelity-20261101',
                       'fix/gekta-first-prompt-consent-20261101',
                       'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997',
+                      'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089',
+                      'fix/codeql-v2-26-3-upstream-lock-4072',
+                      'agent/ir-sec-transitive-runtime-remediation',
                   }
                   own_repository = os.environ.get('GITHUB_REPOSITORY', '')
                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
                                   bool(own_repository) and
                                   os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)
-                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review'}
+                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation'}
                   measured_budget = owned_budget and os.environ.get('GITHUB_HEAD_REF', '') in measured_budget_refs
                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),
                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]
