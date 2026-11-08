@@ -75,6 +75,7 @@ type NormalizedRequest = Readonly<{
   conversationState: string;
   grounding: PublicGrounding;
   economicComparison: EconomicComparison | null;
+  suppliedHypotheticalCalculation: string | null;
 }>;
 type ProviderConfig = Readonly<{
   baseUrl: string;
@@ -681,6 +682,16 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   const responseBudgetProfile = normalizeResponseBudgetProfile(row.responseBudget, answerMode);
   const currentDataRequired = row.currentDataRequired === true;
   const history = normalizeHistory(row.history);
+  // The bounded exercise supplies its own operands. Its checked copy never
+  // authorizes publishing unchecked provider numbers or economic advice.
+  // Keep the complete original question in the provider prompt in every case.
+  const completeOriginal = cleanSingleLineText(row.originalQuestion, MAX_QUESTION_CHARS + 1)
+    || cleanSingleLineText(row.question, MAX_QUESTION_CHARS + 1);
+  const suppliedHypotheticalCalculation = answerMode === 'general_agro'
+    && documents.length === 0 && history.length === 0
+    && completeOriginal.length <= MAX_QUESTION_CHARS
+    ? suppliedHypotheticalCalculationFor(completeOriginal, locale)
+    : null;
   const conversationState = cleanMultilineText(row.conversationState, MAX_CONVERSATION_STATE_CHARS);
   if (SECRET_PATTERN.test(conversationState)) {
     throw new BadRequestException('Secret-like conversation state is forbidden in the public model contour.');
@@ -713,8 +724,101 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
     history,
     conversationState,
     grounding,
-    economicComparison: economicComparisonFor(originalQuestion, history),
+    economicComparison: economicComparisonFor(originalQuestion, history)
+      || (suppliedHypotheticalCalculation ? 'qualitative' : null),
+    suppliedHypotheticalCalculation,
   });
+}
+
+function suppliedHypotheticalCalculationFor(question: string, locale: PublicLocale): string | null {
+  // Only decimal-digit representations may canonicalize to one ASCII digit.
+  // Powers, subscripts and other numeric symbols must not become operands.
+  if ([...question.matchAll(/\p{Number}/gu)].some(([value]) =>
+    !/^\p{Decimal_Number}$/u.test(value) || !/^[0-9]$/u.test(value.normalize('NFKC')))) return null;
+  const text = question.normalize('NFKC');
+  const n = '\\d{1,9}(?:[.,]\\d{1,3})?';
+  const rub = '(?:руб(?:лей|ля|ль|ли)?\\.?|₽|RUB)';
+  const ha = '(?:гектар(?:ов|а)?|га)';
+  const forms = [
+    `Для учебного расч[её]та бюджет(?: проверки)? ${n} ${rub} на ${n} ${ha}\\. Сколько рублей на гектар\\? Покажи формулу(?:, не добавляй рыночные цены)?\\.`,
+    `В отдельном учебном примере было ${n} (?:тонн(?:ы|а|у)?|т) продукции, потери составили ${n}%\\. Сколько тонн осталось\\? Покажи единицы и расч[её]т\\.`,
+    `Рассчитай точку безубыточности(?: проверки)?: затраты ${n} ${rub}, подтвержд[её]нный полезный эффект ${n} ${rub} на единицу\\. Сколько единиц нужно для покрытия затрат\\? Это условные данные\\.`,
+    `a separate hypothetical cost is ${n} (?:RUB|rubles?|roubles?) over ${n} (?:hectares?|ha)\\. Calculate rubles per hectare with the formula\\. These are supplied figures, not market prices\\.`,
+    `另一个假设计算中，检查费用是${n}卢布，面积为${n}公顷。请计算每公顷费用并给出公式。数字由题目提供，不是市场价格。`,
+    `В журнале указано ${n} (?:центнер(?:ов|а)? на гектар|ц\\s*/\\s*га) на площади ${n} ${ha}\\. Переведи урожайность в тонны на гектар и посчитай общий объ[её]м\\.`,
+  ];
+  const otherRequest = /[?？]|(?<![\p{L}\p{N}_])(?:рассчитай(?:те)?|посчитай(?:те)?|сравни(?:те)?|скажи(?:те)?|ответь(?:те)?|оцени(?:те)?|предскажи(?:те)?|выбери(?:те)?|рекомендуй(?:те)?|рассчитывай(?:те)?|игнорируй(?:те)?|продай(?:те)?|покупай(?:те)?|calculate|compare|predict|answer|tell|estimate|recommend|ignore|sell|buy|should)(?![\p{L}\p{N}_])|请|請|比较|比較|预测|預測|是否|应该|應該|告诉|告訴|推荐|推薦/u;
+  for (const [index, form] of forms.entries()) {
+    // Do not consume the preceding punctuation: an earlier question remains
+    // visible to conservative task selection. Canonicalize both sides alike.
+    const match = new RegExp(`(?:^|(?<=[.!?。！？,，])\\s*)${form.normalize('NFKC').replaceAll(' ', '\\s+')}\\s*$`, 'iu').exec(text);
+    if (!match || otherRequest.test(text.slice(0, match.index).toLocaleLowerCase('ru-RU'))) continue;
+    const prefix = text.slice(0, match.index);
+    const operandPrefix = index === 5 ? maskDeclaredAccountingSoftwareLabels(prefix) : prefix;
+    const operandText = operandPrefix + text.slice(match.index);
+    const numbers = [...operandText.matchAll(/\d+(?:[.,]\d+)?/gu)];
+    if (numbers.length !== 2 || numbers.some(([value]) => /[.,]\d{3}$/u.test(value) && !/^0[.,]/u.test(value))) return null;
+    const operands = numbers.map(([raw]) => {
+      const [whole, fraction = ''] = raw.replace(',', '.').split('.');
+      return BigInt(whole) * 1000n + BigInt(fraction.padEnd(3, '0'));
+    });
+    const [first, second] = operands;
+    if (first <= 0n || second < 0n || (index !== 1 && second === 0n)) return null;
+    const [a, b] = numbers.map(([raw]) => raw.replace(',', '.'));
+    const intro = locale === 'zh' ? '按题目提供的假设数据计算：'
+      : locale === 'en' ? 'Calculation from the hypothetical figures supplied in the question: '
+      : 'Расчёт по условным данным из вопроса: ';
+    if (index === 5) {
+      // One metric centner is one tenth of a tonne. Both operands carry
+      // scale1000; four/seven places represent these products exactly.
+      const rate = formatSuppliedFraction(first, 10_000n, 4);
+      const total = formatSuppliedFraction(first * second, 10_000_000n, 7);
+      const sourceUnit = locale === 'zh' ? '公担/公顷' : locale === 'en' ? 'metric centners/ha' : 'ц/га';
+      const rateUnit = locale === 'zh' ? '吨/公顷' : locale === 'en' ? 'tonnes/ha' : 'т/га';
+      const areaUnit = locale === 'zh' ? '公顷' : locale === 'en' ? 'ha' : 'га';
+      const massUnit = locale === 'zh' ? '吨' : locale === 'en' ? 'tonnes' : 'т';
+      return `${intro}${a} ${sourceUnit} / 10 = ${rate.text} ${rateUnit}; ${rate.text} ${rateUnit} × ${b} ${areaUnit} = ${total.text} ${massUnit}.`;
+    }
+    if (index === 1) {
+      if (second > 100_000n) return null;
+      const result = formatSuppliedFraction(first * (100_000n - second), 100_000_000n, 8);
+      return `${intro}${a} × (1 − ${b} / 100) = ${result.text} ${locale === 'zh' ? '吨' : locale === 'en' ? 'tonnes' : 'т'}.`;
+    }
+    if (index === 2) {
+      const units = (first + second - 1n) / second;
+      return `${intro}⌈${a} / ${b}⌉ = ${units} ${locale === 'zh' ? '单位（向上取整）' : locale === 'en' ? 'units (rounded up)' : 'ед. (округлено вверх)'}.`;
+    }
+    const result = formatSuppliedFraction(first, second, 2);
+    const unit = locale === 'zh' ? '卢布/公顷' : locale === 'en' ? 'RUB/ha' : 'руб./га';
+    const rounding = result.exact ? '' : locale === 'zh' ? '（四舍五入到0.01卢布）'
+      : locale === 'en' ? ' (rounded to 0.01 RUB)' : ' (округлено до 0.01 руб.)';
+    return `${intro}${a} / ${b} ${result.exact ? '=' : '≈'} ${result.text} ${unit}${rounding}.`;
+  }
+  return null;
+}
+
+/** Positive bounded operands; integer arithmetic makes the rounding explicit. */
+function formatSuppliedFraction(numerator: bigint, denominator: bigint, places: number): Readonly<{ text: string; exact: boolean }> {
+  const scale = 10n ** BigInt(places);
+  const rounded = (numerator * scale + denominator / 2n) / denominator;
+  const whole = rounded / scale;
+  const fraction = (rounded % scale).toString().padStart(places, '0').replace(/0+$/u, '');
+  return Object.freeze({ text: `${whole}${fraction ? `.${fraction}` : ''}`, exact: rounded * denominator === numerator * scale });
+}
+
+/** Only positively named software references may be excluded from operands. */
+function maskDeclaredAccountingSoftwareLabels(prefix: string): string {
+  if (/температур|цельси|celsius|°/iu.test(prefix)) return prefix;
+  const mask = (whole: string, before: string, label: string): string =>
+    label === '1С' || label === '1C' ? `${before}named-software` : whole;
+  // Case-insensitive prose must never turn lowercase SI seconds into a brand.
+  // Each token needs its own software declaration; an accounting word elsewhere
+  // does not type an arbitrary physical quantity in the same prefix.
+  return prefix
+    .replace(/(?<![\p{L}\p{N}_])(вопрос\s+по\s+)(1[сc])(?=\s+и\s+уч[её]ту\s+хозяйства\s*[.,;:!?])/giu, mask)
+    .replace(/(?<![\p{L}\p{N}_])((?:программ[аеиуы]|систем[аеиуы])\s+)(1[сc])(?=\s*(?:[.,;:!?]|$))/giu, mask)
+    .replace(/(?<![\p{L}\p{N}_])(бухгалтер\s+(?:работает|работаю|работают|вед[её]т\s+уч[её]т)\s+в\s+)(1[сc])(?=\s*(?:[.,;:!?]|$))/giu, mask)
+    .replace(/(?<![\p{L}\p{N}_])(бухгалтеру\s+нужно\s+(?:отразить|провести|оформить)\s+(?:поступление(?:\s+и\s+продажу)?|продажу)\s+(?:зерна|продукции|товара)\s+в\s+)(1[сc])(?=\s*(?:[.,;:!?]|$))/giu, mask);
 }
 
 function normalizeDocuments(value: unknown): readonly PublicDocumentContext[] {
@@ -803,6 +907,8 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
         request.responseBudgetProfile,
       ) + (request.economicComparison
         ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported deterministic arithmetic from explicit user inputs, including storage-only and payment-timing calculations. Do not repeat, replace or extend that arithmetic. Use plain text, no LaTeX.'
+        : '') + (request.suppliedHypotheticalCalculation
+        ? '\nThe final request includes a separate hypothetical arithmetic exercise with its own supplied figures and units. The application supplies its checked arithmetic separately. Explain only relevant qualitative context; do not repeat or extend the numerical result. The supplied figures are not verified current market evidence. Do not apply these exercise figures to actual farming outcomes, forecasts or profitability decisions. Do not invent missing operands, costs, rates or periods.'
         : ''),
     },
     ...request.history.map((turn) => ({ role: turn.role, content: turn.text }) as ChatMessage),
@@ -811,6 +917,7 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
 }
 
 function checkedEconomicCopy(request: NormalizedRequest): string {
+  if (request.suppliedHypotheticalCalculation) return request.suppliedHypotheticalCalculation;
   return economicComparisonCopy(
     request.economicComparison!,
     request.locale,

@@ -818,6 +818,119 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
+// DSA_SOURCE_STAGE_BEGIN: one separately admitted source transition, never a host grant.
+function dsaSourceStage() {
+  if (branch !== 'fix/gekta-docker-diagnostic-route-20260927') return undefined;
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('DSA_SOURCE_SCOPE_' + reason); };
+  const git = (args, maximum = 3 * 1024 * 1024 + 1) => execFileSync('git',
+    ['--no-replace-objects', ...args], { maxBuffer: maximum, timeout: 10000 });
+  const text = bytes => {
+    const value = bytes.toString('utf8');
+    if (!Buffer.from(value, 'utf8').equals(bytes)) fail('UTF8');
+    return value;
+  };
+  const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const marker = '\n## DSA — Docker startup exact source admission, 2026-11-08\n\n```json\n';
+  const sourceMarker = '\n## Docker startup address-space comparison purpose 20261108\n\n```json\n';
+  const base = text(git(['rev-parse', `${baseRef}^{commit}`], 128)).trim();
+  const entry = (ref, file) => text(git(['ls-tree', ref, '--', file], 4096)).trim();
+  if (!entry(base, queuePath)) return undefined;
+  const bounded = (ref, file, capacity) => {
+    const sizeText = text(git(['cat-file', '-s', `${ref}:${file}`], 128)).trim();
+    if (!/^[0-9]{1,8}$/.test(sizeText) || Number(sizeText) > capacity) fail('CAPACITY');
+    const bytes = git(['show', `${ref}:${file}`], capacity + 1);
+    if (bytes.length !== Number(sizeText) || bytes.length > capacity) fail('CAPACITY');
+    return bytes;
+  };
+  const queue = bounded(base, queuePath, 3 * 1024 * 1024);
+  const content = text(queue);
+  if (!content.includes(marker)) return undefined;
+  // A present malformed admission must abort; it must not fall through to RG2.
+  if (!/^100644 blob [0-9a-f]{40}\t/.test(entry(base, queuePath))) fail('QUEUE_MODE');
+  const canonical = (selectedMarker, maximum) => {
+    const parts = content.split(selectedMarker);
+    if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
+    const end = parts[1].indexOf('\n```\n');
+    if (end < 0) fail('PURPOSE_FORMAT');
+    const encoded = parts[1].slice(0, end);
+    if (Buffer.byteLength(encoded) > maximum) fail('PURPOSE_CAPACITY');
+    let value;
+    try { value = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
+    // Exact serialization rejects duplicate keys, alternate numeric forms and whitespace.
+    if (!value || Array.isArray(value) || typeof value !== 'object' || JSON.stringify(value) !== encoded) fail('PURPOSE_NOT_CANONICAL');
+    return { value, encoded };
+  };
+  const expectedDsaCore = {"purposeId":"docker-startup-exact-source-admission-20261108","owner":"ACCOUNT_1_CORE","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","governanceBranch":"governance/gekta-recovery-trusted-routes-20260927","metadataBranch":"governance/industrial-load-diagnostics-20260919","retainedMetadataScope":["docs/platform-v7/autopilot/autopilot-state.json","docs/platform-v7/execution-queue.md","docs/platform-v7/autopilot/prompts/current-codex-task.md","docs/platform-v7/autopilot/prompts/current-review-task.md","scripts/p7-autopilot-guard.sh","scripts/p7-autopilot-guard.test.mjs",".github/workflows/platform-v7-autopilot-guard.yml"],"metadataChangedPaths":["docs/platform-v7/execution-queue.md"],"authorityBaseExactMain":"f05fc11d816333e3539c75c648598b084ce51b33","ownerBasis":{"commentId":6615436499,"bodyBytes":19034,"bodySha256":"9a9dd28f9f91e3a7a03ed38807a0979e67f48635656c304ae00c4bcaa655adf6","updatedAt":"2026-11-05T02:10:01Z","section":3},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"},"sourcePaths":[".github/workflows/production-docker-headroom-diagnostic.yml","scripts/test_production_stopped_runtime_headroom.py"],"sourcePayloads":[{"before":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"3c79a43a5495848711e5e9518c9e933aba83fc82","bytes":477440,"sha256":"2860b9abd30a929a8e0538f5515f5ea34864d8b5e08cac8910511c296c19b22c"},"after":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"0f0dd1a2e367befd7083acba07b3853c648d56cf","bytes":539439,"sha256":"e8893355770b8db2db65618df178f9a79ee701c4095e4eee6c5322cebfeb2e60"}},{"before":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},"after":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"}}],"wholeBeforePrefixRequired":true,"governanceBefore":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"b2ba003b3f80897065cb582d66e4b9c32a267c4f","bytes":145288,"sha256":"e9b608594b5641c5a51dbe9c31f3095e01c6ecf1c499417bd8dba23885d175c7"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"dd38d18342d95c3dca92bcdf92fd6bee673b7283","bytes":189692,"sha256":"e138627ffcc74b64554f07762a9da70c7c160d9b270140f597602e0ce9310928"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"a1ca5ded38328f03f2a795e25be3e8004c6a54f0","bytes":318448,"sha256":"410fb425cf09642fe04aab57d21adcb2a6494cd9a4ff9fcd41dd49d3a87bf150"}],"state":{"path":"docs/platform-v7/autopilot/autopilot-state.json","mode":"100644","blob":"aee9ddbb7a45f145db6185c5289038d3a931c1de","bytes":3145513,"sha256":"8afad21d3db9fa5b20ab11fcc4d60cb164dcf47b6168b7e9b804ee4c1f3be570"},"unchangedHelpers":[{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},{"path":"scripts/production_stopped_runtime_headroom.py","mode":"100644","blob":"1577966d56b9cdd6a5ce586f9f63096a53a4e7b9","bytes":34619,"sha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"},{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","blob":"c205a662192d1d777a2f8db167e4fce86f92047d","bytes":174348,"sha256":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"path":".github/workflows/production-stopped-runtime-headroom.yml","mode":"100644","blob":"9d68f6ec4b032f6fae0dad8a68782b53423d1db2","bytes":16047,"sha256":"24530a00803c3d8858271fc566ccd19d201cb687439582ecf72ff84c8e93ca8b"},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","blob":"68eeba7446ec04da91facffcb2da81a64c90c706","bytes":92348,"sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af"},{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","blob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","bytes":18220,"sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943"},{"path":".github/workflows/production-full-stack-exact-sha.yml","mode":"100644","blob":"f0073b774c9448d8af497be02bbbe3c18f8c9b9d","bytes":61098,"sha256":"87aa4e5002aa68bf4476fe4a6af72e1fd9f3855c96e486b5dd097c7d55ba70cf"}],"sourcePatch":{"bytes":63529,"sha256":"08a2a0b8d59658df72887a3f84f8695f35f7e8d9198443cc17709f6c4756045c"},"sourceReviewArtifact":{"bytes":17317,"sha256":"0a88721124e28b1d34cb0bb2574c926c379708a5cd9935fb3cfb1c8367a106af"},"snapshot":{"exactFiles":8,"sharedCommand":["python3","-I","-B","scripts/test_production_stopped_runtime_headroom.py"],"wholeSharedSuiteRequired":true,"wholeNewStartupSuiteRequired":true,"unfilteredNodeRequired":true},"startupInline":[{"tag":"PY_DOCKER_STARTUP_CONTROLLER","filename":"docker-startup-controller.py","bytes":12869,"sha256":"3eea00d140637df95f776a4b280da65c4fc9372e8696d817d88f618d8b9cdfa0"},{"tag":"PY_DOCKER_STARTUP_FIXTURES","filename":"docker-startup-fixtures.py","bytes":22428,"sha256":"24b2ab640b48f0e7bd5d7992552f9ba0ccea39602ebabcfa300fdfc1b0d2215f"}],"bounds":{"maximumTransportsPerCommand":1,"maximumSequentialChildren":2,"argv":["/usr/bin/docker","--version"],"profiles":["INHERITED_AS","EXACT_AS_512_MIB"],"addressSpaceBytes":536870912,"commandSeconds":12,"comparisonSeconds":15,"transportSeconds":45,"maximumStreamBytes":16384,"commandFreshSeconds":300,"cpuSeconds":2,"coreBytes":0,"fileOutputBytes":0,"automaticReruns":0},"queueCapBytes":3145728,"stateCapBytes":3145728,"productionInvocationAuthorized":false,"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"};
+  const expectedDsaCoreSha256 = '9ccf540d55b14e2d2c9b34147bb23689646ddde96d7ca0844336f54eae7bf3ce';
+  if (sha(Buffer.from(JSON.stringify(expectedDsaCore))) !== expectedDsaCoreSha256) fail('STATIC_CORE');
+  const { value: admission } = canonical(marker, 44298);
+  if (!isDeepStrictEqual(Object.keys(admission).sort(),
+      ['schema','core','governanceAfter','governancePatch','governanceReview'].sort()) ||
+      admission.schema !== 'pc.docker-startup-source-admission.v1' ||
+      !isDeepStrictEqual(admission.core, expectedDsaCore)) fail('PURPOSE_CORE');
+  const sourcePurpose = canonical(sourceMarker, 44298);
+  if (Buffer.byteLength(sourcePurpose.encoded) !== expectedDsaCore.sourcePurpose.bytes ||
+      sha(Buffer.from(sourcePurpose.encoded)) !== expectedDsaCore.sourcePurpose.sha256) fail('SOURCE_PURPOSE');
+  const head = text(git(['rev-parse', `${String(process.env.HEAD_REF || '')}^{commit}`], 128)).trim();
+  if (![base,head].every(ref => /^[0-9a-f]{40}$/.test(ref))) fail('REF');
+  git(['merge-base', '--is-ancestor', expectedDsaCore.authorityBaseExactMain, base], 128);
+  git(['merge-base', '--is-ancestor', base, head], 128);
+  if (!bounded(head, queuePath, 3 * 1024 * 1024).equals(queue) || entry(head, queuePath) !== entry(base, queuePath)) fail('AUTHORITY_MUTATION');
+  const checked = (ref, pin) => {
+    if (entry(ref, pin.path) !== `${pin.mode} blob ${pin.blob}\t${pin.path}`) fail('BLOB_OR_MODE:' + pin.path);
+    const bytes = bounded(ref, pin.path, pin.path === stateFile ? 3 * 1024 * 1024 : 1024 * 1024);
+    if (bytes.length !== pin.bytes || sha(bytes) !== pin.sha256) fail('CONTENT:' + pin.path);
+    return bytes;
+  };
+  const stateBytes = checked(base, expectedDsaCore.state);
+  if (!checked(head, expectedDsaCore.state).equals(stateBytes)) fail('STATE_MUTATION');
+  let state;
+  try { state = JSON.parse(text(stateBytes)); } catch { fail('STATE_JSON'); }
+  if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[branch], expectedDsaCore.sourcePaths) ||
+      !isDeepStrictEqual(state.approvedConcurrentScopes?.[expectedDsaCore.governanceBranch],
+        expectedDsaCore.governanceBefore.map(pin => pin.path))) fail('ACCEPTED_VECTORS');
+  if (!Array.isArray(admission.governanceAfter) || admission.governanceAfter.length !== 3) fail('GOVERNANCE_PINS');
+  for (const [i, prior] of expectedDsaCore.governanceBefore.entries()) {
+    const pin = admission.governanceAfter[i];
+    if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['path','mode','blob','bytes','sha256'].sort()) ||
+        pin.path !== prior.path || pin.mode !== prior.mode || !/^[0-9a-f]{40}$/.test(pin.blob || '') ||
+        pin.blob === prior.blob || !Number.isSafeInteger(pin.bytes) || pin.bytes < 1 || pin.bytes > 1024 * 1024 ||
+        !/^[0-9a-f]{64}$/.test(pin.sha256 || '')) fail('GOVERNANCE_PINS');
+    checked(expectedDsaCore.authorityBaseExactMain, prior);
+    // Own after identities are supplied only by separately accepted metadata,
+    // then checked against the actual accepted BASE and unchanged HEAD.
+    checked(base, pin); checked(head, pin);
+  }
+  const artifact = value => value && !Array.isArray(value) &&
+    isDeepStrictEqual(Object.keys(value).sort(), ['bytes','sha256'].sort()) &&
+    Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= 1024 * 1024 &&
+    /^[0-9a-f]{64}$/.test(value.sha256 || '');
+  if (!artifact(admission.governancePatch)) fail('PATCH_BINDING');
+  const review = admission.governanceReview;
+  if (!review || !isDeepStrictEqual(Object.keys(review).sort(),
+      ['status','reviewerIdentity','authorIdentity','independent','findings','artifact','payloads'].sort()) ||
+      review.status !== 'CLEAN' || review.independent !== true ||
+      review.authorIdentity !== '/root/model_metadata_public_review' ||
+      typeof review.reviewerIdentity !== 'string' || review.reviewerIdentity.length < 1 || review.reviewerIdentity.length > 128 ||
+      review.reviewerIdentity === review.authorIdentity ||
+      !isDeepStrictEqual(review.findings, { P0: 0, P1: 0, P2: 0 }) || !artifact(review.artifact) ||
+      !isDeepStrictEqual(review.payloads, admission.governanceAfter)) fail('GOVERNANCE_REVIEW');
+  for (const pin of expectedDsaCore.unchangedHelpers) { checked(base, pin); checked(head, pin); }
+  const source = expectedDsaCore.sourcePayloads[0];
+  const before = checked(base, source.before), after = checked(head, source.after);
+  if (!after.subarray(0, before.length).equals(before)) fail('WHOLE_PREFIX');
+  const retained = expectedDsaCore.sourcePayloads[1];
+  if (!isDeepStrictEqual(retained.before, retained.after)) fail('STATIC_RETAINED_TEST');
+  checked(base, retained.before); checked(head, retained.after);
+  const expectedDiff = `:${source.before.mode} ${source.after.mode} ${source.before.blob} ${source.after.blob} M\0${source.before.path}\0`;
+  if (text(git(['diff','--raw','--no-abbrev','--no-renames','-z',base,head])) !== expectedDiff) fail('EXACT_ONE_PATH');
+  return { scopes: [source.after.path], metadata: false, stage: 'DSA-SOURCE' };
+}
+// DSA_SOURCE_STAGE_END
+
 // RG2_SOURCE_STAGE_BEGIN: accepted metadata grants source-only scope, never runtime.
 function rg2SourceStage() {
   if (branch !== 'fix/gekta-docker-diagnostic-route-20260927') return undefined;
@@ -1257,7 +1370,7 @@ function dc2CoherentStage() {
   sourcePacket(core.sourcePacket, headRef, sourcePayloads.map(item => item.path));
   return { scopes: sourcePayloads.map(item => item.path), metadata: false, stage: 'DC2-R3' };
 }
-const dc2Coherent = (typeof rg2SourceStage === 'function' && rg2SourceStage()) || dc2CoherentStage();
+const dc2Coherent = (typeof dsaSourceStage === 'function' && dsaSourceStage()) || (typeof rg2SourceStage === 'function' && rg2SourceStage()) || dc2CoherentStage();
 // DC2_COHERENT_COMPAT_END
 
 // DC1_COHERENT_COMPAT_BEGIN: exact accepted BASE stages; no host grant.

@@ -124,6 +124,29 @@ class Checks(unittest.TestCase):
                 self.assertEqual(self.probe_retained_security_budget(branch,
                     'fixture/project', 'fixture/project'), '180s')
 
+    def test_transitive_security_same_repository_gets_measured_guard_budget(self):
+        self.assertEqual(self.probe_retained_security_budget(
+            'agent/ir-sec-transitive-runtime-remediation',
+            'fixture/project', 'fixture/project'), '420s')
+
+    def test_transitive_security_untrusted_names_and_identity_keep_ordinary_budget(self):
+        ref = 'agent/ir-sec-transitive-runtime-remediation'
+        for branch, repository, head in [
+            (ref + '-extra', 'fixture/project', 'fixture/project'),
+            (ref + '/extra', 'fixture/project', 'fixture/project'),
+            (ref.upper(), 'fixture/project', 'fixture/project'),
+            ('prefix/' + ref, 'fixture/project', 'fixture/project'),
+            (ref + ' ', 'fixture/project', 'fixture/project'),
+            ('', 'fixture/project', 'fixture/project'),
+            (ref, 'fixture/project', 'fork/project'),
+            (ref, 'fixture/project', 'fixture/project/'),
+            (ref, 'fixture/project', ''),
+            (ref, '', ''),
+        ]:
+            with self.subTest(branch=branch, repository=repository, head=head):
+                self.assertEqual(self.probe_retained_security_budget(
+                    branch, repository, head), '180s')
+
     def test_real_retained_governance_size_is_preserved_in_both_refs(self):
         path = 'docs/platform-v7/autopilot/autopilot-state.json'
         rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,2214412,True))

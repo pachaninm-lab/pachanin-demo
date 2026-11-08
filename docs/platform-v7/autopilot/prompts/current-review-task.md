@@ -7234,3 +7234,311 @@ index b798a3de2e412a19d6821cb388657389403bd2f4..8e9becc5c9a2e3f35d1131a8252a7e4b
 ```json
 {"schema":"pc.rg2-native-source-controls-purpose.v1","purposeId":"rg2-native-reader-compatibility-20261102","owner":"ACCOUNT_1_CORE","authorityBaseExactMain":"bd0425eb595db224f5af6bf0a8b0218c336f2a7e","metadataBranch":"governance/industrial-load-diagnostics-20260919","metadataPaths":["docs/platform-v7/autopilot/prompts/current-review-task.md"],"implementationBranch":"governance/gekta-recovery-trusted-routes-20260927","implementationPaths":[".github/workflows/platform-v7-autopilot-guard.yml","docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"],"sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","sourcePaths":[".github/workflows/production-docker-headroom-diagnostic.yml","docs/security/CRYPTOGRAPHIC_INVENTORY.md","docs/security/cryptographic-inventory.json"],"originalRG2SPurposeSha256":"a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328","pinCorrectionPurposeSha256":"3becb5c92d70aa3830fe4b79d99a01e1ca26fd54c85981c8a9bc41b87344ffda","failedSource":{"pr":6079,"head":"ff5ede1d6a5dbd7a20c5dc150893c70d17c86891","nativeRun":41452963774,"nativeJob":125302423397,"firstFailure":"DC2_SOURCE_CONTROLS_BLOB_OR_MODE at oldguard86fe against acceptedBASE/HEADa1ca; oldworkflow98c against corrected3c79 is another latent mismatch. No helper/snapshot executed.","unfilteredStandardTests":1595,"unfilteredStandardPass":1595,"unfilteredStandardFailCancelSkip":0,"sourceAcceptance":false},"acceptedGuard":{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"a1ca5ded38328f03f2a795e25be3e8004c6a54f0","bytes":318448,"sha256":"410fb425cf09642fe04aab57d21adcb2a6494cd9a4ff9fcd41dd49d3a87bf150"},"beforeImplementation":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"b14c3b279acd759cf84e94dc9d87de2e2a7ab600","bytes":137053,"sha256":"ff4169f7a63807a816a6e4eaad2f4ad8448e2d7dbcec5a547852a881400b7cf6"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"df8f357f583ddd8998108160814edc5f01b1eae9","bytes":179666,"sha256":"d13d46595394379822dd33118163c826e24cb80fcd1ffbd5b48d45555f17bdf3"}],"sourceWorkflow":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"3c79a43a5495848711e5e9518c9e933aba83fc82","bytes":477440,"sha256":"2860b9abd30a929a8e0538f5515f5ea34864d8b5e08cac8910511c296c19b22c"},"unchangedHelperInputs":[{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},{"path":"scripts/production_stopped_runtime_headroom.py","mode":"100644","blob":"1577966d56b9cdd6a5ce586f9f63096a53a4e7b9","bytes":34619,"sha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"},{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","blob":"c205a662192d1d777a2f8db167e4fce86f92047d","bytes":174348,"sha256":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"path":".github/workflows/production-stopped-runtime-headroom.yml","mode":"100644","blob":"9d68f6ec4b032f6fae0dad8a68782b53423d1db2","bytes":16047,"sha256":"24530a00803c3d8858271fc566ccd19d201cb687439582ecf72ff84c8e93ca8b"},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","blob":"68eeba7446ec04da91facffcb2da81a64c90c706","bytes":92348,"sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af"},{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","blob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","bytes":18220,"sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943"},{"path":".github/workflows/production-full-stack-exact-sha.yml","mode":"100644","blob":"f0073b774c9448d8af497be02bbbe3c18f8c9b9d","bytes":61098,"sha256":"87aa4e5002aa68bf4476fe4a6af72e1fd9f3855c96e486b5dd097c7d55ba70cf"}],"snapshot":{"exactFiles":8,"readOnly":true,"sourceWorkflowFrom":"immutable actual HEAD after acceptedBASEguard and acceptedRG2S/RG2P/RG2C validation","execute":["python3","-I","-B","scripts/test_production_stopped_runtime_headroom.py"],"all50Unfiltered":true,"noSiblingAliases":true,"noPycache":true,"verifiedCleanup":true,"sevenUnchangedFilesFrom":"both immutable actual BASE and HEAD, exact regular Git modes/bytes; physical execution files must equal checked objects before copying"},"independentBlockerReport":{"bytes":12716,"sha256":"8ce3c0c8b1ad40e18e45967abfc349118337f262911396ea9b1add7ed52c11f3","text":"# Independent addendum — native source CI reader blocks actual ff5ede\n\nCreated 2026-11-02T13:44Z by separate session reviewer `/root/rg2_admission_review`. This is an immutable addendum to the already referenced17,576-byte `independent-corrected-source-review.md`, SHA256 `91b0d38f6140703cbbfbba905ef8971de795770b513c7540c2823c3a184285f1`. That original file/hash was independently rechecked and remains unchanged. Its SOURCE_CLEAN_ONLY/ACCEPTANCE_PENDING verdict did not claim complete native acceptance; the newly completed substantive gate now supplies a concrete blocker.\n\n**Current actual-head acceptance status: BLOCKED. Actionable P0/P1/P2/P3 = 0/0/1/0.** Native run `41452963774`, job `125302423397`, exact source head `ff5ede1d6a5dbd7a20c5dc150893c70d17c86891`, fails source-control step4. No legitimate READY/source merge follows from the preceding tests. The earlier floating-checkout P2 remains corrected on this head; this is a distinct CI reader integration defect. No candidate implementation edits, protected host/SSH connection, workflow invocation, ref/PR mutation or production action was performed in this review.\n\n## P2 — legacy execution reader rejects the separately accepted RG2 source case\n\nI read the entire actual step4 in `.github/workflows/platform-v7-autopilot-guard.yml:1058` through its closing heredoc, its actual accepted BASE authority record, selected execution pins and source-head file identities. I fetched both complete CI-reader and helper primary blobs and verified exact Git/physical contents. Current BASE and HEAD share the same reader:\n\n| Input | Mode | Bytes | Blob | SHA256 |\n|---|---|---:|---|---|\n| Native CI workflow | 100644 | 137,053 | `b14c3b279acd759cf84e94dc9d87de2e2a7ab600` | `ff4169f7a63807a816a6e4eaad2f4ad8448e2d7dbcec5a547852a881400b7cf6` |\n| Head source helper | 100644 | 62,220 | `ea369352af13df5b064336b7e5a01ed4682a863c` | `ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9` |\n\nActual step4 first checks HEAD identity, then executes immutable actual BASEbd042's trusted guard against actualff5ede. That correctly passes the new accepted RG2S/RG2P source graph and source bytes. The reader then unconditionally prefers the older unique DC2 marker in the BASE carrier and checks the old DC2 `guardPayloads`, `sourcePayloads` and dependencies. It never selects the separately accepted RG2S/P source admission.\n\n**The first actual mismatch is the guard pin, before the workflow pin.** `guardPayloads[0]` expects old guard86fe869d in both BASE and HEAD, but both now contain accepted a1ca5ded after the separately accepted RG2 guard work. `checked()` raises `DC2_SOURCE_CONTROLS_BLOB_OR_MODE` immediately during that first guardPayload loop. The later old workflow pin would also reject3c79 even if only the first guard mismatch were repaired. An adapter which changes only the workflow lookup would therefore leave the first real failure in place.\n\n| Old DC2 execution pin | Old expected blob | Actual BASEbd042 | Actual HEADff5ede | Effect |\n|---|---|---|---|---|\n| `scripts/p7-autopilot-guard.sh` | `86fe869df88cbf8b932da0625a530cd169b70e6b` | `a1ca5ded38328f03f2a795e25be3e8004c6a54f0` | Samea1ca5ded | First failing check |\n| Diagnostic workflow | `98c43fd598d369a2476d7e17578aff59d1008a12` | Same98c43,411,656B | `3c79a43a5495848711e5e9518c9e933aba83fc82`,477,440B | Additional latent mismatch |\n| Main guard test | `5a3e09e6c8bfce796fcc30e0a4c235a0701d3e3d` | Same | Same | Matches |\n| Native CI workflow | `b14c3b279acd759cf84e94dc9d87de2e2a7ab600` | Same | Same | Matches |\n| Python source helper | `ea369352af13df5b064336b7e5a01ed4682a863c` | Same | Same | Matches |\n\nThe five unchanged sourceExecutionDependencies also match their exact BASE/HEAD pins. There is no evidence that helper50 or actual RG2 source bytes caused the native failure: execution stops before source helpers and before the pinned snapshot is created. Old DC2 remains a historical contract to preserve; it is not a source pin that can be silently relabelled as the new RG2 workflow/guard.\n\n## Exact independent reproduction and native evidence\n\nThe captured primary native log records step3 unfiltered **1,595/1,595 PASS**,0 fail/cancel/skip/todo,332,301.536191ms. Step4 env is BASE=`bd0425eb595db224f5af6bf0a8b0218c336f2a7e`, HEAD=`ff5ede1d6a5dbd7a20c5dc150893c70d17c86891`. Its stdout says `Scope guard passed.`, followed by `DC2_SOURCE_CONTROLS_BLOB_OR_MODE` and exit1. Fresh primary job-step data independently confirms step3 success, step4 failure and subsequent substantive steps skipped; full native validation is not PASS.\n\nI extracted the **unchanged complete actual YAML step4 run command**,8,822 bytes, SHA256 `a66d25abb7ac8585cc4233fd074904a9907c17d38033cc175fe3d860d3389e9a`, and executed it host-free on the clean exact actual source repo with those exact BASE_SHA/HEAD_SHA values. Independent result:\n\n```text\nplatform-v7 autopilot guard\nChanged files:\n.github/workflows/production-docker-headroom-diagnostic.yml\ndocs/security/CRYPTOGRAPHIC_INVENTORY.md\nScope guard passed.\nDC2_SOURCE_CONTROLS_BLOB_OR_MODE\nexit 1\n```\n\nNo `DC2_SOURCE_CONTROLS_PINNED_SNAPSHOT` marker was reached. Execution wrote only owned temporary trusted-guard material and evidence; it made no host connection and ran no candidate helper before rejection. Complete pin-by-pin analysis identifies the first guard mismatch and later workflow mismatch above. The candidate/source worktree remains clean and unchanged atff5ede.\n\nThe source report's local13/producer/pinning/trusted-guard checks and native1,595 success remain accurately labelled successes of their respective checks. They do not skip, replace or repair this separate exact-source execution gate. Blind retry of unchanged T/BASE/reader deterministically reproduces this failure.\n\n## Unchanged helper50 remains valid against actual corrected source\n\nAfter inspecting the helper's imports, actual-workflow extraction, mocked Popen transport and owned process/ancestry harnesses, I independently executed the complete unchanged head command **without a name filter**:\n\n```text\npython3 -I scripts/test_production_stopped_runtime_headroom.py\nRan 50 tests in 4.932s\nOK\nexit 0\n```\n\nIt reads actual3c79 workflow and unchanged dependencies. SSH/Docker collection/transport is replaced by local Python fixtures; Linux ownership/subreaper/group-signal tests act only on their owned disposable children. This is local host-free helper evidence, not native helper completion or host evidence.\n\nI also independently copied only the exact eight required immutable actual-HEAD files into a fresh strict temporary snapshot, regular files made0400, with no untracked sibling workflow fallback or pycache, and ran `python3 -I -B scripts/test_production_stopped_runtime_headroom.py` unfiltered: **50/50 PASS**,4.643s,exit0. Snapshot cleanup was verified. This directly validates a bounded prospective execution set; no implementation adapter was written.\n\nThe helper has a real dependency on cold preservation as well as the five named sourceExecutionDependencies. Its `test_all_shared_production_participants_keep_multiple_pending_operations` enumerates workflow files and requires all six shared production participants. A new reader must retain coldc205 in the snapshot; copying only helper+diagnostic+five sourceExecutionDependencies would incorrectly omit it.\n\n| Strict helper snapshot path | Exact HEAD blob |\n|---|---|\n| `scripts/test_production_stopped_runtime_headroom.py` | `ea369352af13df5b064336b7e5a01ed4682a863c` |\n| `scripts/production_stopped_runtime_headroom.py` | `1577966d56b9cdd6a5ce586f9f63096a53a4e7b9` |\n| `.github/workflows/production-docker-headroom-diagnostic.yml` | `3c79a43a5495848711e5e9518c9e933aba83fc82` |\n| `.github/workflows/production-cold-preservation.yml` | `c205a662192d1d777a2f8db167e4fce86f92047d` |\n| `.github/workflows/production-stopped-runtime-headroom.yml` | `9d68f6ec4b032f6fae0dad8a68782b53423d1db2` |\n| `.github/workflows/production-docker-headroom-recovery.yml` | `68eeba7446ec04da91facffcb2da81a64c90c706` |\n| `.github/workflows/production-docker-headroom-owner-push-once.yml` | `5946380f33a50e4500d9ba95117bf2f5795c9d16` |\n| `.github/workflows/production-full-stack-exact-sha.yml` | `f0073b774c9448d8af497be02bbbe3c18f8c9b9d` |\n\nThe legacy DC2 eleven-file set is these eight plus its three guardPayload files. A distinct RG2 case can use the verified eight-file helper snapshot while retaining the old eleven-file DC2 contract unchanged. Existing unfiltered standard regression continues to run all old/new Node controls; no reduced selector is justified by this helper result.\n\n## Narrow admissible repair design and constraints\n\nNo already implemented CI route consumes RG2S/P here; neither more green tests nor an appended record alone can change this reader. The proposed separately admitted reader adapter is appropriate. Current accepted state already lists the same retained guard branch with exactly CIworkflow/recoverytest/guard.sh as its three paths. However RG2S/P's separately reviewed guardPaths declarations cover only guard.sh+recoverytest, so they must not be retroactively treated as admission for a CIworkflow change. A small distinct append-only carrier purpose should first explicitly cover **only existing CIworkflow + existing recoverytest**, under the same owner/branch. No state/vector/cap expansion is needed.\n\nThat record should bind the actual failed head/native evidence, existing accepted authorities and canonical RG2S/P hashes, exact corrected3c79 source workflow, accepted a1ca guard, helperEA and all exact dependency/cold pins, before-CI workflowb14, preserved old bodies/caps, and required new source/CI acceptance procedure. If the reader hardcodes the whole new record hash, **do not include that future reader's own after blob or patch in the same hashed record**: the reader bytes would contain the record hash while the record would contain those reader bytes/hash, creating a circular dependency. Bind semantics and historical input pins in the carrier; bind the actual future after implementation with its separate complete actual-head review/audit/native/manual acceptance.\n\nThe new accepted-BASE-only RG2 case should execute immutable actual BASE guard first, then validate unique canonical accepted RG2S/P and the new reader purpose; bind current source workflow/helper/dependencies and modes to immutable Git, require HEAD/physical execution bytes to equal those checked objects, create the exact bounded clean snapshot and run the actual unfiltered helper50. Missing/candidate-only/malformed/duplicate/revoked purpose, mismatched pins/modes/foreign scope, helper failure and stale source graph must remain nonzero. The original DC1/DC2 bodies, old caps and old snapshot/test contracts should remain exact for their historical cases. Avoid treating current a1ca as old86fe or new3c79 as old98c, suppressing the extra gate, skipping50, filtering out failures or loosening blob checks.\n\nAfter metadata and adapter are separately accepted with exact-head independent review, owner audit, native/security/current-readiness/manual gates, a newly composed real sourceS/default producer twice/newT on the then-current accepted BASE is still required. Preserve this rejected/pendingff5ede and its real native failure; do not transfer its local/source/code review or older native results as acceptance of new heads. No host invocation, production mutation, runtime-purpose/window, spent-operation renewal or MASTER advancement follows.\n\n## Evidence and immutable status\n\nEvidence siblings: `independent-ci-reader-exact-step4.sh/log`, `independent-ci-reader-repro.py`, `independent-ci-reader-proof.json`, full primary `independent-ci-block-primary-{reader,helper}`, their identities JSON, fresh primary jobsteps JSON, full captured native failure log, `independent-head-helper50.log`, `independent-strict8-helper50.log` and eight-file snapshot proof. All candidate implementation files and the original source review remain unchanged.\n\nSHA256: native full log `406ff84ff34eb045850ae022d4aad29a35efbbfebf03f71c7ef816dfc042396a`; exact step4 repro log `66847c2058ba4ffa53aa91f40fec933cdcc07c7b2fa47d8b2457886a887adf4b`; pin/repro proof `c46c2e8ebf511a2e895fd5c7c57a83be63ea819cc941dd16e1e1d5e7c0c617c8`; actual-head helper50 log `7e843f1b02b7801649046249351df21152e491089298c378d957d0d514870410`; strict8 helper50 log `6cb2a81cc11919fb8d5d557896e8029400abe7d3fc9189467732bd1627656aa1`; strict8 proof `e52988c9dcc95157894451a4dcc8caa4402e6a255db7bafe42edbf05ea4438e0`.\n\nThis addendum records actualff5ede as **native-CI blocked, source not accepted**. No P0/P1/P3 or helper50 failure found. MASTER5/100 and whole block OPEN remain unchanged.\n"},"requiredNativeReaderContract":["Keep exact current HEAD check and immutable acceptedBASE guard execution before any source helper. A distinct RG2 case consumes only unique canonical acceptedBASE RG2S/RG2P and this RG2C. Missing/candidate-only/duplicate/malformed/revoked/mismatched purpose fails closed; no retrospective DC2 pin substitution.","Bind acceptedGuard and all seven unchangedHelperInputs to both BASE/HEAD; correctedsourceWorkflow3c79 to HEAD and originalRG2S/RG2P resolution. Bound read capacities stay existing2MiB authority/1MiB per file. Verify physical regular nofollow/mode/inode/time/wholebytes against Git before copying.","Create only the exact eight read-only immutable source snapshot files, including coldc205 and all six shared participants; execute the complete unchanged50 Python helper with no name filter, no alias/untracked/pycache fallback, and remove snapshot on completion/failure. Preserve nonzero rejection and actualhelper failure.","Preserve entire old DC1/DC2 control bodies and their eleven-file snapshot/closedNode contract for their historical cases. Current unfiltered standard main/recovery regression still executes every old/new Node assertion. DistinctRG2 eight-file helper case is not a skip of standardNode/DC2 tests or a weakened sourcepin.","Implementation is only the two existing implementationPaths on the retained acceptedguard3 lane; no guard.sh/state/vector/current/PRIMARY/queue/owner/progress/baseline/numericlimit change. Exact actual after implementation gets separate whole-head independent review/owner audit/native/security/currentREADY/manual acceptance.","No future reader afterblob/patch is embedded here: a hardcoded whole-record digest and a record containing that reader hash would be circular. This record binds before inputs and source semantics; separate actual implementation review/gates bind its after bytes."],"sequence":["Append only this small review-carrier record, preserving every2044841B priorprefix and every foreignleaf/mode. Wholeactualhead independent review/audit/native/security/READY/manual first.","Then separately publish/review/accept only CIworkflow+existingrecoverytest on the existingguard3 branch, with actual extracted CIcommand positive and adversarial sourceGit fixtures; no skip/timeout/cap/resource borrowing.","Then preserve rejectedff5ede/P2/rednative and recompose realnewS soleparentactualacceptedBASE, defaultunchangedproducer twice/noSOURCE_SHA/defaultHEAD-index, soleparentgeneratedT/newsourcePR/freshwholesource review and complete native incl SOURCEextrahelper50/security/READY/manual. No old native/local/source verdict transfer."],"implementationPublicationAuthorized":false,"sourcePublicationAuthorized":false,"runtimePurposeCreated":false,"invocationAuthorized":false,"operatorWindow":null,"startupAuthorized":false,"growthAuthorized":false,"productionAcceptance":false,"masterCredit":0}
 ```
+
+## Bank acceptance 6085 v2 independent review
+
+Review the complete three-leaf diff against 032e9c6ea686f86d15d46f5c05d832c894ab869c. Canonical queue record purposeId bank-acceptance-6085-v2 SHA256 d9acd171538329e817650d7583a87850a063607c9fdfe821137cb1fea8f7c116. c90 remains BLOCKED R6086-1; it is not approval. No new manifest leaf. Verify the exact new four-path concurrent vector, the full pinned source patch and only two CI additions/removals. Independently reverse the sole archived narrative token plus new scope insertion and require the complete old state byte-for-byte; every old operative field/payload/owner/primary vector must remain unchanged, not falsely described as wholly byte-identical. Check unchanged dispatcher twice in isolated base/new-state inputs for identical rendered outputs/blockers, ordinary native checks and separate owner audit. No source acceptance, deploy or whole-block credit. Fresh exact-head review/readiness before manual full-SHA merge.
+
+## Independent review — bank acceptance preflight budget6089
+
+Canonical complete queue record bank-acceptance-preflight-budget-6089 SHA25672bdcad3b49ec22f362bd51dc72ee93f224df22f078bb2ae25531e7a76f1503d. Inspect all3alreadyallowed metadata leaves, full byteinverse of only new scope entry, everyoldstatefield and fulloldqueue/reviewprefix. Inspect entire pinned one-workflow future patch: exactly2same-repo refs420/435/10min, existinggeneric/fork180/195/8min and branch-scope180/195 retained; all old guards/TAP/cleanup/artifact boundaries, all old tests plus new negative identity cases retained. Actual source229 timeout124 remainsFAIL; ten local controlled Python unit methods are not native guard PASS or proof420s sufficient. Fresh independent actual-head review + own audit + native/security/canonical/manualfullSHA gates, then separately source1 and later recomposed source4 each require all fresh gates. No application/provider/production/live13/MASTER claim.
+
+
+## Independent review task — bank-rejected-contract-projection-6093-20261103
+
+Review this metadata on its actual exact head. Exactly three already-allowed governance paths change. The retained scope preserves its original four paths and appends six precisely enumerated paths; the two CI paths in the future eight-path source were already admitted. Removing only the six appended strings and both document appendices must reconstruct all previous bytes. Keep state below3145728bytes and review below2097152bytes. No new manifest, guard/budget/exclusion waiver, primary/current/next/owner/progress change. Unacceptedbf six-path admission is replaced, not counted accepted.
+
+```json
+{
+  "id": "bank-rejected-contract-projection-6093-20261103",
+  "kind": "SOURCE_PREPARATION_ONLY",
+  "existingOwner": "ACCOUNT_2_PRODUCT",
+  "metadataBaseExactSha": "8b5eadcd7939eb47b037dbf5e3d6670c00e17e13",
+  "sourceProposalCapturedOnMain": "27864386e15f18daf3fe1817dbb1ae43ba3c6f85",
+  "supersededMetadataHead": "e752676072ace70060679861bd0eb484e51d7f44",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "sourcePaths": [
+    {
+      "path": "apps/web/lib/platform-v7/server-action-route-handler.ts",
+      "mode": "100644",
+      "beforeBlob": "ae449907be8e14e888aa7d2c9a41b965273969d7",
+      "afterBlob": "73576d72e23ac95a5a492ab08fa09770dcb21721",
+      "beforeSha256": "90470705e8d56aef5df4fac337d84796344c142d17fa93509a1fdc13ddd44f4f",
+      "afterSha256": "d1036b36255c5d51cb77bb550dc60b39aedc7980a5a6bf00a29f099bdb6b7632"
+    },
+    {
+      "path": "apps/web/lib/platform-v7/server-action-route-result.ts",
+      "mode": "100644",
+      "beforeBlob": "496236f558a0d0e957bb555913e5534672cbd68f",
+      "afterBlob": "f294282a09a620bbe16f8499d41c5b23301c27b0",
+      "beforeSha256": "ddfbbd2fe31ff4364b41ffa7342045264174aa39b19d54d6e6c52912bd3632ea",
+      "afterSha256": "e52a44b4084b3685e44c3ecff5fd53a5005a0c2a7cc6a9ba94ab071d8f2c69bf"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "66a48b46dbdb632f2f85e67f234199f8f886d708",
+      "afterBlob": "fc6cc6139e7be77655aea515762fae8baeb924a8",
+      "beforeSha256": "d555e809a00523436503e094cd00009fce2a7ff564b9fef236db950759d5e5f4",
+      "afterSha256": "c4e06083a5ce1696d5bcf4a8ac857484a91f329a19509ca98f0a33bffb03d587"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "mode": "100644",
+      "beforeBlob": "4c0286c609b975294ad5bfc1f835c919bce7daa2",
+      "afterBlob": "4ad5186ac04fee3f8c82a4e3ea4fe949cc4143f9",
+      "beforeSha256": "57794b14ed38ee5471cc32d856ea33eb159c6f0302feda121bc88208a6adcaf7",
+      "afterSha256": "93bc1f61f15d812022a91a020a814885e3caef9e84214e52fa06e05f82acb7ca"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "mode": "100644",
+      "beforeBlob": "a4724d0138f9507a4a09ea78e0238a0cd2e21b99",
+      "afterBlob": "dab246419ff9bd7c92a97eff21770766d7150f1a",
+      "beforeSha256": "c8107a9371697cd7da7a0b1eea2677b0742aa2f349cba05493a1a1a0ab0f9611",
+      "afterSha256": "7c441a2500a8d930c31c9b5f919e005af4da1302007a48f0fe582210bd0a1720"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts",
+      "mode": "100644",
+      "beforeBlob": "3c63e0635a501e449bda3417acd62bd2626620ca",
+      "afterBlob": "9faa92a704e68536d2d60050d28efd99b75cd3a2",
+      "beforeSha256": "2739e189e07cb318ac4aad9e83f5b56843a19db4cd243c23600c87f5e6efb22f",
+      "afterSha256": "3c61022551bcf01a2ea42b7f2ed97691bf416d1c3dcee2ca6637ebb9f6fdb4ea"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "009c464449e93e775389a6a3646ae9ee1c546b4b",
+      "afterBlob": "699c3a35bcb9b65b9d2f590ef7abbdb3d4a356b2",
+      "beforeSha256": "810dd6c2d0b4c8d83a6dce08ff073dda48b52592019fc05387ab63d56c8fcfd5",
+      "afterSha256": "168b0b9d9204e9800c055db299bf92d34ec3f044add5e7bfca9558f4088bc3fe"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "f40d43c65e0f1c6b48bfb0da522381f9fc833c94",
+      "afterBlob": "7f5037e1dcadc1884c7b8d89d994c688bceb5b45",
+      "beforeSha256": "291993931b42318b2442977cfc7ce1a8fc5420e6e819bf0445334d199b4da9de",
+      "afterSha256": "3187dc089939814701ce3aa62393246f2f3ae04c508646ed2cd43214e7d1517c"
+    }
+  ],
+  "sourcePatchSha256": "85adb48ba09bcb46e9f8147fd838ddc926757e45f9657516cc5be574d0898b76",
+  "sourcePatchBytes": 17774,
+  "semanticBoundary": "Web contract/readiness response projection only; rejected contract cannot advertise accepted manual review or runtime boundary access.",
+  "preserved": [
+    "all original four source paths remain admitted",
+    "all other state bytes inverse-identical",
+    "current/next/PRIMARY/owners/5/100 unchanged",
+    "all existing guards/native/security/Kubernetes/readiness/manual expected-SHA gates",
+    "no canonical permission, money, provider, SQL, dispatch, credential or host authority"
+  ],
+  "acceptance": [
+    "metadata normal independent review/native/owner/readiness/manual acceptance before source publication",
+    "fresh whole-eight actual-published-head independent review and separate owner audit",
+    "full source native52/security/Kubernetes/cleanup and canonical readiness before ordinary full-SHA manual merge",
+    "separate exact-SHA application release and live acceptance before any production claim"
+  ],
+  "privateEvidenceOnly": {
+    "authorCohort": {
+      "passed": 82,
+      "failed": 0
+    },
+    "sameTestsOnBase": {
+      "passed": 78,
+      "failed": 4
+    },
+    "independent": {
+      "passed": 108,
+      "failed": 0,
+      "extraAdverse": 26,
+      "notSummedWithAuthor": true
+    },
+    "typescriptVersion": "5.9.3",
+    "scopedRoots": 6,
+    "diagnostics": 0
+  },
+  "remaining": "Full UX/FGIS/bank remains open; authenticated13, canonical CORE5525/5526, real external prerequisites and original19/restore are separate. Source admission is not live acceptance.",
+  "nativeSelection": {
+    "oldFiles": 48,
+    "newFiles": 52,
+    "added": [
+      "apps/web/tests/unit/platformV7ServerActionRouteMoneyGuard.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionContractWrapper.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteForbiddenRoleMeaning.test.ts",
+      "apps/web/tests/unit/platformV7ServerActionRouteHandler.test.ts"
+    ],
+    "discovered": 932,
+    "excluded": 880,
+    "failedExclusions": 223,
+    "passedExclusions": 657
+  },
+  "supersedesOnlyUnaccepted": "Unaccepted metadata bf0539c had six prospective paths without CI wiring; this complete eight-path purpose supersedes that unaccepted proposal. Original history and test failures remain.",
+  "sourcePatchEncoding": "json-string-utf8"
+}
+```
+
+Full17774-byte source patch lives in the matching queue purpose. The future source must match all eight after blobs/modes and preserve every other accepted-main leaf. CI must preserve all48old arguments, add exactly4, remove only4old failed exclusions and account for932files=52executed+880excluded; no other workflow/registry semantics change. Private six-core82/independent108 results remain separate from new eight-path CI-wiring review and native52 acceptance. Metadata acceptance precedes source publication. Source requires genuine exact-head independent review, owner audit, complete native/security/Kubernetes/cleanup/readiness and manual expected-full-SHA acceptance. Application release is separate. Full block andMASTER5/100 remain open.
+
+
+## Shared bank read-entry P2 — exact bounded one-page admission, 2026-11-03
+
+Review the full exact purpose, token/value/inverse proof, frozen patch and current private independent source report in the matching queue section. Accepted6104 queue must remain the whole exact prefix. Explicitly authorize ONLY this below-ceiling one-page P2 exception after normal acceptance; do not infer4MiB/CAP1 closure or oldsource6 adoption. All other state values/tokens/history/vectors remain equal.
+
+```json
+{
+  "purposeId": "bank-shared-read-entry-p2-6093-20261103",
+  "status": "METADATA_ONLY_SOURCE_NOT_ACCEPTED",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "metadataBaseExactMain": "2d318ce1c9b2613989da8e4b64e5b245203b2c50",
+  "metadataPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md"
+  ],
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "exactSourcePaths": [
+    "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+    "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts"
+  ],
+  "sourcePins": [
+    {
+      "path": "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7c5363a4653d5bce296ed7e2d0027863a897f23e",
+      "beforeBytes": 1259,
+      "beforeSha256": "35d679f26aee9176caffd84a3825167dc63a53d6a582c52846b5caa7e4652b5b",
+      "afterBlob": "5eb5a640b68bd9d89bb9c6d6dc64beee654369c9",
+      "afterBytes": 578,
+      "afterSha256": "2495266251c2f1d6f876ba0130b161da44884a86aff7df047c3cfebee396cbd3"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "mode": "100644",
+      "beforeBlob": "694474f883a8549d4087c1bc9b287738d2ff37e5",
+      "beforeBytes": 6680,
+      "beforeSha256": "fa96b78fcdd5e406b08b49814ab55c8d4fa97c1888fc01e094e130caa97451a0",
+      "afterBlob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "afterBytes": 20664,
+      "afterSha256": "0c20b8abe3a0bc7a2089104caa6caa088210c0f0419ac07691ab0a4df0a6d1e5"
+    }
+  ],
+  "completeSourcePatchBytes": 17138,
+  "completeSourcePatchSha256": "3c521832114aef286f2fe73295eb8d788903393badbccccdaaa5ca9383eaca21",
+  "stateAdmission": {
+    "beforeBytes": 3145690,
+    "removeOnlyOutsideStringWhitespaceBytes": 18,
+    "appendOnlyPagePathBytes": 55,
+    "afterBytes": 3145727,
+    "acceptedCeiling": 3145728,
+    "afterSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "actualGrowthBytes": 37,
+    "oldVector": 10,
+    "newVector": 11
+  }
+}
+```
+
+Reject extra paths, stale head/context evidence or scope/owner/role/tenant/backend/guard/budget change. Source default reuses the canonical read-only view at its existing permitted URI. Disclose remaining bank nav/backlinks denials; no all-subroute/live13/DB/provider acceptance. Metadata and actual published source each need independent whole-head review, distinctowner, all applicable native/security/build/browser/KIND/cleanup/readiness and ordinary full-SHA manual gates. Exact image/web/live release is separate; official5/100 unchanged.
+
+Current private SOURCE2 review: exact738fd1004549c39de6e8959c79b9cb77c2d32142/basef069,7169B/SHA25605b426da9407b319fb8f3f4ffa134f847d6b62be9c2ca8a7fecc63f6ca645093. Root read it in full. Fresh independent167PASS, fresh author52/2022PASS and authorwhole-workspacetypecheckexit0 are separate PRIVATE evidence. No actualnative/metadata/source acceptance is credited. Historicalff9a report stays support, never transferred approval. Full genuine H2 report: https://github.com/pachaninm-lab/pachanin-demo/pull/6108#issuecomment-6616393047; exact original bytes/hash verified. The matching queue pins both full linked reports and retains the full literal source patch. Localhostingconfigcheckexit1 remainsNOT_PASS pending actualnativeDocker/build.
+
+Current metadata base9e accepts only two Gekta API service/spec changes; preserve them and every other accepted foreign leaf. All H2/private2022 evidence remains on738fd100/basef069; it is not execution on9e or this metadata head. Prior metadata90 native failure is preserved; the duplicate-report correction has independent forensic classification 8789B/SHA2563b3e6dc8e423bdaedc99362e30bc01aebce003776b84a0797740c30fe2e7b204. No scanner/CI policy changes or acceptance transfer. Fresh actual metadata-head review and all genuine gates remain required.
+
+
+## Delivery replacement of unaccepted PR6108 — 2026-11-04
+
+This proposal replaces only the never-accepted metadata delivery in https://github.com/pachaninm-lab/pachanin-demo/pull/6108. That original PR, its90b2/807 commits, complete reviews and genuine red native evidence remain retained in their original branch and PR; no history/ref is rewritten or deleted. The two historical generic-api-key findings were independently established as an HTTP-status case list, not credentials. 807 corrected the current text but the normal historical scan still includes90b2; a new independent proposal starts at the actual accepted main instead of importing those unaccepted report-storage commits. No parent-order trick, ignore, allowlist, scanner/config/range change, review transfer, rerun waiver or bypass is introduced. All normal exact-head native/security/review/readiness/manual gates must pass on this new proposal. The complete current-main queue prefix, including accepted6107, is retained; the reviewed state transformation and frozen source2 afters/patch stay byte-identical. The retained SOURCE branch remains test/bank-acceptance-contract-6085; no implementation or host operation is published by this metadata. Prior/private/6108 green results are historical support only; original failures remain failures. Full bank navigation/13 cabinets/CORE5525/5526/API/DB/original19/external providers and whole block stay OPEN; official5/100 is unchanged.
+
+
+## Bank shared-navigation completed-own phase proposal — 2026-11-04
+
+```json
+{
+  "purposeId": "bank-shared-navigation-owned-phase-6093-20261104",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "claim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621764711",
+  "acceptedPreviousSource": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+  "closedEpoch": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6621038870",
+  "sourceBranch": "test/bank-acceptance-contract-6085",
+  "privateHead": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+  "privateTree": "31af225eb4871b5b8c23ea28b764bf7a6f720c4b",
+  "sourcePatchBytes": 28069,
+  "sourcePatchSha256": "df70aad631118fb2310f945267da106e54886ce723b8d3b562b05025adc2452e",
+  "exactSource5": [
+    {
+      "path": "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "before_blob": "b67a3452e05ad97082ccfbcc0c4975302cb62df9",
+      "after_blob": "d231407afb9930d1e22a1f4d925a53c1ae987fda",
+      "after_bytes": 42819,
+      "after_sha256": "79544b148d46ceff84bab9f7a8ecf82e0513ff32f535e724852276539ea3031d"
+    },
+    {
+      "path": "apps/web/components/platform-v7/BankSectionNav.tsx",
+      "before_blob": "1e38f3fac9bf9402cc3a97394afc96824ef1a82c",
+      "after_blob": "6611acc941e969405069ff1fe700934370d8c9d8",
+      "after_bytes": 5278,
+      "after_sha256": "3233a376fb603d0f893623a017623eee34bbb6d086b836065a35c1e0f56f3288"
+    },
+    {
+      "path": "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "before_blob": "630599ff7ff0ca4338445fc8bba50d61cf07f4f6",
+      "after_blob": "cf50b0767cf7cf78626ca3873400ad54ecad96b2",
+      "after_bytes": 19703,
+      "after_sha256": "96b433762eec64b504d2d3ae46a1d0014ce9eb2beba066a44c2a0a28ff0f0b0e"
+    },
+    {
+      "path": "apps/web/tests/unit/bankSectionNav.test.tsx",
+      "before_blob": "b77c0392c20debc8965edd182ff1bb05f190c1ee",
+      "after_blob": "ed741cfa4ea5ab897b6890c9c5917ea318e4d2e7",
+      "after_bytes": 4401,
+      "after_sha256": "b6b67769a730433e9e352d064e2d929ce60ae1a140920957a0ee47a72187c997"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankReadinessGuard.test.ts",
+      "before_blob": "52d68700a2653f76b59f9a624ee31538845cca40",
+      "after_blob": "2f7fd1dadd069ef4ea7b754fd36d4a84f9a2b748",
+      "after_bytes": 29715,
+      "after_sha256": "64c17c6b1e94b662aad3a3cadd5473166ab457a2ab2a98b5b99b8411140ca26a"
+    }
+  ],
+  "stateTransition": {
+    "beforeBytes": 3145727,
+    "afterBytes": 3145323,
+    "beforeBlob": "5597a223c0a8bdf38f1d2f299c729f59c483ce3c",
+    "afterBlob": "f1f27ca799be5509c632c0b8b2e1d972ae292c92",
+    "beforeSha256": "b51686e51c0196fbefcb0a988f822acc9939ccc8702ee6a12e096025d4d90185",
+    "afterSha256": "8bc2bd9d6ff4735337b865723a8dbafbea3d4e910985947b19d6f811345732d8",
+    "delta": -404,
+    "spareBytes": 405
+  },
+  "completePurposeAndBothVectorsAndFullPatch": "execution-queue final bank shared-navigation phase section; all existing prefixes/history retained",
+  "genuineIndependentPrivateReports": [
+    {
+      "context": "Historical failed private whole4",
+      "head": "155f044a93c49a93e5fdf85da1d978be610f7b8f",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CHANGES_REQUESTED_P2_1",
+      "bytes": 13143,
+      "sha256": "a566497dd61f317505cd1055de88a105b114f5fed432b8db1b57e2652caee7e7",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621771795",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    },
+    {
+      "context": "Fresh corrected private whole5",
+      "head": "162633c3f9f5bec3ea641c1a71ca04a55dd7c61e",
+      "base": "270724df00b58c2bf49ec6b05aa8ba0ef7c29b7b",
+      "verdict": "CLEAN_PRIVATE_WHOLE5_ONLY",
+      "bytes": 13697,
+      "sha256": "835271572aead2b6847c11e2884a410760b304f244885ddc7da89d1c6c0b9da0",
+      "fullGenuinePublishedReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/6093#issuecomment-6621841234",
+      "fetchedBodyExact": true,
+      "nativeOrCurrentMetadataApproval": false
+    }
+  ],
+  "narrowFuturePermissionSupersession": "Explicit only completed own11→5 future permissions and relevant blankethold, effective only after this exact3GOV actual acceptance; no source/evidence deletion or guard/CAP1 transfer",
+  "required": "actualwhole3review/owneraudit/native/security/READY/manual THEN actualsource5 freshwhole5/native52/localclosest218/browser/KIND/outbox/storage/cleanup/readiness/manual; old/private evidence never transfers",
+  "limits": "UNCHANGED3MiB consumer;405B spare,227other vectors/135admissions/allotherbytes exact; no role/RLS/API/provider/money/host/score change; installation270 pending and full13/CORE/original19/blockOPEN5/100"
+}
+```
