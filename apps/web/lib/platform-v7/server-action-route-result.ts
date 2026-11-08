@@ -103,6 +103,7 @@ type PersistenceSnapshot = {
 };
 
 export type PlatformV7ServerActionRouteSummaryInput = {
+  readonly contractResponse?: Pick<PlatformV7ServerActionContractResponse, 'status' | 'message'>;
   readonly idempotencyBoundary: IdempotencySnapshot;
   readonly auditBoundary: AuditSnapshot;
   readonly documentGate: RuntimeGateSnapshot;
@@ -174,6 +175,9 @@ export function buildPlatformV7ServerActionRouteSummary(
   input: PlatformV7ServerActionRouteSummaryInput,
 ): PlatformV7ServerActionRouteSummary {
   const issues = [
+    input.contractResponse?.status === 'not_accepted'
+      ? routeIssue('contract', input.contractResponse.status, input.contractResponse.message)
+      : undefined,
     !input.idempotencyBoundary.canProceed
       ? routeIssue('idempotency', input.idempotencyBoundary.status, input.idempotencyBoundary.reason)
       : undefined,

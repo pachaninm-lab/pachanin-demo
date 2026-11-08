@@ -14,7 +14,7 @@ describe('platform-v7 server action contract wrapper', () => {
   it('returns 403 for a role-forbidden boundary without claiming execution', () => {
     const response = buildPlatformV7ServerActionContractResponse(
       {
-        boundaryId: 'confirm_money_released',
+        boundaryId: 'confirm_money_reserved',
         actorId: 'driver-1',
         actorRole: 'driver',
         entityId: 'money-1',

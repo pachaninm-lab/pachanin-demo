@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import http.client
 import json
@@ -23,26 +24,32 @@ import urllib.request
 
 SERVICE = "tai-qwen3-8b.service"
 BASELINE_ALIAS = "tai-qwen3-8b-q4km"
-CANDIDATE_ALIAS = "tai-qwen35-4b-q4km"
-CANDIDATE_URL = "https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf"
-CANDIDATE_SHA256 = "13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
-CANDIDATE_SIZE = 3013027808
+CANDIDATE_ALIAS = "tai-qwen38-27b-iq2s"
+CANDIDATE_URL = "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/4ca720788d1e01f1bff70c033e0d0028fd02e502/Qwen3.8-27B-UD-IQ2_S.gguf"
+CANDIDATE_SHA256 = "7897d2c5a5cee46aef50895141b2c8a0803c1185f3d03c4fda4cd137a7ad77fe"
+CANDIDATE_SIZE = 8371970048
 CANDIDATE_HOST = "127.0.0.1"
 CANDIDATE_PORT = 18081
 LEASE_SECONDS = 420
 # A separately admitted, owner-authorized one-use delivery. Source changes and
 # workflow retries cannot replenish either slot; retired markers stay untouched.
 RETIRED_EXECUTION_GRANT = "gekta-critical-5974230017"
-EXECUTION_GRANT = "gekta-finish-20261008-4b-oneuse"
+PREVIOUS_EXECUTION_GRANT = "gekta-finish-20261008-4b-oneuse"
+PREVIOUS_FINITE_EXECUTION_GRANT = "gekta-finish-20261103-qwen38-iq2s-oneuse"
+RETIRED_EXECUTION_GRANTS = (RETIRED_EXECUTION_GRANT, PREVIOUS_EXECUTION_GRANT, PREVIOUS_FINITE_EXECUTION_GRANT)
+# Proposed new operation, not issued by these source bytes. Its separately
+# accepted v2 admission must bind a real owner disposition and all four afters.
+EXECUTION_GRANT = "gekta-finish-20261108-qwen38-iq2s-ubatch64-oneuse"
 LEASE_TERM_MARGIN_SECONDS = 2.0
 LEASE_KILL_MARGIN_SECONDS = 1.0
 LEASE_POLL_SECONDS = 0.25
 CANDIDATE_NICE_DELTA = 10
-MIN_FREE_BYTES = 7_000_000_000
+MIN_DISK_RESERVE_BYTES = 3_000_000_000
+MIN_FREE_BYTES = CANDIDATE_SIZE + MIN_DISK_RESERVE_BYTES
 MIN_MEM_BEFORE_KB = 8 * 1024 * 1024
 MIN_MEM_READY_KB = 3 * 1024 * 1024
 MIN_MEM_RUNTIME_KB = 2 * 1024 * 1024
-MAX_CANDIDATE_RSS_KB = 7 * 1024 * 1024
+MAX_CANDIDATE_RSS_KB = 9 * 1024 * 1024
 EXPECTED = {
     "threads": "16",
     "threads_batch": "16",
@@ -51,6 +58,9 @@ EXPECTED = {
     "batch": "512",
     "ubatch": "128",
 }
+# Baseline validation stays at 128. Only the finite candidate uses the smaller
+# physical batch; its 8192-token context and all safety limits stay unchanged.
+CANDIDATE_EXPECTED = {**EXPECTED, "ubatch": "64"}
 ALIASES = {
     "model": ("--model", "-m"),
     "alias": ("--alias",),
@@ -69,7 +79,7 @@ ALIASES = {
 BASE_DIR = pathlib.Path(pwd.getpwuid(os.geteuid()).pw_dir) / ".cache" / "gekta-qwen35-4b-candidate"
 CANDIDATE_DIR = BASE_DIR / "models"
 STATE_DIR = BASE_DIR / "state"
-CANDIDATE_PATH = CANDIDATE_DIR / ("qwen35-4b-q4-k-m-" + CANDIDATE_SHA256[:12] + ".gguf")
+CANDIDATE_PATH = CANDIDATE_DIR / ("qwen38-27b-iq2-s-" + CANDIDATE_SHA256[:12] + ".gguf")
 PID_PATH = STATE_DIR / "candidate.pid"
 CANDIDATE_IDENTITY_PATH = STATE_DIR / "candidate-identity.json"
 WATCHDOG_PID_PATH = STATE_DIR / "watchdog.pid"
@@ -169,6 +179,32 @@ def mem_available_kb() -> int:
     if not match:
         fail("memavailable_missing")
     return int(match.group(1))
+
+def emit_candidate_memory_diagnostic(pid: int, vm_swap_kb: int) -> None:
+    # Record the exact swap value used by the guard before it can abort startup.
+    # Optional observations are sequential, not an atomic memory snapshot. They
+    # never change the guard result or disclose /proc text, argv or exceptions.
+    try:
+        values = {"POST_READY_VM_SWAP_KB": vm_swap_kb}
+        for label, field in (
+            ("POST_READY_VM_RSS_KB", "VmRSS"),
+            ("POST_READY_RSS_ANON_KB", "RssAnon"),
+            ("POST_READY_RSS_FILE_KB", "RssFile"),
+            ("POST_READY_VM_HWM_KB", "VmHWM"),
+        ):
+            try:
+                values[label] = proc_kb(pid, field)
+            except Exception:
+                values[label] = None
+        try:
+            values["POST_READY_MEM_AVAILABLE_KB"] = mem_available_kb()
+        except Exception:
+            values["POST_READY_MEM_AVAILABLE_KB"] = None
+        emit("MEMORY_DIAGNOSTIC_VERSION", "v1")
+        for label, value in values.items():
+            emit(label, value if type(value) is int and 0 <= value < 2**63 else "not_reported")
+    except Exception:
+        pass
 
 def flag_hits(argv, names):
     hits = []
@@ -396,8 +432,8 @@ def ensure_start_capacity(state: dict) -> None:
 def download_candidate() -> None:
     CANDIDATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(CANDIDATE_DIR, 0o700)
-    if shutil.disk_usage(CANDIDATE_DIR).free < MIN_FREE_BYTES:
-        fail("candidate_disk_headroom_low")
+    if CANDIDATE_PATH.is_symlink():
+        fail("candidate_path_unsafe")
     if CANDIDATE_PATH.exists():
         if CANDIDATE_PATH.is_symlink() or not CANDIDATE_PATH.is_file():
             fail("candidate_path_unsafe")
@@ -405,8 +441,12 @@ def download_candidate() -> None:
             fail("candidate_owner_mismatch")
         if CANDIDATE_PATH.stat().st_size != CANDIDATE_SIZE or sha_file(CANDIDATE_PATH) != CANDIDATE_SHA256:
             fail("candidate_existing_mismatch")
+        if shutil.disk_usage(CANDIDATE_DIR).free < MIN_DISK_RESERVE_BYTES:
+            fail("candidate_disk_headroom_low")
         emit("PREPARE", "REUSED")
         return
+    if shutil.disk_usage(CANDIDATE_DIR).free < MIN_FREE_BYTES:
+        fail("candidate_disk_headroom_low")
     fd, name = tempfile.mkstemp(prefix=".qwen35-4b.", dir=str(CANDIDATE_DIR))
     os.close(fd)
     tmp = pathlib.Path(name)
@@ -574,6 +614,15 @@ def require_candidate_keyless_argv(prepared, observed) -> None:
         fail("candidate_guard_argv_invalid")
     if observed_shape != "absent":
         fail("candidate_key_present_in_cmdline")
+    if not candidate_runtime_flags_match(observed):
+        fail("candidate_runtime_flags_mismatch")
+
+
+def candidate_runtime_flags_match(argv) -> bool:
+    try:
+        return all(flag_value(argv, key) == value.encode("ascii") for key, value in CANDIDATE_EXPECTED.items())
+    except CandidateError:
+        return False
 
 
 def candidate_exec_argv_status(argv) -> int:
@@ -594,6 +643,8 @@ def candidate_exec_argv_status(argv) -> int:
         return 80
     if candidate_api_key_arg_shape(encoded) != "absent":
         return 84
+    if not candidate_runtime_flags_match(encoded):
+        return 86
     return 0
 
 def candidate_exec_guard(guard_fd: int, *, execution_grant: str = "", corpus: str = "", admitted_sha: str = "", checkout_sha: str = "") -> int:
@@ -1279,8 +1330,225 @@ def emit_candidate_start_diagnostic(log, cursor: tuple, phase: str) -> None:
     except Exception:
         pass
 
+ADMISSION_PURPOSE = "gekta-qwen38-iq2s-ubatch64-finite-canary-20261108"
+ADMISSION_MARKER = "\n## Gekta Qwen3.8 IQ2_S ubatch64 finite candidate admission — 2026-11-08\n\n```json\n"
+RETIRED_ADMISSION_MARKER = "\n## Gekta Qwen3.8 IQ2_S finite candidate admission — 2026-11-03\n\n```json\n"
+RETIRED_ADMISSION_SHA256 = "65597d1309a6f6ef72b06344ba5dfaa10218784cb1b69f3afc947095e4a98e5e"
+OWNER_DISPOSITION_PREFIX = "GEKTA_FINITE_MODEL_OWNER_DISPOSITION\n"
+ADMISSION_PATHS = (
+    ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+    "scripts/gekta-qwen35-4b-model-host-candidate.py",
+    "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+    "docs/gekta/model-oneuse-grant-20261008.md",
+)
+ADMISSION_BEFORE_BLOBS = (
+    "3c0b29666508d3978960b282c1d14fbec777fc58",
+    "e612f77a5e2d65d524fac28a97bdb9477ebe27f1",
+    "a6a865f5defc3c65f565fd7a76d317de5b698752",
+    "4b4cd2b8277aa1142ba15b6be05ef144c91c93ef",
+)
+
+def candidate_admission_identity() -> dict:
+    return {
+        "alias": CANDIDATE_ALIAS, "url": CANDIDATE_URL,
+        "sha256": CANDIDATE_SHA256, "bytes": CANDIDATE_SIZE,
+        "runtimeCommitShort": "aedb2a5", "flags": CANDIDATE_EXPECTED,
+        "host": CANDIDATE_HOST, "port": CANDIDATE_PORT,
+        "leaseSeconds": LEASE_SECONDS, "minFreeBytes": MIN_FREE_BYTES,
+        "minCachedFreeBytes": MIN_DISK_RESERVE_BYTES,
+        "minMemBeforeKb": MIN_MEM_BEFORE_KB, "minMemReadyKb": MIN_MEM_READY_KB,
+        "minMemRuntimeKb": MIN_MEM_RUNTIME_KB, "maxCandidateRssKb": MAX_CANDIDATE_RSS_KB,
+    }
+
+def validate_admitted_candidate_source(root: pathlib.Path) -> dict:
+    """Read the separately accepted default-branch purpose before SSH secrets.
+
+    This pure check validates fixed bytes and a closed owner-receipt payload.
+    The runner additionally calls validate_admitted_owner_disposition() for the
+    actual GitHub receipt before SSH. Neither is a native/source review attestor.
+    Source publication may not add its own queue admission within this owner.
+    """
+    def reject(*_):
+        fail("candidate_admission_invalid")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                reject()
+            value[key] = item
+        return value
+    def exact(a, b):
+        # JSON equality keeps booleans distinct from integer slot counts.
+        return json.dumps(a, sort_keys=True, ensure_ascii=False, allow_nan=False) == json.dumps(b, sort_keys=True, ensure_ascii=False, allow_nan=False)
+    try:
+        queue = root / "docs/platform-v7/execution-queue.md"
+        if queue.is_symlink() or not queue.is_file() or queue.stat().st_size > 3 * 1024 * 1024:
+            reject()
+        with queue.open("rb") as handle:
+            bounded = handle.read(3 * 1024 * 1024 + 1)
+        if len(bounded) > 3 * 1024 * 1024:
+            reject()
+        raw = bounded.decode("utf-8", errors="strict")
+        if raw.count(RETIRED_ADMISSION_MARKER) != 1:
+            reject()
+        retired_tail = raw.split(RETIRED_ADMISSION_MARKER, 1)[1]
+        retired_end = retired_tail.find("\n```\n")
+        if retired_end < 0:
+            reject()
+        retired_record = (RETIRED_ADMISSION_MARKER + retired_tail[:retired_end] + "\n```\n").encode("utf-8")
+        if hashlib.sha256(retired_record).hexdigest() != RETIRED_ADMISSION_SHA256:
+            reject()
+        if raw.count(ADMISSION_MARKER) != 1:
+            reject()
+        tail = raw.split(ADMISSION_MARKER, 1)[1]
+        end = tail.find("\n```\n")
+        if end < 0 or len(tail[:end].encode("utf-8")) > 256 * 1024:
+            reject()
+        p = json.loads(tail[:end], object_pairs_hook=unique, parse_constant=reject)
+        keys = {"schemaVersion", "purposeId", "sourceBranch", "executionGrant", "retiredGrants",
+                "candidate", "slots", "sourcePayloads", "sourcePatch", "independentSourceReview",
+                "productionMutationAuthorized", "automaticMergeAllowed", "newRecurringCostRub", "ownerDisposition"}
+        if not isinstance(p, dict) or set(p) != keys:
+            reject()
+        if (p["schemaVersion"] != "pc.gekta.model-finite-candidate-admission.v2"
+            or p["purposeId"] != ADMISSION_PURPOSE
+            or p["sourceBranch"] != "fix/gekta-candidate-oneuse-grant-20261008"
+            or p["executionGrant"] != EXECUTION_GRANT
+            or p["productionMutationAuthorized"] is not False or p["automaticMergeAllowed"] is not False
+            or type(p["newRecurringCostRub"]) is not int or p["newRecurringCostRub"] != 0
+            or not exact(p["retiredGrants"], list(RETIRED_EXECUTION_GRANTS))
+            or not exact(p["candidate"], candidate_admission_identity())
+            or not exact(p["slots"], {"critical": 1, "extra": 1})):
+            reject()
+        payloads = p["sourcePayloads"]
+        if not isinstance(payloads, list) or len(payloads) != len(ADMISSION_PATHS):
+            reject()
+        for path, before_blob, pin in zip(ADMISSION_PATHS, ADMISSION_BEFORE_BLOBS, payloads):
+            fields = {"path", "mode", "beforeBlob", "afterBlob", "bytes", "sha256"}
+            if not isinstance(pin, dict) or set(pin) != fields or pin["path"] != path:
+                reject()
+            file = root / path
+            info = file.lstat()
+            expected_mode = "100644"
+            if not stat.S_ISREG(info.st_mode) or pin["mode"] != expected_mode or bool(info.st_mode & 0o111) != (expected_mode == "100755"):
+                reject()
+            if type(pin["bytes"]) is not int or not 0 < pin["bytes"] <= 256 * 1024 or info.st_size != pin["bytes"]:
+                reject()
+            if pin["beforeBlob"] != before_blob or not re.fullmatch(r"[0-9a-f]{40}", pin["afterBlob"]):
+                reject()
+            with file.open("rb") as handle:
+                value = handle.read(256 * 1024 + 1)
+            if len(value) != pin["bytes"]:
+                reject()
+            value.decode("utf-8", errors="strict")
+            if hashlib.sha256(value).hexdigest() != pin["sha256"] or hashlib.sha1(b"blob " + str(len(value)).encode("ascii") + b"\0" + value).hexdigest() != pin["afterBlob"]:
+                reject()
+        for field in ("sourcePatch", "independentSourceReview"):
+            item = p[field]
+            if not isinstance(item, dict) or set(item) != {"content", "bytes", "sha256"} or not isinstance(item["content"], str):
+                reject()
+            value = item["content"].encode("utf-8")
+            if type(item["bytes"]) is not int or not 0 < len(value) == item["bytes"] <= 192 * 1024 or hashlib.sha256(value).hexdigest() != item["sha256"]:
+                reject()
+        receipt = p["ownerDisposition"]
+        receipt_keys = {"status", "author", "authorAssociation", "repository", "issueNumber",
+                        "commentId", "createdAt", "updatedAt", "performedViaGithubAppId", "body"}
+        if (not isinstance(receipt, dict) or set(receipt) != receipt_keys
+            or receipt["status"] != "ISSUED" or receipt["author"] != "pachaninm-lab"
+            or receipt["authorAssociation"] != "OWNER"
+            or receipt["repository"] != "pachaninm-lab/pachanin-demo"
+            or type(receipt["issueNumber"]) is not int or receipt["issueNumber"] != 3896
+            or type(receipt["performedViaGithubAppId"]) is not int or receipt["performedViaGithubAppId"] != 1144995
+            or type(receipt["commentId"]) is not int or not 0 < receipt["commentId"] < 2**63
+            or not isinstance(receipt["createdAt"], str)
+            or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", receipt["createdAt"])
+            or receipt["updatedAt"] != receipt["createdAt"]):
+            reject()
+        datetime.datetime.strptime(receipt["createdAt"], "%Y-%m-%dT%H:%M:%SZ")
+        body = receipt["body"]
+        if (not isinstance(body, dict) or set(body) != {"content", "bytes", "sha256"}
+            or not isinstance(body["content"], str) or type(body["bytes"]) is not int):
+            reject()
+        body_raw = body["content"].encode("utf-8")
+        if (not 0 < len(body_raw) == body["bytes"] <= 64 * 1024
+            or hashlib.sha256(body_raw).hexdigest() != body["sha256"]
+            or not body["content"].startswith(OWNER_DISPOSITION_PREFIX)):
+            reject()
+        claim = json.loads(body["content"][len(OWNER_DISPOSITION_PREFIX):], object_pairs_hook=unique, parse_constant=reject)
+        expected_claim = {"schemaVersion": "pc.gekta.finite-owner-disposition.v1", "status": "ISSUED",
+                          "owner": "pachaninm-lab",
+                          "grantStateAtOwnerRecord": "NOT_ISSUED_UNTIL_SEPARATE_METADATA_SOURCE_NATIVE_ACCEPTANCE_AND_FRESH_COMMAND"}
+        for field in ("purposeId", "sourceBranch", "executionGrant", "retiredGrants", "candidate", "slots",
+                      "sourcePayloads", "productionMutationAuthorized", "automaticMergeAllowed", "newRecurringCostRub"):
+            expected_claim[field] = p[field]
+        expected_claim["preservedPriorDisposition"] = {
+            "executionGrant": PREVIOUS_FINITE_EXECUTION_GRANT, "criticalRunId": 41732219749,
+            "criticalSlot": "SPENT_NO_REFUND", "extraSlot": "INELIGIBLE_NO_ACTUAL_CRITICAL_PASS"}
+        if not exact(claim, expected_claim):
+            reject()
+        return receipt
+    except CandidateError:
+        raise
+    except Exception:
+        reject()
+
+def validate_actual_owner_disposition(receipt: dict, raw: bytes) -> None:
+    """Validate the closed API projection against the separately pinned receipt."""
+    def reject(*_):
+        fail("candidate_owner_disposition_invalid")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                reject()
+            value[key] = item
+        return value
+    try:
+        if not isinstance(raw, bytes) or not 0 < len(raw) <= 128 * 1024:
+            reject()
+        observed = json.loads(raw.decode("utf-8", errors="strict"), object_pairs_hook=unique, parse_constant=reject)
+        expected = {
+            "commentId": receipt["commentId"], "author": receipt["author"],
+            "authorAssociation": receipt["authorAssociation"],
+            "issueUrl": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/3896",
+            "createdAt": receipt["createdAt"], "updatedAt": receipt["updatedAt"],
+            "performedViaGithubAppId": receipt["performedViaGithubAppId"], "body": receipt["body"]["content"]}
+        if json.dumps(observed, sort_keys=True, ensure_ascii=False, allow_nan=False) != json.dumps(expected, sort_keys=True, ensure_ascii=False, allow_nan=False):
+            reject()
+    except CandidateError:
+        raise
+    except Exception:
+        reject()
+
+def validate_admitted_owner_disposition(root: pathlib.Path) -> None:
+    """One fixed GitHub GET using the runner's existing GH_TOKEN, before SSH.
+
+    No comment ID or body hash is hardcoded in source. The trusted metadata
+    supplies them after an actual automated OWNER continuation. A private
+    PENDING record fails the pure source check before this network request.
+    """
+    receipt = validate_admitted_candidate_source(root)
+    projection = ('if ((.body | type) != "string" or (.body | utf8bytelength) > 65536) '
+                  'then error("owner_receipt_body_invalid") else '
+                  '{commentId: .id, author: .user.login, authorAssociation: .author_association, '
+                  'issueUrl: .issue_url, createdAt: .created_at, updatedAt: .updated_at, '
+                  'performedViaGithubAppId: .performed_via_github_app.id, body: .body} end')
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--hostname", "github.com", "--method", "GET",
+             "repos/pachaninm-lab/pachanin-demo/issues/comments/" + str(receipt["commentId"]),
+             "--jq", projection],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20, check=False)
+        if result.returncode != 0:
+            fail("candidate_owner_disposition_invalid")
+        validate_actual_owner_disposition(receipt, result.stdout)
+    except CandidateError:
+        raise
+    except Exception:
+        fail("candidate_owner_disposition_invalid")
+
 def validate_execution_arguments(execution_grant: str, corpus: str, admitted_sha: str, checkout_sha: str) -> None:
-    if execution_grant == RETIRED_EXECUTION_GRANT:
+    if execution_grant in RETIRED_EXECUTION_GRANTS:
         fail("candidate_execution_grant_retired")
     if execution_grant != EXECUTION_GRANT or corpus not in ("critical", "extra"):
         fail("candidate_execution_grant_invalid")
@@ -1428,6 +1696,7 @@ def start(candidate_key: str, *, execution_grant: str = "", corpus: str = "", ad
     argv = replace_flag(argv, "alias", CANDIDATE_ALIAS.encode("utf-8"))
     argv = replace_flag(argv, "host", CANDIDATE_HOST.encode("ascii"))
     argv = replace_flag(argv, "port", str(CANDIDATE_PORT).encode("ascii"))
+    argv = replace_flag(argv, "ubatch", CANDIDATE_EXPECTED["ubatch"].encode("ascii"))
     argv = remove_flag(argv, "api_key")
     env["LLAMA_API_KEY"] = candidate_key
     for key in ("NOTIFY_SOCKET", "WATCHDOG_PID", "WATCHDOG_USEC", "INVOCATION_ID", "JOURNAL_STREAM"):
@@ -1532,7 +1801,9 @@ def start(candidate_key: str, *, execution_grant: str = "", corpus: str = "", ad
         start_phase = "readiness"
         wait_candidate(proc.pid, candidate_key, state)
         start_phase = "post_ready"
-        if proc_kb(proc.pid, "VmSwap") != 0:
+        vm_swap_kb = proc_kb(proc.pid, "VmSwap")
+        emit_candidate_memory_diagnostic(proc.pid, vm_swap_kb)
+        if vm_swap_kb != 0:
             fail("candidate_swap_nonzero")
         available = mem_available_kb()
         if available < MIN_MEM_READY_KB:
