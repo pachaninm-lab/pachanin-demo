@@ -5946,8 +5946,11 @@ jobs:
           import hashlib,pathlib,stat
           path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
           info=path.lstat()
-          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities
           raw=path.read_bytes()
+          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]
+          raw=raw[:62220]
           assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
           raw=raw[:34021]+b'\n'+raw[62173:]
           assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
@@ -6649,8 +6652,11 @@ jobs:
           import hashlib,pathlib,stat
           path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
           info=path.lstat()
-          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities
           raw=path.read_bytes()
+          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]
+          raw=raw[:62220]
           assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
           raw=raw[:34021]+b'\n'+raw[62173:]
           assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
@@ -6815,8 +6821,11 @@ jobs:
           import hashlib,pathlib,stat
           path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
           info=path.lstat()
-          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities
           raw=path.read_bytes()
+          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]
+          raw=raw[:62220]
           assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
           raw=raw[:34021]+b'\n'+raw[62173:]
           assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
@@ -7880,3 +7889,128 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/root-geometry-private"
           rm -f "$RUNNER_TEMP/root-geometry.py" "$RUNNER_TEMP/rg2-receipt.py" "$RUNNER_TEMP/rg2-candidate.json" "$RUNNER_TEMP/rg2-failure.json"
+
+
+  startup_as_contract:
+    name: Validate two daemon-free startup profiles without host access
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.body == '/production diagnose-docker-startup-as current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.created_at == github.event.comment.updated_at &&
+      github.run_attempt == '1' &&
+      ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+       github.event.comment.performed_via_github_app.id == 1144995))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run all startup contracts without host access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -I -B - <<'PY_STARTUP_CONTRACT'
+          import importlib.util, pathlib, unittest
+          path = pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
+          spec = importlib.util.spec_from_file_location('startup_contract', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          result = unittest.TextTestRunner(verbosity=2).run(module.startup_contract_suite())
+          raise SystemExit(not result.wasSuccessful())
+          PY_STARTUP_CONTRACT
+
+  startup_as_compare:
+    name: One fresh OWNER daemon-free startup comparison
+    needs: startup_as_contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.body == '/production diagnose-docker-startup-as current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.created_at == github.event.comment.updated_at &&
+      github.run_attempt == '1' &&
+      ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+       github.event.comment.performed_via_github_app.id == 1144995) &&
+      needs.startup_as_contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: pc-crop-registration-lifecycle
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: read
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Admit exact source purpose and unchanged fresh OWNER command before protected transport
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -B scripts/production_docker_startup_controller.py --admit
+      - name: Reuse unchanged pinned identity resolver with private runner evidence
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/docker-startup-key-private
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          python3 -B scripts/production_docker_startup_controller.py --key-script > "$RUNNER_TEMP/docker-startup-key.sh"
+          bash "$RUNNER_TEMP/docker-startup-key.sh"
+      - name: Revalidate fresh current main and perform the sole bounded transport
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -B scripts/production_docker_startup_controller.py --run
+      - name: Validate and export only closed comparison fields
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -f "$RUNNER_TEMP/docker-startup-candidate.json" ]]; then
+            python3 -B scripts/production_docker_startup_controller.py --publish
+          fi
+      - name: Upload the closed result only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: docker-startup-address-space-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/docker-startup-address-space/closed-result.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove this runner's transient protected material
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/docker-startup-key.sh" "$RUNNER_TEMP/docker-startup-candidate.json"
+          rm -f -- "$RUNNER_TEMP/docker-startup-key-private/ssh-key-fingerprint.txt"
