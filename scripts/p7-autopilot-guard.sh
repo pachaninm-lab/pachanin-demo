@@ -818,6 +818,157 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
+// DSA2_SOURCE_STAGE_BEGIN: a separately reviewed plaintext recovery; no host grant.
+function dsa2SourceStage() {
+  if (branch !== 'fix/gekta-docker-diagnostic-route-20260927') return undefined;
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('DSA2_SOURCE_SCOPE_' + reason); };
+  const git = (args, maximum = 3 * 1024 * 1024 + 1) => execFileSync('git',
+    ['--no-replace-objects', ...args], { maxBuffer: maximum, timeout: 10000 });
+  const text = bytes => {
+    const value = bytes.toString('utf8');
+    if (!Buffer.from(value, 'utf8').equals(bytes)) fail('UTF8');
+    return value;
+  };
+  const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+  const keys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value) &&
+    isDeepStrictEqual(Object.keys(value).sort(), [...expected].sort());
+  const expectedDsa2Core = {"purposeId":"docker-startup-plaintext-recovery-20261109","authorityBaseExactMain":"a346563c821781fd4530e25cb2ac77fb0b89e7bc","retainedSourceHead":"b93f7e98f1873ffbbbf1380a59f6113b940fbbfb","predecessor":{"admission":{"bytes":7720,"sha256":"da73ded89448edbcdb42d94304d311a1b478398751d83dd383faefc448f60067"},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"}},"sourceAfter":[{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"63ebbcfe4b4797fb7df1214b1711557543d96129","bytes":483004,"sha256":"f902604ce3a86c3e5bb2b9bc40cbbfc02a80c5c6c19b9ff6d0aa2d6949d0438e"},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"d711526d6ca0869663ec951ced19e793f0450fcf","bytes":100464,"sha256":"748938274163bda35a9755129f884244a92db5fa686f5da3ee06c65b985a2064"},{"path":"scripts/production_docker_startup_host.py","mode":"100644","blob":"91533b2f6e52e87c38576c6f3d099bf2971200ed","bytes":12987,"sha256":"4b9df5abb9d989e96f39d0791e03dbe4adfc1ee1b3167e27ee42d1b700e1b3d9"},{"path":"scripts/production_docker_startup_controller.py","mode":"100644","blob":"fbbed00e3ed3be7c0195a9043975c89369fb36c0","bytes":18378,"sha256":"2a11ef3496ac12b4180c43297a9fcb20cb39d86474732e6e822ce3080e15a67d"}],"sourcePatch":{"bytes":77981,"sha256":"7f31687ab577f24890f1499c73c074956a9f96d4f4dbb8d9f2bd2bd710e9371e"},"sourceReview":{"status":"CLEAN_PRIVATE_SOURCE_ONLY","reviewerIdentity":"/root/release_review","authorIdentity":"/root/model_release","independent":true,"findings":{"P0":0,"P1":0,"P2":0},"artifact":{"bytes":16381,"sha256":"df8a818624a5ebc6539964dc88ecc323a254229025a74a13271dc50c3a0717bf"},"kind":"PRIVATE_SOURCE_REVIEW","comment":{"id":"6735261220","issue":5469,"publisher":"pachaninm-lab","appId":1144995,"createdAt":"2026-11-09T08:08:56Z"}},"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"};
+  const expectedDsa2CoreSha256 = 'd9634c256df4c651a253048df064f1d1a3b692611c29cdcb86016f9aafbe5056';
+  if (sha(Buffer.from(JSON.stringify(expectedDsa2Core))) !== expectedDsa2CoreSha256) fail('STATIC_CORE');
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const marker = '\n## DSA2 — Docker startup plaintext recovery, 2026-11-09\n\n```json\n';
+  const base = text(git(['rev-parse', `${baseRef}^{commit}`], 128)).trim();
+  if (!/^[0-9a-f]{40}$/.test(base)) fail('BASE_REF');
+  const entry = (ref, file) => text(git(['ls-tree', ref, '--', file], 4096)).trim();
+  if (!entry(base, queuePath)) return undefined;
+  const bounded = (ref, file, capacity) => {
+    const size = text(git(['cat-file', '-s', `${ref}:${file}`], 128)).trim();
+    if (!/^[0-9]{1,8}$/.test(size) || Number(size) > capacity) fail('CAPACITY');
+    const bytes = git(['show', `${ref}:${file}`], capacity + 1);
+    if (bytes.length !== Number(size) || bytes.length > capacity) fail('CAPACITY');
+    return bytes;
+  };
+  const queue = bounded(base, queuePath, 3 * 1024 * 1024);
+  const content = text(queue);
+  if (!content.includes(marker)) return undefined;
+  // Once present at BASE, invalid new authority cannot fall through to an old route.
+  if (!/^100644 blob [0-9a-f]{40}\t/.test(entry(base, queuePath))) fail('QUEUE_MODE');
+  const record = (selected, maximum) => {
+    const parts = content.split(selected);
+    if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
+    const end = parts[1].indexOf('\n```\n');
+    if (end < 0) fail('PURPOSE_FORMAT');
+    const encoded = parts[1].slice(0, end);
+    if (Buffer.byteLength(encoded) < 1 || Buffer.byteLength(encoded) > maximum) fail('PURPOSE_CAPACITY');
+    let value;
+    try { value = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
+    // A byte-exact compact serialization rejects duplicate keys and alternate encodings.
+    if (!value || typeof value !== 'object' || Array.isArray(value) || JSON.stringify(value) !== encoded) fail('PURPOSE_NOT_CANONICAL');
+    return { value, encoded };
+  };
+  const admission = record(marker, 4096).value;
+  if (!keys(admission, ['schema','core','governanceAfter','governancePatch','governanceReview']) ||
+      admission.schema !== 'pc.docker-startup-source-admission.v2' ||
+      !isDeepStrictEqual(admission.core, expectedDsa2Core) ||
+      JSON.stringify(admission.core) !== JSON.stringify(expectedDsa2Core)) fail('PURPOSE_CORE');
+  const predecessor = {};
+  for (const [name, selected] of [
+    ['admission', '\n## DSA — Docker startup exact source admission, 2026-11-08\n\n```json\n'],
+    ['sourcePurpose', '\n## Docker startup address-space comparison purpose 20261108\n\n```json\n'],
+  ]) {
+    const pin = expectedDsa2Core.predecessor[name];
+    const previous = record(selected, pin.bytes);
+    if (Buffer.byteLength(previous.encoded) !== pin.bytes || sha(Buffer.from(previous.encoded)) !== pin.sha256) fail('PREDECESSOR');
+    predecessor[name] = previous.value;
+  }
+  const old = predecessor.admission.core;
+  const head = text(git(['rev-parse', `${String(process.env.HEAD_REF || '')}^{commit}`], 128)).trim();
+  if (!/^[0-9a-f]{40}$/.test(head)) fail('HEAD_REF');
+  git(['merge-base', '--is-ancestor', expectedDsa2Core.authorityBaseExactMain, base], 128);
+  git(['merge-base', '--is-ancestor', base, head], 128);
+  git(['merge-base', '--is-ancestor', expectedDsa2Core.retainedSourceHead, head], 128);
+  if (entry(head, queuePath) !== entry(base, queuePath) ||
+      !bounded(head, queuePath, 3 * 1024 * 1024).equals(queue)) fail('AUTHORITY_MUTATION');
+  const pinShape = (pin, capacity = 1024 * 1024) => keys(pin, ['path','mode','blob','bytes','sha256']) &&
+    typeof pin.path === 'string' && ['100644','100755'].includes(pin.mode) &&
+    /^[0-9a-f]{40}$/.test(pin.blob || '') && Number.isSafeInteger(pin.bytes) && pin.bytes > 0 && pin.bytes <= capacity &&
+    /^[0-9a-f]{64}$/.test(pin.sha256 || '');
+  const checked = (ref, pin) => {
+    const capacity = pin.path === stateFile ? 3 * 1024 * 1024 : 1024 * 1024;
+    if (!pinShape(pin, capacity) || entry(ref, pin.path) !== `${pin.mode} blob ${pin.blob}\t${pin.path}`) fail('BLOB_OR_MODE');
+    const bytes = bounded(ref, pin.path, capacity);
+    if (bytes.length !== pin.bytes || sha(bytes) !== pin.sha256) fail('CONTENT');
+    return bytes;
+  };
+  const stateBytes = checked(base, old.state);
+  if (!checked(head, old.state).equals(stateBytes)) fail('STATE_MUTATION');
+  let state;
+  try { state = JSON.parse(text(stateBytes)); } catch { fail('STATE_JSON'); }
+  if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[branch], old.sourcePaths) ||
+      !isDeepStrictEqual(state.approvedConcurrentScopes?.[old.governanceBranch],
+        predecessor.admission.governanceAfter.map(pin => pin.path))) fail('ACCEPTED_VECTORS');
+  const artifact = (value, minimum = 1, maximum = 1024 * 1024) => keys(value, ['bytes','sha256']) &&
+    Number.isSafeInteger(value.bytes) && value.bytes >= minimum && value.bytes <= maximum &&
+    typeof value.sha256 === 'string' && /^[0-9a-f]{64}$/.test(value.sha256);
+  const reviewed = (value, source) => {
+    const fields = ['status','reviewerIdentity','authorIdentity','independent','findings','artifact','comment'];
+    if (source) fields.push('kind');
+    if (!keys(value, fields) || value.status !== 'CLEAN_PRIVATE_SOURCE_ONLY' || value.independent !== true ||
+        !isDeepStrictEqual(value.findings, {P0:0,P1:0,P2:0}) || !artifact(value.artifact, 100, 20000) ||
+        value.reviewerIdentity !== (source ? '/root/release_review' : '/root/language_release') ||
+        value.authorIdentity !== (source ? '/root/model_release' : '/root') ||
+        (source && value.kind !== 'PRIVATE_SOURCE_REVIEW')) fail('REVIEW');
+    const receipt = value.comment;
+    if (!keys(receipt, ['id','issue','publisher','appId','createdAt']) ||
+        typeof receipt.id !== 'string' || !/^[1-9][0-9]{0,19}$/.test(receipt.id) ||
+        receipt.issue !== 5469 || receipt.publisher !== 'pachaninm-lab' || receipt.appId !== 1144995 ||
+        typeof receipt.createdAt !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/.test(receipt.createdAt) ||
+        Number.isNaN(Date.parse(receipt.createdAt)) || new Date(receipt.createdAt).toISOString() !== receipt.createdAt.replace('Z','.000Z')) fail('REVIEW_RECEIPT');
+  };
+  if (!artifact(admission.governancePatch) || !artifact(expectedDsa2Core.sourcePatch)) fail('PATCH_BINDING');
+  reviewed(expectedDsa2Core.sourceReview, true);
+  reviewed(admission.governanceReview, false);
+  if (expectedDsa2Core.sourceReview.comment.id === admission.governanceReview.comment.id) fail('DISTINCT_REVIEWS');
+  if (!Array.isArray(admission.governanceAfter) || admission.governanceAfter.length !== 3) fail('GOVERNANCE_PINS');
+  for (const [i, before] of predecessor.admission.governanceAfter.entries()) {
+    const after = admission.governanceAfter[i];
+    if (!pinShape(after) || after.path !== before.path || after.mode !== before.mode || after.blob === before.blob) fail('GOVERNANCE_PINS');
+    checked(expectedDsa2Core.authorityBaseExactMain, before);
+    checked(base, after); checked(head, after);
+  }
+  const sourcePaths = ['.github/workflows/production-docker-headroom-diagnostic.yml',
+    'scripts/test_production_stopped_runtime_headroom.py',
+    'scripts/production_docker_startup_host.py','scripts/production_docker_startup_controller.py'];
+  if (!Array.isArray(expectedDsa2Core.sourceAfter) || expectedDsa2Core.sourceAfter.length !== 4 ||
+      !isDeepStrictEqual(expectedDsa2Core.sourceAfter.map(pin => pin.path), sourcePaths) ||
+      expectedDsa2Core.runtimeAllowance !== 'NOT_ISSUED_BY_SOURCE') fail('STATIC_SOURCE');
+  const beforeByPath = new Map(old.sourcePayloads.map(pair => [pair.before.path, pair.before]));
+  for (const prior of old.sourcePayloads) checked(expectedDsa2Core.retainedSourceHead, prior.after);
+  const changes = [];
+  for (const after of expectedDsa2Core.sourceAfter) {
+    const data = checked(head, after), before = beforeByPath.get(after.path);
+    if (after.mode !== '100644') fail('SOURCE_MODE');
+    if (before) {
+      const prior = checked(base, before);
+      if (!checked(expectedDsa2Core.authorityBaseExactMain, before).equals(prior) ||
+          !data.subarray(0, prior.length).equals(prior)) fail('WHOLE_PREFIX');
+      changes.push([after.path, `:${before.mode} ${after.mode} ${before.blob} ${after.blob} M\0${after.path}\0`]);
+    } else {
+      if (entry(base, after.path) || entry(expectedDsa2Core.authorityBaseExactMain, after.path)) fail('ADDED_PATH_EXISTS');
+      changes.push([after.path, `:000000 ${after.mode} ${'0'.repeat(40)} ${after.blob} A\0${after.path}\0`]);
+    }
+  }
+  for (const pin of old.unchangedHelpers.filter(pin => !sourcePaths.includes(pin.path))) {
+    checked(base, pin); checked(head, pin);
+  }
+  changes.sort((a,b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  if (text(git(['diff','--raw','--no-abbrev','--no-renames','-z',base,head])) !== changes.map(pair => pair[1]).join('')) fail('EXACT_FOUR_PATHS');
+  return { scopes: sourcePaths, metadata: false, stage: 'DSA2-SOURCE' };
+}
+// DSA2_SOURCE_STAGE_END
+
 // DSA_SOURCE_STAGE_BEGIN: one separately admitted source transition, never a host grant.
 function dsaSourceStage() {
   if (branch !== 'fix/gekta-docker-diagnostic-route-20260927') return undefined;
@@ -1370,7 +1521,7 @@ function dc2CoherentStage() {
   sourcePacket(core.sourcePacket, headRef, sourcePayloads.map(item => item.path));
   return { scopes: sourcePayloads.map(item => item.path), metadata: false, stage: 'DC2-R3' };
 }
-const dc2Coherent = (typeof dsaSourceStage === 'function' && dsaSourceStage()) || (typeof rg2SourceStage === 'function' && rg2SourceStage()) || dc2CoherentStage();
+const dc2Coherent = (typeof dsa2SourceStage === 'function' && dsa2SourceStage()) || (typeof dsaSourceStage === 'function' && dsaSourceStage()) || (typeof rg2SourceStage === 'function' && rg2SourceStage()) || dc2CoherentStage();
 // DC2_COHERENT_COMPAT_END
 
 // DC1_COHERENT_COMPAT_BEGIN: exact accepted BASE stages; no host grant.

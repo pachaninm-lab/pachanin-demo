@@ -1055,8 +1055,202 @@ jobs:
           persist-credentials: false
       - name: Validate PC-CROP immutable-scope guard regression
         run: node --test scripts/p7-autopilot-guard.test.mjs docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs
-      - name: Validate DC1 closed Docker source controls at exact accepted head
+      # DSA2_NATIVE_STEP_BEGIN
+      - name: Validate recovered plaintext Docker source at exact accepted head
+        id: dsa2_source_controls
         if: github.event_name == 'pull_request' && github.head_ref == 'fix/gekta-docker-diagnostic-route-20260927'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 -I -B - <<'DSA2_SOURCE_CONTROLS'
+          import hashlib, json, os, pathlib, re, stat, subprocess, tempfile
+          
+          def fail(reason):
+              raise SystemExit('DSA2_SOURCE_CONTROLS_' + reason)
+          
+          def git(*args, capacity=3145729):
+              result = subprocess.run(['git','--no-replace-objects',*args], check=True,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+                  env={**os.environ,'GIT_NO_LAZY_FETCH':'1','GIT_OPTIONAL_LOCKS':'0'})
+              if len(result.stdout) > capacity:
+                  fail('GIT_CAPACITY')
+              return result.stdout
+          
+          def bounded(ref, path, capacity):
+              size = git('cat-file','-s',ref+':'+path,capacity=128).decode().strip()
+              if not re.fullmatch(r'[0-9]{1,8}',size) or int(size) > capacity:
+                  fail('CAPACITY')
+              raw = git('show',ref+':'+path,capacity=capacity)
+              if len(raw) != int(size):
+                  fail('CAPACITY')
+              return raw
+          
+          def unique(pairs):
+              value = {}
+              for key,item in pairs:
+                  if key in value:
+                      fail('DUPLICATE_KEY')
+                  value[key] = item
+              return value
+          
+          def wire(value):
+              return json.dumps(value,ensure_ascii=False,separators=(',',':'),allow_nan=False)
+          
+          def record(content, marker, cap):
+              if content.count(marker) != 1:
+                  fail('PURPOSE_NOT_UNIQUE')
+              parts = content.split(marker,1)[1].split('\n```\n',1)
+              if len(parts) != 2 or not 0 < len(parts[0].encode()) <= cap:
+                  fail('PURPOSE_FORMAT_OR_CAPACITY')
+              value = json.loads(parts[0],object_pairs_hook=unique)
+              if type(value) is not dict or wire(value) != parts[0]:
+                  fail('PURPOSE_NOT_CANONICAL')
+              return value,parts[0].encode()
+          
+          def physical(path, data, mode):
+              path = pathlib.Path(path)
+              token = lambda info:(info.st_dev,info.st_ino,info.st_mode,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+              before = path.lstat()
+              fd = os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+              try:
+                  info = os.fstat(fd)
+                  if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != mode or
+                          token(before) != token(info) or info.st_size != len(data)):
+                      fail('PHYSICAL_IDENTITY')
+                  raw = bytearray()
+                  while len(raw) <= len(data):
+                      chunk = os.read(fd,len(data)+1-len(raw))
+                      if not chunk:
+                          break
+                      raw.extend(chunk)
+                  if bytes(raw) != data or token(os.fstat(fd)) != token(info) or token(path.lstat()) != token(info):
+                      fail('PHYSICAL_BYTES')
+              finally:
+                  os.close(fd)
+          
+          def dsa2_source_controls():
+              expected_core = json.loads('{"purposeId":"docker-startup-plaintext-recovery-20261109","authorityBaseExactMain":"a346563c821781fd4530e25cb2ac77fb0b89e7bc","retainedSourceHead":"b93f7e98f1873ffbbbf1380a59f6113b940fbbfb","predecessor":{"admission":{"bytes":7720,"sha256":"da73ded89448edbcdb42d94304d311a1b478398751d83dd383faefc448f60067"},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"}},"sourceAfter":[{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"63ebbcfe4b4797fb7df1214b1711557543d96129","bytes":483004,"sha256":"f902604ce3a86c3e5bb2b9bc40cbbfc02a80c5c6c19b9ff6d0aa2d6949d0438e"},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"d711526d6ca0869663ec951ced19e793f0450fcf","bytes":100464,"sha256":"748938274163bda35a9755129f884244a92db5fa686f5da3ee06c65b985a2064"},{"path":"scripts/production_docker_startup_host.py","mode":"100644","blob":"91533b2f6e52e87c38576c6f3d099bf2971200ed","bytes":12987,"sha256":"4b9df5abb9d989e96f39d0791e03dbe4adfc1ee1b3167e27ee42d1b700e1b3d9"},{"path":"scripts/production_docker_startup_controller.py","mode":"100644","blob":"fbbed00e3ed3be7c0195a9043975c89369fb36c0","bytes":18378,"sha256":"2a11ef3496ac12b4180c43297a9fcb20cb39d86474732e6e822ce3080e15a67d"}],"sourcePatch":{"bytes":77981,"sha256":"7f31687ab577f24890f1499c73c074956a9f96d4f4dbb8d9f2bd2bd710e9371e"},"sourceReview":{"status":"CLEAN_PRIVATE_SOURCE_ONLY","reviewerIdentity":"/root/release_review","authorIdentity":"/root/model_release","independent":true,"findings":{"P0":0,"P1":0,"P2":0},"artifact":{"bytes":16381,"sha256":"df8a818624a5ebc6539964dc88ecc323a254229025a74a13271dc50c3a0717bf"},"kind":"PRIVATE_SOURCE_REVIEW","comment":{"id":"6735261220","issue":5469,"publisher":"pachaninm-lab","appId":1144995,"createdAt":"2026-11-09T08:08:56Z"}},"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"}')
+              base,head = os.environ['BASE_SHA'],os.environ['HEAD_SHA']
+              branch = 'fix/gekta-docker-diagnostic-route-20260927'
+              if os.environ.get('GITHUB_HEAD_REF') != branch:
+                  fail('BRANCH')
+              if not all(re.fullmatch(r'[0-9a-f]{40}',ref) for ref in (base,head)):
+                  fail('REF')
+              if git('rev-parse','HEAD',capacity=128).decode().strip() != head:
+                  fail('NOT_EXACT_HEAD')
+              queue_path = 'docs/platform-v7/execution-queue.md'
+              marker = '\n## DSA2 — Docker startup plaintext recovery, 2026-11-09\n\n```json\n'
+              queue = bounded(base,queue_path,3145728)
+              content = queue.decode('utf-8')
+              if marker not in content:
+                  print('DSA2_SOURCE_CONTROLS_HISTORICAL_ROUTE; NO_NEW_ADMISSION')
+                  return False
+              admission,_ = record(content,marker,4096)
+              if (set(admission) != {'schema','core','governanceAfter','governancePatch','governanceReview'} or
+                      admission['schema'] != 'pc.docker-startup-source-admission.v2' or
+                      wire(admission['core']) != wire(expected_core)):
+                  fail('PURPOSE_CORE')
+              previous = {}
+              for name,selected in (
+                  ('admission','\n## DSA — Docker startup exact source admission, 2026-11-08\n\n```json\n'),
+                  ('sourcePurpose','\n## Docker startup address-space comparison purpose 20261108\n\n```json\n')):
+                  pin = expected_core['predecessor'][name]
+                  value,raw = record(content,selected,pin['bytes'])
+                  if len(raw) != pin['bytes'] or hashlib.sha256(raw).hexdigest() != pin['sha256']:
+                      fail('PREDECESSOR')
+                  previous[name] = value
+              old = previous['admission']['core']
+              queue_entry = git('ls-tree',base,'--',queue_path,capacity=4096).decode().strip()
+              if (not re.fullmatch(r'100644 blob [0-9a-f]{40}\t'+re.escape(queue_path),queue_entry) or
+                      git('ls-tree',head,'--',queue_path,capacity=4096).decode().strip() != queue_entry or
+                      bounded(head,queue_path,3145728) != queue):
+                  fail('AUTHORITY_MUTATION')
+              physical(queue_path,queue,0o644)
+              # Execute the accepted BASE guard, never the source-head guard, before helpers.
+              guard_path = 'scripts/p7-autopilot-guard.sh'
+              guard_bytes = bounded(base,guard_path,1048576)
+              with tempfile.TemporaryDirectory(prefix='dsa2-trusted-guard-') as directory:
+                  trusted = pathlib.Path(directory)/'guard.sh'
+                  trusted.write_bytes(guard_bytes)
+                  trusted.chmod(0o400)
+                  physical(trusted,guard_bytes,0o400)
+                  subprocess.run(['bash',str(trusted)],check=True,env={**os.environ,
+                      'BASE_REF':base,'HEAD_REF':head,'GITHUB_HEAD_REF':branch})
+              if trusted.exists():
+                  fail('TRUSTED_GUARD_CLEANUP')
+              def checked(pin, both=True):
+                  if (type(pin) is not dict or set(pin) != {'path','mode','blob','bytes','sha256'} or
+                          pin['mode'] not in {'100644','100755'} or type(pin['bytes']) is not int or
+                          not 0 < pin['bytes'] <= 1048576):
+                      fail('PIN_SCHEMA')
+                  expected = pin['mode']+' blob '+pin['blob']+'\t'+pin['path']
+                  for ref in ([base,head] if both else [head]):
+                      if git('ls-tree',ref,'--',pin['path'],capacity=4096).decode().strip() != expected:
+                          fail('BLOB_OR_MODE')
+                  data = bounded(head,pin['path'],1048576)
+                  if len(data) != pin['bytes'] or hashlib.sha256(data).hexdigest() != pin['sha256']:
+                      fail('CONTENT')
+                  physical(pin['path'],data,0o755 if pin['mode']=='100755' else 0o644)
+                  return pin['path'],data
+              if type(admission['governanceAfter']) is not list or len(admission['governanceAfter']) != 3:
+                  fail('GOVERNANCE_PINS')
+              for pin,prior in zip(admission['governanceAfter'],previous['admission']['governanceAfter']):
+                  if (pin['path'],pin['mode']) != (prior['path'],prior['mode']):
+                      fail('GOVERNANCE_PINS')
+                  checked(pin)
+              source = expected_core['sourceAfter']
+              source_paths = [pin['path'] for pin in source]
+              retained = [pin for pin in old['unchangedHelpers'] if pin['path'] not in source_paths]
+              if len(retained) != 6 or len(source) != 4:
+                  fail('FIXED_EXECUTION_SET')
+              execution = dict(checked(pin) for pin in retained)
+              for pin in source:
+                  path,data = checked(pin,False)
+                  if path in execution:
+                      fail('DUPLICATE_EXECUTION_PATH')
+                  execution[path] = data
+              if len(execution) != 10 or queue_path in execution:
+                  fail('FIXED_EXECUTION_SET')
+              shared = ['python3','-I','-B','scripts/test_production_stopped_runtime_headroom.py']
+              startup = "import importlib.util,pathlib,unittest; p=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py'); s=importlib.util.spec_from_file_location('startup_contract',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); r=unittest.TextTestRunner(verbosity=2).run(m.startup_contract_suite()); raise SystemExit(not r.wasSuccessful())"
+              with tempfile.TemporaryDirectory(prefix='dsa2-pinned-execution-') as directory:
+                  snapshot = pathlib.Path(directory)/'source'
+                  runner = pathlib.Path(directory)/'runner'
+                  snapshot.mkdir(); runner.mkdir()
+                  files = {**execution,queue_path:queue}
+                  for path,data in files.items():
+                      output = snapshot/path
+                      output.parent.mkdir(parents=True,exist_ok=True)
+                      output.write_bytes(data); output.chmod(0o400)
+                      physical(output,data,0o400)
+                  print('DSA2_SOURCE_CONTROLS_PINNED_SNAPSHOT='+json.dumps({'head':head,'cwd':str(snapshot),
+                      'files':[{'path':path,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+                          for path,data in sorted(execution.items())],
+                      'authority':{'path':queue_path,'bytes':len(queue),'sha256':hashlib.sha256(queue).hexdigest()}},separators=(',',':')),flush=True)
+                  # Preceding Node regressions are unfiltered. Both complete Python suites execute.
+                  env = {**os.environ,'PYTHONDONTWRITEBYTECODE':'1','RUNNER_TEMP':str(runner)}
+                  subprocess.run(shared,cwd=snapshot,env=env,check=True,timeout=90)
+                  subprocess.run(['python3','-I','-B','-c',startup],cwd=snapshot,env=env,check=True,timeout=90)
+                  if (sorted(str(p.relative_to(snapshot)) for p in snapshot.rglob('*') if p.is_file()) != sorted(files) or
+                          any(p.is_symlink() for p in snapshot.rglob('*')) or list(runner.iterdir())):
+                      fail('SNAPSHOT_EXTRA_OR_ALIAS')
+                  for path,data in files.items():
+                      physical(snapshot/path,data,0o400)
+                  if git('rev-parse','HEAD',capacity=128).decode().strip() != head:
+                      fail('HEAD_DRIFT')
+              if snapshot.exists() or runner.exists():
+                  fail('SNAPSHOT_CLEANUP')
+              print('DSA2_SOURCE_CONTROLS_EXACT_HEAD_PASS; SHARED_UNFILTERED_AND_STARTUP_CONTRACT; SNAPSHOT_REMOVED; HOST_AUTHORITY=NONE')
+              return True
+          
+          accepted = dsa2_source_controls()
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as output:
+              output.write('accepted='+('true' if accepted else 'false')+'\n')
+          DSA2_SOURCE_CONTROLS
+      # DSA2_NATIVE_STEP_END
+      - name: Validate DC1 closed Docker source controls at exact accepted head
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'fix/gekta-docker-diagnostic-route-20260927' && !(steps.dsa2_source_controls.outcome == 'success' && steps.dsa2_source_controls.outputs.accepted == 'true')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

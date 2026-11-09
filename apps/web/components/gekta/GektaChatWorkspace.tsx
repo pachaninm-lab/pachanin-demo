@@ -169,7 +169,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     const root = document.documentElement;
     const language = locale === 'zh' ? 'zh-CN' : locale;
     const previousLanguage = root.getAttribute('lang');
-    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
+    const contentLanguage = Array.from(
+      document.querySelectorAll<HTMLMetaElement>('meta[http-equiv]'),
+    ).find((meta) => meta.httpEquiv.toLowerCase() === 'content-language');
     const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
     root.setAttribute('lang', language);
     contentLanguage?.setAttribute('content', language);
