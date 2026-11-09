@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { readBoundedBody } from '@/lib/uploads/bounded-body';
+import { DocumentContextError, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
@@ -84,11 +86,202 @@ type RuntimeConfig = Readonly<{
 
 type PublicEnvelope = Readonly<{
   question: string;
+  questionTruncated: boolean;
+  documents: readonly GektaDocumentContext[];
   locale: PublicLocale;
   context: string;
   conversationId: string;
   history: readonly HistoryTurn[];
 }>;
+
+type ArithmeticFact = Readonly<{ value: bigint; start: number; end: number }>;
+type SuppliedArithmetic = Readonly<{
+  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even';
+  answer: string;
+}>;
+const ARITHMETIC_SCALE = BigInt(1000);
+const ARITHMETIC_PRECISION = BigInt(1_000_000_000_000);
+const ARITHMETIC_NUMBER = '(\\d{1,9}(?:[.,]\\d{1,3})?)';
+const ARITHMETIC_UNIT_END = '(?![0-9_A-Za-zА-Яа-яЁё])';
+
+function arithmeticFacts(question: string, units: string): readonly ArithmeticFact[] | null {
+  const pattern = new RegExp(`(?<![0-9_A-Za-zА-Яа-яЁё.,+\\-−])${ARITHMETIC_NUMBER}\\s*(?:${units})${ARITHMETIC_UNIT_END}`, 'giu');
+  const facts: ArithmeticFact[] = [];
+  for (const match of question.matchAll(pattern)) {
+    if (/(?:\bnegative|\bminus|минус|отрицательн[\p{L}]*|负|負)\s*$/iu.test(question.slice(Math.max(0, match.index! - 40), match.index!))) return null;
+    // A three-digit suffix with a nonzero integer could be a thousands
+    // separator in another locale. Leading-zero fractions are unambiguous.
+    if (/[.,][0-9]{3}$/u.test(match[1]) && !/^0[.,]/u.test(match[1])) return null;
+    const [whole, fraction = ''] = match[1].replace(',', '.').split('.');
+    facts.push({ value: BigInt(whole) * ARITHMETIC_SCALE + BigInt(fraction.padEnd(3, '0')), start: match.index!, end: match.index! + match[0].length });
+  }
+  return facts;
+}
+
+function arithmeticDecimal(numerator: bigint, denominator: bigint, locale: PublicLocale): string {
+  const precision = ARITHMETIC_PRECISION;
+  const rounded = (numerator * precision * BigInt(2) + denominator) / (denominator * BigInt(2));
+  const whole = rounded / precision;
+  const fraction = String(rounded % precision).padStart(12, '0').replace(/0+$/u, '');
+  return `${whole}${fraction ? `${locale === 'ru' ? ',' : '.'}${fraction}` : ''}`;
+}
+
+/**
+ * Consume the entire question as a positively specified calculation and target.
+ * Finding two numbers and unit words elsewhere in prose is insufficient.
+ * The small supported language deliberately leaves other wording to inference.
+ */
+function admittedArithmeticForm(question: string): boolean {
+  const n = ARITHMETIC_NUMBER;
+  const rub = '(?:руб(?:лей|ля|ль|ли)?\\.?|₽|RUB)';
+  const ha = '(?:гектар(?:ов|а)?|га)';
+  const tonnes = '(?:тонн(?:ы|а|у)?|т)';
+  const enMoney = '(?:RUB|rubles?|roubles?)';
+  const enArea = '(?:hectares?|ha)';
+  const ruEnd = '[.!?]?';
+  const forms = [
+    `(?:Для учебного расч[её]та )?бюджет(?: проверки)? ${n} ${rub} на ${n} ${ha}\\. Сколько рублей на гектар\\? Покажи формулу(?:, не добавляй рыночные цены)?\\.`,
+    `(?:Рассчитай|Посчитай) (?:расходы|стоимость) на гектар: (?:общие )?(?:затраты|расходы|бюджет) ${n} ${rub} (?:на|на площади) ${n} ${ha}${ruEnd}`,
+    `(?:В журнале указано )?${n} (?:центнер(?:ов|а)?|ц) (?:на гектар|/га) на площади ${n} ${ha}\\. Переведи урожайность в тонны на гектар и посчитай общий объ[её]м\\.`,
+    `Переведи ${n} (?:ц/га|центнеров на гектар) на площади ${n} ${ha} в тонны на гектар и общий объ[её]м${ruEnd}`,
+    `(?:В отдельном учебном примере )?было ${n} ${tonnes} продукции, потери составили ${n}%\\. Сколько тонн осталось\\? Покажи единицы и расч[её]т\\.`,
+    `Сколько тонн осталось: было ${n} ${tonnes} продукции, потери ${n}%\\?`,
+    `Рассчитай (?:точку )?безубыточност[ьи](?: проверки)?: затраты ${n} ${rub}, (?:подтвержд[её]нный полезный )?эффект ${n} ${rub} на единицу${ruEnd}(?: Сколько единиц нужно для покрытия затрат\\? Это условные данные\\.)?`,
+    `a separate hypothetical cost is ${n} ${enMoney} over ${n} ${enArea}\\. Calculate rubles per hectare with the formula\\. These are supplied figures, not market prices\\.`,
+    `Calculate (?:farm )?cost per hectare: total cost ${n} ${enMoney} over ${n} ${enArea}\\.?`,
+    `Convert ${n} metric quintals?/ha over ${n} ${enArea} to tonnes?\\.?`,
+    `Calculate remaining grain after a ${n}% loss from ${n} tonnes?\\.?`,
+    `Calculate break-even: (?:fixed )?cost ${n} ${enMoney}, benefit ${n} ${enMoney} per unit\\.?`,
+    `Calculate break-even: benefit ${n} ${enMoney} per unit, fixed cost ${n} ${enMoney}\\.?`,
+    `另一个假设计算中，检查费用是${n}卢布，面积为${n}公顷。请计算每公顷费用并给出公式。数字由题目提供，不是市场价格。`,
+    `计算每公顷费用：总成本${n}卢布，面积${n}公顷[。？]?`,
+    `请换算${n}公担/公顷，面积${n}公顷，总共多少吨？`,
+    `计算${n}吨谷物损耗${n}%后剩多少[。？]?`,
+    `计算${n}吨谷物损失${n}%后剩多少[。？]?`,
+    `计算盈亏平衡：成本${n}卢布，收益${n}卢布每单位[。？]?`,
+    `计算盈亏平衡：收益${n}卢布每单位，成本${n}卢布[。？]?`,
+  ];
+  for (const form of forms) {
+    const normalized = form.replaceAll(' ', '\\s+');
+    if (new RegExp(`^\\s*${normalized}\\s*$`, 'iu').test(question)) return true;
+  }
+  return false;
+}
+
+// Only a self-contained, explicit two-input calculation takes this path.
+// Ambiguous units, extra operands and contextual adjustments retain inference.
+// This never forecasts a price, computes a prescription or invokes an action.
+function suppliedArithmetic(envelope: PublicEnvelope, answerMode: PublicAnswerMode): SuppliedArithmetic | null {
+  const question = envelope.question;
+  if (envelope.questionTruncated || envelope.documents.length || envelope.history.length) return null;
+  // Incidental logistics vocabulary can select platform grounding. An explicitly
+  // hypothetical calculation may still use only its supplied numbers, but an
+  // actual platform question must retain its verified knowledge boundary.
+  if (EXPLICIT_PLATFORM_PATTERNS.some(pattern => pattern.test(question))
+    || (answerMode !== 'general_agro' && !/(?:учебн|условн|hypothetic|supplied\s+figures|假设|题目提供)/iu.test(question))) return null;
+  if (!admittedArithmeticForm(question)) return null;
+  if (!/(?:рассчита|посчита|перевед|сколько|calculate|convert|how\s+many|what\s+is|计算|换算|多少)/iu.test(question)) return null;
+  if (/[+−-]\s*\d/gu.test(question)
+    || /(?:с\s+уч[её]том|учитывая|налог|НДС|скидк|дисконт|пени|\b(?:VAT|GST|interest|cwt|USD|EUR|discount|rebate|surcharge|tax|moisture)\b|adjusted\s+for|with\s+(?:tax|loss|moisture)|含税|考虑|折扣|优惠|水分|市担|亩|[$€])/iu.test(question)
+    || /(?:удво|утро|вдвое|втрое|прибав|(?<!не\s)добав|выч[её]т|умнож|не\s+(?:потер|остал)|\b(?:double|triple|multiply|halve|increase|decrease|subtract|deduct|add|plus)\b|no\s+loss|not\s+(?:lost|remain)|没有损耗|没有损失|не\s*\d|not\s*\d|不是\s*\d|дозиров|смеша|dosage|mixing|剂量|混合)/iu.test(question)) return null;
+  if (/(?:в\s+(?:год|месяц|сутки)|за\s+(?:год|месяц|сутки)|\/\s*(?:год|мес|сут)|per\s+(?:year|month|day)|\/\s*(?:year|month|day)|每(?:年|月|天)|ежемесяч|ежегод|около\s*\d|примерно\s*\d|\b(?:about|around)\s*\d|[≈~约]\s*\d)/iu.test(question)) return null;
+  const money = arithmeticFacts(question, 'руб(?:лей|ля|ль|ли)?\\.?|RUB|rubles?|roubles?|₽|卢布');
+  const area = arithmeticFacts(question, 'гектар(?:ов|а)?|га|hectares?|ha|公顷');
+  const yieldRate = arithmeticFacts(question, '(?:центнер(?:ов|а)?|ц)\\s*(?:/|на)\\s*(?:гектар(?:ов|а)?|га)|metric\\s+quintals?\\s*(?:/|per)\\s*(?:hectares?|ha)|公担\\s*/\\s*公顷');
+  const mass = arithmeticFacts(question, 'тонн(?:ами|ы|а|у)?|т|tonnes?|tons?|t|吨');
+  const percent = arithmeticFacts(question, '%|процент(?:ов|а)?|percent');
+  if (!money || !area || !yieldRate || !mass || !percent) return null;
+  const locale = envelope.locale;
+  const display = (value: bigint) => arithmeticDecimal(value, ARITHMETIC_SCALE, locale);
+  const choose = (ru: string, en: string, zh: string) => locale === 'en' ? en : locale === 'zh' ? zh : ru;
+  const monetaryRateBasis = (fact: ArithmeticFact) => /^\s*(?:\/|per\s|на\s+(?:гектар|тонн|единиц|год|месяц)|每)/iu.test(question.slice(fact.end));
+  const exactOperands = (facts: readonly ArithmeticFact[]) => {
+    const ordered = [...facts].sort((left, right) => left.start - right.start);
+    if (ordered.some((fact, index) => index > 0 && fact.start < ordered[index - 1].end)) return false;
+    let remainder = question;
+    for (const fact of [...ordered].reverse()) remainder = remainder.slice(0, fact.start) + ' '.repeat(fact.end - fact.start) + remainder.slice(fact.end);
+    return !/\p{N}/u.test(remainder);
+  };
+
+  if (yieldRate.length === 1 && area.length === 1 && !money.length && !mass.length && !percent.length && exactOperands([...yieldRate, ...area])) {
+    if (!/(?:тонн|\btonnes?\b|\btons?\b|吨)/iu.test(question)
+      || /(?:килограмм|\bkg\b|\bkilogram|千克|公斤)/iu.test(question)) return null;
+    const rate = yieldRate[0].value, hectares = area[0].value;
+    const tonnesPerHectare = arithmeticDecimal(rate, ARITHMETIC_SCALE * BigInt(10), locale);
+    const total = arithmeticDecimal(rate * hectares, ARITHMETIC_SCALE * ARITHMETIC_SCALE * BigInt(10), locale);
+    return { operation: 'metric_yield', answer: choose(
+      `1 ц = 100 кг = 0,1 т.\n${display(rate)} ц/га × 0,1 = ${tonnesPerHectare} т/га.\n${tonnesPerHectare} т/га × ${display(hectares)} га = ${total} т.`,
+      `1 metric quintal = 100 kg = 0.1 t.\n${display(rate)} metric quintals/ha × 0.1 = ${tonnesPerHectare} t/ha.\n${tonnesPerHectare} t/ha × ${display(hectares)} ha = ${total} t.`,
+      `1 公担 = 100 千克 = 0.1 吨。\n${display(rate)} 公担/公顷 × 0.1 = ${tonnesPerHectare} 吨/公顷。\n${tonnesPerHectare} 吨/公顷 × ${display(hectares)} 公顷 = ${total} 吨。`,
+    ) };
+  }
+
+  if (mass.length === 1 && percent.length === 1 && !money.length && !area.length && !yieldRate.length
+    && /(?:потер|остал|loss|remain|损耗|损失|剩)/iu.test(question) && exactOperands([...mass, ...percent])) {
+    if (!/(?:сколько[^.?!]{0,30}остал|(?:посчита|рассчита)[^.?!]{0,30}остат|how\s+many[^.?!]{0,30}remain|calculate[^.?!]{0,30}remain|(?:剩|余)[^。？！]{0,8}多少)/iu.test(question)
+      || /(?:изначальн|первоначальн|исходн|original|initial|starting|原来|最初)/iu.test(question)) return null;
+    const beforeMass = question.slice(Math.max(0, mass[0].start - 64), mass[0].start);
+    const afterMass = question.slice(mass[0].end);
+    const massFollowsQuestion = /(?:сколько[^.?!:]{0,30}остал[\p{L}]*|how\s+many[^.?!:]{0,30}remain[\p{L}]*)\s*[:：?]\s*$/iu.test(beforeMass);
+    if ((!massFollowsQuestion && /(?:остал[\p{L}]*|остаток|remain(?:ing|s)?(?:\s+(?:mass|grain))?|剩余|剩下|还剩)\s*(?:is|was|为|是|[:：])?\s*$/iu.test(beforeMass))
+      || /^\s*(?:остал[\p{L}]*|remain(?:s|ing)?(?=$|[^\p{L}\p{N}_])|left(?=$|[^\p{L}\p{N}_])|剩)/iu.test(afterMass)) return null;
+    // The percentage must describe a loss, not the fraction that remains.
+    const beforeRate = question.slice(Math.max(0, percent[0].start - 64), percent[0].start);
+    const afterRate = question.slice(percent[0].end);
+    if (/(?:остал[\p{L}]*|остаток|remain(?:ing|s)?|剩余|剩下|还剩)\s*(?:is|was|为|是|[:：])?\s*$/iu.test(beforeRate)
+      || !(/(?:потер[\p{L}]*\s*(?:составил[аио]?|равн[аы]?|[:：=])?|(?:loss(?:es)?|lost)(?:\s+rate)?\s*(?:of|is|was|at|[:：=])?|损耗率?|损失率?)\s*(?:为|是)?\s*$/iu.test(beforeRate)
+        || /^\s*(?:потерь|потери|loss(?:es)?(?=$|[^\p{L}\p{N}_])|损耗|损失)/iu.test(afterRate))) return null;
+    const initial = mass[0].value, lossRate = percent[0].value;
+    if (lossRate > BigInt(100) * ARITHMETIC_SCALE) return { operation: 'mass_loss', answer: choose('Для расчёта остатка потери должны быть от 0 до 100%. Уточни процент потерь.', 'The loss percentage must be between 0 and 100. Please clarify the loss rate.', '损耗率必须在 0% 到 100% 之间。请核对损耗率。') };
+    const denominator = BigInt(100) * ARITHMETIC_SCALE * ARITHMETIC_SCALE;
+    const lost = arithmeticDecimal(initial * lossRate, denominator, locale);
+    const remaining = arithmeticDecimal(initial * (BigInt(100) * ARITHMETIC_SCALE - lossRate), denominator, locale);
+    return { operation: 'mass_loss', answer: choose(
+      `Потери: ${display(initial)} т × ${display(lossRate)}% ÷ 100 = ${lost} т.\nОсталось: ${display(initial)} т − ${lost} т = ${remaining} т.`,
+      `Loss: ${display(initial)} t × ${display(lossRate)}% ÷ 100 = ${lost} t.\nRemaining: ${display(initial)} t − ${lost} t = ${remaining} t.`,
+      `损耗：${display(initial)} 吨 × ${display(lossRate)}% ÷ 100 = ${lost} 吨。\n剩余：${display(initial)} 吨 − ${lost} 吨 = ${remaining} 吨。`,
+    ) };
+  }
+
+  if (money.length === 1 && area.length === 1 && !yieldRate.length && !mass.length && !percent.length
+    && /(?:на\s+гектар|\/\s*га(?=$|[^\p{L}\p{N}_])|per\s+hectare|per\s+ha(?=$|[^\p{L}\p{N}_])|每公顷)/iu.test(question)
+    && exactOperands([...money, ...area])) {
+    if (monetaryRateBasis(money[0])) return null;
+    const cost = money[0].value, hectares = area[0].value;
+    if (hectares === BigInt(0)) return { operation: 'cost_per_hectare', answer: choose('Чтобы рассчитать стоимость на гектар, нужна площадь больше нуля. Уточни площадь.', 'Cost per hectare needs an area greater than zero. Please clarify the area.', '计算每公顷费用需要大于零的面积。请核对面积。') };
+    const result = arithmeticDecimal(cost, hectares, locale);
+    const equals = cost * ARITHMETIC_PRECISION % hectares === BigInt(0) ? '=' : '≈';
+    return { operation: 'cost_per_hectare', answer: choose(
+      `По указанным данным: ${display(cost)} ₽ ÷ ${display(hectares)} га ${equals} ${result} ₽/га.`,
+      `Using your figures: ${display(cost)} RUB ÷ ${display(hectares)} ha ${equals} ${result} RUB/ha.`,
+      `按你提供的数据：${display(cost)} 卢布 ÷ ${display(hectares)} 公顷 ${equals} ${result} 卢布/公顷。`,
+    ) };
+  }
+
+  if (money.length === 2 && !area.length && !mass.length && !percent.length && !yieldRate.length
+    && /(?:безубыточн|покрыт[^.?!]{0,40}затрат|break[ -]?even|cover[^.?!]{0,40}cost|盈亏平衡|收回成本)/iu.test(question)
+    && /(?:на\s+единиц|per\s+unit|每单位)/iu.test(question) && exactOperands(money)) {
+    // Bind the operands to their labels, not their order in the sentence.
+    const cost = money.find(fact => /(?:затрат[\p{L}]*|стоимость|costs?|expense|成本)\s*[:：]?\s*$/iu.test(question.slice(Math.max(0, fact.start - 36), fact.start)));
+    const benefit = money.find(fact => fact !== cost && /(?:эффект|прибыл[\p{L}]*|benefit|contribution|收益)\s*[:：]?\s*$/iu.test(question.slice(Math.max(0, fact.start - 36), fact.start)));
+    if (!cost || !benefit) return null;
+    if (!/^\s*(?:на\s+единиц[\p{L}]*|per\s+unit(?=$|[^\p{L}\p{N}_])|每单位|\/\s*(?:ед(?:иниц[\p{L}]*)?\.?|unit|单位)(?=$|[^\p{L}\p{N}_]))/iu.test(question.slice(benefit.end))) return null;
+    // A per-unit expense is not a fixed cost to be recovered. Preserve inference
+    // when either monetary amount has an additional or different unit basis.
+    if (monetaryRateBasis(cost)
+      || /(?:на\s+тонн|\/\s*т(?=$|[^\p{L}\p{N}_])|per\s+ton|每吨)/iu.test(question)) return null;
+    if (benefit.value === BigInt(0)) return { operation: 'break_even', answer: choose('При нулевом эффекте на единицу делить затраты на эффект нельзя. Уточни положительный эффект на единицу.', 'A zero benefit per unit cannot be used as the divisor. Please clarify a positive benefit per unit.', '每单位收益为零时不能作为除数。请核对大于零的每单位收益。') };
+    const ratio = arithmeticDecimal(cost.value, benefit.value, locale);
+    const equals = cost.value * ARITHMETIC_PRECISION % benefit.value === BigInt(0) ? '=' : '≈';
+    const units = (cost.value + benefit.value - BigInt(1)) / benefit.value;
+    return { operation: 'break_even', answer: choose(
+      `Точка покрытия: ${display(cost.value)} ₽ ÷ ${display(benefit.value)} ₽/ед. ${equals} ${ratio} ед.\nДля покрытия затрат нужно не менее ${units} целых единиц.`,
+      `Break-even: ${display(cost.value)} RUB ÷ ${display(benefit.value)} RUB/unit ${equals} ${ratio} units.\nCovering the cost needs at least ${units} whole units.`,
+      `盈亏平衡：${display(cost.value)} 卢布 ÷ ${display(benefit.value)} 卢布/单位 ${equals} ${ratio} 单位。\n覆盖成本至少需要 ${units} 个完整单位。`,
+    ) };
+  }
+  return null;
+}
 
 const SENSITIVE_INPUT_PATTERNS = [
   /\b(?:пароль|password|api[\s_-]?key|ключ\s+api|токен|token|secret)\s*[:=]\s*\S{6,}/iu,
@@ -145,8 +338,15 @@ export async function POST(request: NextRequest) {
   if (request.nextUrl.searchParams.get('stream') !== '1') return knowledgePost(request);
   if (request.headers.get('sec-fetch-site') === 'cross-site') return knowledgePost(request);
 
-  const rawBody = await request.text();
-  const envelope = readPublicEnvelope(rawBody);
+  const body = await readBoundedBody(request.body, 196_608);
+  if (body === null) return NextResponse.json({ code: 'DOCUMENT_CONTEXT_TOO_LARGE' }, { status: 413 });
+  const rawBody = new TextDecoder().decode(body);
+  let envelope: PublicEnvelope;
+  try { envelope = readPublicEnvelope(rawBody); }
+  catch (error) {
+    if (!(error instanceof DocumentContextError)) throw error;
+    return NextResponse.json({ code: error.status === 413 ? 'DOCUMENT_CONTEXT_TOO_LARGE' : 'DOCUMENT_CONTEXT_INVALID' }, { status: error.status });
+  }
   if (!envelope.question) return knowledgePost(rebuildRequestWithoutStream(request, rawBody));
 
   const admission = envelope.context === 'gekta-standalone'
@@ -159,7 +359,7 @@ export async function POST(request: NextRequest) {
     locale: envelope.locale,
     recentMessages: envelope.history,
     previousTopic: resolvePreviousTopic(envelope.history),
-    hasAttachment: false,
+    hasAttachment: envelope.documents.length > 0,
     semanticHint: null,
   });
   const routedQuestion = envelope.question;
@@ -167,7 +367,8 @@ export async function POST(request: NextRequest) {
   let answerMode = resolveAnswerMode(routedQuestion, outcome);
   const locale = envelope.locale;
 
-  if (containsSensitiveInput(envelope.question, envelope.history)) {
+  if (containsSensitiveInput(envelope.question, envelope.history)
+    || envelope.documents.some((document) => containsSensitiveInput(`${document.name}\n${document.text}`, []))) {
     return admitted(streamDirectAnswer(sensitiveInputCopy(locale), {
       source: 'policy',
       answerMode,
@@ -202,7 +403,7 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  if (GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
+  if (!envelope.documents.length && GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
     return admitted(streamDirectAnswer(greetingCopy(locale, envelope.question), {
       source: 'policy',
       answerMode: 'general_agro',
@@ -213,9 +414,22 @@ export async function POST(request: NextRequest) {
     }));
   }
 
+  const arithmetic = suppliedArithmetic(envelope, answerMode);
+  if (arithmetic) {
+    return admitted(streamDirectAnswer(arithmetic.answer, {
+      source: 'deterministic_calculator',
+      answerMode: 'general_agro',
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
+      calculator: { version: 'supplied-input-v1', operation: arithmetic.operation },
+      safetyFlags: [],
+    }));
+  }
+
   // The visible starter cards have reviewed public guidance. Serve their exact
   // first-turn answers without model queueing; contextual follow-ups keep inference.
-  const starter = envelope.history.length === 0
+  const starter = !envelope.documents.length && envelope.history.length === 0
     ? answerFarmerStarterQuestion(envelope.question, locale)
     : null;
   if (starter) {
@@ -232,7 +446,7 @@ export async function POST(request: NextRequest) {
 
   let grounding: PublicKnowledgeAnswer;
   if (answerMode === 'verified_platform') {
-    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
+    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody, true));
     if (!groundingResponse.ok) return admitted(groundingResponse);
     try {
       grounding = await groundingResponse.json() as PublicKnowledgeAnswer;
@@ -487,6 +701,7 @@ function streamModelFirstAnswer(
         const payload = {
           question: grounding.understanding?.normalizedQuestion || envelope.question || grounding.title,
           originalQuestion: envelope.question,
+          documents: envelope.documents,
           locale,
           answerMode,
           currentDataRequired,
@@ -741,12 +956,15 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
   try {
     const row = asRecord(JSON.parse(rawBody));
     if (!row) return emptyEnvelope();
-    const question = typeof row.message === 'string' ? row.message.trim().slice(0, 1_200) : '';
+    const fullQuestion = typeof row.message === 'string' ? row.message.trim() : '';
+    const question = fullQuestion.slice(0, 1_200);
     const locale: PublicLocale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
     const context = typeof row.context === 'string' ? row.context.trim().slice(0, 120) : 'platform';
     const history = normalizeHistory(row.history);
     return Object.freeze({
       question,
+      questionTruncated: fullQuestion.length > question.length,
+      documents: readDocumentContext(row.documents),
       locale,
       context,
       // A label only: nothing is looked up by it, so a forged value reaches no
@@ -754,7 +972,8 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
       conversationId: conversationIdFrom(row.conversationId, `${context}-${locale}-${history.length}`),
       history,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof DocumentContextError) throw error;
     return emptyEnvelope();
   }
 }
@@ -762,6 +981,8 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
 function emptyEnvelope(): PublicEnvelope {
   return Object.freeze({
     question: '',
+    questionTruncated: false,
+    documents: Object.freeze([]),
     locale: 'ru',
     context: 'platform',
     conversationId: conversationIdFrom(null, 'empty-envelope'),
@@ -895,12 +1116,22 @@ function normalizeIntent(value: string): string {
     .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 }
 
-function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
+function rebuildRequestWithoutStream(request: NextRequest, rawBody: string, omitDocuments = false): NextRequest {
   const url = new URL(request.url);
   url.searchParams.delete('stream');
   const headers = new Headers(request.headers);
   headers.delete('content-length');
-  return new NextRequest(url, { method: 'POST', headers, body: rawBody });
+  let body = rawBody;
+  if (omitDocuments) {
+    // This branch follows successful envelope parsing. Untrusted attachments
+    // belong only in the model payload, outside the bounded public lookup.
+    const payload = JSON.parse(rawBody) as Record<string, unknown>;
+    delete payload.documents;
+    body = JSON.stringify(payload);
+    headers.delete('content-encoding');
+    headers.delete('transfer-encoding');
+  }
+  return new NextRequest(url, { method: 'POST', headers, body });
 }
 
 

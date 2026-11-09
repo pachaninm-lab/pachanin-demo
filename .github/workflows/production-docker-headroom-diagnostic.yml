@@ -6888,3 +6888,995 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/root-growth-private" "$RUNNER_TEMP/root-growth-output"
           rm -f "$RUNNER_TEMP/root-growth-host.py" "$RUNNER_TEMP/root-growth-controller.py"
+
+  # PRIVATE prospective RG2 source: admission/one-use manual precheck remain separate.
+  geometry-receipt-contract:
+    name: Validate prospective closed geometry receipt
+    if: >-
+      github.event_name == 'pull_request' ||
+      (      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+       github.event.comment.performed_via_github_app.id == 1144995) &&
+      github.event.comment.body == '/production inspect-root-filesystem-receipt-v1 current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.rg2_target.outputs.sha }}
+    env:
+      GEOMETRY_SOURCE_SHA256: '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize prospective receipt validator and unchanged collector
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/rg2-receipt.py" <<'PY_RG2_RECEIPT_HELPER'
+          """RG2 prospective runner-only closed failure receipt; no execution authority."""
+          import datetime as dt
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import stat
+          import subprocess
+          import time
+          import sys
+          import textwrap
+
+          COLLECTOR_SHA = '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'
+          COMMAND = '/production inspect-root-filesystem-receipt-v1 current-main'
+          PURPOSE = 'RG2-root-geometry-failure-receipt-v1'
+          MARKER = '\n## RG2 root geometry failure receipt purpose\n\n```json\n'
+          WORKFLOW = '.github/workflows/production-docker-headroom-diagnostic.yml'
+          REVIEW = 'docs/platform-v7/autopilot/prompts/current-review-task.md'
+          EXIT_CLASSES = {'NOT_STARTED', 'INCOMPLETE', 'DEADLINE', 'OUTPUT_LIMIT', 'EXIT_0',
+                          'EXIT_1', 'EXIT_255', 'OTHER_NONZERO', 'SIGNALLED'}
+
+
+          def require(value):
+              if not value:
+                  raise ValueError('RG2_CLOSED_RECEIPT_REJECTED')
+
+
+          def no_duplicates(pairs):
+              result = {}
+              for key, value in pairs:
+                  require(key not in result)
+                  result[key] = value
+              return result
+
+
+          def read_regular(path, cap):
+              fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+              try:
+                  info = os.fstat(fd)
+                  require(stat.S_ISREG(info.st_mode) and info.st_size <= cap)
+                  raw = os.read(fd, cap + 1)
+                  require(len(raw) <= cap and not os.read(fd, 1))
+                  return raw
+              finally:
+                  os.close(fd)
+
+
+          def workflow_bytes():
+              return read_regular(WORKFLOW, 1024 * 1024)
+
+
+          def provenance():
+              run_id, attempt = os.environ['GITHUB_RUN_ID'], os.environ['GITHUB_RUN_ATTEMPT']
+              require(re.fullmatch('[1-9][0-9]{0,19}', run_id) is not None)
+              require(re.fullmatch('[1-9][0-9]{0,4}', attempt) is not None)
+              require(os.environ['GITHUB_EVENT_NAME'] == 'issue_comment')
+              target, source = os.environ['GEOMETRY_TARGET_SHA'], os.environ['GEOMETRY_SOURCE_SHA256']
+              require(re.fullmatch('[0-9a-f]{40}', target) is not None and source == COLLECTOR_SHA)
+              raw = workflow_bytes()
+              matches = re.findall(rb"^          python3 - <<'PY_RG2_TRANSPORT'\n(.*?)^          PY_RG2_TRANSPORT\n", raw, re.M | re.S)
+              require(len(matches) == 1)
+              controller = textwrap.dedent(matches[0].decode('utf-8')).encode()
+              return {'run_id': run_id, 'run_attempt': attempt, 'event_name': 'issue_comment',
+                      'checkout_sha': target, 'workflow_sha256': hashlib.sha256(raw).hexdigest(),
+                      'controller_sha256': hashlib.sha256(controller).hexdigest()}
+
+
+          def encoded(value, cap):
+              raw = json.dumps(value, separators=(',', ':'), allow_nan=False).encode() + b'\n'
+              require(len(raw) <= cap)
+              return raw
+
+
+          def validate_failure(value, collector):
+              require(type(value) is dict and set(value) == {'schema', 'mode', 'status', 'target_sha',
+                  'collector_sha256', 'provenance', 'recorded_at', 'transport_exit_class', 'collector_reason',
+                  'collector_report', 'authentication', 'guest_termination', 'startup_authorization',
+                  'retry_authorization', 'current_main_at_publication'})
+              target, source = os.environ['GEOMETRY_TARGET_SHA'], os.environ['GEOMETRY_SOURCE_SHA256']
+              require((value['schema'], value['mode'], value['status'], value['target_sha'], value['collector_sha256']) ==
+                      ('root-filesystem-geometry-failure-v1', 'READ_ONLY', 'NOT_PROVEN', target, source))
+              require(value['provenance'] == provenance())
+              require((value['authentication'], value['guest_termination'], value['startup_authorization'],
+                       value['retry_authorization'], value['current_main_at_publication']) ==
+                      ('NOT_ATTESTED', 'NOT_PROVEN', 'NOT_GRANTED', 'NOT_GRANTED', 'NOT_ATTESTED'))
+              require(value['transport_exit_class'] in EXIT_CLASSES)
+              stamp = dt.datetime.fromisoformat(value['recorded_at'])
+              require(stamp.tzinfo is not None and 0 <= (dt.datetime.now(dt.timezone.utc) - stamp).total_seconds() <= 300)
+              report = value['collector_report']
+              if report is None:
+                  require(value['collector_reason'] is None)
+              else:
+                  require(value['transport_exit_class'] == 'EXIT_1')
+                  collector.validate(report, target, source)
+                  require(report['status'] == 'NOT_PROVEN' and value['collector_reason'] == report['reason'])
+              encoded(value, collector.OUTPUT_CAP)
+              return value
+
+
+          def write_failure(exit_class, report, collector):
+              value = {'schema': 'root-filesystem-geometry-failure-v1', 'mode': 'READ_ONLY', 'status': 'NOT_PROVEN',
+                  'target_sha': os.environ['GEOMETRY_TARGET_SHA'], 'collector_sha256': os.environ['GEOMETRY_SOURCE_SHA256'],
+                  'provenance': provenance(), 'recorded_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                  'transport_exit_class': exit_class, 'collector_reason': None if report is None else report['reason'],
+                  'collector_report': report, 'authentication': 'NOT_ATTESTED', 'guest_termination': 'NOT_PROVEN',
+                  'startup_authorization': 'NOT_GRANTED', 'retry_authorization': 'NOT_GRANTED',
+                  'current_main_at_publication': 'NOT_ATTESTED'}
+              validate_failure(value, collector)
+              raw = encoded(value, collector.OUTPUT_CAP)
+              path = Path(os.environ['RUNNER_TEMP'], 'rg2-failure.json')
+              fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+              try:
+                  require(os.write(fd, raw) == len(raw))
+              finally:
+                  os.close(fd)
+              return value
+
+
+          def purpose(raw, source, *, failure_publication=False):
+              require(len(raw) <= 2 * 1024 * 1024 and len(source) <= 1024 * 1024)
+              text = raw.decode('utf-8')
+              require(text.count(MARKER) == 1)
+              body = text.split(MARKER, 1)[1].split('\n```\n', 1)
+              require(len(body) == 2)
+              value = json.loads(body[0], object_pairs_hook=no_duplicates)
+              require(type(value) is dict and set(value) == {'schema', 'purpose_id', 'owner', 'command',
+                  'collector_sha256', 'workflow', 'source_accepted_sha', 'independent_review_sha256',
+                  'native_acceptance_sha256', 'manual_precheck_sha256', 'maximum_invocations',
+                  'invocation_authorized', 'consumed_predecessor_comment_id', 'startup_authorization', 'growth_authorization', 'operator_window'})
+              require((value['schema'], value['purpose_id'], value['owner'], value['command'], value['collector_sha256']) ==
+                      ('pc.root-geometry-receipt-purpose.v1', PURPOSE, 'ACCOUNT_1_CORE', COMMAND, COLLECTOR_SHA))
+              require(type(value['maximum_invocations']) is int and value['maximum_invocations'] == 1)
+              require(value['invocation_authorized'] is True and value['consumed_predecessor_comment_id'] == '6574323160')
+              require(value['startup_authorization'] == value['growth_authorization'] == 'NOT_GRANTED')
+              require(type(value['source_accepted_sha']) is str and re.fullmatch('[0-9a-f]{40}', value['source_accepted_sha']) is not None)
+              for key in ('independent_review_sha256', 'native_acceptance_sha256', 'manual_precheck_sha256'):
+                  require(type(value[key]) is str and re.fullmatch('[0-9a-f]{64}', value[key]) is not None and value[key] != '0' * 64)
+              window = value['operator_window']
+              require(type(window) is dict and set(window) == {'not_before', 'not_after'})
+              start, end = (dt.datetime.fromisoformat(window[key]) for key in ('not_before', 'not_after'))
+              now = dt.datetime.now(dt.timezone.utc)
+              require(start.tzinfo is not None and end.tzinfo is not None and 0 < (end - start).total_seconds() <= 300)
+              require(start <= now < end)
+              # Only a new transport needs45s plus5/2s cleanup. Publishing a failed
+              # attempt performs no SSH and remains eligible only while the window is open.
+              if not failure_publication:
+                  require(now + dt.timedelta(seconds=52) <= end)
+              expected = {'path': WORKFLOW, 'mode': '100644', 'bytes': len(source),
+                  'blob': hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\0' + source).hexdigest(),
+                  'sha256': hashlib.sha256(source).hexdigest()}
+              require(value['workflow'] == expected)
+              return value
+
+
+          def verify_accepted_purpose(*, failure_publication=False):
+              # BASE is the fresh default-main output of the owner contract job, not a PR ref.
+              base = os.environ['RG2_ACCEPTED_BASE_SHA']
+              require(re.fullmatch('[0-9a-f]{40}', base) is not None)
+              require(base == os.environ['GEOMETRY_TARGET_SHA'] == os.environ['GITHUB_SHA'])
+              require(os.environ['GITHUB_EVENT_NAME'] == 'issue_comment' and os.environ['GITHUB_REF'] == 'refs/heads/main')
+              require(os.environ['GITHUB_RUN_ATTEMPT'] == '1' and os.environ['COMMENT_ID'] != '6574323160')
+              deadline = time.monotonic() + 10.0
+              def git(*args):
+                  remaining = deadline - time.monotonic()
+                  require(remaining > 0)
+                  result = subprocess.run(['git', '--no-replace-objects', *args], stdin=subprocess.DEVNULL,
+                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=remaining,
+                      env={**os.environ, 'GIT_NO_LAZY_FETCH': '1'})
+                  require(result.returncode == 0)
+                  return result.stdout
+              require(git('rev-parse', 'HEAD').strip() == base.encode())
+              def blob(path, cap):
+                  entry = git('ls-tree', base, '--', path)
+                  require(len(entry) < 4096)
+                  parts = entry.decode('ascii').strip().split()
+                  require(len(parts) == 4 and parts[0:2] == ['100644', 'blob'] and parts[3] == path)
+                  require(re.fullmatch('[0-9a-f]{40}', parts[2]) is not None)
+                  length = git('cat-file', '-s', parts[2]).strip()
+                  require(len(length) < 16 and re.fullmatch(rb'[0-9]+', length) is not None and int(length) <= cap)
+                  raw = git('cat-file', 'blob', parts[2])
+                  require(len(raw) == int(length) and hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == parts[2])
+                  require(read_regular(path, cap) == raw and not (os.lstat(path).st_mode & 0o111))
+                  return raw
+              review, source = blob(REVIEW, 2 * 1024 * 1024), blob(WORKFLOW, 1024 * 1024)
+              value = purpose(review, source, failure_publication=failure_publication)
+              git('merge-base', '--is-ancestor', value['source_accepted_sha'], base)
+              return purpose(review, source, failure_publication=failure_publication)
+
+
+          def collector_module():
+              import importlib.util
+              path = Path(os.environ['RUNNER_TEMP'], 'root-geometry.py')
+              raw = read_regular(path, 20 * 1024)
+              require(hashlib.sha256(raw).hexdigest() == COLLECTOR_SHA)
+              spec = importlib.util.spec_from_file_location('rg2_pinned_collector', path)
+              module = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(module)
+              return module
+
+
+          def main():
+              if sys.argv[1:] in (['--purpose'], ['--failure-publication-purpose']):
+                  value = verify_accepted_purpose(failure_publication=sys.argv[1] == '--failure-publication-purpose')
+                  print(value['source_accepted_sha'])
+                  return
+              require(len(sys.argv) == 3 and sys.argv[1] == '--validate-failure')
+              collector = collector_module()
+              raw = read_regular(sys.argv[2], collector.OUTPUT_CAP)
+              value = json.loads(raw, object_pairs_hook=no_duplicates)
+              validate_failure(value, collector)
+              require(raw == encoded(value, collector.OUTPUT_CAP))
+              print('RG2_FAILURE_RECEIPT_VALIDATED; OBSERVED=NOT_ADMITTED; RETRY=NOT_GRANTED')
+
+
+          if __name__ == '__main__':
+              try:
+                  main()
+              except BaseException:
+                  print('RG2_CLOSED_RECEIPT_REJECTED', file=sys.stderr)
+                  raise SystemExit(1) from None
+          PY_RG2_RECEIPT_HELPER
+          set -Eeuo pipefail
+          python3 - <<'PY_RG2_EXTRACT'
+          import hashlib, os, pathlib, re, textwrap
+          raw = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+          assert len(raw) <= 1024 * 1024
+          for tag, filename, expected in [('PY_ROOT_GEOMETRY', 'root-geometry.py', '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'),
+                                         ('PY_RG2_RECEIPT_HELPER', 'rg2-receipt.py', '69e66c35b2ff3da553033a74fc278ccb00b10423fe1385e1e06c7d1e9ae85b07')]:
+              pattern = rb'^          cat > "\$RUNNER_TEMP/' + re.escape(filename.encode()) + rb'" <<\'' + tag.encode() + rb"'\n(.*?)^          " + tag.encode() + rb'\n'
+              rows = re.findall(pattern, raw, re.M | re.S)
+              assert len(rows) == 1
+              content = textwrap.dedent(rows[0].decode('utf-8')).encode()
+              assert hashlib.sha256(content).hexdigest() == expected
+              pathlib.Path(os.environ['RUNNER_TEMP'], filename).write_bytes(content)
+          PY_RG2_EXTRACT
+      - name: Test closed receipt and one protected-transport boundary without host access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/rg2-receipt-fixtures.py" <<'PY_RG2_FIXTURES'
+          import contextlib
+          import copy
+          import datetime as dt
+          import hashlib
+          import importlib.util
+          import io
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import selectors
+          import shlex
+          import signal
+          import subprocess
+          import sys
+          import tempfile
+          import textwrap
+          from types import SimpleNamespace as N
+          import unittest
+          from unittest.mock import patch
+
+          ROOT = Path.cwd()
+          WORKFLOW = ROOT / '.github/workflows/production-docker-headroom-diagnostic.yml'
+          RAW = WORKFLOW.read_bytes()
+          def block(tag, prefix='python3 -'):
+              pattern = rb"^          " + prefix.encode() + rb" <<'" + tag.encode() + rb"'\n(.*?)^          " + tag.encode() + rb"\n"
+              rows = re.findall(pattern, RAW, re.M | re.S)
+              assert len(rows) == 1
+              return textwrap.dedent(rows[0].decode()).encode()
+          COLLECTOR = block('PY_ROOT_GEOMETRY', 'cat > "\\$RUNNER_TEMP/root-geometry.py"')
+          HELPER = block('PY_RG2_RECEIPT_HELPER', 'cat > "\\$RUNNER_TEMP/rg2-receipt.py"')
+          TRANSPORT = block('PY_RG2_TRANSPORT')
+          TARGET = 'a' * 40
+          SOURCE = hashlib.sha256(COLLECTOR).hexdigest()
+          assert SOURCE == '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'
+
+          def load(name, path):
+              spec = importlib.util.spec_from_file_location(name, path)
+              module = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(module)
+              return module
+
+          class Fixture(unittest.TestCase):
+              def setUp(self):
+                  self.directory = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.directory.cleanup)
+                  self.temp = Path(self.directory.name)
+                  (self.temp / 'root-geometry.py').write_bytes(COLLECTOR)
+                  (self.temp / 'rg2-receipt.py').write_bytes(HELPER)
+                  self.testrepo = self.temp/'repo'; self.testrepo.mkdir()
+                  self.before_cwd = Path.cwd(); self.addCleanup(os.chdir, self.before_cwd)
+                  source_path = self.testrepo/'.github/workflows/production-docker-headroom-diagnostic.yml'
+                  source_path.parent.mkdir(parents=True); source_path.write_bytes(RAW)
+                  review = self.testrepo/'docs/platform-v7/autopilot/prompts/current-review-task.md'
+                  review.parent.mkdir(parents=True); review.write_text('SYNTHETIC TEST canonical prefix\n')
+                  def git(*args):
+                      return subprocess.check_output(['git',*args],cwd=self.testrepo,stderr=subprocess.DEVNULL).decode().strip()
+                  self.git = git
+                  git('init','--initial-branch=main'); git('config','user.name','RG2 SYNTHETIC TEST'); git('config','user.email','rg2-test@example.invalid')
+                  git('config','maintenance.auto','false');git('config','gc.auto','0')
+                  git('add','.');git('commit','-m','SYNTHETIC TEST source'); source_commit=git('rev-parse','HEAD')
+                  self.synthetic = {'schema':'pc.root-geometry-receipt-purpose.v1','purpose_id':'RG2-root-geometry-failure-receipt-v1','owner':'ACCOUNT_1_CORE',
+                      'command':'/production inspect-root-filesystem-receipt-v1 current-main','collector_sha256':SOURCE,
+                      'workflow':{'path':'.github/workflows/production-docker-headroom-diagnostic.yml','mode':'100644','bytes':len(RAW),
+                          'blob':hashlib.sha1(b'blob '+str(len(RAW)).encode()+b'\0'+RAW).hexdigest(),'sha256':hashlib.sha256(RAW).hexdigest()},
+                      'source_accepted_sha':source_commit,'independent_review_sha256':'2'*64,'native_acceptance_sha256':'3'*64,'manual_precheck_sha256':'4'*64,
+                      'maximum_invocations':1,'invocation_authorized':True,'consumed_predecessor_comment_id':'6574323160',
+                      'startup_authorization':'NOT_GRANTED','growth_authorization':'NOT_GRANTED',
+                      'operator_window':{'not_before':(dt.datetime.now(dt.timezone.utc)-dt.timedelta(seconds=1)).isoformat(),'not_after':(dt.datetime.now(dt.timezone.utc)+dt.timedelta(seconds=180)).isoformat()}}
+                  self.review = review
+                  self.marker = '\n## RG2 root geometry failure receipt purpose\n\n```json\n'
+                  review.write_text('SYNTHETIC TEST canonical prefix\n'+self.marker+json.dumps(self.synthetic)+'\n```\n')
+                  git('add','.');git('commit','-m','SYNTHETIC TEST accepted purpose'); self.target=git('rev-parse','HEAD')
+                  os.chdir(self.testrepo)
+                  self.env = {'RUNNER_TEMP': str(self.temp), 'GEOMETRY_SOURCE_SHA256': SOURCE,
+                      'GEOMETRY_TARGET_SHA': self.target, 'RG2_ACCEPTED_BASE_SHA': self.target, 'GITHUB_SHA': self.target, 'GITHUB_REF': 'refs/heads/main', 'COMMENT_ID': '999999', 'GEOMETRY_PORT': '22', 'SSH_USER_SECRET': 'DO_NOT_PUBLISH_USER',
+                      'DEFAULT_HOST': 'DO_NOT_PUBLISH_HOST', 'GITHUB_RUN_ID': '123456', 'GITHUB_RUN_ATTEMPT': '1',
+                      'GITHUB_EVENT_NAME': 'issue_comment'}
+                  self.environment = patch.dict(os.environ, self.env)
+                  self.environment.start(); self.addCleanup(self.environment.stop)
+                  self.g = load('rg2_fixture_collector', self.temp / 'root-geometry.py')
+                  self.h = load('rg2_fixture_helper', self.temp / 'rg2-receipt.py')
+
+              def observed(self):
+                  value = self.g.base(self.target, SOURCE)
+                  value.update(status='OBSERVED', root={'major': 0, 'minor': 1, 'fs_type': 'overlay',
+                      'mount_mode': 'rw', 'bind_state': 'NOT_PROVEN', 'total_bytes': 4096, 'free_bytes': 2048,
+                      'available_bytes': 1024, 'block_bytes': 4096, 'readonly': False}, devices=[], topology='MAPPED_OR_UNSUPPORTED')
+                  return value
+
+              def failure(self, reason='PRIVILEGE'):
+                  value = self.g.base(self.target, SOURCE); value['reason'] = reason
+                  return value
+
+              def transport(self, variant='exit1', reason='PRIVILEGE'):
+                  value = self.observed() if variant in {'success', 'exit1-observed'} else self.failure(reason)
+                  if variant == 'stale': value['observed_at'] = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=301)).isoformat()
+                  if variant == 'wrong-source': value['collector_sha256'] = '0' * 64
+                  if variant == 'wrong-target': value['target_sha'] = 'b' * 40
+                  if variant == 'unknown-reason': value['reason'] = 'DO_NOT_PUBLISH_REASON'
+                  if variant == 'extra-private': value['private'] = 'DO_NOT_PUBLISH_PATH'
+                  payload = self.g.encoded(value)
+                  if variant == 'duplicate': payload = b'{"status":"NOT_PROVEN",' + payload[1:]
+                  if variant == 'invalid-json': payload = b'DO_NOT_PUBLISH_RAW_STDOUT'
+                  if variant == 'oversize': payload = b'x' * (self.g.OUTPUT_CAP + 1)
+                  class Stream:
+                      def __init__(self, fd): self.fd, self.closed = fd, False
+                      def fileno(self): return self.fd
+                      def close(self): self.closed = True
+                  class Process:
+                      def __init__(self):
+                          self.stdin, self.stdout = Stream(10001), Stream(10002)
+                          self.pid, self.returncode, self.waits = 12345, None, []
+                          if variant == 'broken-pipe': self.returncode = 255
+                      def poll(self): return self.returncode
+                      def wait(self, timeout):
+                          self.waits.append(timeout)
+                          if variant == 'no-cleanup-ack': raise subprocess.TimeoutExpired('fixture', timeout)
+                          self.returncode = {'success': 0, 'exit0-failure': 0, 'exit255': 255, 'other-exit': 7, 'signalled': -15}.get(variant, 1)
+                          return self.returncode
+                  process = Process(); calls, killed = [], []
+                  def popen(args, **kwargs):
+                      if args[0] == 'git': return original_popen(args, **kwargs)
+                      calls.append((args, kwargs))
+                      if variant == 'spawn-failure': raise OSError('DO_NOT_PUBLISH_AUTH_GUESS')
+                      return process
+                  class Mux:
+                      def __init__(self): self.entries = {}
+                      def register(self, obj, events, data): self.entries[obj.fd] = N(fd=obj.fd, fileobj=obj, data=data)
+                      def unregister(self, obj): del self.entries[obj.fd]
+                      def get_map(self): return self.entries
+                      def select(self, timeout): return [(v, 1) for v in list(self.entries.values())]
+                      def close(self): pass
+                  remaining = bytearray(payload)
+                  def read(fd, amount):
+                      self.assertEqual(fd, 10002); chunk = bytes(remaining[:amount]); del remaining[:amount]; return chunk
+                  def write(fd, data):
+                      self.assertEqual(fd, 10001)
+                      if variant == 'broken-pipe': raise BrokenPipeError('DO_NOT_PUBLISH_STDERR')
+                      return len(data)
+                  def clock(): return 46.0 if calls and variant in {'timeout', 'no-cleanup-ack', 'cleanup-race'} else 0.0
+                  def killpg(*args):
+                      killed.append(args)
+                      if variant == 'cleanup-race': raise ProcessLookupError('DO_NOT_PUBLISH_PROCESS_DETAIL')
+                  output = io.StringIO()
+                  with patch.object(subprocess, 'Popen', side_effect=popen), patch.object(selectors, 'DefaultSelector', Mux), \
+                       patch.object(os, 'set_blocking'), \
+                       patch.object(os, 'read', side_effect=lambda fd, amount: read(fd, amount) if fd == 10002 else original_read(fd, amount)), \
+                       patch.object(os, 'write', side_effect=lambda fd, data: write(fd, data) if fd == 10001 else original_write(fd, data)), \
+                       patch.object(os, 'killpg', side_effect=killpg), \
+                       patch('time.monotonic', side_effect=clock), contextlib.redirect_stdout(output):
+                      if variant == 'success': exec(compile(TRANSPORT, '<actual appended transport>', 'exec'), {})
+                      else:
+                          with self.assertRaises(SystemExit) as error: exec(compile(TRANSPORT, '<actual appended transport>', 'exec'), {})
+                          self.assertEqual(error.exception.code, 1)
+                  self.assertEqual(len(calls), 1)
+                  args, kwargs = calls[0]; self.assertIs(kwargs['stderr'], subprocess.DEVNULL)
+                  self.assertIn('StrictHostKeyChecking=yes', args)
+                  self.assertIn('python3 -I -B - --collect ' + self.target + ' ' + SOURCE, args)
+                  self.assertEqual((self.temp / 'rg2-candidate.json').exists(), variant == 'success')
+                  receipt_path = self.temp / 'rg2-failure.json'
+                  self.assertEqual(receipt_path.exists(), variant != 'success')
+                  if variant == 'success': return None
+                  result = json.loads(receipt_path.read_bytes(), object_pairs_hook=self.h.no_duplicates)
+                  self.h.validate_failure(result, self.g)
+                  self.assertNotIn('DO_NOT_PUBLISH', json.dumps(result) + output.getvalue())
+                  self.assertEqual(result['authentication'], 'NOT_ATTESTED')
+                  self.assertEqual(result['guest_termination'], 'NOT_PROVEN')
+                  self.assertEqual(result['retry_authorization'], 'NOT_GRANTED')
+                  if variant != 'spawn-failure': self.assertTrue(process.stdin.closed and process.stdout.closed)
+                  if variant == 'no-cleanup-ack':
+                      self.assertEqual([s for pid, s in killed], [signal.SIGTERM, signal.SIGKILL]); self.assertEqual(process.waits, [5, 2])
+                  return result
+
+              def test_successful_observed_semantics(self): self.transport('success')
+              def test_every_closed_collector_reason_only_under_exit1(self):
+                  for reason in sorted(self.g.REASONS):
+                      with self.subTest(reason=reason):
+                          (self.temp / 'rg2-failure.json').unlink(missing_ok=True)
+                          v = self.transport(reason=reason); self.assertEqual(v['collector_reason'], reason); self.assertEqual(v['transport_exit_class'], 'EXIT_1')
+              def test_rejected_payload_and_exit_pairs_never_admit_reason(self):
+                  for variant in ('stale', 'wrong-source', 'wrong-target', 'unknown-reason', 'extra-private', 'duplicate', 'invalid-json', 'exit255', 'exit0-failure', 'exit1-observed'):
+                      with self.subTest(variant=variant):
+                          (self.temp / 'rg2-failure.json').unlink(missing_ok=True)
+                          v = self.transport(variant); self.assertIsNone(v['collector_reason']); self.assertIsNone(v['collector_report'])
+              def test_safe_transport_classes_and_bounded_cleanup(self):
+                  for variant, expected in [('exit255','EXIT_255'), ('other-exit','OTHER_NONZERO'), ('signalled','SIGNALLED'), ('spawn-failure','NOT_STARTED'), ('broken-pipe','EXIT_255'), ('timeout','DEADLINE'), ('no-cleanup-ack','DEADLINE'), ('cleanup-race','DEADLINE'), ('oversize','OUTPUT_LIMIT')]:
+                      with self.subTest(variant=variant):
+                          (self.temp / 'rg2-failure.json').unlink(missing_ok=True)
+                          v = self.transport(variant); self.assertEqual(v['transport_exit_class'], expected); self.assertIsNone(v['collector_reason'])
+              def test_failure_schema_provenance_and_privacy_mutations(self):
+                  baseline = self.transport()
+                  mutations = [lambda v:v.update(extra='private'), lambda v:v.update(status='OBSERVED'),
+                      lambda v:v.update(target_sha='b'*40), lambda v:v.update(collector_sha256='0'*64),
+                      lambda v:v['provenance'].update(run_id='9'), lambda v:v['provenance'].update(run_attempt='2'),
+                      lambda v:v['provenance'].update(workflow_sha256='0'*64), lambda v:v['provenance'].update(controller_sha256='0'*64),
+                      lambda v:v.update(authentication='SUCCESS'), lambda v:v.update(guest_termination='PROVEN'),
+                      lambda v:v.update(retry_authorization='GRANTED'), lambda v:v.update(current_main_at_publication='CURRENT'),
+                      lambda v:v.update(transport_exit_class='EXIT_255'), lambda v:v['collector_report'].update(reason='RAW_PRIVATE'),
+                      lambda v:v.update(recorded_at=(dt.datetime.now(dt.timezone.utc)-dt.timedelta(seconds=301)).isoformat())]
+                  for i, mutate in enumerate(mutations):
+                      with self.subTest(mutation=i):
+                          v = copy.deepcopy(baseline); mutate(v)
+                          with self.assertRaises((ValueError, TypeError)): self.h.validate_failure(v, self.g)
+              def test_no_follow_and_raw_caps(self):
+                  private = self.temp/'private'; private.write_text('PRIVATE')
+                  link = self.temp/'link'; link.symlink_to(private)
+                  with self.assertRaises(OSError): self.h.read_regular(link, 10)
+                  with self.assertRaises(ValueError): self.h.read_regular(private, 3)
+                  with self.assertRaises(ValueError): json.loads('{"schema":1,"schema":2}', object_pairs_hook=self.h.no_duplicates)
+              def test_trusted_git_purpose_rejects_candidate_owned_and_wrong_binding(self):
+                  self.assertEqual(self.h.verify_accepted_purpose(), self.synthetic)
+                  for key, bad in [('RG2_ACCEPTED_BASE_SHA','b'*40),('GITHUB_SHA','b'*40),('GEOMETRY_TARGET_SHA','b'*40),
+                                   ('GITHUB_EVENT_NAME','pull_request'),('GITHUB_REF','refs/heads/candidate'),('GITHUB_RUN_ATTEMPT','2'),('COMMENT_ID','6574323160')]:
+                      with self.subTest(key=key), patch.dict(os.environ,{key:bad}):
+                          with self.assertRaises(ValueError): self.h.verify_accepted_purpose()
+                  saved=self.review.read_bytes();self.review.write_text('candidate-owned forged purpose')
+                  with self.assertRaises(ValueError): self.h.verify_accepted_purpose()
+                  self.review.write_bytes(saved)
+                  self.git('checkout','-b','candidate')
+                  self.review.write_text('candidate-owned replacement');self.git('add','.');self.git('commit','-m','SYNTHETIC TEST candidate injection')
+                  with self.assertRaises(ValueError): self.h.verify_accepted_purpose()
+
+              def test_shape_valid_but_unaccepted_source_digest_is_not_git_authority(self):
+                  v=copy.deepcopy(self.synthetic);v['source_accepted_sha']='f'*40
+                  self.review.write_text('SYNTHETIC TEST prefix\n'+self.marker+json.dumps(v)+'\n```\n')
+                  self.git('add','.');self.git('commit','-m','SYNTHETIC TEST unknown accepted SHA');head=self.git('rev-parse','HEAD')
+                  with patch.dict(os.environ,{'RG2_ACCEPTED_BASE_SHA':head,'GITHUB_SHA':head,'GEOMETRY_TARGET_SHA':head}):
+                      with self.assertRaises(ValueError): self.h.verify_accepted_purpose()
+
+              def fixed_clock_cli(self):
+                  # Test-only interpreter shim: execute the actual helper/CLI unchanged,
+                  # replacing only datetime.now in an owned subprocess. No source clock knob.
+                  driver=self.temp/'synthetic-fixed-clock.py'
+                  driver.write_text('''import datetime as dt, os, runpy, sys
+          clock=dt.datetime.fromisoformat(os.environ['RG2_SYNTHETIC_TEST_CLOCK'])
+          class Fixed(dt.datetime):
+              @classmethod
+              def now(cls, tz=None):
+                  return clock.astimezone(tz) if tz else clock.replace(tzinfo=None)
+          dt.datetime=Fixed
+          args=sys.argv[1:]
+          if args[0]=='-B': args=args[1:]
+          sys.argv=args
+          runpy.run_path(args[0],run_name='__main__')
+          ''')
+                  def run(mode,clock):
+                      return subprocess.run([sys.executable,'-B',str(driver),str(self.temp/'rg2-receipt.py'),mode],
+                          env={**os.environ,'RG2_SYNTHETIC_TEST_CLOCK':clock.isoformat()},
+                          stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=15)
+                  return driver,run
+
+              def bind_synthetic_window(self,start,end):
+                  value=copy.deepcopy(self.synthetic)
+                  value['operator_window']={'not_before':start.isoformat(),'not_after':end.isoformat()}
+                  self.review.write_text('SYNTHETIC TEST canonical prefix\n'+self.marker+json.dumps(value)+'\n```\n')
+                  self.git('add','.');self.git('commit','-m','SYNTHETIC TEST fixed-clock accepted window')
+                  head=self.git('rev-parse','HEAD')
+                  return {'RG2_ACCEPTED_BASE_SHA':head,'GITHUB_SHA':head,'GEOMETRY_TARGET_SHA':head}
+
+              def actual_failure_publication_cli(self):
+                  import yaml
+                  run=next(s for s in yaml.safe_load(RAW)['jobs']['root-geometry-receipt']['steps'] if s.get('id')=='rg2_failure')['run']
+                  modes=re.findall(r'rg2-receipt.py" (--(?:failure-publication-)?purpose)(?: |$)',run)
+                  self.assertEqual(len(modes),1)
+                  return run,modes[0]
+
+              def test_fixed_clock_real_git_pretransport_and_publication_boundaries(self):
+                  now=dt.datetime(2030,1,1,tzinfo=dt.timezone.utc);_,cli=self.fixed_clock_cli()
+                  _,publication_mode=self.actual_failure_publication_cli()
+                  cases=[('exact52',-1,52,0,0),('less52',-1,51.999999,1,0),
+                      ('future-start',1,60,1,1),('expired',-100,-1,1,1),('exact-expiry',-60,0,1,1),
+                      ('last-microsecond',-1,0.000001,1,0),('exact300-duration',-240,60,0,0),
+                      ('over300-duration',-240.000001,60,1,1)]
+                  for name,start,end,pre,publish in cases:
+                      with self.subTest(window=name),patch.dict(os.environ,self.bind_synthetic_window(
+                              now+dt.timedelta(seconds=start),now+dt.timedelta(seconds=end))):
+                          self.assertEqual(cli('--purpose',now).returncode,pre)
+                          self.assertEqual(cli(publication_mode,now).returncode,publish)
+
+              def test_actual_failure_publisher_accepts_60_to_50_without_second_ssh_reserve(self):
+                  now=dt.datetime(2030,1,1,tzinfo=dt.timezone.utc);later=now+dt.timedelta(seconds=10)
+                  driver,cli=self.fixed_clock_cli()
+                  publisher,publication_mode=self.actual_failure_publication_cli()
+                  binding=self.bind_synthetic_window(now-dt.timedelta(seconds=1),now+dt.timedelta(seconds=60))
+                  with patch.dict(os.environ,binding):
+                      self.assertEqual(cli('--purpose',now).returncode,0)
+                      self.assertEqual(cli('--purpose',later).returncode,1)
+                      self.assertEqual(cli(publication_mode,later).returncode,0)
+                      class Fixed(dt.datetime):
+                          @classmethod
+                          def now(cls,tz=None):return later
+                      fixed=N(datetime=Fixed,timezone=dt.timezone,timedelta=dt.timedelta)
+                      with patch.object(self.h,'dt',fixed),patch.object(self.g,'dt',fixed):
+                          report=self.g.base(binding['GITHUB_SHA'],SOURCE);report['reason']='KERNEL_IO'
+                          self.h.write_failure('EXIT_1',report,self.g)
+                      binpath=self.temp/'synthetic-bin';binpath.mkdir();launcher=binpath/'python3'
+                      launcher.write_text('#!/bin/sh\nexec '+shlex.quote(sys.executable)+' -B '+shlex.quote(str(driver))+' "$@"\n');launcher.chmod(0o700)
+                      def publish(clock):
+                          return subprocess.run(['bash','-c',publisher],cwd=self.testrepo,
+                              env={**os.environ,'PATH':str(binpath)+os.pathsep+os.environ['PATH'],
+                                   'RG2_SYNTHETIC_TEST_CLOCK':clock.isoformat()},stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20)
+                      result=publish(later)
+                      self.assertEqual(result.returncode,0,result.stderr)
+                      artifact=self.testrepo/'artifacts/root-filesystem-geometry-receipt/failure.json'
+                      self.assertEqual(artifact.read_bytes(),(self.temp/'rg2-failure.json').read_bytes())
+                      self.assertIn(b'OBSERVED=NOT_ADMITTED; RETRY=NOT_GRANTED',result.stdout)
+                      artifact.unlink()
+                      expired=publish(now+dt.timedelta(seconds=60))
+                      self.assertEqual(expired.returncode,1);self.assertFalse(artifact.exists())
+                      with patch.dict(os.environ,{'RG2_ACCEPTED_BASE_SHA':'f'*40}):
+                          self.assertEqual(cli(publication_mode,later).returncode,1)
+                  print('RG2_WINDOW_60_TO_50_ACTUAL_PUBLISHER=PASS; EXPIRED=REFUSED; NO_TRANSPORT_PERFORMED')
+
+              def test_missing_accepted_purpose_stops_before_any_ssh(self):
+                  self.review.write_text('SYNTHETIC TEST no RG2 admission\n');self.git('add','.');self.git('commit','-m','SYNTHETIC TEST admission absent')
+                  head=self.git('rev-parse','HEAD');calls=[]
+                  def spawn(args, **kwargs):
+                      if args[0]=='ssh': calls.append(args); raise AssertionError('protected SSH must not run')
+                      return original_popen(args, **kwargs)
+                  with patch.dict(os.environ,{'RG2_ACCEPTED_BASE_SHA':head,'GITHUB_SHA':head,'GEOMETRY_TARGET_SHA':head}), patch.object(subprocess,'Popen',side_effect=spawn), contextlib.redirect_stdout(io.StringIO()):
+                      with self.assertRaises(SystemExit): exec(compile(TRANSPORT,'<actual RG2 missing purpose>','exec'),{})
+                  self.assertEqual(calls,[]);self.assertFalse((self.temp/'rg2-candidate.json').exists())
+                  with patch.dict(os.environ,{'RG2_ACCEPTED_BASE_SHA':head,'GITHUB_SHA':head,'GEOMETRY_TARGET_SHA':head}):
+                      with self.assertRaises(ValueError): self.h.verify_accepted_purpose()
+
+              def test_actual_append_routes_and_failed_publication_are_separate(self):
+                  import ast
+                  import yaml
+                  jobs=yaml.safe_load(RAW)['jobs']
+                  contract=jobs['geometry-receipt-contract'];observer=jobs['root-geometry-receipt']
+                  def route(job,event='issue_comment',body=None,author='owner',assoc='OWNER',actor='owner',trigger='owner',app=0,issue=4637,prior='success'):
+                      expression=' '.join(job['if'].replace('&&',' and ').replace('||',' or ').replace('needs.geometry-receipt-contract','needs.geometry_receipt_contract').split())
+                      tree=ast.parse(expression,mode='eval')
+                      allowed=(ast.Expression,ast.BoolOp,ast.And,ast.Or,ast.Compare,ast.Eq,ast.Attribute,ast.Name,ast.Load,ast.Constant)
+                      self.assertTrue(all(isinstance(n,allowed) for n in ast.walk(tree)))
+                      github=N(event_name=event,repository_owner='owner',actor=actor,triggering_actor=trigger,event=N(issue=N(number=issue),comment=N(user=N(login=author),author_association=assoc,body=body or self.h.COMMAND,performed_via_github_app=N(id=app))))
+                      return eval(compile(tree,'<actual RG2 route>','eval'),{'__builtins__':{}},{'github':github,'needs':N(geometry_receipt_contract=N(result=prior))})
+                  self.assertTrue(route(contract));self.assertTrue(route(observer));self.assertTrue(route(contract,event='pull_request'));self.assertFalse(route(observer,event='pull_request'))
+                  for bad in [dict(body='/production inspect-root-filesystem current-main'),dict(author='other'),dict(assoc='MEMBER'),dict(actor='other',trigger='other'),dict(issue=5469),dict(prior='failure')]:
+                      self.assertFalse(route(observer,**bad))
+                  self.assertTrue(route(observer,actor='connector',trigger='connector',app=1144995))
+                  steps=observer['steps'];failure=next(s for s in steps if s.get('id')=='rg2_failure')
+                  upload=next(s for s in steps if s.get('name','').startswith('Preserve validated closed'))
+                  self.assertIn("failure() && steps.rg2_transport.outcome == 'failure'",failure['if'])
+                  self.assertIn("failure() && steps.rg2_failure.outcome == 'success'",upload['if'])
+                  self.assertIn('--failure-publication-purpose',failure['run']);self.assertNotIn('gh api',failure['run'])
+                  observed=next(s for s in steps if s.get('name')=='Admit only fresh current-source closed geometry output')
+                  self.assertNotIn('if',observed);self.assertIn('commits/main',observed['run'])
+                  program=ast.parse(TRANSPORT)
+                  check=next(n for n in ast.walk(program) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='verify_accepted_purpose')
+                  launch=next(n for n in ast.walk(program) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='Popen')
+                  self.assertLess(check.lineno,launch.lineno)
+
+              def test_prospective_purpose_absent_and_closed(self):
+                  w = RAW
+                  valid = {'schema':'pc.root-geometry-receipt-purpose.v1','purpose_id':self.h.PURPOSE,'owner':'ACCOUNT_1_CORE',
+                      'command':self.h.COMMAND,'collector_sha256':SOURCE,'workflow':{'path':self.h.WORKFLOW,'mode':'100644','bytes':len(w),
+                          'blob':hashlib.sha1(b'blob '+str(len(w)).encode()+b'\0'+w).hexdigest(),'sha256':hashlib.sha256(w).hexdigest()},
+                      'source_accepted_sha':TARGET,'independent_review_sha256':'2'*64,'native_acceptance_sha256':'3'*64,
+                      'manual_precheck_sha256':'4'*64,'maximum_invocations':1,'invocation_authorized':True,
+                      'consumed_predecessor_comment_id':'6574323160','startup_authorization':'NOT_GRANTED','growth_authorization':'NOT_GRANTED',
+                      'operator_window':{'not_before':(dt.datetime.now(dt.timezone.utc)-dt.timedelta(seconds=1)).isoformat(),'not_after':(dt.datetime.now(dt.timezone.utc)+dt.timedelta(seconds=180)).isoformat()}}
+                  # Explicit SYNTHETIC TEST record, never actual canonical admission.
+                  render = lambda v: (self.h.MARKER + json.dumps(v) + '\n```\n').encode()
+                  self.assertEqual(self.h.purpose(render(valid), w), valid)
+                  for raw in (b'', render(valid)+render(valid), self.h.MARKER.encode()+b'{bad}\n```\n'):
+                      with self.assertRaises((ValueError, json.JSONDecodeError)): self.h.purpose(raw, w)
+                  for key, bad in [('owner','OTHER'),('command','/production inspect-root-filesystem current-main'),('invocation_authorized',False),
+                      ('maximum_invocations',2),('consumed_predecessor_comment_id','other'),('source_accepted_sha',None),
+                      ('independent_review_sha256',None),('native_acceptance_sha256','0'*64),('manual_precheck_sha256',None),
+                      ('operator_window',{'not_before':'2000-01-01T00:00:00+00:00','not_after':'2000-01-01T00:01:00+00:00'})]:
+                      with self.subTest(key=key):
+                          v=copy.deepcopy(valid);v[key]=bad
+                          with self.assertRaises((ValueError, TypeError)): self.h.purpose(render(v),w)
+                  v=copy.deepcopy(valid);v['workflow']['sha256']='0'*64
+                  with self.assertRaises(ValueError): self.h.purpose(render(v),w)
+                  with self.assertRaises(ValueError): self.h.purpose(render(valid),w+b'changed')
+
+          original_write = os.write
+          original_read = os.read
+          original_popen = subprocess.Popen
+          if __name__ == '__main__': unittest.main(verbosity=2)
+          PY_RG2_FIXTURES
+          python3 -B "$RUNNER_TEMP/rg2-receipt-fixtures.py"
+      - name: Verify fresh exact owner provenance for prospective RG2
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: '/production inspect-root-filesystem-receipt-v1 current-main'
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENT_ID" =~ ^[0-9]+$ ]]
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          comment="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID")"
+          [[ "$(jq -r '.user.login' <<< "$comment")" == "$owner" ]]
+          [[ "$(jq -r '.author_association' <<< "$comment")" == OWNER ]]
+          [[ "$(jq -r '.body' <<< "$comment")" == "$EXPECTED_BODY" ]]
+          # jq comparison preserves trailing newlines; shell substitution does not.
+          jq -e --arg body "$EXPECTED_BODY" '.body == $body' <<< "$comment" >/dev/null
+          issue="$(gh api "repos/$GITHUB_REPOSITORY/issues/4637")"
+          jq -e '.state == "open" and (has("pull_request") | not)' <<< "$issue" >/dev/null
+          if [[ "$GITHUB_ACTOR" == "$owner" && "$TRIGGERING_ACTOR" == "$owner" ]]; then
+            echo ROOT_GEOMETRY_OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$(jq -r '.performed_via_github_app.id // 0' <<< "$comment")" == 1144995 ]]
+            echo ROOT_GEOMETRY_OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+          [[ "$GITHUB_RUN_ATTEMPT" == 1 && "$COMMENT_ID" != 6574323160 ]]
+          jq -e '.created_at == .updated_at' <<< "$comment" >/dev/null
+      - name: Require accepted canonical RG2 purpose before selecting current target
+        if: github.event_name == 'issue_comment'
+        id: rg2_target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$sha" == "$GITHUB_SHA" && "$sha" == "$(git rev-parse HEAD)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          export GEOMETRY_TARGET_SHA="$sha" RG2_ACCEPTED_BASE_SHA="$sha"
+          python3 -B "$RUNNER_TEMP/rg2-receipt.py" --purpose >/dev/null
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  root-geometry-receipt:
+    name: Prospective one closed geometry receipt with no startup authority
+    needs: geometry-receipt-contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+       github.event.comment.performed_via_github_app.id == 1144995) &&
+      github.event.comment.body == '/production inspect-root-filesystem-receipt-v1 current-main' &&
+      needs.geometry-receipt-contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: pc-crop-registration-lifecycle
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: read
+    env:
+      GEOMETRY_TARGET_SHA: ${{ needs.geometry-receipt-contract.outputs.target_sha }}
+      RG2_ACCEPTED_BASE_SHA: ${{ needs.geometry-receipt-contract.outputs.target_sha }}
+      GEOMETRY_SOURCE_SHA256: '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'
+      COMMENT_ID: ${{ github.event.comment.id }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.geometry-receipt-contract.outputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize exact accepted local receipt code and unchanged collector
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_RG2_EXTRACT'
+          import hashlib, os, pathlib, re, textwrap
+          raw = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+          assert len(raw) <= 1024 * 1024
+          for tag, filename, expected in [('PY_ROOT_GEOMETRY', 'root-geometry.py', '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'),
+                                         ('PY_RG2_RECEIPT_HELPER', 'rg2-receipt.py', '69e66c35b2ff3da553033a74fc278ccb00b10423fe1385e1e06c7d1e9ae85b07')]:
+              pattern = rb'^          cat > "\$RUNNER_TEMP/' + re.escape(filename.encode()) + rb'" <<\'' + tag.encode() + rb"'\n(.*?)^          " + tag.encode() + rb'\n'
+              rows = re.findall(pattern, raw, re.M | re.S)
+              assert len(rows) == 1
+              content = textwrap.dedent(rows[0].decode('utf-8')).encode()
+              assert hashlib.sha256(content).hexdigest() == expected
+              pathlib.Path(os.environ['RUNNER_TEMP'], filename).write_bytes(content)
+          PY_RG2_EXTRACT
+      - name: Revalidate canonical purpose and fresh current-main owner before protected transport
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$GEOMETRY_TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GEOMETRY_TARGET_SHA" == "$GITHUB_SHA" && "$GEOMETRY_TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$GEOMETRY_TARGET_SHA" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          comment="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID")"
+          jq -e --arg owner "$owner" --arg body '/production inspect-root-filesystem-receipt-v1 current-main' \
+            '.user.login == $owner and .author_association == "OWNER" and .body == $body' <<< "$comment" >/dev/null
+          if [[ "$GITHUB_ACTOR" != "$owner" || "$TRIGGERING_ACTOR" != "$owner" ]]; then
+            jq -e '.performed_via_github_app.id == 1144995' <<< "$comment" >/dev/null
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/issues/4637" --jq '.state' | grep -Fxq open
+          [[ "$GITHUB_RUN_ATTEMPT" == 1 && "$COMMENT_ID" != 6574323160 ]]
+          jq -e '.created_at == .updated_at' <<< "$comment" >/dev/null
+          accepted="$(python3 -B "$RUNNER_TEMP/rg2-receipt.py" --purpose)"
+          [[ "$accepted" =~ ^[0-9a-f]{40}$ ]]
+      - name: Resolve existing DNS, local key and strict host pin only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          private="$RUNNER_TEMP/root-geometry-private"
+          mkdir "$private"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]{1,5}$ ]] && ((10#$port >= 1 && 10#$port <= 65535))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          timeout --kill-after=2s 10s getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | grep -Fxq "$DEFAULT_HOST"
+          validate_key(){
+            tr -d '\r' < "$1" > "$private/key"
+            chmod 600 "$private/key"
+            timeout --kill-after=2s 5s ssh-keygen -y -P '' -f "$private/key" >/dev/null 2>&1
+          }
+          try_key(){
+            [[ -n "$1" ]] || return 1
+            printf '%s\n' "$1" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "${1//\\n/$'\n'}" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "$1" | base64 --decode > "$private/raw" 2>/dev/null && validate_key "$private/raw"
+          }
+          try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
+          timeout --kill-after=2s 12s ssh-keyscan -T 8 -p "$port" "$host" > "$private/scan" 2>/dev/null
+          : > "$private/match"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$private/match"
+          done < "$private/scan"
+          sort -u "$private/match" > "$private/known_hosts"
+          [[ "$(wc -l < "$private/known_hosts")" == 1 ]]
+          rm -f "$private/raw" "$private/scan" "$private/match"
+          echo "GEOMETRY_PORT=$port" >> "$GITHUB_ENV"
+      - name: Collect once with a closed failure receipt
+        id: rg2_transport
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_RG2_TRANSPORT'
+          import hashlib, importlib.util, json, os, pathlib, selectors, signal, subprocess, time
+          path = pathlib.Path(os.environ['RUNNER_TEMP'], 'root-geometry.py')
+          raw_source = path.read_bytes()
+          source = os.environ['GEOMETRY_SOURCE_SHA256']
+          target = os.environ['GEOMETRY_TARGET_SHA']
+          assert hashlib.sha256(raw_source).hexdigest() == source
+          spec = importlib.util.spec_from_file_location('geometry_validator', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          helper_path = pathlib.Path(os.environ['RUNNER_TEMP'], 'rg2-receipt.py')
+          assert hashlib.sha256(helper_path.read_bytes()).hexdigest() == '69e66c35b2ff3da553033a74fc278ccb00b10423fe1385e1e06c7d1e9ae85b07'
+          spec = importlib.util.spec_from_file_location('rg2_receipt', helper_path)
+          receipt = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(receipt)
+          private = pathlib.Path(os.environ['RUNNER_TEMP'], 'root-geometry-private')
+          started = time.monotonic()
+          process, mux = None, None
+          sent, output, good = 0, bytearray(), False
+          exit_class, collector_failure = 'NOT_STARTED', None
+
+          def code_class(code):
+              return {0: 'EXIT_0', 1: 'EXIT_1', 255: 'EXIT_255'}.get(code,
+                      'SIGNALLED' if code < 0 else 'OTHER_NONZERO')
+
+          try:
+              receipt.verify_accepted_purpose()
+              args = ['ssh', '-F', '/dev/null', '-i', str(private / 'key'), '-p', os.environ['GEOMETRY_PORT'],
+                      '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes',
+                      '-o', 'UserKnownHostsFile=' + str(private / 'known_hosts'), '-o', 'ConnectTimeout=10',
+                      '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2',
+                      os.environ['SSH_USER_SECRET'] + '@' + os.environ['DEFAULT_HOST'],
+                      'python3 -I -B - --collect ' + target + ' ' + source]
+              process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                         stderr=subprocess.DEVNULL, start_new_session=True)
+              exit_class = 'INCOMPLETE'
+              os.set_blocking(process.stdin.fileno(), False)
+              os.set_blocking(process.stdout.fileno(), False)
+              mux = selectors.DefaultSelector()
+              mux.register(process.stdin, selectors.EVENT_WRITE, 'input')
+              mux.register(process.stdout, selectors.EVENT_READ, 'output')
+              while mux.get_map():
+                  remaining = 45.0 - (time.monotonic() - started)
+                  if remaining <= 0:
+                      exit_class = 'DEADLINE'
+                      raise RuntimeError()
+                  for key, events in mux.select(min(remaining, 0.1)):
+                      if key.data == 'input':
+                          count = os.write(key.fd, raw_source[sent:sent + 4096])
+                          sent += count
+                          if sent == len(raw_source):
+                              mux.unregister(key.fileobj)
+                              process.stdin.close()
+                      else:
+                          chunk = os.read(key.fd, min(4096, module.OUTPUT_CAP + 1 - len(output)))
+                          if not chunk:
+                              mux.unregister(key.fileobj)
+                              process.stdout.close()
+                          else:
+                              output.extend(chunk)
+                              if len(output) > module.OUTPUT_CAP:
+                                  exit_class = 'OUTPUT_LIMIT'
+                                  raise RuntimeError()
+              code = process.wait(timeout=max(0.001, 45.0 - (time.monotonic() - started)))
+              exit_class = code_class(code)
+              if time.monotonic() - started >= 45.0:
+                  exit_class = 'DEADLINE'
+                  raise RuntimeError()
+              if sent != len(raw_source) or code not in (0, 1):
+                  raise RuntimeError()
+              value = json.loads(output, object_pairs_hook=module.no_duplicates)
+              module.validate(value, target, source)
+              if code == 1 and value['status'] == 'NOT_PROVEN':
+                  collector_failure = value
+                  raise RuntimeError()
+              if code != 0 or value['status'] != 'OBSERVED':
+                  raise RuntimeError()
+              pathlib.Path(os.environ['RUNNER_TEMP'], 'rg2-candidate.json').write_bytes(module.encoded(value))
+              good = True
+          except BaseException as error:
+              if isinstance(error, subprocess.TimeoutExpired):
+                  exit_class = 'DEADLINE'
+              elif exit_class == 'INCOMPLETE' and process is not None:
+                  code = process.poll()
+                  if code is not None:
+                      exit_class = code_class(code)
+              print('ROOT_GEOMETRY_NOT_PROVEN; GUEST_TERMINATION=NOT_PROVEN')
+          finally:
+              if mux is not None:
+                  mux.close()
+              if process is not None:
+                  if process.poll() is None:
+                      try:
+                          os.killpg(process.pid, signal.SIGTERM)
+                      except ProcessLookupError:
+                          good = False
+                      try:
+                          process.wait(timeout=5)
+                      except subprocess.TimeoutExpired:
+                          try:
+                              os.killpg(process.pid, signal.SIGKILL)
+                          except ProcessLookupError:
+                              good = False
+                          try:
+                              process.wait(timeout=2)
+                          except subprocess.TimeoutExpired:
+                              good = False
+                  for stream in (process.stdin, process.stdout):
+                      if not stream.closed:
+                          stream.close()
+          if not good:
+              pathlib.Path(os.environ['RUNNER_TEMP'], 'rg2-candidate.json').unlink(missing_ok=True)
+              try:
+                  receipt.write_failure(exit_class, collector_failure, module)
+                  print('RG2_CLOSED_FAILURE_RECORDED; AUTHENTICATION=NOT_ATTESTED; RETRY=NOT_GRANTED')
+              except BaseException:
+                  print('RG2_FAILURE_RECEIPT_UNAVAILABLE; RETRY=NOT_GRANTED')
+              raise SystemExit(1)
+          print('ROOT_GEOMETRY_CLOSED_OBSERVATION_VALIDATED; STARTUP_AUTHORIZATION=NOT_GRANTED')
+          PY_RG2_TRANSPORT
+      - name: Validate failed-attempt receipt without admitting OBSERVED or current-main freshness
+        id: rg2_failure
+        if: ${{ failure() && steps.rg2_transport.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$GEOMETRY_TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$(git hash-object .github/workflows/production-docker-headroom-diagnostic.yml)" == "$(git rev-parse "$GEOMETRY_TARGET_SHA:.github/workflows/production-docker-headroom-diagnostic.yml")" ]]
+          python3 -B "$RUNNER_TEMP/rg2-receipt.py" --failure-publication-purpose >/dev/null
+          python3 -B "$RUNNER_TEMP/rg2-receipt.py" --validate-failure "$RUNNER_TEMP/rg2-failure.json"
+          mkdir -p artifacts/root-filesystem-geometry-receipt
+          cp "$RUNNER_TEMP/rg2-failure.json" artifacts/root-filesystem-geometry-receipt/failure.json
+      - name: Preserve validated closed NOT_PROVEN receipt only while job stays failed
+        if: ${{ failure() && steps.rg2_failure.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-filesystem-geometry-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/root-filesystem-geometry-receipt/failure.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Admit only fresh current-source closed geometry output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$GEOMETRY_TARGET_SHA" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          python3 -B "$RUNNER_TEMP/root-geometry.py" --validate "$GEOMETRY_TARGET_SHA" "$GEOMETRY_SOURCE_SHA256" "$RUNNER_TEMP/rg2-candidate.json"
+          mkdir -p artifacts/root-filesystem-geometry-receipt
+          cp "$RUNNER_TEMP/rg2-candidate.json" artifacts/root-filesystem-geometry-receipt/observation.json
+      - name: Preserve closed geometry observation only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-filesystem-geometry-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/root-filesystem-geometry-receipt/observation.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Clear runner-only RG2 transport
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/root-geometry-private"
+          rm -f "$RUNNER_TEMP/root-geometry.py" "$RUNNER_TEMP/rg2-receipt.py" "$RUNNER_TEMP/rg2-candidate.json" "$RUNNER_TEMP/rg2-failure.json"

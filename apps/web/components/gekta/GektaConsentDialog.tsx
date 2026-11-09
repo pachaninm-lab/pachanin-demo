@@ -55,11 +55,14 @@ function activeDraftAtMount(): boolean {
  * instead of stealing focus from the composer while the mobile keyboard owns
  * the visual viewport. The intercepted submit is never sent before consent.
  */
-export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/usloviya-ispolzovaniya-gekta', privacyHref = '/legal/politika-konfidencialnosti', disabled = false, failed = false }: {
-  locale: GektaLocale; onAccept: () => void; termsHref?: string; privacyHref?: string; disabled?: boolean; failed?: boolean;
+export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/usloviya-ispolzovaniya-gekta', privacyHref = '/legal/politika-konfidencialnosti', disabled = false, failed = false, requested = false, onRequest }: {
+  locale: GektaLocale; onAccept: () => void; termsHref?: string; privacyHref?: string; disabled?: boolean; failed?: boolean; requested?: boolean; onRequest?: () => void;
 }) {
   const ui = UI[locale];
   const [deferred, setDeferred] = React.useState(activeDraftAtMount);
+  React.useEffect(() => {
+    if (requested) setDeferred(false);
+  }, [requested]);
   // Accepting is the only way out: Escape is swallowed but never treated as consent.
   const ignoreEscape = React.useCallback(() => {}, []);
   const panelRef = useDialogFocus(!deferred, ignoreEscape);
@@ -71,6 +74,7 @@ export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/uslov
     const reveal = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
+      onRequest?.();
       setDeferred(false);
     };
 
@@ -94,7 +98,7 @@ export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/uslov
       document.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('click', onClick, true);
     };
-  }, [deferred]);
+  }, [deferred, onRequest]);
 
   if (deferred) return null;
 

@@ -1078,6 +1078,169 @@ jobs:
               env = {**os.environ, 'BASE_REF': base, 'HEAD_REF': head,
                      'GITHUB_HEAD_REF': 'fix/gekta-docker-diagnostic-route-20260927'}
               subprocess.run(['bash', str(guard)], env=env, check=True)
+          # DSA_NATIVE_CONTROLS_BEGIN
+          def dsa_source_controls():
+              if os.environ.get('GITHUB_HEAD_REF') != 'fix/gekta-docker-diagnostic-route-20260927':
+                  return False
+              def fail(reason):
+                  raise SystemExit('DSA_SOURCE_CONTROLS_' + reason)
+              def exact_git(*args):
+                  return subprocess.check_output(['git', '--no-replace-objects', *args], timeout=10)
+              queue_path = 'docs/platform-v7/execution-queue.md'
+              entry = exact_git('ls-tree', base, '--', queue_path).decode().strip()
+              if not entry:
+                  return False
+              size = exact_git('cat-file', '-s', base + ':' + queue_path).decode().strip()
+              if not re.fullmatch(r'[0-9]{1,8}', size) or int(size) > 3 * 1024 * 1024:
+                  fail('QUEUE_CAPACITY')
+              queue = exact_git('show', base + ':' + queue_path)
+              if len(queue) != int(size):
+                  fail('QUEUE_CAPACITY')
+              content = queue.decode('utf-8', errors='strict')
+              marker = '\n## DSA — Docker startup exact source admission, 2026-11-08\n\n```json\n'
+              if marker not in content:
+                  return False
+              if not re.fullmatch(r'100644 blob [0-9a-f]{40}\t' + re.escape(queue_path), entry):
+                  fail('QUEUE_MODE')
+              expected_core = json.loads('{"purposeId":"docker-startup-exact-source-admission-20261108","owner":"ACCOUNT_1_CORE","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","governanceBranch":"governance/gekta-recovery-trusted-routes-20260927","metadataBranch":"governance/industrial-load-diagnostics-20260919","retainedMetadataScope":["docs/platform-v7/autopilot/autopilot-state.json","docs/platform-v7/execution-queue.md","docs/platform-v7/autopilot/prompts/current-codex-task.md","docs/platform-v7/autopilot/prompts/current-review-task.md","scripts/p7-autopilot-guard.sh","scripts/p7-autopilot-guard.test.mjs",".github/workflows/platform-v7-autopilot-guard.yml"],"metadataChangedPaths":["docs/platform-v7/execution-queue.md"],"authorityBaseExactMain":"f05fc11d816333e3539c75c648598b084ce51b33","ownerBasis":{"commentId":6615436499,"bodyBytes":19034,"bodySha256":"9a9dd28f9f91e3a7a03ed38807a0979e67f48635656c304ae00c4bcaa655adf6","updatedAt":"2026-11-05T02:10:01Z","section":3},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"},"sourcePaths":[".github/workflows/production-docker-headroom-diagnostic.yml","scripts/test_production_stopped_runtime_headroom.py"],"sourcePayloads":[{"before":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"3c79a43a5495848711e5e9518c9e933aba83fc82","bytes":477440,"sha256":"2860b9abd30a929a8e0538f5515f5ea34864d8b5e08cac8910511c296c19b22c"},"after":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"0f0dd1a2e367befd7083acba07b3853c648d56cf","bytes":539439,"sha256":"e8893355770b8db2db65618df178f9a79ee701c4095e4eee6c5322cebfeb2e60"}},{"before":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},"after":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"}}],"wholeBeforePrefixRequired":true,"governanceBefore":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"b2ba003b3f80897065cb582d66e4b9c32a267c4f","bytes":145288,"sha256":"e9b608594b5641c5a51dbe9c31f3095e01c6ecf1c499417bd8dba23885d175c7"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"dd38d18342d95c3dca92bcdf92fd6bee673b7283","bytes":189692,"sha256":"e138627ffcc74b64554f07762a9da70c7c160d9b270140f597602e0ce9310928"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"a1ca5ded38328f03f2a795e25be3e8004c6a54f0","bytes":318448,"sha256":"410fb425cf09642fe04aab57d21adcb2a6494cd9a4ff9fcd41dd49d3a87bf150"}],"state":{"path":"docs/platform-v7/autopilot/autopilot-state.json","mode":"100644","blob":"aee9ddbb7a45f145db6185c5289038d3a931c1de","bytes":3145513,"sha256":"8afad21d3db9fa5b20ab11fcc4d60cb164dcf47b6168b7e9b804ee4c1f3be570"},"unchangedHelpers":[{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},{"path":"scripts/production_stopped_runtime_headroom.py","mode":"100644","blob":"1577966d56b9cdd6a5ce586f9f63096a53a4e7b9","bytes":34619,"sha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"},{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","blob":"c205a662192d1d777a2f8db167e4fce86f92047d","bytes":174348,"sha256":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"path":".github/workflows/production-stopped-runtime-headroom.yml","mode":"100644","blob":"9d68f6ec4b032f6fae0dad8a68782b53423d1db2","bytes":16047,"sha256":"24530a00803c3d8858271fc566ccd19d201cb687439582ecf72ff84c8e93ca8b"},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","blob":"68eeba7446ec04da91facffcb2da81a64c90c706","bytes":92348,"sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af"},{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","blob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","bytes":18220,"sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943"},{"path":".github/workflows/production-full-stack-exact-sha.yml","mode":"100644","blob":"f0073b774c9448d8af497be02bbbe3c18f8c9b9d","bytes":61098,"sha256":"87aa4e5002aa68bf4476fe4a6af72e1fd9f3855c96e486b5dd097c7d55ba70cf"}],"sourcePatch":{"bytes":63529,"sha256":"08a2a0b8d59658df72887a3f84f8695f35f7e8d9198443cc17709f6c4756045c"},"sourceReviewArtifact":{"bytes":17317,"sha256":"0a88721124e28b1d34cb0bb2574c926c379708a5cd9935fb3cfb1c8367a106af"},"snapshot":{"exactFiles":8,"sharedCommand":["python3","-I","-B","scripts/test_production_stopped_runtime_headroom.py"],"wholeSharedSuiteRequired":true,"wholeNewStartupSuiteRequired":true,"unfilteredNodeRequired":true},"startupInline":[{"tag":"PY_DOCKER_STARTUP_CONTROLLER","filename":"docker-startup-controller.py","bytes":12869,"sha256":"3eea00d140637df95f776a4b280da65c4fc9372e8696d817d88f618d8b9cdfa0"},{"tag":"PY_DOCKER_STARTUP_FIXTURES","filename":"docker-startup-fixtures.py","bytes":22428,"sha256":"24b2ab640b48f0e7bd5d7992552f9ba0ccea39602ebabcfa300fdfc1b0d2215f"}],"bounds":{"maximumTransportsPerCommand":1,"maximumSequentialChildren":2,"argv":["/usr/bin/docker","--version"],"profiles":["INHERITED_AS","EXACT_AS_512_MIB"],"addressSpaceBytes":536870912,"commandSeconds":12,"comparisonSeconds":15,"transportSeconds":45,"maximumStreamBytes":16384,"commandFreshSeconds":300,"cpuSeconds":2,"coreBytes":0,"fileOutputBytes":0,"automaticReruns":0},"queueCapBytes":3145728,"stateCapBytes":3145728,"productionInvocationAuthorized":false,"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"}')
+              expected_core_sha256 = '9ccf540d55b14e2d2c9b34147bb23689646ddde96d7ca0844336f54eae7bf3ce'
+              canonical = lambda value: json.dumps(value, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+              if hashlib.sha256(canonical(expected_core).encode()).hexdigest() != expected_core_sha256:
+                  fail('STATIC_CORE')
+              def pairs(items):
+                  value = {}
+                  for key, item in items:
+                      if key in value:
+                          fail('DUPLICATE_KEY')
+                      value[key] = item
+                  return value
+              def record(selected):
+                  if content.count(selected) != 1:
+                      fail('PURPOSE_NOT_UNIQUE')
+                  encoded, fence, _ = content.split(selected, 1)[1].partition('\n```\n')
+                  if not fence or len(encoded.encode()) > 44298:
+                      fail('PURPOSE_CAPACITY_OR_FORMAT')
+                  value = json.loads(encoded, object_pairs_hook=pairs)
+                  if type(value) is not dict or canonical(value) != encoded:
+                      fail('PURPOSE_NOT_CANONICAL')
+                  return value, encoded
+              admission, encoded = record(marker)
+              if (set(admission) != {'schema','core','governanceAfter','governancePatch','governanceReview'} or
+                      admission['schema'] != 'pc.docker-startup-source-admission.v1' or
+                      canonical(admission['core']) != canonical(expected_core)):
+                  fail('PURPOSE_CORE')
+              source, source_text = record('\n## Docker startup address-space comparison purpose 20261108\n\n```json\n')
+              if (len(source_text.encode()) != expected_core['sourcePurpose']['bytes'] or
+                      hashlib.sha256(source_text.encode()).hexdigest() != expected_core['sourcePurpose']['sha256']):
+                  fail('SOURCE_PURPOSE')
+              if (exact_git('show', head + ':' + queue_path) != queue or
+                      exact_git('ls-tree', head, '--', queue_path).decode().strip() != entry):
+                  fail('AUTHORITY_MUTATION')
+              exact_git('merge-base', '--is-ancestor', expected_core['authorityBaseExactMain'], base)
+              exact_git('merge-base', '--is-ancestor', base, head)
+              def physical(path, data, mode):
+                  path = pathlib.Path(path)
+                  token = lambda info: (info.st_dev,info.st_ino,info.st_mode,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+                  before = path.lstat()
+                  fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+                  try:
+                      info = os.fstat(fd)
+                      if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != mode or
+                              token(before) != token(info) or info.st_size != len(data)):
+                          fail('PHYSICAL_IDENTITY')
+                      raw = bytearray()
+                      while len(raw) <= len(data):
+                          chunk = os.read(fd, len(data) + 1 - len(raw))
+                          if not chunk:
+                              break
+                          raw.extend(chunk)
+                      if bytes(raw) != data or token(os.fstat(fd)) != token(info) or token(path.lstat()) != token(info):
+                          fail('PHYSICAL_BYTES')
+                  finally:
+                      os.close(fd)
+              def checked(pin, both=True):
+                  if (type(pin) is not dict or set(pin) != {'path','mode','blob','bytes','sha256'} or
+                          pin['mode'] not in {'100644','100755'} or type(pin['bytes']) is not int or
+                          not 0 < pin['bytes'] <= 1024 * 1024):
+                      fail('PIN_SCHEMA')
+                  expected = pin['mode'] + ' blob ' + pin['blob'] + '\t' + pin['path']
+                  for ref in ([base, head] if both else [head]):
+                      if exact_git('ls-tree', ref, '--', pin['path']).decode().strip() != expected:
+                          fail('BLOB_OR_MODE')
+                  size = exact_git('cat-file', '-s', head + ':' + pin['path']).decode().strip()
+                  if not re.fullmatch(r'[0-9]{1,8}', size) or int(size) != pin['bytes']:
+                      fail('CONTENT_CAPACITY')
+                  data = exact_git('show', head + ':' + pin['path'])
+                  if len(data) != pin['bytes'] or hashlib.sha256(data).hexdigest() != pin['sha256']:
+                      fail('CONTENT')
+                  physical(pin['path'], data, 0o755 if pin['mode'] == '100755' else 0o644)
+                  return pin['path'], data
+              # The BASE guard already enforces the complete closed admission, before/after
+              # content, state, one-path diff, governance review and no candidate authority.
+              # Rebind all code actually read or executed here to that accepted BASE/HEAD.
+              if type(admission['governanceAfter']) is not list or len(admission['governanceAfter']) != 3:
+                  fail('GOVERNANCE_PINS')
+              for pin, prior in zip(admission['governanceAfter'], expected_core['governanceBefore']):
+                  if pin['path'] != prior['path'] or pin['mode'] != prior['mode']:
+                      fail('GOVERNANCE_PINS')
+                  checked(pin)
+              execution = dict(checked(pin) for pin in expected_core['unchangedHelpers'])
+              path, data = checked(expected_core['sourcePayloads'][0]['after'], False)
+              if path in execution:
+                  fail('DUPLICATE_EXECUTION_PATH')
+              execution[path] = data
+              shared = ['python3','-I','-B','scripts/test_production_stopped_runtime_headroom.py']
+              if len(execution) != 8 or expected_core['snapshot']['exactFiles'] != 8 or expected_core['snapshot']['sharedCommand'] != shared:
+                  fail('FIXED_EXECUTION_SET')
+              import textwrap
+              with tempfile.TemporaryDirectory(prefix='dsa-pinned-execution-') as directory:
+                  snapshot = pathlib.Path(directory) / 'source'
+                  runner = pathlib.Path(directory) / 'runner'
+                  snapshot.mkdir(); runner.mkdir()
+                  for path, data in execution.items():
+                      output = snapshot / path
+                      output.parent.mkdir(parents=True, exist_ok=True)
+                      output.write_bytes(data); output.chmod(0o400)
+                      physical(output, data, 0o400)
+                  workflow = execution[expected_core['sourcePayloads'][0]['after']['path']]
+                  for pin in expected_core['startupInline']:
+                      tag = pin['tag'].encode()
+                      matches = re.findall(rb"^          cat > .* <<'"+tag+rb"'\n(.*?)^          "+tag+rb"\n",workflow,re.M|re.S)
+                      if len(matches) != 1:
+                          fail('INLINE_NOT_UNIQUE')
+                      raw = textwrap.dedent(matches[0].decode()).encode()
+                      if len(raw) != pin['bytes'] or hashlib.sha256(raw).hexdigest() != pin['sha256']:
+                          fail('INLINE_CONTENT')
+                      output = runner / pin['filename']
+                      output.write_bytes(raw); output.chmod(0o400)
+                      physical(output, raw, 0o400)
+                  print('DSA_SOURCE_CONTROLS_PINNED_SNAPSHOT=' + json.dumps({'head':head,'cwd':str(snapshot),'files':[
+                      {'path':path,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()} for path,data in sorted(execution.items())]},separators=(',',':')),flush=True)
+                  # Unfiltered Node regressions already ran in the unchanged preceding step.
+                  # Keep every shared Python case, then run the complete exact new fixture.
+                  env = {**os.environ, 'PYTHONDONTWRITEBYTECODE':'1', 'RUNNER_TEMP':str(runner)}
+                  subprocess.run(shared, cwd=snapshot, env=env, check=True, timeout=90)
+                  subprocess.run(['python3','-I','-B',str(runner/'docker-startup-fixtures.py')],cwd=snapshot,env=env,check=True,timeout=90)
+                  if (sorted(str(p.relative_to(snapshot)) for p in snapshot.rglob('*') if p.is_file()) != sorted(execution) or
+                          any(p.is_symlink() for p in snapshot.rglob('*'))):
+                      fail('SNAPSHOT_EXTRA_OR_ALIAS')
+                  for path, data in execution.items():
+                      physical(snapshot/path, data, 0o400)
+                  for pin in expected_core['startupInline']:
+                      raw=(runner/pin['filename']).read_bytes()
+                      if len(raw) != pin['bytes'] or hashlib.sha256(raw).hexdigest() != pin['sha256']:
+                          fail('INLINE_DRIFT')
+                      physical(runner/pin['filename'],raw,0o400)
+                  if (sorted(p.name for p in runner.iterdir()) != sorted(pin['filename'] for pin in expected_core['startupInline']) or
+                          any(p.is_symlink() for p in runner.rglob('*')) or exact_git('rev-parse','HEAD').decode().strip()!=head):
+                      fail('RUNNER_OR_HEAD_DRIFT')
+              if snapshot.exists() or runner.exists():
+                  fail('SNAPSHOT_CLEANUP')
+              print('DSA_SOURCE_CONTROLS_EXACT_HEAD_PASS; SHARED_UNFILTERED_AND_STARTUP_CONTRACT; SNAPSHOT_REMOVED; HOST_AUTHORITY=NONE')
+              return True
+          if dsa_source_controls():
+              raise SystemExit(0)
+          # DSA_NATIVE_CONTROLS_END
           record = 'docs/platform-v7/autopilot/prompts/current-review-task.md'
           authority = git('show', base + ':' + record)
           if len(authority) > 2 * 1024 * 1024:
@@ -1085,7 +1248,128 @@ jobs:
           text = authority.decode('utf-8', errors='strict')
           marker = '\n## DC1 — Closed Docker diagnostic source purpose, 2026-11-01\n\n```json\n'
           dc2_marker = '\n## DC2 — Corrected Docker and cold source purpose, 2026-11-02\n\n```json\n'
-          if dc2_marker in text:
+          rg2_marker = '\n## RG2S — Closed geometry receipt source admission, 2026-11-02\n\n' + chr(96) * 3 + 'json\n'
+          if rg2_marker in text:
+              # RG2_NATIVE_CONTROLS_BEGIN: accepted data, exact source bytes, no host authority.
+              def rg2_fail(reason):
+                  raise SystemExit('RG2_SOURCE_CONTROLS_' + reason)
+              def rg2_pairs(pairs):
+                  value = {}
+                  for key, item in pairs:
+                      if key in value:
+                          rg2_fail('DUPLICATE_KEY')
+                      value[key] = item
+                  return value
+              def rg2_purpose(marker, digest):
+                  if text.count(marker) != 1:
+                      rg2_fail('PURPOSE_NOT_UNIQUE')
+                  encoded, fence, remainder = text.split(marker, 1)[1].partition('\n' + chr(96) * 3 + '\n')
+                  if not fence:
+                      rg2_fail('PURPOSE_FORMAT')
+                  try:
+                      value = json.loads(encoded, object_pairs_hook=rg2_pairs)
+                      canonical = json.dumps(value, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+                  except (ValueError, TypeError):
+                      rg2_fail('PURPOSE_FORMAT')
+                  if (type(value) is not dict or canonical != encoded or
+                          hashlib.sha256(encoded.encode('utf-8')).hexdigest() != digest):
+                      rg2_fail('PURPOSE_NOT_ACCEPTED')
+                  return value
+              original = rg2_purpose(rg2_marker, 'a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328')
+              correction = rg2_purpose('\n## RG2P — Pin-only source correction admission, 2026-11-02\n\n' + chr(96) * 3 + 'json\n',
+                                      '3becb5c92d70aa3830fe4b79d99a01e1ca26fd54c85981c8a9bc41b87344ffda')
+              controls = rg2_purpose('\n## RG2C — Native source control reader admission, 2026-11-02\n\n' + chr(96) * 3 + 'json\n',
+                                    '6d45d456e1577534c15c4264ec001fcd9f0e8f297a340c700c0fb9239d43df5c')
+              if (controls['schema'] != 'pc.rg2-native-source-controls-purpose.v1' or
+                      original['sourceBranch'] != correction['sourceBranch'] or
+                      original['sourceBranch'] != controls['sourceBranch'] or
+                      controls['sourceBranch'] != os.environ.get('GITHUB_HEAD_REF')):
+                  rg2_fail('BRANCH_OR_SCHEMA')
+              git('--no-replace-objects', 'merge-base', '--is-ancestor', controls['authorityBaseExactMain'], base)
+              workflow_pin = {'path': original['workflow']['path'], 'mode': original['workflow']['mode'],
+                              'blob': correction['workflow']['afterBlob'], 'bytes': correction['workflow']['afterBytes'],
+                              'sha256': correction['workflow']['afterSha256']}
+              if controls['sourceWorkflow'] != workflow_pin:
+                  rg2_fail('SOURCE_BINDING')
+              def rg2_physical(path, data, mode):
+                  physical = pathlib.Path(path)
+                  before = physical.lstat()
+                  token = lambda info: (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                  fd = os.open(physical, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+                  try:
+                      info = os.fstat(fd)
+                      if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != mode or
+                              token(info) != token(before) or info.st_size != len(data)):
+                          rg2_fail('WORKTREE_IDENTITY')
+                      actual = bytearray()
+                      while len(actual) <= len(data):
+                          chunk = os.read(fd, len(data) + 1 - len(actual))
+                          if not chunk:
+                              break
+                          actual.extend(chunk)
+                      if (bytes(actual) != data or token(os.fstat(fd)) != token(info) or
+                              token(physical.lstat()) != token(info)):
+                          rg2_fail('WORKTREE_CONTENT')
+                  finally:
+                      os.close(fd)
+              def rg2_checked(pin, require_base):
+                  path = pin['path']
+                  if pin['mode'] not in ('100644', '100755'):
+                      rg2_fail('MODE')
+                  expected = pin['mode'] + ' blob ' + pin['blob'] + '\t' + path
+                  for ref in ([base, head] if require_base else [head]):
+                      if git('--no-replace-objects', 'ls-tree', ref, '--', path).decode().strip() != expected:
+                          rg2_fail('BLOB_OR_MODE')
+                  size = int(git('--no-replace-objects', 'cat-file', '-s', head + ':' + path))
+                  if not 0 < size <= 1024 * 1024 or size != pin['bytes']:
+                      rg2_fail('CONTENT_CAPACITY')
+                  data = git('--no-replace-objects', 'show', head + ':' + path)
+                  if len(data) != size or hashlib.sha256(data).hexdigest() != pin['sha256']:
+                      rg2_fail('CONTENT')
+                  rg2_physical(path, data, 0o755 if pin['mode'] == '100755' else 0o644)
+                  return path, data
+              # The accepted guard already validated exact BASE/S/T, both crypto outputs
+              # and the two-pin reversal before this branch executes any source helper.
+              rg2_checked(controls['acceptedGuard'], True)
+              execution = dict(rg2_checked(pin, True) for pin in controls['unchangedHelperInputs'])
+              path, data = rg2_checked(workflow_pin, False)
+              if path in execution:
+                  rg2_fail('DUPLICATE_EXECUTION_PATH')
+              execution[path] = data
+              helper = 'scripts/test_production_stopped_runtime_headroom.py'
+              command = ['python3', '-I', '-B', helper]
+              if (len(execution) != 8 or controls['snapshot']['exactFiles'] != 8 or
+                      controls['snapshot']['execute'] != command or
+                      '.github/workflows/production-cold-preservation.yml' not in execution or helper not in execution):
+                  rg2_fail('FIXED_EXECUTION_SET')
+              with tempfile.TemporaryDirectory(prefix='rg2-pinned-execution-') as directory:
+                  snapshot = pathlib.Path(directory) / 'source'
+                  snapshot.mkdir()
+                  for path, data in execution.items():
+                      output = snapshot / path
+                      output.parent.mkdir(parents=True, exist_ok=True)
+                      output.write_bytes(data)
+                      output.chmod(0o400)
+                      rg2_physical(output, data, 0o400)
+                  print('RG2_SOURCE_CONTROLS_PINNED_SNAPSHOT=' + json.dumps({
+                      'head': head, 'cwd': str(snapshot), 'files': [
+                          {'path': path, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+                          for path, data in sorted(execution.items())]}, separators=(',', ':')), flush=True)
+                  # Every legacy/new Node assertion remains in the unfiltered standard
+                  # step. This distinct source case runs all fifty unchanged Python tests.
+                  subprocess.run(command, cwd=snapshot, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}, check=True)
+                  files = sorted(str(path.relative_to(snapshot)) for path in snapshot.rglob('*') if path.is_file())
+                  if files != sorted(execution) or any(path.is_symlink() for path in snapshot.rglob('*')):
+                      rg2_fail('SNAPSHOT_EXTRA_OR_ALIAS')
+                  for path, data in execution.items():
+                      rg2_physical(snapshot / path, data, 0o400)
+                  if git('--no-replace-objects', 'rev-parse', 'HEAD').decode().strip() != head:
+                      rg2_fail('HEAD_DRIFT')
+              if snapshot.exists():
+                  rg2_fail('SNAPSHOT_CLEANUP')
+              print('RG2_SOURCE_CONTROLS_EXACT_HEAD_PASS; SNAPSHOT_REMOVED; HOST_AUTHORITY=NONE')
+              # RG2_NATIVE_CONTROLS_END
+          elif dc2_marker in text:
               if text.count(dc2_marker) != 1:
                   raise SystemExit('DC2_SOURCE_CONTROLS_PURPOSE_NOT_UNIQUE')
               encoded = text.split(dc2_marker, 1)[1].split('\n```\n', 1)[0]
