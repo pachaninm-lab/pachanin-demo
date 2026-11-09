@@ -15013,3 +15013,70 @@ This prospective renewal takes effect only after its own separately accepted met
 Recover the raw Git blob from that exact commit/path or GitHub's Git Blob API, never a moving branch or rendered/truncated page. Verify blob identity, full byte count/SHA256, then the UTF-8 byte range [3128300,3141655): it must be the complete original 13,355-byte append with the pinned hash. Its full behavior/limitations and source-review qualifiers are incorporated unchanged; only carrier placement differs.
 
 Within that verified append extract the complete diff fence after the pinned heading. Require exactly 8,296 bytes and the completeZeroContextPatch hash above. Apply with `git apply --unidiff-zero` only to both exact before blobs; verify mode100644 and every after blob/byte/SHA256 pin, and reverse to the same before bytes. Missing carrier, mismatched bytes, scope or pins blocks derivation; no substitute or partial patch is authorized. Preserve the original public record and private freeze intact.
+
+
+## Proposed exact admission: gekta-preflight-5908-budget-class-extraction-20261109
+
+The full reviewed purpose/contract/carrier is incorporated from immutable DOCUMENT CONTENT ONLY, not accepted authority: commiteb85692c97a60758eec45aff66083b78ff24d6df, `docs/platform-v7/execution-queue.md`, blobf79bde38ec38d16dba0f7920ac564f8c364e347e,3143643B/SHA2567fef4fd2a912aa1258070f097c719c2bf02de9abafdf831ac2b9555f74d33642. Verify complete raw bytes, then range[3134250,3143643),9393B/SHA256cb4dece58292a48a992712da5c4be770f1399b20e1a25b8817b03a728df0654a; extract the complete5227B JSON fence under `Complete inert transformation carrier V2`, SHA25673ad94fe7b33afda11fdb84186fef740ab6ecd29eb77288bee844edf9ca15770. No moving/rendered/truncated substitute; mismatch blocks.
+
+All source pins are [Git blob,bytes,SHA256]:
+```text
+W=.github/workflows/production-like-kubernetes-acceptance.yml;mode=100644
+W.before=[94fab5c55ec224c783570c5c6a25cc0753f6575f,55220,8116d0e8a4affc7cd2c6dc1ee89668c3ba79fea229c14f6ca7d45de1be126363]
+W.after=[e5c888554976712e3e13a60a57a6000e583d5d45,21020,af408ac7e71b336c10a508d2024514d16cbfa7932a835a4874936a9eeb49c9c2]
+S=scripts/release/production-like-kubernetes-source-preflight-test.sh;mode=100755
+S.before=[a8eca0cb7c52441f1344f3222384ac86bc9587fd,21144,c6f5895133120f49df407d58a222f9173bc2706f9f88a5acbf3a413596e75217]
+S.after=[567b02448c0cb7db965cfb6e81f988e7d02ad3e4,54115,7fc36ae3e41bf436fd34f6c2feab66b9aa22351e8b09885b256649a576617cba]
+```
+
+Only after this metadata's separate exact-head review/owner audit/native/security/fresh readiness/manual full-SHA acceptance, prospectively replace only retained5908's old180s/kill5 prerequisite in coordinationAdmissions['gekta-anonymous-reserve-interface-locale-correction-20261010'].sourcePrerequisites with exact-case same-repository collector420/435/kill5. Preserve raw old state/history. GitHub's case-insensitive wrapper may grant uppercase10min while strict collector stays180/195; all ordinary/branch-scope limits, existing classes, commands and checks remain. Admit the complete oversized SourceBudgetChecks extraction to the existing script, explicit selection and unchanged default suites.420s is proposed, not measured sufficient/minimal.
+
+Executable Python: reject -O/-OO; enforce canonical base64 decode/re-encode equality, bounded single-member gzip and independent non-assert input/output blob/byte/SHA/mode checks. Caller intentionally compile+execs exact hash-verified decoded bytes in an explicit namespace, never importlib/paths/cached bytecode; this differs from the transform no-dynamic-execution rule. Reviewed full carrier only; extra/mismatched output blocks. Source branch `fix/gekta-k8s-retained-capacity-20261009` retains its two-path scope. Match both before pins on then-current accepted main; all foreign leaves stay intact.
+
+Private source/carrier review: https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6729214298;15951B/SHA256c1925bab8b9fc1a64ad826606330ac259cd035eabe2a8b5799af82ad2f1fd780, not head approval. Sequence: accepted joint metadata, then separate preflight-source review/audit/native/readiness/manual acceptance, then corrected language composed once on resulting main and its new actual-head gates. Preserve the19-path language vector, full accepted queue prefix/state/caps and Docker priority; no host/model/release grant.
+
+### Dated language execution qualification
+
+The retained language component's React NOT_RUN wording records the private review snapshot of2026-11-08T23:38:57Z. ROOT's local receipt https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6729000175 at2026-11-09T00:00:07Z is4242B/SHA256 f5b773eb4c79b8fc2d37dae50bbd6a8c83b708ee809b340ae3a35ab2ddc9e30c: the same52 files/2084 cases passed, including language49/new16, on exact4a5/465 bytes. This supersedes only that local selected-suite NOT_RUN claim. The preserved first environment failure and disclosed reconstructed Git index/unmaterialized absolute link remain qualifications. No native, browser, published-head or release PASS follows; ae363 remains BLOCKED.
+
+
+## Proposed exact lookup renewal: gekta-document-language-lookup-correction-20261109
+
+Basis: accepted #6125 at 2ae3c14d6ad5ea3a9fdc2d4574b2aa15224b57c4, `docs/platform-v7/execution-queue.md` blob 2142c27131156448d0769b505e459b859b399cf0, 3134250B. Incorporate its exact record [3128300,3134250),5950B/SHA256 25e1aa358fe42a9e1ba63915a0e70983e4f31d9743c8fd4e50fdb9358f45ffef: same purpose, routing, lifecycle and boundaries. Preserve every accepted prefix byte, old admissions, 19-path vector, state, prompts, guards, workflows, caps and owners. Overlap/same-value ownership remains unsupported/unrepaired.
+
+Carrier ae3634a7d3e0b16012d887694e050fa71d33e100 is immutable CONTENT ONLY, BLOCKED, never accepted authority. Only first exact case-insensitive existing-meta lookup changes; all 16 cases/test bytes stay unchanged.
+
+Pins=[Git blob,bytes,SHA256]; mode100644.
+```text
+R=apps/web/components/gekta/GektaChatWorkspace.tsx
+T=apps/web/tests/unit/gektaVoiceAndLegal.test.ts
+R.before=[9a0743075bc6898bb80d1cee0bc90e4507b30525,64713,4c9ce464b52c60425eee16854a265f0751bee46c109a87358ecc2fc7cea0c81b]
+R.public=[b56a2df456e4d06d5d699e9babce4df52588585b,65962,6e906bc5f28538fdeed132de2e5e9122bd5e717d94f82be3c63e7750301bc30c]
+R.after=[4a5ec3f9a6873ee900637c881e5fe52115205bbd,66037,638403fb281e9450885f64689d70bb8a0e08e4d4ddbd10fc93541c37d2202e77]
+T.before=[030dc5091ce2c3c117b97480fa366f35e182e847,33430,5c8718555c27bb9cbdca5225fa13368a7775a04ae76c038b3e124335092a4ee5]
+T.public=T.after=[465549122dcfdc824703975b59e503380bf295ee,39656,b64cc3322b7e7548d4bca19b117dc4a5c7afa6a0d5d2ef64878ea6a07cc5e6bd]
+```
+
+Fetch raw R/T at exact carrier commit/path or Git Blob API; verify public pins/modes. No moving/truncated substitute. Complete diff below: 983B/SHA256 48e6028a5eb7eca6aca6f62635d23629480c4d6dcb17f2cff659394fecdc2947. Apply to R.public, T unchanged; verify after pins and reverse exact public bytes. Missing/mismatched pins/carrier or extra change blocks. Full before-to-after payload: R+25/T+125, total+150/-0. Reviewed contextual patch:8865B/SHA256 ef007bdba09c6fc1e3b4622efd39f1420d63cc635d4d4c68cf7d8a2ddd7121a6; zero-context:8373B/SHA256 4e46fca9b9e4e44f220bb735977bfdc43d6af793503f6948af30eba0103a0610.
+
+Independent private review: https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6728780308, 8468B/SHA256 8efa411bf86e4808032e2640194c66169f08a4cfb7b4359c20d2a819176515f3. PRIVATE PASS, not head approval. New full React/native/browser NOT_RUN; old PASS never transfers. K8s timeout remains separate.
+
+New after requires separate metadata acceptance: independent exact-head review, owner audit, applicable native/security, fresh readiness, manual full expected-SHA merge BEFORE source update. Then match both before pins on accepted main, retain source ancestry/nonforce, change only these two leaves; require new head review/audit/native/browser/readiness/manual acceptance. Docker priority/main handoff and release/host/model authority stay separate.
+
+```diff
+diff --git a/apps/web/components/gekta/GektaChatWorkspace.tsx b/apps/web/components/gekta/GektaChatWorkspace.tsx
+index b56a2df456e4d06d5d699e9babce4df52588585b..4a5ec3f9a6873ee900637c881e5fe52115205bbd 100644
+--- a/apps/web/components/gekta/GektaChatWorkspace.tsx
++++ b/apps/web/components/gekta/GektaChatWorkspace.tsx
+@@ -169,7 +169,9 @@
+     const root = document.documentElement;
+     const language = locale === 'zh' ? 'zh-CN' : locale;
+     const previousLanguage = root.getAttribute('lang');
+-    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
++    const contentLanguage = Array.from(
++      document.querySelectorAll<HTMLMetaElement>('meta[http-equiv]'),
++    ).find((meta) => meta.httpEquiv.toLowerCase() === 'content-language');
+     const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
+     root.setAttribute('lang', language);
+     contentLanguage?.setAttribute('content', language);
+```
