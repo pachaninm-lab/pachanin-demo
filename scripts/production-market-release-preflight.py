@@ -76,6 +76,850 @@ let failureCode = 'READ_ONLY_NOT_PROVEN';
 '''
 
 
+# Bounded execution exists only in the explicitly selected original-inventory
+# mode. The default v6 and isolated registry-publication entry points retain
+# their existing interfaces. These constants are source purpose, not a grant.
+DOCKER_AS_BYTES = 2 * 1024 * 1024 * 1024
+PARSER_AS_BYTES = 512 * 1024 * 1024
+BROKER_AS_BYTES = 256 * 1024 * 1024
+DOCKER_CPU_SECONDS = 2
+COLLECTION_SECONDS = 175
+COLLECTION_CLEANUP_SECONDS = 2
+DOCKER_REQUEST_BYTES = 131072
+DOCKER_RESPONSE_BYTES = 3 * 1024 * 1024
+DOCKER_ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'}
+
+
+class DockerExecutionRefusal(Exception):
+    """Closed internal failure; its arguments are never published."""
+
+
+def docker_require(condition: Any) -> None:
+    if not condition:
+        raise DockerExecutionRefusal('BOUNDED_EXECUTION_NOT_PROVEN')
+
+
+def docker_deadline(value: Any) -> float:
+    import math
+    docker_require(type(value) in (float, int) and math.isfinite(value)
+                   and 0 < value - time.monotonic() <= COLLECTION_SECONDS)
+    return float(value)
+
+
+class OwnedProcessTree:
+    """One fresh single-thread parent's ancestry; no stale group-ID signals.
+
+    A child remains waitable while its PID is signalled. Detached descendants
+    become this subreaper's children when their intervening parents terminate.
+    Every signal is preceded by a native waitid ownership check; UID-wide and
+    unrelated-process cleanup are not available operations.
+    """
+    WALL = 0x40000000
+    MAX_CHILDREN = 128
+
+    def __init__(self):
+        import threading
+        self.libc = ctypes.CDLL(None, use_errno=True)
+        self.previous = ctypes.c_int(-1)
+        self.active = False
+        namespace = self.namespace_ids('/proc/self/status')
+        docker_require(namespace[-1] == os.getpid())
+        self.namespace_depth = len(namespace) - 1
+        self.procfs_pid = namespace[0]
+        docker_require(threading.current_thread() is threading.main_thread()
+                       and threading.active_count() == 1
+                       and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL)
+        try:
+            os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOWAIT | os.WNOHANG | self.WALL)
+        except ChildProcessError:
+            pass
+        else:
+            raise DockerExecutionRefusal('PARENT_HAS_CHILDREN')
+        docker_require(self.libc.prctl(37, ctypes.byref(self.previous), 0, 0, 0) == 0
+                       and self.previous.value == 0
+                       and self.libc.prctl(36, 1, 0, 0, 0) == 0)
+        self.active = True
+
+    @staticmethod
+    def namespace_ids(path: str) -> list[int]:
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        try:
+            raw = os.read(fd, 65537)
+        finally:
+            os.close(fd)
+        rows = re.findall(rb'^NSpid:[ \t]+([0-9 \t]+)$', raw, re.M)
+        docker_require(len(raw) <= 65536 and len(rows) == 1)
+        values = [int(value) for value in rows[0].split()]
+        docker_require(1 <= len(values) <= 32 and all(0 < value < 2**31 for value in values))
+        return values
+
+    def children(self, deadline: float) -> set[int]:
+        # procfs may be mounted from an ancestor PID namespace. Its numeric
+        # directory names must never be passed directly to local kill/waitid.
+        try:
+            fd = os.open('/proc/thread-self/children', os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            # CONFIG_CHECKPOINT_RESTORE may omit the children file. Read only
+            # bounded numeric PID/PPid metadata; names and other process fields
+            # are neither retained nor emitted. A procfs match never authorizes
+            # a signal: native waitid ownership remains mandatory below.
+            procfs_ids, scanned = [], 0
+            with os.scandir('/proc') as entries:
+                for entry in entries:
+                    docker_require(time.monotonic() < deadline)
+                    if not re.fullmatch(r'[1-9][0-9]*', entry.name):
+                        continue
+                    scanned += 1
+                    docker_require(scanned <= 4096)
+                    fd = None
+                    try:
+                        fd = os.open('/proc/' + entry.name + '/stat', os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+                        raw = os.read(fd, 8193)
+                        docker_require(len(raw) <= 8192)
+                        end = raw.rfind(b') ')
+                        fields = raw[end + 2:].split() if end >= 0 else []
+                        docker_require(len(fields) >= 2 and fields[1].isdigit())
+                        if int(fields[1]) == self.procfs_pid:
+                            procfs_ids.append(int(entry.name))
+                    except (FileNotFoundError, ProcessLookupError, PermissionError):
+                        continue
+                    finally:
+                        if fd is not None:
+                            os.close(fd)
+        else:
+            try:
+                raw = os.read(fd, 8193)
+            finally:
+                os.close(fd)
+            docker_require(len(raw) <= 8192 and re.fullmatch(rb'(?:[1-9][0-9]*\s*)*', raw) is not None)
+            procfs_ids = [int(value) for value in raw.split()]
+        docker_require(len(procfs_ids) == len(set(procfs_ids)) <= self.MAX_CHILDREN
+                       and all(0 < value < 2**31 for value in procfs_ids))
+        values = set()
+        for procfs_id in procfs_ids:
+            docker_require(time.monotonic() < deadline)
+            namespace = self.namespace_ids('/proc/' + str(procfs_id) + '/status')
+            docker_require(namespace[0] == procfs_id and len(namespace) > self.namespace_depth)
+            pid = namespace[self.namespace_depth]
+            docker_require(pid != os.getpid() and pid not in values)
+            values.add(pid)
+        return values
+
+    def observe(self, pid: int) -> int | None:
+        docker_require(self.active and type(pid) is int and 0 < pid < 2**31)
+        value = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT | os.WNOHANG | self.WALL)
+        if value is None:
+            return None
+        docker_require(value.si_pid == pid and value.si_code in (os.CLD_EXITED, os.CLD_KILLED, os.CLD_DUMPED))
+        return value.si_status if value.si_code == os.CLD_EXITED else -value.si_status
+
+    def cleanup(self, deadline: float) -> bool:
+        clean, reaped = True, 0
+        try:
+            while time.monotonic() < deadline and reaped < self.MAX_CHILDREN:
+                children = self.children(deadline)
+                for pid in sorted(children):
+                    try:
+                        if self.observe(pid) is None:
+                            os.kill(pid, signal.SIGKILL)
+                    except (OSError, DockerExecutionRefusal):
+                        clean = False
+                for pid in sorted(children):
+                    try:
+                        if self.observe(pid) is not None:
+                            value = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | self.WALL)
+                            docker_require(value is not None and value.si_pid == pid)
+                            reaped += 1
+                    except (OSError, DockerExecutionRefusal):
+                        clean = False
+                if not self.children(deadline):
+                    try:
+                        os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOWAIT | os.WNOHANG | self.WALL)
+                    except ChildProcessError:
+                        return clean
+                    # Adoption can race a procfs scan. A non-ECHILD result is
+                    # not cleanup proof; inspect again within the same budget.
+                    continue
+                time.sleep(min(.005, max(0, deadline - time.monotonic())))
+        except (OSError, DockerExecutionRefusal):
+            return False
+        return False
+
+    def close(self, deadline: float) -> bool:
+        try:
+            return self.active and self.cleanup(deadline)
+        finally:
+            if self.active:
+                self.active = False
+                if self.libc.prctl(36, self.previous.value, 0, 0, 0) != 0:
+                    raise DockerExecutionRefusal('SUBREAPER_RESTORE')
+
+
+def docker_close_descriptors(allowed: set[int]) -> None:
+    """Close above the *old* FD ceiling too; CLOEXEC alone is insufficient."""
+    import errno
+    libc = ctypes.CDLL(None, use_errno=True)
+    close_range = libc.close_range
+    close_range.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
+    close_range.restype = ctypes.c_int
+    first = 3
+    for fd in sorted(value for value in allowed if value >= 3):
+        docker_require(type(fd) is int and fd < 64)
+        if first < fd:
+            docker_require(close_range(first, fd - 1, 0) == 0)
+        first = fd + 1
+    docker_require(close_range(first, 0xffffffff, 0) == 0)
+    # listdir's temporary directory FD has closed before this independent scan.
+    for name in os.listdir('/proc/self/fd'):
+        fd = int(name)
+        if fd not in allowed:
+            try:
+                os.fstat(fd)
+            except OSError as error:
+                docker_require(error.errno == errno.EBADF)
+            else:
+                raise DockerExecutionRefusal('INHERITED_DESCRIPTOR')
+
+
+def docker_frame_read(fd: int, maximum: int, deadline: float, *, eof: bool = False) -> Any:
+    def exact(count: int, allow_eof: bool = False) -> bytes | None:
+        value = bytearray()
+        with selectors.DefaultSelector() as poller:
+            poller.register(fd, selectors.EVENT_READ)
+            while len(value) < count:
+                left = deadline - time.monotonic()
+                docker_require(left > 0 and bool(poller.select(left)))
+                try:
+                    block = os.read(fd, min(65536, count - len(value)))
+                except BlockingIOError:
+                    continue
+                if not block and allow_eof and not value:
+                    return None
+                docker_require(bool(block))
+                value.extend(block)
+        return bytes(value)
+    header = exact(4, eof)
+    if header is None:
+        return None
+    size = int.from_bytes(header, 'big')
+    docker_require(0 < size <= maximum)
+    raw = exact(size)
+    def pairs(rows):
+        result = {}
+        for key, value in rows:
+            docker_require(key not in result)
+            result[key] = value
+        return result
+    return json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
+                      parse_constant=lambda _: (_ for _ in ()).throw(DockerExecutionRefusal()))
+
+
+def docker_frame_write(fd: int, value: Any, maximum: int, deadline: float) -> None:
+    raw = json.dumps(value, ensure_ascii=True, allow_nan=False, separators=(',', ':')).encode('ascii')
+    docker_require(0 < len(raw) <= maximum)
+    packet = memoryview(len(raw).to_bytes(4, 'big') + raw)
+    with selectors.DefaultSelector() as poller:
+        poller.register(fd, selectors.EVENT_WRITE)
+        while packet:
+            left = deadline - time.monotonic()
+            docker_require(left > 0 and bool(poller.select(left)))
+            try:
+                count = os.write(fd, packet)
+            except BlockingIOError:
+                continue
+            docker_require(count > 0)
+            packet = packet[count:]
+
+
+class FixedDockerExecutable:
+    """The production constructor has one fixed local executable, no CLI override."""
+    path = '/usr/bin/docker'
+
+    def verify(self) -> tuple[int, ...]:
+        docker_require(capacity_fixed_path_ready(self.path, directory=False))
+        value = os.stat(self.path, follow_symlinks=False)
+        docker_require(stat.S_ISREG(value.st_mode) and value.st_mode & 0o111)
+        return tuple(getattr(value, key) for key in ('st_dev', 'st_ino', 'st_mode', 'st_uid',
+                     'st_gid', 'st_size', 'st_mtime_ns', 'st_ctime_ns'))
+
+
+def docker_operation(argv: Any, source: Any = None) -> dict[str, Any]:
+    """Encode existing calls into a closed vocabulary; never forward raw argv."""
+    docker_require(type(argv) is list and argv and all(type(value) is str for value in argv)
+                   and argv[0] in ('docker', '/usr/bin/docker'))
+    args = argv[1:]
+    if args[:2] == ['--host', 'unix:///run/docker.sock']:
+        args = args[2:]
+    fixed = {('ps', '-aq', '--no-trunc'): 'containers-list', ('volume', 'ls', '-q'): 'volumes-list',
+             ('network', 'ls', '-q', '--no-trunc'): 'networks-list',
+             ('image', 'ls', '-aq', '--no-trunc'): 'images-list',
+             ('info', '--format', '{{json .DockerRootDir}}'): 'docker-root'}
+    if tuple(args) in fixed and source is None:
+        return {'op': fixed[tuple(args)]}
+    if args[:3] == ['ps', '-q', '--filter'] and len(args) in (4, 6) and source is None:
+        prefix = 'label=com.docker.compose.service='
+        docker_require(args[3].startswith(prefix) and args[3][len(prefix):] in ('api', 'web'))
+        project = None
+        if len(args) == 6:
+            marker = 'label=com.docker.compose.project='
+            docker_require(args[4] == '--filter' and args[5].startswith(marker)
+                           and PROJECT.fullmatch(args[5][len(marker):]) is not None)
+            project = args[5][len(marker):]
+        return {'op': 'service-list', 'service': args[3][len(prefix):], 'project': project}
+    if args[:4] == ['ps', '-aq', '--no-trunc', '--filter'] and len(args) == 5 and source is None:
+        marker = 'label=com.docker.compose.project='
+        docker_require(args[4].startswith(marker) and PROJECT.fullmatch(args[4][len(marker):]) is not None)
+        return {'op': 'project-list', 'project': args[4][len(marker):]}
+    if source is None and (args[:1] == ['inspect'] or args[:2] == ['image', 'inspect']):
+        image = args[:2] == ['image', 'inspect']
+        identities = args[2:] if image else args[1:]
+        pattern = IMAGE_ID if image else re.compile(r'[0-9a-f]{12,64}\Z')
+        docker_require(1 <= len(identities) <= (512 if image else 128)
+                       and len(set(identities)) == len(identities)
+                       and all(pattern.fullmatch(value) is not None for value in identities))
+        return {'op': 'image-inspect' if image else 'container-inspect', 'ids': identities}
+    if len(args) == 5 and args[:2] == ['exec', '-i'] and args[3:] == ['/nodejs/bin/node', '-']:
+        docker_require(re.fullmatch(r'[0-9a-f]{12,64}', args[2]) is not None and type(source) is str)
+        programs = {'migration': DB_PROGRAM, 'probe': DB_PROBE_PROGRAM,
+                    'catalog': read_only_program(CATALOG_SQL), 'principal': read_only_program(PRINCIPAL_SQL)}
+        keys = [key for key, text in programs.items() if source == text]
+        docker_require(len(keys) == 1 and len(source.encode('utf-8')) <= 4096)
+        return {'op': 'exec-metadata', 'container': args[2], 'program': keys[0]}
+    if source is None and len(args) >= 10 and args[:2] == ['compose', '--project-directory']:
+        docker_require(args[3] == '--project-name' and args[-3:] == ['config', '--format', 'json']
+                       and PROJECT.fullmatch(args[4]) is not None and (len(args) - 8) % 2 == 0)
+        middle = args[5:-3]
+        docker_require(2 <= len(middle) <= 32 and all(middle[i] == '-f' for i in range(0, len(middle), 2)))
+        files = middle[1::2]
+        values = [args[2], *files]
+        docker_require(len(files) == len(set(files)) and all(value.startswith('/')
+                       and len(value.encode('utf-8')) <= 4096
+                       and not any(ord(char) < 32 or ord(char) == 127 for char in value) for value in values))
+        return {'op': 'compose-config', 'directory': args[2], 'project': args[4], 'files': files}
+    raise DockerExecutionRefusal('UNRECOGNIZED_OPERATION')
+
+
+def docker_command(operation: Any, binary: FixedDockerExecutable) -> tuple[list[str], bytes, bool]:
+    """Decode independently in the FD-isolated broker, including source identity."""
+    docker_require(type(operation) is dict and type(operation.get('op')) is str)
+    name = operation['op']
+    fixed = {'containers-list': ['ps', '-aq', '--no-trunc'], 'volumes-list': ['volume', 'ls', '-q'],
+             'networks-list': ['network', 'ls', '-q', '--no-trunc'], 'images-list': ['image', 'ls', '-aq', '--no-trunc'],
+             'docker-root': ['info', '--format', '{{json .DockerRootDir}}']}
+    source = None
+    if name in fixed:
+        docker_require(set(operation) == {'op'})
+        args = fixed[name]
+    elif name == 'service-list':
+        docker_require(set(operation) == {'op', 'service', 'project'} and type(operation['service']) is str)
+        args = ['ps', '-q', '--filter', 'label=com.docker.compose.service=' + operation['service']]
+        if operation['project'] is not None:
+            docker_require(type(operation['project']) is str)
+            args += ['--filter', 'label=com.docker.compose.project=' + operation['project']]
+    elif name == 'project-list':
+        docker_require(set(operation) == {'op', 'project'} and type(operation['project']) is str)
+        args = ['ps', '-aq', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + operation['project']]
+    elif name in ('container-inspect', 'image-inspect'):
+        docker_require(set(operation) == {'op', 'ids'} and type(operation['ids']) is list)
+        args = (['inspect'] if name == 'container-inspect' else ['image', 'inspect']) + operation['ids']
+    elif name == 'exec-metadata':
+        docker_require(set(operation) == {'op', 'container', 'program'} and type(operation['container']) is str)
+        programs = {'migration': DB_PROGRAM, 'probe': DB_PROBE_PROGRAM,
+                    'catalog': read_only_program(CATALOG_SQL), 'principal': read_only_program(PRINCIPAL_SQL)}
+        docker_require(type(operation['program']) is str and operation['program'] in programs)
+        args = ['exec', '-i', operation['container'], '/nodejs/bin/node', '-']
+        source = programs[operation['program']]
+    elif name == 'compose-config':
+        docker_require(set(operation) == {'op', 'directory', 'project', 'files'}
+                       and type(operation['files']) is list and all(type(value) is str for value in operation['files'])
+                       and type(operation['directory']) is str and type(operation['project']) is str)
+        args = ['compose', '--project-directory', operation['directory'], '--project-name', operation['project']]
+        for path in operation['files']:
+            args += ['-f', path]
+        args += ['config', '--format', 'json']
+        web = {'Config': {'Labels': {'com.docker.compose.project': operation['project'],
+               'com.docker.compose.project.working_dir': operation['directory'],
+               'com.docker.compose.project.config_files': ','.join(operation['files'])}}}
+        docker_require(compose_config_command(web, operation['project']) == ['docker', *args])
+    else:
+        raise DockerExecutionRefusal('UNRECOGNIZED_OPERATION')
+    docker_require(docker_operation(['docker', *args], source) == operation)
+    return [binary.path, '--host', 'unix:///run/docker.sock', *args], source.encode('utf-8') if source else b'', name == 'exec-metadata'
+
+
+def local_operation(argv: Any) -> dict[str, str]:
+    """The two existing non-Docker read families; no arbitrary local command."""
+    docker_require(type(argv) is list and all(type(value) is str for value in argv))
+    if len(argv) == 7 and argv[:6] == ['/usr/bin/du', '--summarize', '--block-size=1', '--one-file-system', '--null', '--']:
+        choices = [key for key, path in CAPACITY_DISK_PATHS.items() if path == argv[-1]]
+        docker_require(len(choices) == 1)
+        return {'op': 'disk-usage', 'category': choices[0]}
+    if len(argv) == 3 and argv[:2] == ['/usr/bin/pg_restore', '--list']:
+        path = Path(argv[2])
+        name = path.name
+        docker_require(path.parent == Path('/var/lib/pc-release-authority/backups')
+                       and name.endswith('.backup') and 0 < len(name.encode('utf-8')) <= 255
+                       and '/' not in name and '\x00' not in name)
+        return {'op': 'backup-catalog', 'name': name}
+    raise DockerExecutionRefusal('UNRECOGNIZED_LOCAL_OPERATION')
+
+
+def local_command(operation: Any) -> list[str]:
+    docker_require(type(operation) is dict)
+    if operation.get('op') == 'disk-usage':
+        docker_require(set(operation) == {'op', 'category'} and type(operation['category']) is str
+                       and operation['category'] in CAPACITY_DISK_PATHS)
+        path = CAPACITY_DISK_PATHS[operation['category']]
+        docker_require(capacity_fixed_path_ready('/usr/bin/du', directory=False)
+                       and capacity_fixed_path_ready(path, directory=True))
+        argv = ['/usr/bin/du', '--summarize', '--block-size=1', '--one-file-system', '--null', '--', path]
+    elif operation.get('op') == 'backup-catalog':
+        docker_require(set(operation) == {'op', 'name'} and type(operation['name']) is str)
+        name = operation['name']
+        docker_require(name.endswith('.backup') and 0 < len(name.encode('utf-8')) <= 255
+                       and '/' not in name and '\x00' not in name)
+        path = Path('/var/lib/pc-release-authority/backups') / name
+        info = path.lstat()
+        # Repeat the existing catalog caller's no-symlink/private/root/age
+        # conditions in the guardian; the original path and argv stay fixed.
+        docker_require(stat.S_ISREG(info.st_mode) and info.st_size > 0 and info.st_uid == 0
+                       and stat.S_IMODE(info.st_mode) & 0o077 == 0
+                       and dt.datetime.now(dt.timezone.utc).timestamp() >= info.st_mtime)
+        argv = ['/usr/bin/pg_restore', '--list', str(path)]
+    else:
+        raise DockerExecutionRefusal('UNRECOGNIZED_LOCAL_OPERATION')
+    docker_require(local_operation(argv) == operation)
+    return argv
+
+
+class NativeCommand:
+    """Raw-fork child whose exec-status pipe never blocks the parent startup."""
+    def __init__(self, stdin: int, stdout: int, stderr: int, exec_status: int):
+        self.pid = None
+        self.stdin, self.stdout, self.stderr, self.exec_status = stdin, stdout, stderr, exec_status
+        self.returncode = None
+
+    def close(self, name: str) -> None:
+        fd = getattr(self, name)
+        if fd is not None:
+            setattr(self, name, None)
+            os.close(fd)
+
+
+def docker_child_limits(parent: int, docker: bool) -> None:
+    import resource
+    if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
+        os._exit(125)
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    if docker:
+        # Soft256MiB belongs to the broker; only soft is raised to its existing
+        # finite hard2GiB for this direct Docker child.
+        docker_require(resource.getrlimit(resource.RLIMIT_AS)[1] == DOCKER_AS_BYTES)
+        docker_require(all(value == resource.RLIM_INFINITY or value >= DOCKER_CPU_SECONDS
+                           for value in resource.getrlimit(resource.RLIMIT_CPU)))
+        resource.setrlimit(resource.RLIMIT_AS, (DOCKER_AS_BYTES, DOCKER_AS_BYTES))
+        resource.setrlimit(resource.RLIMIT_CPU, (DOCKER_CPU_SECONDS, DOCKER_CPU_SECONDS))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+    else:
+        # The same surviving guardian owns local helpers, but only Docker gets
+        # 2GiB. No local helper or GPG is exec'd above its original hard ceiling.
+        docker_require(resource.getrlimit(resource.RLIMIT_AS)[1] == DOCKER_AS_BYTES)
+        resource.setrlimit(resource.RLIMIT_AS, (PARSER_AS_BYTES, PARSER_AS_BYTES))
+    for name in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ', 'SIGTERM', 'SIGALRM'):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), signal.SIG_DFL)
+    signal.pthread_sigmask(signal.SIG_SETMASK, [])
+
+
+def spawn_owned_command(argv: list[str], docker: bool) -> NativeCommand:
+    """Mask only fork/PID registration, never child setup or an exec handshake."""
+    owned: set[int] = set()
+    def pipe():
+        pair = os.pipe()
+        owned.update(pair)
+        return pair
+    try:
+        stdin_r, stdin_w = pipe(); stdout_r, stdout_w = pipe()
+        stderr_r, stderr_w = pipe(); status_r, status_w = pipe()
+        docker_require(max(owned) < 64)
+        child = NativeCommand(stdin_w, stdout_r, stderr_r, status_r)
+        parent = os.getpid()
+        old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGALRM})
+        try:
+            pid = os.fork()
+            if pid == 0:
+                try:
+                    os.setsid()
+                    os.dup2(stdin_r, 0); os.dup2(stdout_w, 1); os.dup2(stderr_w, 2)
+                    docker_close_descriptors({0, 1, 2, status_w})
+                    # os.pipe creates a CLOEXEC status descriptor. It is closed
+                    # by successful exec and multiplexed alongside both outputs.
+                    docker_require(not os.get_inheritable(status_w))
+                    docker_child_limits(parent, docker)
+                    os.chdir('/')
+                    os.write(status_w, b'R')
+                    os.execve(argv[0], argv, DOCKER_ENV)
+                except BaseException:
+                    try:
+                        os.write(status_w, b'F')
+                    except OSError:
+                        pass
+                os._exit(125)
+            child.pid = pid
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+        for fd in (stdin_r, stdout_w, stderr_w, status_w):
+            os.close(fd); owned.remove(fd)
+        owned.clear()
+        return child
+    finally:
+        for fd in owned:
+            os.close(fd)
+
+
+def bounded_program(owner: OwnedProcessTree, argv: list[str], data: bytes, deadline: float,
+                    stream_limit: int, io_limit: int, *, docker: bool) -> dict[str, Any]:
+    started = time.monotonic()
+    result = {'status': 'NOT_RUN', 'elapsed_ms': 0, 'stdout_bytes': 0, 'stderr_bytes': 0,
+              'started': False, 'cleanup': True, 'exit_code': None, 'payload': None}
+    if deadline - started <= .25:
+        return result
+    work_deadline = deadline - .25
+    proc, output, exec_status = None, bytearray(), bytearray()
+    sizes = {'out': 0, 'err': 0}
+    try:
+        docker_require(type(data) is bytes and len(data) <= 4096 and type(stream_limit) is int
+                       and 0 < stream_limit <= CAPACITY_OUTPUT_BYTES and type(io_limit) is int
+                       and 0 < io_limit <= CAPACITY_TOTAL_BYTES)
+        proc = spawn_owned_command(argv, docker)
+        result['started'] = True
+        os.set_blocking(proc.stdin, False)
+        if data:
+            docker_require(os.write(proc.stdin, data) == len(data))
+        proc.close('stdin')
+        result['status'] = 'UNKNOWN'
+        with selectors.DefaultSelector() as poller:
+            for stream, name in ((proc.stdout, 'out'), (proc.stderr, 'err'), (proc.exec_status, 'exec')):
+                os.set_blocking(stream, False)
+                poller.register(stream, selectors.EVENT_READ, name)
+            while poller.get_map():
+                remaining = work_deadline - time.monotonic()
+                if remaining <= 0:
+                    result['status'] = 'TIMED_OUT'
+                    break
+                for key, _ in poller.select(min(.05, remaining)):
+                    try:
+                        size = (3 - len(exec_status) if key.data == 'exec' else
+                                max(1, min(65536, stream_limit - sizes[key.data] + 1,
+                                           io_limit - sum(sizes.values()) + 1)))
+                        block = os.read(key.fd, size)
+                    except BlockingIOError:
+                        continue
+                    if not block:
+                        poller.unregister(key.fileobj)
+                        continue
+                    if key.data == 'exec':
+                        exec_status.extend(block)
+                        docker_require(bytes(exec_status) in (b'R', b'F', b'RF'))
+                        if exec_status.endswith(b'F'):
+                            result['started'] = False
+                        continue
+                    sizes[key.data] += len(block)
+                    if sizes[key.data] > stream_limit or sum(sizes.values()) > io_limit:
+                        result['status'] = 'OUTPUT_LIMIT'
+                        break
+                    if key.data == 'out':
+                        output.extend(block)
+                if result['status'] == 'OUTPUT_LIMIT':
+                    break
+            else:
+                while time.monotonic() < work_deadline:
+                    code = owner.observe(proc.pid)
+                    if code is not None:
+                        result['exit_code'] = code
+                        result['status'] = ('SUCCESS' if code == 0 and exec_status == b'R' else
+                                            'NONZERO' if code != 0 else 'UNKNOWN')
+                        break
+                    time.sleep(min(.005, max(0, work_deadline - time.monotonic())))
+                else:
+                    result['status'] = 'TIMED_OUT'
+    except (OSError, ValueError, DockerExecutionRefusal, subprocess.SubprocessError):
+        result['status'] = 'UNKNOWN'
+    finally:
+        if proc is not None:
+            for stream in ('stdin', 'stdout', 'stderr', 'exec_status'):
+                proc.close(stream)
+        result['cleanup'] = owner.cleanup(deadline)
+        if proc is not None:
+            # Native waitid cleanup performed the reap.
+            proc.returncode = result['exit_code'] if result['exit_code'] is not None else -signal.SIGKILL
+    result.update(elapsed_ms=max(0, int((time.monotonic() - started) * 1000)),
+                  stdout_bytes=sizes['out'], stderr_bytes=sizes['err'])
+    if not result['cleanup'] or time.monotonic() > deadline:
+        result['status'] = 'UNKNOWN'
+    if result['status'] == 'SUCCESS':
+        result['payload'] = base64.b64encode(output).decode('ascii')
+    return result
+
+
+def docker_broker(parent: int, command: int, response: int, deadline: float,
+                  binary: FixedDockerExecutable) -> None:
+    owner = None
+    clean = False
+    def interrupted(_number, _frame):
+        raise DockerExecutionRefusal('BROKER_LIFETIME')
+    try:
+        import resource
+        os.setsid()
+        null = os.open('/dev/null', os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null, fd)
+        docker_require(all(value == resource.RLIM_INFINITY or value >= 64
+                           for value in resource.getrlimit(resource.RLIMIT_NOFILE)))
+        resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+        docker_close_descriptors({0, 1, 2, command, response})
+        signal.signal(signal.SIGTERM, interrupted)
+        signal.signal(signal.SIGALRM, interrupted)
+        docker_require(ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) == 0
+                       and os.getppid() == parent)
+        signal.pthread_sigmask(signal.SIG_SETMASK, [])
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+        resource.setrlimit(resource.RLIMIT_AS, (BROKER_AS_BYTES, DOCKER_AS_BYTES))
+        cpu = [value for value in resource.getrlimit(resource.RLIMIT_CPU) if value != resource.RLIM_INFINITY]
+        cpu_limit = min([COLLECTION_SECONDS, *cpu])
+        docker_require(cpu_limit >= DOCKER_CPU_SECONDS)
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit, cpu_limit))
+        work_deadline = deadline - COLLECTION_CLEANUP_SECONDS
+        signal.setitimer(signal.ITIMER_REAL, max(.001, work_deadline - time.monotonic()))
+        os.set_blocking(command, False); os.set_blocking(response, False)
+        identity = binary.verify()
+        owner = OwnedProcessTree()
+        docker_frame_write(response, {'pid': os.getpid(), 'as': list(resource.getrlimit(resource.RLIMIT_AS)),
+                           'fd_boundary': 'CLOSED_BEFORE_ACK', 'identity': list(identity)}, 4096, work_deadline)
+        sequence = 0
+        while True:
+            message = docker_frame_read(command, DOCKER_REQUEST_BYTES, work_deadline, eof=True)
+            if message is None:
+                clean = True
+                break
+            docker_require(type(message) is dict and set(message) == {'sequence', 'kind', 'deadline', 'io_limit', 'operation'}
+                           and type(message['sequence']) is int and message['sequence'] == sequence + 1
+                           and message['kind'] in ('standard', 'capacity') and type(message['kind']) is str
+                           and type(message['io_limit']) is int and 0 < message['io_limit'] <= CAPACITY_TOTAL_BYTES)
+            sequence += 1
+            request_deadline = docker_deadline(message['deadline'])
+            maximum = 18 if message['kind'] == 'standard' else CAPACITY_COMMAND_SECONDS
+            selected = min(request_deadline, work_deadline, time.monotonic() + maximum)
+            operation = message['operation']
+            docker_require(type(operation) is dict)
+            is_docker = operation.get('op') not in ('disk-usage', 'backup-catalog')
+            if is_docker:
+                argv, data, remote_exec = docker_command(operation, binary)
+            else:
+                argv, data, remote_exec = local_command(operation), b'', False
+            docker_require(identity == binary.verify() and os.getppid() == parent)
+            result = bounded_program(owner, argv, data, selected,
+                                     MAX_BYTES if message['kind'] == 'standard' else CAPACITY_OUTPUT_BYTES,
+                                     message['io_limit'], docker=is_docker)
+            stable = identity == binary.verify()
+            if not stable:
+                result.update(status='UNKNOWN', payload=None, cleanup=False)
+            result['sequence'] = sequence
+            result['exec_outcome'] = ('NOT_STARTED' if not result['started'] or not remote_exec else
+                                      'COMPLETED' if result['status'] == 'SUCCESS' else 'AMBIGUOUS')
+            docker_frame_write(response, result, DOCKER_RESPONSE_BYTES, work_deadline)
+            if not result['cleanup']:
+                break
+    except BaseException:
+        clean = False
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        if owner is not None:
+            try:
+                clean = owner.close(deadline) and clean
+            except BaseException:
+                clean = False
+        os._exit(0 if clean else 125)
+
+
+class DockerExecution:
+    """Explicit per-collection dependency. Nothing is installed into module state."""
+    def __init__(self, deadline: float, binary: FixedDockerExecutable | None = None):
+        self.deadline = docker_deadline(deadline)
+        self.work_deadline = self.deadline - COLLECTION_CLEANUP_SECONDS
+        self.binary = binary if binary is not None else FixedDockerExecutable()
+        self.owner = None
+        self.pid = None
+        self.command = self.response = None
+        self.sequence = 0
+        self.clean = True
+        self.ready = False
+        self.ambiguous_exec = False
+        self.closed = False
+        self.initial_identity = None
+        self.startup_fds: set[int] = set()
+
+    def start(self) -> None:
+        import resource
+        docker_require(self.owner is None and self.work_deadline > time.monotonic())
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        docker_require(all(value == resource.RLIM_INFINITY or value >= DOCKER_AS_BYTES for value in (soft, hard)))
+        self.initial_identity = self.binary.verify()
+        self.owner = OwnedProcessTree()
+        command_r, command_w = os.pipe(); self.startup_fds.update((command_r, command_w))
+        response_r, response_w = os.pipe(); self.startup_fds.update((response_r, response_w))
+        docker_require(max(command_r, command_w, response_r, response_w) < 64)
+        old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGALRM})
+        try:
+            parent = os.getpid()
+            pid = os.fork()
+            if pid == 0:
+                docker_broker(parent, command_r, response_w, self.deadline, self.binary)
+            self.pid, self.command, self.response = pid, command_w, response_r
+            self.startup_fds.difference_update((command_w, response_r))
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+        os.close(command_r); self.startup_fds.remove(command_r)
+        os.close(response_w); self.startup_fds.remove(response_w)
+        os.set_blocking(self.command, False); os.set_blocking(self.response, False)
+        ack = docker_frame_read(self.response, 4096, self.work_deadline)
+        docker_require(type(ack) is dict and set(ack) == {'pid', 'as', 'fd_boundary', 'identity'}
+                       and type(ack['pid']) is int and ack['pid'] == self.pid
+                       and ack['as'] == [BROKER_AS_BYTES, DOCKER_AS_BYTES]
+                       and ack['identity'] == list(self.initial_identity) and ack['fd_boundary'] == 'CLOSED_BEFORE_ACK')
+        # This hard limit is lowered only after the isolated finite broker ACK.
+        resource.setrlimit(resource.RLIMIT_AS, (PARSER_AS_BYTES, PARSER_AS_BYTES))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        docker_require(resource.getrlimit(resource.RLIMIT_AS) == (PARSER_AS_BYTES, PARSER_AS_BYTES))
+        self.ready = True
+
+    def inventory_permitted(self) -> bool:
+        return self.ready and self.clean and not self.closed and not self.ambiguous_exec and time.monotonic() < self.work_deadline
+
+    def request(self, operation: dict[str, Any], kind: str, deadline: float, io_limit: int) -> dict[str, Any]:
+        unknown = {'status': 'NOT_RUN', 'elapsed_ms': 0, 'stdout_bytes': 0, 'stderr_bytes': 0,
+                   'started': False, 'cleanup': self.clean, 'exit_code': None, 'payload': None,
+                   'exec_outcome': 'NOT_STARTED'}
+        sent = False
+        started = time.monotonic()
+        remote_exec = operation.get('op') == 'exec-metadata'
+        selected = min(deadline, self.work_deadline, started + (18 if kind == 'standard' else CAPACITY_COMMAND_SECONDS))
+        if not self.ready or not self.clean or self.closed or self.pid is None or selected - started <= .25:
+            return unknown
+        try:
+            self.sequence += 1
+            # Mark an ambiguous dispatch as soon as request transmission begins.
+            sent = True
+            docker_frame_write(self.command, {'sequence': self.sequence, 'kind': kind, 'deadline': selected,
+                               'io_limit': io_limit, 'operation': operation}, DOCKER_REQUEST_BYTES, selected)
+            value = docker_frame_read(self.response, DOCKER_RESPONSE_BYTES, min(self.work_deadline, selected + .1))
+            keys = {'sequence', 'status', 'elapsed_ms', 'stdout_bytes', 'stderr_bytes', 'started', 'cleanup',
+                    'exit_code', 'payload', 'exec_outcome'}
+            docker_require(type(value) is dict and set(value) == keys and value['sequence'] == self.sequence
+                           and type(value['sequence']) is int and type(value['status']) is str
+                           and value['status'] in {'NOT_RUN', 'SUCCESS', 'TIMED_OUT', 'OUTPUT_LIMIT', 'NONZERO', 'UNKNOWN'}
+                           and all(type(value[key]) is bool for key in ('started', 'cleanup'))
+                           and all(type(value[key]) is int and 0 <= value[key] <= CAPACITY_TOTAL_BYTES + 1
+                                   for key in ('stdout_bytes', 'stderr_bytes', 'elapsed_ms'))
+                           and (value['exit_code'] is None or type(value['exit_code']) is int and -255 <= value['exit_code'] <= 255)
+                           and type(value['exec_outcome']) is str and value['exec_outcome'] in {'NOT_STARTED', 'COMPLETED', 'AMBIGUOUS'})
+            limit = MAX_BYTES if kind == 'standard' else CAPACITY_OUTPUT_BYTES
+            docker_require(value['stdout_bytes'] <= limit + 1 and value['stderr_bytes'] <= limit + 1
+                           and value['stdout_bytes'] + value['stderr_bytes'] <= io_limit + 1)
+            expected_exec = ('NOT_STARTED' if not remote_exec or not value['started'] else
+                             'COMPLETED' if value['status'] == 'SUCCESS' else 'AMBIGUOUS')
+            docker_require(value['exec_outcome'] == expected_exec)
+            if value['status'] == 'SUCCESS':
+                docker_require(value['started'] and value['cleanup'] and value['exit_code'] == 0
+                               and type(value['payload']) is str)
+                raw = base64.b64decode(value['payload'], validate=True)
+                docker_require(len(raw) == value['stdout_bytes'] <= limit
+                               and base64.b64encode(raw).decode('ascii') == value['payload'])
+            else:
+                docker_require(value['payload'] is None)
+            self.clean = self.clean and value['cleanup']
+            self.ambiguous_exec |= value['exec_outcome'] == 'AMBIGUOUS'
+            value['elapsed_ms'] = max(0, int((time.monotonic() - started) * 1000))
+            return value
+        except (OSError, ValueError, TypeError, DockerExecutionRefusal, RecursionError):
+            self.clean = False
+            self.ambiguous_exec |= remote_exec and sent
+            return {**unknown, 'status': 'UNKNOWN', 'cleanup': False,
+                    'elapsed_ms': max(0, int((time.monotonic() - started) * 1000)),
+                    'exec_outcome': 'AMBIGUOUS' if remote_exec and sent else 'NOT_STARTED'}
+
+    def run(self, argv: list[str], source: str | None = None, *, deadline: float | None = None) -> str | None:
+        try:
+            selected = min(self.work_deadline, time.monotonic() + 18,
+                           docker_deadline(deadline) if deadline is not None else self.work_deadline)
+            if argv and argv[0] in ('docker', '/usr/bin/docker'):
+                operation = docker_operation(argv, source)
+                value = self.request(operation, 'standard', selected, 2 * MAX_BYTES)
+            else:
+                docker_require(type(argv) is list and len(argv) == 3 and argv[:2] == ['pg_restore', '--list']
+                               and type(argv[2]) is str and Path(argv[2]).parent == Path('/var/lib/pc-release-authority/backups')
+                               and source is None)
+                value = self.local(['/usr/bin/pg_restore', *argv[1:]], selected, MAX_BYTES, 2 * MAX_BYTES)
+            if value['status'] != 'SUCCESS':
+                return None
+            return base64.b64decode(value['payload'], validate=True).decode('utf-8', errors='strict')
+        except (ValueError, TypeError, DockerExecutionRefusal, UnicodeError):
+            return None
+
+    def local(self, argv: list[str], deadline: float, stream_limit: int, io_limit: int) -> dict[str, Any]:
+        docker_require(self.ready and self.owner is not None and self.pid is not None and not self.closed and self.clean)
+        docker_require(stream_limit in (MAX_BYTES, CAPACITY_OUTPUT_BYTES))
+        return self.request(local_operation(argv), 'standard' if stream_limit == MAX_BYTES else 'capacity',
+                            deadline, io_limit)
+
+    def capacity(self, argv: list[str], deadline: float, io_limit: int) -> dict[str, Any]:
+        if argv[0] == '/usr/bin/docker':
+            return self.request(docker_operation(argv), 'capacity', deadline, io_limit)
+        docker_require(argv[:6] == ['/usr/bin/du', '--summarize', '--block-size=1', '--one-file-system', '--null', '--']
+                       and len(argv) == 7 and argv[-1] in CAPACITY_DISK_PATHS.values())
+        return self.local(argv, deadline, CAPACITY_OUTPUT_BYTES, io_limit)
+
+    def close(self) -> bool:
+        if self.closed:
+            return self.clean
+        self.closed = True
+        code = None
+        cleanup_deadline = min(self.deadline, time.monotonic() + COLLECTION_CLEANUP_SECONDS)
+        graceful_deadline = min(cleanup_deadline - .25, time.monotonic() + .25)
+        try:
+            if self.command is not None:
+                os.close(self.command); self.command = None
+            if self.owner is not None and self.pid is not None:
+                while time.monotonic() < graceful_deadline:
+                    code = self.owner.observe(self.pid)
+                    if code is not None:
+                        break
+                    time.sleep(min(.005, max(0, graceful_deadline - time.monotonic())))
+                if code is None and self.owner.observe(self.pid) is None:
+                    os.kill(self.pid, signal.SIGTERM)
+                    while time.monotonic() < cleanup_deadline - .25:
+                        code = self.owner.observe(self.pid)
+                        if code is not None:
+                            break
+                        time.sleep(.005)
+        except (OSError, DockerExecutionRefusal):
+            self.clean = False
+        finally:
+            if self.response is not None:
+                os.close(self.response); self.response = None
+            for fd in self.startup_fds:
+                try:
+                    os.close(fd)
+                except OSError:
+                    self.clean = False
+            self.startup_fds.clear()
+            if self.owner is not None:
+                self.clean = self.owner.close(cleanup_deadline) and self.clean and code == 0
+        return self.clean
+
+
 def run(argv: list[str], source: str | None = None) -> str | None:
     # The only stdin program is under PIPE_BUF; no shell or arbitrary script input.
     data = source.encode('utf-8') if source is not None else b''
@@ -131,16 +975,18 @@ def env_of(value: dict[str, Any]) -> dict[str, str]:
     return result
 
 
-def containers(service: str, project: str | None = None) -> list[dict[str, Any]]:
+def containers(service: str, project: str | None = None, *, execution: DockerExecution | None = None) -> list[dict[str, Any]]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     argv = ['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=' + service]
     if project:
         argv += ['--filter', 'label=com.docker.compose.project=' + project]
-    raw = run(argv)
+    raw = execute(argv)
     ids = (raw or '').split()
     if len(ids) != 1 or not re.fullmatch(r'[0-9a-f]{12,64}', ids[0]):
         return []
     try:
-        rows = json.loads(run(['docker', 'inspect', ids[0]]) or 'null')
+        rows = json.loads(execute(['docker', 'inspect', ids[0]]) or 'null')
         return rows if isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], dict) else []
     except (ValueError, TypeError):
         return []
@@ -199,10 +1045,15 @@ def origin(web: dict[str, Any]) -> str:
     return 'CANONICAL' if raw.rstrip('/') == API_ORIGIN else 'NOT_CANONICAL'
 
 
-def caddy_config() -> dict[str, Any] | None:
+def caddy_config(*, execution: DockerExecution | None = None) -> dict[str, Any] | None:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     try:
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-        with opener.open('http://127.0.0.1:2019/config/', timeout=3) as response:
+        remaining = 3 if execution is None else min(3, execution.work_deadline - time.monotonic())
+        if remaining <= 0:
+            return None
+        with opener.open('http://127.0.0.1:2019/config/', timeout=remaining) as response:
             raw = response.read(MAX_BYTES + 1)
         if len(raw) > MAX_BYTES:
             return None
@@ -310,7 +1161,9 @@ def migration_metadata(raw: str | None) -> dict[str, Any]:
         return {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'}
 
 
-def backups(root: Path) -> dict[str, Any]:
+def backups(root: Path, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     result: dict[str, Any] = {'artifact': 'NOT_OBSERVED', 'archive_catalog': 'NOT_CHECKED', 'restore_verification': 'NOT_PROVEN'}
     try:
         candidates = []
@@ -328,7 +1181,7 @@ def backups(root: Path) -> dict[str, Any]:
         result.update(artifact='PRESENT', age_seconds=int(age), time_consistency='VALID' if age >= 0 else 'FUTURE_TIMESTAMP', bytes=s.st_size, protected=protected)
         # Do not parse unprotected/symlink input as root. A catalog is not a restore.
         if protected and age >= 0 and shutil.which('pg_restore'):
-            result['archive_catalog'] = 'READABLE' if run(['pg_restore', '--list', str(p)]) is not None else 'NOT_PROVEN'
+            result['archive_catalog'] = 'READABLE' if execute(['pg_restore', '--list', str(p)]) is not None else 'NOT_PROVEN'
         return result
     except (OSError, ValueError):
         return result
@@ -538,12 +1391,14 @@ return {read_only:true,identity:identity[0],row:rows[0]};
 })().catch(()=>{process.exitCode=1}).finally(async()=>{await p.$disconnect()});'''
 
 
-def read_only_metadata(container: dict[str, Any], sql: str) -> dict[str, Any] | None:
+def read_only_metadata(container: dict[str, Any], sql: str, *, execution: DockerExecution | None = None) -> dict[str, Any] | None:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     cid = container.get('Id')
     if not isinstance(cid, str) or not CONTAINER_ID.fullmatch(cid) or (container.get('State') or {}).get('Running') is not True:
         return None
     try:
-        value = json.loads(run(['docker', 'exec', '-i', cid, '/nodejs/bin/node', '-'], read_only_program(sql)) or 'null')
+        value = json.loads(execute(['docker', 'exec', '-i', cid, '/nodejs/bin/node', '-'], read_only_program(sql)) or 'null')
         if not isinstance(value, dict) or set(value) != {'read_only', 'identity', 'row'} or value['read_only'] is not True:
             return None
         identity = value['identity']
@@ -557,17 +1412,19 @@ def read_only_metadata(container: dict[str, Any], sql: str) -> dict[str, Any] | 
         return None
 
 
-def project_containers(project: str) -> list[dict[str, Any]] | None:
+def project_containers(project: str, *, execution: DockerExecution | None = None) -> list[dict[str, Any]] | None:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     if not isinstance(project, str) or not PROJECT.fullmatch(project):
         return None
-    raw = run(['docker', 'ps', '-aq', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + project])
+    raw = execute(['docker', 'ps', '-aq', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + project])
     if raw is None:
         return None
     ids = raw.split()
     if not 1 <= len(ids) <= 64 or len(set(ids)) != len(ids) or any(not CONTAINER_ID.fullmatch(cid) for cid in ids):
         return None
     try:
-        rows = json.loads(run(['docker', 'inspect', *ids]) or 'null')
+        rows = json.loads(execute(['docker', 'inspect', *ids]) or 'null')
         if not isinstance(rows, list) or len(rows) != len(ids) or any(not isinstance(row, dict) for row in rows):
             return None
         if {row.get('Id') for row in rows} != set(ids):
@@ -579,7 +1436,9 @@ def project_containers(project: str) -> list[dict[str, Any]] | None:
         return None
 
 
-def bound_image(container: dict[str, Any], repository: str | None) -> dict[str, Any]:
+def bound_image(container: dict[str, Any], repository: str | None, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     result = {'revision': 'NOT_PROVEN', 'registry_digest': 'NOT_PROVEN', 'container_image_binding': False,
               'immutable_config_ref': False, 'running': (container.get('State') or {}).get('Running') is True,
               'health': 'NOT_PROVEN'}
@@ -590,7 +1449,7 @@ def bound_image(container: dict[str, Any], repository: str | None) -> dict[str, 
     if not isinstance(image_id, str) or not IMAGE_ID.fullmatch(image_id):
         return result
     try:
-        images = json.loads(run(['docker', 'image', 'inspect', image_id]) or 'null')
+        images = json.loads(execute(['docker', 'image', 'inspect', image_id]) or 'null')
         if not isinstance(images, list) or len(images) != 1 or not isinstance(images[0], dict) or images[0].get('Id') != image_id:
             return result
         image = images[0]
@@ -665,8 +1524,10 @@ def kafka_topology(worker: dict[str, Any], rows: list[dict[str, Any]]) -> dict[s
     return result
 
 
-def outbox_topology(api: dict[str, Any], project: str | None) -> dict[str, Any]:
-    rows = project_containers(project)
+def outbox_topology(api: dict[str, Any], project: str | None, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
+    rows = project_containers(project, **bindings)
     if rows is None or api.get('Id') not in {row['Id'] for row in rows}:
         return {'status': 'NOT_PROVEN'}
     project_api = next(row for row in rows if row['Id'] == api.get('Id'))
@@ -676,7 +1537,7 @@ def outbox_topology(api: dict[str, Any], project: str | None) -> dict[str, Any]:
                   or (row.get('Config') or {}).get('Cmd') == ['dist-outbox-worker/outbox-worker.js']
                   or str((row.get('Config') or {}).get('Image', '')).startswith(OUTBOX_REPOSITORY + '@')]
     worker = candidates[0] if len(candidates) == 1 else {}
-    catalog_raw = read_only_metadata(api, CATALOG_SQL)
+    catalog_raw = read_only_metadata(api, CATALOG_SQL, **bindings)
     catalog = {'status': 'NOT_PROVEN'}
     if catalog_raw is not None:
         row = catalog_raw['row']
@@ -691,18 +1552,18 @@ def outbox_topology(api: dict[str, Any], project: str | None) -> dict[str, Any]:
                        'trigger_shape_matches': trigger.get('type') == 19 and trigger.get('function_matches') is True
                            and trigger.get('no_when') is True and trigger.get('columns') == ['leaseToken', 'status'],
                        'fence_invoker_plpgsql': row.get('fence_security_definer') is False and row.get('fence_language') == 'plpgsql'}
-    principal_raw = read_only_metadata(worker, PRINCIPAL_SQL)
+    principal_raw = read_only_metadata(worker, PRINCIPAL_SQL, **bindings)
     principal = {'status': 'NOT_PROVEN'}
     if principal_raw is not None and set(principal_raw['row']) == PRINCIPAL_TRUE | PRINCIPAL_FALSE and all(type(v) is bool for v in principal_raw['row'].values()):
         flags = principal_raw['row']
         principal = {'status': 'OBSERVED_READ_ONLY', **flags,
                      'boundary_matches': all(flags[key] for key in PRINCIPAL_TRUE) and not any(flags[key] for key in PRINCIPAL_FALSE),
                      'same_database_as_api': catalog_raw is not None and principal_raw['identity'] == catalog_raw['identity']}
-    after = project_containers(project)
+    after = project_containers(project, **bindings)
     before_ids = {row['Id']: project_runtime_identity(row) for row in rows}
     after_ids = {row['Id']: project_runtime_identity(row) for row in after} if after is not None else {}
-    return {'status': 'OBSERVED_COMPOSE_METADATA', 'api_image': bound_image(api, 'ghcr.io/pachaninm-lab/grainflow-api'),
-            'worker_candidates': len(candidates), 'worker_image': bound_image(worker, OUTBOX_REPOSITORY),
+    return {'status': 'OBSERVED_COMPOSE_METADATA', 'api_image': bound_image(api, 'ghcr.io/pachaninm-lab/grainflow-api', **bindings),
+            'worker_candidates': len(candidates), 'worker_image': bound_image(worker, OUTBOX_REPOSITORY, **bindings),
             'worker_configuration_matches': len(candidates) == 1 and canonical_worker_configuration(worker),
             'principal': principal, 'catalog': catalog, 'kafka': kafka_topology(worker, rows),
             'runtime_stability': 'UNCHANGED' if None not in before_ids.values() and before_ids == after_ids else 'NOT_PROVEN',
@@ -813,12 +1674,14 @@ emit({status});
 '''
 
 
-def database_probe(api: dict[str, Any]) -> dict[str, Any]:
+def database_probe(api: dict[str, Any], *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     cid = api.get('Id')
     if not isinstance(cid, str) or not CONTAINER_ID.fullmatch(cid) or (api.get('State') or {}).get('Running') is not True:
         return {'status': 'NOT_PROVEN'}
     try:
-        result = json.loads(run(['docker', 'exec', '-i', cid, '/nodejs/bin/node', '-'], DB_PROBE_PROGRAM) or 'null')
+        result = json.loads(execute(['docker', 'exec', '-i', cid, '/nodejs/bin/node', '-'], DB_PROBE_PROGRAM) or 'null')
         validate_database_probe(result)
         return result
     except (ValueError, TypeError):
@@ -869,12 +1732,14 @@ def compose_config_command(web: dict[str, Any], project: str) -> list[str] | Non
         return None
 
 
-def rendered_compose(web: dict[str, Any], project: str) -> dict[str, Any] | None:
+def rendered_compose(web: dict[str, Any], project: str, *, execution: DockerExecution | None = None) -> dict[str, Any] | None:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     command = compose_config_command(web, project)
     if command is None:
         return None
     try:
-        model = json.loads(run(command) or 'null')
+        model = json.loads(execute(command) or 'null')
         services = model.get('services') if isinstance(model, dict) else None
         if model.get('name') != project or not isinstance(services, dict) or not 2 <= len(services) <= 64:
             return None
@@ -1106,8 +1971,10 @@ def validate_declared_database_relations(value: Any) -> None:
         raise ValueError('DECLARED_DATABASE_RELATIONS_CONTRADICTION')
 
 
-def release_inventory(web: dict[str, Any], api: dict[str, Any], project: str) -> dict[str, Any]:
-    model = rendered_compose(web, project)
+def release_inventory(web: dict[str, Any], api: dict[str, Any], project: str, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
+    model = rendered_compose(web, project, **bindings)
     compose = {'status': 'NOT_PROVEN'}
     if model is not None:
         services = model['services']
@@ -1128,15 +1995,15 @@ def release_inventory(web: dict[str, Any], api: dict[str, Any], project: str) ->
                        'api_database_configured': isinstance(environment.get('DATABASE_URL'), str) and bool(environment['DATABASE_URL'].strip()),
                        'migration_database_configured': isinstance(migration_env, dict) and isinstance(migration_env.get('DATABASE_URL'), str) and bool(migration_env['DATABASE_URL'].strip()),
                        'api_brokers_configured': isinstance(environment.get('KAFKA_BROKERS'), str) and bool(environment['KAFKA_BROKERS'].strip())}
-            compose['configuration_stability'] = 'UNCHANGED' if model == rendered_compose(web, project) else 'NOT_PROVEN'
-    rows = project_containers(project)
+            compose['configuration_stability'] = 'UNCHANGED' if model == rendered_compose(web, project, **bindings) else 'NOT_PROVEN'
+    rows = project_containers(project, **bindings)
     runtime = {'status': 'NOT_PROVEN'}
     if rows is not None:
         brokers = [r for r in rows if broker_image((r.get('Config') or {}).get('Image'))]
         runtime = {'status': 'OBSERVED_IMAGE_METADATA', 'broker_candidates': len(brokers),
                    'running_broker_candidates': sum((r.get('State') or {}).get('Running') is True for r in brokers),
                    'enabled_delivery_candidates': sum(env_of(r).get('OUTBOX_WORKER_ENABLED') == 'true' for r in rows)}
-    return {'compose': compose, 'runtime': runtime, 'database_probe': database_probe(api),
+    return {'compose': compose, 'runtime': runtime, 'database_probe': database_probe(api, **bindings),
             'declared_database_relations': declared_database_relations(api, rows, project)}
 
 
@@ -1344,12 +2211,14 @@ def filesystem_snapshot(path: Any) -> tuple[dict[str, Any], int | None]:
             os.close(fd)
 
 
-def filesystem_capacity() -> dict[str, Any]:
+def filesystem_capacity(*, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     root, root_device = filesystem_snapshot('/')
     backup, backup_device = filesystem_snapshot('/var/lib/pc-release-authority/backups')
     docker_path = None
     try:
-        docker_path = json.loads(run(['docker', 'info', '--format', '{{json .DockerRootDir}}']) or 'null')
+        docker_path = json.loads(execute(['docker', 'info', '--format', '{{json .DockerRootDir}}']) or 'null')
     except (ValueError, TypeError):
         pass
     docker, docker_device = filesystem_snapshot(docker_path)
@@ -1620,7 +2489,8 @@ def capacity_docker_ready() -> bool:
 
 class CapacityProfileRunner:
     """Fixed read-only argv; private bounded pipes and one nonrenewable deadline."""
-    def __init__(self, outer_deadline: float):
+    def __init__(self, outer_deadline: float, *, execution: DockerExecution | None = None):
+        self.execution = execution
         self.started = time.monotonic()
         self.deadline = min(self.started + CAPACITY_PROFILE_SECONDS, outer_deadline)
         self.total = 0
@@ -1653,6 +2523,24 @@ class CapacityProfileRunner:
         else:
             return 'NOT_RUN', 0, None
         deadline = min(started + CAPACITY_COMMAND_SECONDS, self.deadline)
+        if self.execution is not None:
+            try:
+                value = self.execution.capacity(argv, deadline, CAPACITY_TOTAL_BYTES - self.total)
+                status, elapsed = value['status'], value['elapsed_ms']
+                self.calls += status != 'NOT_RUN'
+                self.last_stdout_bytes = value['stdout_bytes']
+                self.last_io_bytes = value['stdout_bytes'] + value['stderr_bytes']
+                self.stdout_total += self.last_stdout_bytes
+                self.total += self.last_io_bytes
+                self.exhausted |= self.total > CAPACITY_TOTAL_BYTES
+                self.clean &= value['cleanup']
+                payload = base64.b64decode(value['payload'], validate=True) if status == 'SUCCESS' else None
+                if not self.clean or elapsed > CAPACITY_COMMAND_SECONDS * 1000:
+                    return 'UNKNOWN', elapsed, None
+                return status, elapsed, payload
+            except (OSError, ValueError, TypeError, DockerExecutionRefusal):
+                self.clean = False
+                return 'UNKNOWN', max(0, int((time.monotonic() - started) * 1000)), None
         work_deadline = deadline - 0.25
         proc, poller, stdout = None, selectors.DefaultSelector(), bytearray()
         sizes, status, payload = {'out': 0, 'err': 0}, 'UNKNOWN', None
@@ -1756,11 +2644,13 @@ def capacity_inspected_rows(raw: bytes, expected: list[str]) -> dict[str, Any]:
     return {row['Id']: row for row in value}
 
 
-def capacity_readonly_profile(outer_deadline: float, target: str | None = None) -> dict[str, Any]:
+def capacity_readonly_profile(outer_deadline: float, target: str | None = None, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     result = empty_capacity_profile()
     if os.geteuid() != 0:
         return result
-    runner = CapacityProfileRunner(outer_deadline)
+    runner = CapacityProfileRunner(outer_deadline, **bindings)
     ids: dict[str, list[str]] = {}
     container_metadata = None
     stopped = False
@@ -1957,16 +2847,18 @@ def validate_capacity_profile(value: Any) -> None:
     validate_image_reclaim_plan(value['image_reclaim_plan'], value)
 
 
-def collect(target: str) -> dict[str, Any]:
+def collect(target: str, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     if not SHA.fullmatch(target):
         raise ValueError('INVALID_TARGET_SHA')
-    collection_deadline = time.monotonic() + 180
-    wr = containers('web')
+    collection_deadline = time.monotonic() + 180 if execution is None else execution.work_deadline
+    wr = containers('web', **bindings)
     web = wr[0] if wr else {}
     project = ((web.get('Config') or {}).get('Labels') or {}).get('com.docker.compose.project')
-    ar = containers('api', project) if isinstance(project, str) and project else []
+    ar = containers('api', project, **bindings) if isinstance(project, str) and project else []
     api = ar[0] if ar else {}
-    caddy_before = caddy_config()
+    caddy_before = caddy_config(**bindings)
     checks = {
         'web_ingress': ingress(web),
         'canonical_api_origin': origin(web),
@@ -1976,7 +2868,7 @@ def collect(target: str) -> dict[str, Any]:
     db = {'status': 'NOT_PROVEN'}
     api_id = api.get('Id', '')
     if isinstance(api_id, str) and re.fullmatch(r'[0-9a-f]{12,64}', api_id):
-        db = migration_metadata(run(['docker', 'exec', '-i', api_id, '/nodejs/bin/node', '-'], DB_PROGRAM))
+        db = migration_metadata(execute(['docker', 'exec', '-i', api_id, '/nodejs/bin/node', '-'], DB_PROGRAM))
     capacity = {'disk_free_bytes': shutil.disk_usage('/').free}
     cpu_count = os.cpu_count()
     if type(cpu_count) is int and cpu_count > 0:
@@ -1988,23 +2880,23 @@ def collect(target: str) -> dict[str, Any]:
             capacity['memory_available_bytes'] = int(m.group(1)) * 1024
     except OSError:
         pass
-    backup = backups(Path('/var/lib/pc-release-authority/backups'))
-    filesystem_observation = filesystem_capacity()
-    capacity_profile = capacity_readonly_profile(collection_deadline, target)
-    after_web = containers('web')
-    after_api = containers('api', project) if isinstance(project, str) and project else []
+    backup = backups(Path('/var/lib/pc-release-authority/backups'), **bindings)
+    filesystem_observation = filesystem_capacity(**bindings)
+    capacity_profile = capacity_readonly_profile(collection_deadline, target, **bindings)
+    after_web = containers('web', **bindings)
+    after_api = containers('api', project, **bindings) if isinstance(project, str) and project else []
     stable = (runtime_identity(web) is not None and runtime_identity(api) is not None
               and len(after_web) == len(after_api) == 1
               and runtime_identity(web) == runtime_identity(after_web[0])
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
-    checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
+    checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config(**bindings) else 'NOT_PROVEN')
     result = {'schema': 'pc-crop.market-release-preflight.v6', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
-            'backup': backup, 'outbox_topology': outbox_topology(api, project),
-            'release_inventory': release_inventory(web, api, project),
+            'backup': backup, 'outbox_topology': outbox_topology(api, project, **bindings),
+            'release_inventory': release_inventory(web, api, project, **bindings),
             'production_mutation': 'NONE', 'deployment_authorized': False,
             'live_acceptance': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
     result['registration_binding'] = registration_preconditions(api, checks, result['outbox_topology'])
@@ -2372,8 +3264,11 @@ def original_hash(fd: int, deadline: float) -> str:
     return digest.hexdigest()
 
 
-def original_current_names() -> tuple[str, ...]:
-    raw = run(['docker', 'volume', 'ls', '-q'])
+def original_current_names(*, execution: DockerExecution | None = None, deadline: float | None = None) -> tuple[str, ...]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
+    raw = (run(['docker', 'volume', 'ls', '-q']) if execution is None else
+           execution.run(['docker', 'volume', 'ls', '-q'], deadline=deadline))
     original_require(type(raw) is str and len(raw) <= 19 * 256, 'CURRENT')
     names = raw.splitlines()
     original_require(len(names) == len(set(names)) == 19 and
@@ -2510,7 +3405,7 @@ class OriginalGPGStream:
     def close(self) -> None:
         if self.process.poll() is None:
             os.killpg(self.process.pid, signal.SIGKILL)
-            self.process.wait(timeout=5)
+            self.process.wait(timeout=max(.001, min(1, self.deadline + 1 - time.monotonic())))
         self.poller.close()
         self.process.stdout.close()
         self.process.stderr.close()
@@ -2598,8 +3493,10 @@ def original_archive(stream: Any, deadline: float) -> tuple[str, ...]:
         raise OriginalRefusal('ARCHIVE') from None
 
 
-def original_inventory_witness() -> dict[str, Any]:
+def original_inventory_witness(*, execution: DockerExecution | None = None) -> dict[str, Any]:
     """Private proposal until explicit owner purpose acceptance; no default-mode key IO."""
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     result: dict[str, Any] = {'schema': 'pc-crop.original-volume-inventory.v1', 'status': 'NOT_PROVEN',
         'failure': 'UNAVAILABLE', 'receipt_run_id': ORIGINAL_RECEIPT['runId'],
         'ciphertext_sha256': ORIGINAL_RECEIPT['ciphertextSha256'],
@@ -2614,8 +3511,12 @@ def original_inventory_witness() -> dict[str, Any]:
     stream = None
     try:
         original_require(os.getuid() == os.geteuid() == 0, 'IDENTITY')
-        deadline = time.monotonic() + ORIGINAL_SECONDS
-        before = original_current_names()
+        if execution is not None:
+            original_require(execution.inventory_permitted(), 'UNAVAILABLE')
+        deadline = min(time.monotonic() + ORIGINAL_SECONDS,
+                       execution.work_deadline if execution is not None else float('inf'))
+        original_check_deadline(deadline)
+        before = original_current_names(**bindings, **({'deadline': deadline} if execution is not None else {}))
         descriptors = original_directory(ORIGINAL_ROOT)
         directory_count = len(descriptors)
         for name, size in [('receipt.json', None), ('preservation.tar.gpg', ORIGINAL_RECEIPT['ciphertextBytes']), ('passphrase', 65)]:
@@ -2635,8 +3536,10 @@ def original_inventory_witness() -> dict[str, Any]:
         stream.close()
         stream = None
         original_require(original_hash(cipher_fd, deadline) == ORIGINAL_RECEIPT['ciphertextSha256'], 'CIPHER')
-        after = original_current_names()
+        after = original_current_names(**bindings, **({'deadline': deadline} if execution is not None else {}))
         original_check_deadline(deadline)
+        if execution is not None:
+            original_require(execution.inventory_permitted(), 'UNAVAILABLE')
         original_require(tokens == [original_token(os.fstat(fd)) for fd in descriptors], 'DRIFT')
         # Recheck every path binding as well as open FD tokens, including ancestors.
         for index, part in enumerate(ORIGINAL_ROOT.split('/')[1:], 1):
@@ -2697,11 +3600,13 @@ def validate_original_inventory(value: Any) -> None:
                              ('full_eof_mdc', 'ciphertext_unchanged', 'metadata_unchanged', 'exact_set_match')), 'MANIFEST')
 
 
-def collect_with_original_inventory(target: str) -> dict[str, Any]:
+def collect_with_original_inventory(target: str, *, execution: DockerExecution | None = None) -> dict[str, Any]:
+    execute = run if execution is None else execution.run
+    bindings = {} if execution is None else {'execution': execution}
     # The v6 collector and its default CLI are unchanged. Only an explicit option
     # creates this envelope. Hosted admission validates both nested profiles.
-    base = collect(target)
-    witness = original_inventory_witness()
+    base = collect(target, **bindings)
+    witness = original_inventory_witness(**bindings)
     return {'schema': 'pc-crop.market-original-inventory-envelope.v1', 'target_sha': target,
             'market_preflight': base, 'original_inventory': witness,
             'production_mutation': 'NONE', 'deployment_authorized': False}
@@ -2726,8 +3631,124 @@ ORIGINAL_BEFORE_BLOBS = {
 }
 
 
+DOCKER_RENEWAL_BEGIN = '<!-- PC_ORIGINAL19_DOCKER_BUDGET_RENEWAL_V1_BEGIN -->'
+DOCKER_RENEWAL_END = '<!-- PC_ORIGINAL19_DOCKER_BUDGET_RENEWAL_V1_END -->'
+DOCKER_RENEWAL_PREFIX = (2093820, '7c62730b7c0552be4bfffc8dff13c38013daeb378f55d0dc76b7e78180853850')
+DOCKER_RENEWAL_PREDECESSOR = (1818, '95d1592402a30a0ca8f999d1a2549a8e0e044dfc41ec7af02b83e7a0eee33b30')
+DOCKER_RENEWAL_EPOCH = '5102469432e29fc5c0044018611044a20104895b'
+DOCKER_RENEWAL_FIXED = {
+    'schema': 'pc.original19-docker-budget-renewal.v1',
+    'purposeId': 'original19-bounded-docker-collector-20261109', 'owner': 'ACCOUNT_1_CORE',
+    'metadataEpoch': DOCKER_RENEWAL_EPOCH,
+    'sourceBranch': 'ops/farmer-market-release-preflight-20260916',
+    'scopeManifest': ['ffe003ff249cfc5cdbfc19c53e7c5bcb8c2ceb6a', 3720,
+                      '4f69af9e2ba21434485692a0525fa32390213a7ec69ff7ce885def1d8597a139'],
+    'priorPurpose': list(DOCKER_RENEWAL_PREDECESSOR),
+    'sourcePinColumns': ['afterBlob', 'bytes', 'sha256'],
+    'limits': {'parentAsBytes': PARSER_AS_BYTES, 'gpgAsBytes': 268435456, 'localAsBytes': PARSER_AS_BYTES,
+               'brokerSoftAsBytes': BROKER_AS_BYTES, 'dockerAsBytes': DOCKER_AS_BYTES,
+               'dockerCpuSeconds': DOCKER_CPU_SECONDS, 'oneActiveDockerChild': True,
+               'coreBytes': 0, 'fileOutputBytes': 0, 'standardCommandSeconds': 18,
+               'standardOutputBytes': MAX_BYTES, 'stdinBytes': 4096,
+               'capacityCommandSeconds': CAPACITY_COMMAND_SECONDS, 'capacityProfileSeconds': CAPACITY_PROFILE_SECONDS,
+               'capacityStreamBytes': CAPACITY_OUTPUT_BYTES, 'capacityTotalBytes': CAPACITY_TOTAL_BYTES,
+               'originalSeconds': ORIGINAL_SECONDS, 'remoteSeconds': COLLECTION_SECONDS,
+               'cleanupSeconds': COLLECTION_CLEANUP_SECONDS, 'transportSeconds': 180,
+               'unlimitedFallback': False, 'automaticRetry': False},
+    'fixtureReceipt': [4658, '602b10dd79f6fec508fde910b4f0a1ba605c7f1849f31e7d696364bd055ea381'],
+    'authorityGranted': 'SOURCE_ONLY_AFTER_SEPARATE_METADATA_ACCEPTANCE',
+    'productionInvocationAuthorized': False, 'releaseAuthorized': False, 'masterCredit': 0,
+}
+
+
+def original_purpose_block(text: str, begin: str, end: str, maximum: int) -> bytes:
+    original_require(type(text) is str and len(text.encode('utf-8')) <= 2 * 1024 * 1024
+                     and len(re.findall('^' + re.escape(begin) + '$', text, re.M)) == 1
+                     and len(re.findall('^' + re.escape(end) + '$', text, re.M)) == 1, 'IDENTITY')
+    match = re.search('^' + re.escape(begin) + r'$([\s\S]*?)^' + re.escape(end) + '$', text, re.M)
+    original_require(match is not None and match[1].startswith('\n```text\n')
+                     and match[1].endswith('\n```\n'), 'IDENTITY')
+    raw = match[1][len('\n```text\n'):-len('\n```\n')].encode('utf-8')
+    original_require(0 < len(raw) <= maximum, 'BOUNDS')
+    return raw
+
+
+def original_docker_renewal(text: str) -> dict[str, Any]:
+    raw = original_purpose_block(text, DOCKER_RENEWAL_BEGIN, DOCKER_RENEWAL_END, 4096)
+    document = text.encode('utf-8')
+    size, digest = DOCKER_RENEWAL_PREFIX
+    original_require(len(document) > size and hashlib.sha256(document[:size]).hexdigest() == digest
+                     and document[:size].decode('utf-8').endswith('\n'), 'IDENTITY')
+    predecessor = original_purpose_block(text, ORIGINAL_PURPOSE_BEGIN, ORIGINAL_PURPOSE_END, 16384)
+    original_require(len(predecessor) == DOCKER_RENEWAL_PREDECESSOR[0]
+                     and hashlib.sha256(predecessor).hexdigest() == DOCKER_RENEWAL_PREDECESSOR[1], 'IDENTITY')
+    record = original_json(raw)
+    original_require(type(record) is dict and set(record) == set(DOCKER_RENEWAL_FIXED) | {'sourcePins', 'sourceReview'}, 'IDENTITY')
+    # Canonical JSON equality retains bool-versus-int distinctions recursively.
+    for key, value in DOCKER_RENEWAL_FIXED.items():
+        original_require(json.dumps(record[key], sort_keys=True, separators=(',', ':')) ==
+                         json.dumps(value, sort_keys=True, separators=(',', ':')), 'IDENTITY')
+    pins = record['sourcePins']
+    original_require(type(pins) is dict and set(pins) == set(ORIGINAL_BEFORE_BLOBS), 'IDENTITY')
+    for path, pin in pins.items():
+        original_require(type(pin) is list and len(pin) == 3 and type(pin[0]) is str
+                         and SHA.fullmatch(pin[0]) is not None and type(pin[1]) is int and 0 < pin[1] <= 1024 * 1024
+                         and type(pin[2]) is str and CHECKSUM.fullmatch(pin[2]) is not None, 'IDENTITY')
+    review = record['sourceReview']
+    original_require(type(review) is list and len(review) == 3 and type(review[0]) is int
+                     and 0 < review[0] < 2**63 and type(review[1]) is int and 0 < review[1] <= 65536
+                     and type(review[2]) is str and CHECKSUM.fullmatch(review[2]) is not None, 'IDENTITY')
+    return record
+
+
+def validate_original_docker_renewal(text: str, sources: dict[str, bytes]) -> str:
+    record = original_docker_renewal(text)
+    original_require(type(sources) is dict and set(sources) == set(ORIGINAL_BEFORE_BLOBS), 'IDENTITY')
+    for path, pin in record['sourcePins'].items():
+        raw = sources[path]
+        original_require(type(raw) is bytes and len(raw) == pin[1]
+                         and hashlib.sha256(raw).hexdigest() == pin[2]
+                         and hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest() == pin[0], 'IDENTITY')
+    return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')).hexdigest()
+
+
+def validate_original_docker_scope(text: str, raw: bytes) -> None:
+    pin = original_docker_renewal(text)['scopeManifest']
+    original_require(type(raw) is bytes and len(raw) == pin[1]
+                     and hashlib.sha256(raw).hexdigest() == pin[2]
+                     and hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest() == pin[0], 'IDENTITY')
+
+
+def validate_original_docker_review(text: str, comment: Any) -> None:
+    record = original_docker_renewal(text)
+    pin = record['sourceReview']
+    original_require(type(comment) is dict and comment.get('id') == pin[0] and type(comment.get('id')) is int
+                     and type(comment.get('body')) is str and comment.get('author_association') == 'OWNER'
+                     and type(comment.get('user')) is dict and comment['user'].get('login') == 'pachaninm-lab'
+                     and type(comment.get('created_at')) is str and comment['created_at'] == comment.get('updated_at')
+                     and re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ', comment['created_at']) is not None
+                     and comment.get('issue_url') == 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/5469', 'IDENTITY')
+    app = comment.get('performed_via_github_app')
+    original_require(app is None or type(app) is dict and type(app.get('id')) is int and app['id'] == 1144995, 'IDENTITY')
+    raw = comment['body'].encode('utf-8')
+    original_require(len(raw) == pin[1] and hashlib.sha256(raw).hexdigest() == pin[2], 'IDENTITY')
+    # Full reviewed source identifiers, not an excerpt/title or status keyword.
+    original_require(all(source[0] in comment['body'] and source[2] in comment['body']
+                         for source in record['sourcePins'].values()), 'IDENTITY')
+
+
+def read_original_docker_review(text: str) -> None:
+    """GitHub-runner read only; remote main never calls this admission helper."""
+    record = original_docker_renewal(text)
+    raw = run(['gh', 'api', 'repos/pachaninm-lab/pachanin-demo/issues/comments/' + str(record['sourceReview'][0])])
+    original_require(type(raw) is str, 'IDENTITY')
+    validate_original_docker_review(text, original_json(raw.encode('utf-8')))
+
+
 def validate_original_purpose_record(text: str, sources: dict[str, bytes]) -> str:
     """Accept one closed record in the already accepted main review document only."""
+    if type(text) is str and re.search('^' + re.escape(DOCKER_RENEWAL_BEGIN) + '$|^' + re.escape(DOCKER_RENEWAL_END) + '$', text, re.M):
+        return validate_original_docker_renewal(text, sources)
     original_require(type(text) is str and len(text.encode('utf-8')) <= 4 * 1024 * 1024 and
                      len(re.findall('^' + re.escape(ORIGINAL_PURPOSE_BEGIN) + '$', text, re.M)) ==
                      len(re.findall('^' + re.escape(ORIGINAL_PURPOSE_END) + '$', text, re.M)) == 1, 'IDENTITY')
@@ -2781,14 +3802,23 @@ def main() -> None:
                               'production_mutation': 'NONE', 'deployment_authorized': False}, sort_keys=True))
             raise SystemExit(1)
         return
+    execution = None
+    previous_alarm = None
     try:
         if len(sys.argv) == 3 and sys.argv[2] == '--original-volume-inventory':
-            import resource
-            for kind, maximum in ((resource.RLIMIT_AS, 512 * 1024 * 1024), (resource.RLIMIT_CORE, 0)):
-                _, hard = resource.getrlimit(kind)
-                limit = maximum if hard == resource.RLIM_INFINITY else min(maximum, hard)
-                resource.setrlimit(kind, (limit, limit))
-            value = collect_with_original_inventory(sys.argv[1])
+            docker_require(type(sys.argv[1]) is str and SHA.fullmatch(sys.argv[1]) is not None)
+            docker_require(signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+                           and signal.getsignal(signal.SIGALRM) == signal.SIG_DFL)
+            execution = DockerExecution(time.monotonic() + COLLECTION_SECONDS)
+            def expired(_number, _frame):
+                raise DockerExecutionRefusal('COLLECTION_DEADLINE')
+            previous_alarm = signal.signal(signal.SIGALRM, expired)
+            signal.setitimer(signal.ITIMER_REAL, max(.001, execution.work_deadline - time.monotonic()))
+            execution.start()
+            value = collect_with_original_inventory(sys.argv[1], execution=execution)
+            docker_require(time.monotonic() < execution.work_deadline)
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            docker_require(execution.close())
         else:
             value = collect(sys.argv[1] if len(sys.argv) == 2 else '')
         encoded = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
@@ -2799,6 +3829,13 @@ def main() -> None:
         # Never serialize raw exception messages or command/environment contents.
         print('{"schema":"pc-crop.market-release-preflight.v6","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
+    finally:
+        if previous_alarm is not None:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous_alarm)
+        if execution is not None and not execution.closed:
+            execution.close()
+
 
 
 if __name__ == '__main__':
