@@ -1008,3 +1008,548 @@ print(json.dumps({'operation':operation,'scenario':scenario,'events':events,'sub
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def startup_contract_suite():
+    """Native-only regression fixtures. The real transport and Docker are never invoked."""
+    import ast, copy, ctypes, datetime as dt, hashlib, importlib.util, json, os
+    from pathlib import Path
+    import resource, signal, subprocess, sys, tempfile, textwrap, time, unittest
+    from types import SimpleNamespace as NS
+    from unittest.mock import patch
+
+    spec = importlib.util.spec_from_file_location('startup_controller', Path(__file__).with_name('production_docker_startup_controller.py'))
+    c = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(c)
+    SOURCES = {p:Path(p).read_bytes() for p in c.SOURCE_PATHS}
+    WORKFLOW, REMOTE, h, transport = c.sections(SOURCES)
+    accepted_queue = Path(c.QUEUE).read_text()
+    PREDECESSOR_QUEUE = ''.join(marker+c.wire(c.record_block(accepted_queue,marker,cap)[0])+'\n```\n'
+        for marker,cap in ((c.PURPOSE_MARKER,18999),(c.ADMISSION_MARKER,7720)))
+    REVIEW_BODY = 'SYNTHETIC LOCAL CONTRACT FIXTURE; NOT A REAL REVIEW OR EXECUTION DISPOSITION. ' * 3
+    REAL_POPEN = subprocess.Popen
+    IDENTITY = tuple((1, i+1, 0o100755, 0, 0, 123456, 7, 8) for i in range(4))
+    TARGET = 'a' * 40
+    SECRET = 'PRIVATE_FIXTURE_MUST_NEVER_BE_EXPORTED'
+
+    def record():
+        # Fixed actual reviewer identities are schema constraints, not a claim that this fixture was reviewed.
+        def review(source,identifier):
+            value={'status':'CLEAN_PRIVATE_SOURCE_ONLY','reviewerIdentity':c.SOURCE_REVIEWER if source else c.GOVERNANCE_REVIEWER,
+                'authorIdentity':c.SOURCE_AUTHOR if source else c.GOVERNANCE_AUTHOR,'independent':True,
+                'findings':{'P0':0,'P1':0,'P2':0},'artifact':{'bytes':len(REVIEW_BODY.encode()),'sha256':hashlib.sha256(REVIEW_BODY.encode()).hexdigest()},
+                'comment':{'id':identifier,'issue':5469,'publisher':'pachaninm-lab','appId':1144995,'createdAt':'2026-11-09T11:00:00Z'}}
+            if source: value['kind']='PRIVATE_SOURCE_REVIEW'
+            return value
+        prior=c.record_block(PREDECESSOR_QUEUE,c.ADMISSION_MARKER,7720)[0]
+        governance=[{**row,'blob':'f'*40,'bytes':row['bytes']+1,'sha256':'e'*64} for row in prior['governanceAfter']]
+        return {'schema':'pc.docker-startup-source-admission.v2','core':{'purposeId':c.PURPOSE,
+            'authorityBaseExactMain':c.BASE,'retainedSourceHead':c.RETAINED,'predecessor':copy.deepcopy(c.PREDECESSOR),
+            'sourceAfter':[c.pin(p,SOURCES[p]) for p in c.SOURCE_PATHS],
+            'sourcePatch':{'bytes':123456,'sha256':'a'*64},'sourceReview':review(True,'91'),'runtimeAllowance':'NOT_ISSUED_BY_SOURCE'},
+            'governanceAfter':governance,'governancePatch':{'bytes':123456,'sha256':'b'*64},'governanceReview':review(False,'92')}
+
+    def queue(value):
+        return (PREDECESSOR_QUEUE + c.MARKER + c.wire(value) + '\n```\n').encode()
+
+    def event_pair():
+        live = {'id':42,'issue_url':'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/4637',
+            'body':c.COMMAND,'user':{'login':'pachaninm-lab'},'author_association':'OWNER',
+            'created_at':'2026-11-09T12:00:00Z','updated_at':'2026-11-09T12:00:00Z',
+            'performed_via_github_app':{'id':1144995}}
+        return {'action':'created','issue':{'number':4637},'comment':copy.deepcopy(live)},live
+
+    def fixture_collect(programs, identity=None, clean_override=None, command_seconds=None):
+        calls, children = [], []
+        def spawn(argv, **kw):
+            assert argv == ('/usr/bin/docker','--version')
+            assert kw['env'] == {'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C'}
+            assert kw['cwd'] == '/' and kw['stdin'] == subprocess.DEVNULL and kw['close_fds'] and kw['start_new_session']
+            index = len(calls)
+            assert index < len(programs) <= 2
+            calls.append(argv)
+            child = REAL_POPEN([sys.executable,'-I','-c',programs[index]], **kw)
+            children.append(child)
+            return child
+        kwargs = {'return_value':IDENTITY} if identity is None else {'side_effect':identity}
+        with patch.dict(h, {'trusted_identity':unittest.mock.Mock(**kwargs)}), patch.object(os,'geteuid',return_value=0), \
+             patch.object(subprocess,'Popen',side_effect=spawn):
+            if clean_override is None and command_seconds is None:
+                result = h['collect']()
+            else:
+                original_close = h['OwnedChildLease'].close
+                def close(lease,proc,deadline):
+                    actual = original_close(lease,proc,deadline)
+                    return actual if clean_override is None else bool(actual and clean_override)
+                with patch.object(h['OwnedChildLease'],'close',close), patch.dict(h,{'COMMAND_SECONDS':command_seconds or 12}):
+                    result = h['collect']()
+        assert all(child.poll() is not None for child in children), 'FIXTURE_OWNED_CHILD_LEFT_RUNNING'
+        h['validate_report'](result)
+        return result,calls
+
+    class StartupMeasurements(unittest.TestCase):
+        def test_two_actual_children_limits_and_cleanup(self):
+            common = ('import ctypes,os,resource,signal; '
+                'assert resource.getrlimit(resource.RLIMIT_CORE)==(0,0); '
+                'assert resource.getrlimit(resource.RLIMIT_FSIZE)==(0,0); '
+                'assert all(0<=n<=2 for n in resource.getrlimit(resource.RLIMIT_CPU)); '
+                'v=ctypes.c_int(); assert ctypes.CDLL(None).prctl(2,ctypes.byref(v),0,0,0)==0; '
+                'assert v.value==signal.SIGKILL; assert os.getcwd()=="/"; '
+                'assert os.environ["LC_ALL"]=="C" and "GH_TOKEN" not in os.environ; ')
+            inherited = resource.getrlimit(resource.RLIMIT_AS)
+            programs = [common+'assert resource.getrlimit(resource.RLIMIT_AS)=='+repr(inherited)+'; print("ok")',
+                        common+'assert resource.getrlimit(resource.RLIMIT_AS)==(536870912,536870912); print("ok")']
+            value,calls = fixture_collect(programs)
+            self.assertEqual(len(calls),2)
+            self.assertEqual(value['comparison'],'STARTUP_FAILURE_NOT_REPRODUCED')
+            self.assertTrue(all(r['cleanup_attestation']=='OWNED_ANCESTRY_REAPED' for r in value['measurements']))
+
+        def test_exact_go_signal_is_useful_but_not_original19_or_root_cause(self):
+            value,calls = fixture_collect(['print("control")',
+                'import sys; sys.stderr.write("fatal error: failed to reserve page summary memory\\n'+SECRET+'"); raise SystemExit(2)'])
+            self.assertEqual(len(calls),2)
+            self.assertEqual(value['comparison'],'CURRENT_STARTUP_AS_FAILURE_REPRODUCED')
+            self.assertEqual(value['root_cause'],'NOT_ESTABLISHED')
+            self.assertEqual(value['original19'],'NOT_ATTESTED')
+            raw = json.dumps(value)
+            self.assertNotIn(SECRET,raw)
+            self.assertNotIn(hashlib.sha256(SECRET.encode()).hexdigest(),raw)
+            self.assertNotIn('stderr_sha256',raw)
+            self.assertNotIn('/usr/bin',raw)
+
+        def test_unknown_nonzero_never_establishes_comparison(self):
+            value,_ = fixture_collect(['pass','import sys; sys.stderr.write("'+SECRET+'"); raise SystemExit(2)'])
+            self.assertEqual(value['comparison'],'NOT_PROVEN')
+            self.assertEqual(value['status'],'UNKNOWN')
+
+        def test_failed_control_never_starts_capped_child(self):
+            value,calls = fixture_collect(['raise SystemExit(3)'])
+            self.assertEqual(len(calls),1)
+            self.assertEqual(value['measurements'][1],h['empty_row'](h['PROFILES'][1]))
+
+        def test_real_signal_is_preserved(self):
+            value,calls = fixture_collect(['import os,signal; os.kill(os.getpid(),signal.SIGTERM)'])
+            self.assertEqual(len(calls),1)
+            self.assertEqual(value['measurements'][0]['signal'],15)
+            self.assertIsNone(value['measurements'][0]['exit_code'])
+
+        def test_stdout_overflow_is_bounded_and_stops_comparison(self):
+            value,calls = fixture_collect(['import sys; sys.stdout.write("x"*20000)'])
+            self.assertEqual(len(calls),1)
+            self.assertEqual(value['measurements'][0]['status'],'OUTPUT_LIMIT')
+            self.assertEqual(value['measurements'][0]['stdout_captured_bytes'],16385)
+
+        def test_stderr_overflow_never_classifies_partial_go_text(self):
+            value,_ = fixture_collect(['import sys; sys.stderr.write("fatal error: failed to reserve page summary memory"+"x"*20000)'])
+            self.assertEqual(value['measurements'][0]['failure_signal'],'UNCLASSIFIED')
+            self.assertEqual(value['comparison'],'NOT_PROVEN')
+
+        def test_timeout_uses_real_process_and_reaps_before_any_second(self):
+            value,calls = fixture_collect(['import time; time.sleep(10)'],command_seconds=.15)
+            self.assertEqual(len(calls),1)
+            self.assertEqual(value['measurements'][0]['status'],'TIMED_OUT')
+            self.assertEqual(value['measurements'][0]['cleanup_attestation'],'OWNED_ANCESTRY_REAPED')
+
+        def test_cleanup_unknown_cannot_pass_or_spawn_second(self):
+            value,calls = fixture_collect(['pass'],clean_override=False)
+            self.assertEqual(len(calls),1)
+            self.assertEqual(value['measurements'][0]['status'],'CLEANUP_UNCONFIRMED')
+            self.assertEqual(value['comparison'],'NOT_PROVEN')
+
+        def test_identity_drift_stops_before_second(self):
+            value,calls = fixture_collect(['pass'],identity=[IDENTITY,IDENTITY[:-1]+((1,2,3,4,5,6,7,8),)])
+            self.assertEqual(len(calls),1)
+            self.assertFalse(value['identity_stable'])
+            self.assertEqual(value['comparison'],'NOT_PROVEN')
+
+        def test_noncomparable_inherited_as_spawns_nothing(self):
+            original = resource.getrlimit
+            with patch.object(resource,'getrlimit',side_effect=lambda kind:(536870912,536870912) if kind==resource.RLIMIT_AS else original(kind)):
+                value,calls = fixture_collect([])
+            self.assertEqual(calls,[])
+            self.assertEqual(value['comparison'],'NOT_COMPARABLE')
+
+        def test_failure_classifier_closed(self):
+            self.assertEqual(h['failure_signal'](b'',True),'NONE')
+            self.assertEqual(h['failure_signal'](b'fatal error: failed to reserve page summary memory',False),'UNCLASSIFIED')
+            self.assertEqual(h['failure_signal'](b'cannot allocate memory',True),'UNCLASSIFIED')
+
+        def test_report_rejects_wrong_fields_types_evidence_and_privilege(self):
+            value,_ = fixture_collect(['pass','pass'])
+            variants = []
+            for key,bad in [('extra',SECRET),('production_mutation',True),('deployment_authorized',True),
+                            ('elapsed_ms',False),('within_budget',1),('root_cause','ESTABLISHED'),('limits_comparable',False)]:
+                v=copy.deepcopy(value); v[key]=bad; variants.append(v)
+            for key,bad in [('stdout_captured_bytes',16386),('exit_code',True),('signal',65),
+                            ('cleanup_attestation','NOT_ATTESTED'),('stderr_sha256','f'*64),('profile','THIRD_2048_MIB')]:
+                v=copy.deepcopy(value); v['measurements'][1][key]=bad; variants.append(v)
+            v=copy.deepcopy(value); v['inherited_as_soft_bytes']=1; variants.append(v)
+            v=copy.deepcopy(value); v['binary_fingerprint_sha256']=None; variants.append(v)
+            for v in variants:
+                with self.subTest(v=v):
+                    with self.assertRaises((ValueError,TypeError,KeyError)): h['validate_report'](v)
+
+    class SourceAndOwner(unittest.TestCase):
+        def test_real_sections_preserve_old_transport_and_caps(self):
+            self.assertEqual(len(REMOTE.encode())<=20000,True)
+            self.assertEqual(hashlib.sha256(WORKFLOW[:477440]).hexdigest(),c.PREFIX_SHA)
+            self.assertEqual(hashlib.sha256(SOURCES[c.TEST][:62220]).hexdigest(),c.TEST_SHA)
+            self.assertEqual(h['ARGV'],('/usr/bin/docker','--version'))
+            self.assertEqual((h['COMMAND_SECONDS'],h['OUTER_SECONDS'],transport['TRANSPORT_SECONDS']),(12,15,45))
+            self.assertEqual(h['AS_BYTES'],536870912)
+            self.assertNotIn('stderr_sha256',REMOTE)
+            parsed=ast.parse(REMOTE)
+            calls=[n for n in ast.walk(parsed) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)
+                   and isinstance(n.func.value,ast.Name) and n.func.value.id=='subprocess' and n.func.attr=='Popen']
+            self.assertEqual(len(calls),1)
+            self.assertIsInstance(calls[0].args[0],ast.Name)
+            self.assertEqual(calls[0].args[0].id,'ARGV')
+
+        def test_valid_synthetic_purpose_has_no_execution_authority(self):
+            v=c.purpose(queue(record()),SOURCES)
+            self.assertEqual(v['core']['runtimeAllowance'],'NOT_ISSUED_BY_SOURCE')
+
+        def test_pending_missing_duplicate_old_purposes_fail(self):
+            v=record(); v['core']['sourceReview']['status']='PENDING'
+            for raw in (queue(v),b'no new purpose',queue(record())*2,
+                        queue(record()).replace(b'"schema":',b'"schema":"duplicate","schema":',1)):
+                with self.subTest(raw=raw[:80]):
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(raw,SOURCES)
+
+        def test_wrong_scope_bounds_pins_review_and_booleans_fail(self):
+            variants=[]
+            for key,bad in [('extra',1),('purposeId','old-purpose'),('authorityBaseExactMain','b'*40),
+                            ('retainedSourceHead','b'*40),('runtimeAllowance','ISSUED')]:
+                v=record(); v['core'][key]=bad; variants.append(v)
+            v=record(); v['core']['predecessor']['admission']['bytes']=True; variants.append(v)
+            v=record(); v['core']['sourceAfter'][0]['sha256']='f'*64; variants.append(v)
+            v=record(); v['core']['sourceAfter'].append(v['core']['sourceAfter'][1]); variants.append(v)
+            v=record(); v['core']['sourceReview']['findings']['P0']=False; variants.append(v)
+            v=record(); v['core']['sourceReview']['reviewerIdentity']=c.SOURCE_AUTHOR; variants.append(v)
+            v=record(); v['core']['sourceReview']['kind']='SESSION'; variants.append(v)
+            v=record(); v['governanceReview']['reviewerIdentity']=c.GOVERNANCE_AUTHOR; variants.append(v)
+            for v in variants:
+                with self.subTest(v=v):
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+
+        def test_missing_source_admission_fails_before_any_api_or_transport(self):
+            env={'GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo','GITHUB_EVENT_NAME':'issue_comment',
+                 'GITHUB_RUN_ATTEMPT':'1','GITHUB_REF':'refs/heads/main','GITHUB_SHA':TARGET,
+                 'GITHUB_WORKFLOW_SHA':TARGET,'GITHUB_WORKFLOW_REF':'pachaninm-lab/pachanin-demo/'+c.WORKFLOW+'@refs/heads/main'}
+            def blob(target,path,cap):
+                return SOURCES[path] if path in SOURCES else b'old queue only'
+            with patch.dict(os.environ,env),patch.object(c,'git',return_value=(TARGET+'\n').encode()), \
+                 patch.object(c,'accepted_blob',side_effect=blob),patch.object(c,'api') as api:
+                with self.assertRaises(ValueError): c.admit()
+                api.assert_not_called()
+
+        def test_owner_direct_and_accepted_app_and_reserved_time(self):
+            event,live=event_pair()
+            now=dt.datetime(2026,11,9,12,4,15,tzinfo=dt.timezone.utc)
+            for actor in ('pachaninm-lab','app-user'):
+                with patch.dict(os.environ,{'GITHUB_ACTOR':actor,'TRIGGERING_ACTOR':actor}):
+                    self.assertEqual(c.owner(event,live,now),'42')
+                    with self.assertRaises(ValueError): c.owner(event,live,now+dt.timedelta(seconds=1))
+
+        def test_complete_admission_live_ref_api_error_and_rerun_before_transport(self):
+            event,live=event_pair()
+            now=dt.datetime(2026,11,9,12,0,5,tzinfo=dt.timezone.utc)
+            review_live={'id':91,'issue_url':'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/5469',
+                'user':{'login':'pachaninm-lab'},'author_association':'OWNER','performed_via_github_app':{'id':1144995},
+                'created_at':'2026-11-09T11:00:00Z','updated_at':'2026-11-09T11:00:00Z','body':REVIEW_BODY}
+            env={'GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo','GITHUB_EVENT_NAME':'issue_comment',
+                 'GITHUB_RUN_ATTEMPT':'1','GITHUB_REF':'refs/heads/main','GITHUB_SHA':TARGET,
+                 'GITHUB_WORKFLOW_SHA':TARGET,'GITHUB_WORKFLOW_REF':'pachaninm-lab/pachanin-demo/'+c.WORKFLOW+'@refs/heads/main',
+                 'GITHUB_EVENT_PATH':'fixture-event','GITHUB_ACTOR':'connector','TRIGGERING_ACTOR':'connector'}
+            def blob(target,path,cap):
+                return SOURCES[path] if path in SOURCES else queue(record())
+            for case in ('valid','wrong_main','api_error','second_comment_edited','rerun','workflow_sha','review_changed','review_missing'):
+                calls=[]
+                def api(path):
+                    calls.append(path)
+                    if case=='api_error': raise OSError('synthetic API failure')
+                    if path=='issues/comments/91':
+                        if case=='review_missing': raise OSError('synthetic review absent')
+                        result=copy.deepcopy(review_live)
+                        if case=='review_changed': result['body']+='drift'
+                        return result
+                    if path=='issues/4637': return {'state':'open','comments':10}
+                    if path=='git/ref/heads/main': return {'ref':'refs/heads/main','object':{'type':'commit','sha':'b'*40 if case=='wrong_main' else TARGET}}
+                    result=copy.deepcopy(live)
+                    if case=='second_comment_edited' and calls.count(path)==2: result['updated_at']='2026-11-09T12:00:01Z'
+                    return result
+                current={**env}
+                if case=='rerun': current['GITHUB_RUN_ATTEMPT']='2'
+                if case=='workflow_sha': current['GITHUB_WORKFLOW_SHA']='b'*40
+                execute=unittest.mock.Mock(return_value={'passed':True})
+                with patch.dict(os.environ,current),patch.object(c,'git',side_effect=lambda *args:(TARGET+'\n').encode() if args[0]=='rev-parse' else b''), \
+                     patch.object(c,'accepted_blob',side_effect=blob),patch.object(c,'sections',return_value=(WORKFLOW,REMOTE,h,{'execute':execute})), \
+                     patch.object(c,'read',return_value=json.dumps(event).encode()),patch.object(c,'api',side_effect=api), \
+                     patch.object(c.dt,'datetime',wraps=dt.datetime) as clock:
+                    clock.now.return_value=now
+                    if case=='valid':
+                        self.assertEqual(c.main('--run'),0)
+                        self.assertEqual(calls,['issues/comments/42','issues/comments/91','issues/4637','git/ref/heads/main','issues/comments/42'])
+                        execute.assert_called_once()
+                    else:
+                        with self.assertRaises((OSError,ValueError,KeyError)): c.main('--run')
+                        execute.assert_not_called()
+                        if case in ('rerun','workflow_sha'): self.assertEqual(calls,[])
+
+        def test_wrong_live_owner_issue_id_body_edit_app_and_future_rejected(self):
+            event,live=event_pair(); now=dt.datetime(2026,11,9,12,0,5,tzinfo=dt.timezone.utc)
+            variants=[]
+            for key,bad in [('id',43),('id',True),('body',c.COMMAND+'\n'),('user',{'login':'other'}),
+                            ('issue_url','https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/3072'),
+                            ('author_association','MEMBER'),('updated_at','2026-11-09T12:00:01Z'),
+                            ('performed_via_github_app',{'id':1})]:
+                v=copy.deepcopy(live); v[key]=bad; variants.append(v)
+            with patch.dict(os.environ,{'GITHUB_ACTOR':'connector','TRIGGERING_ACTOR':'connector'}):
+                for v in variants:
+                    with self.subTest(v=v):
+                        with self.assertRaises((ValueError,TypeError,KeyError)): c.owner(event,v,now)
+                with self.assertRaises(ValueError): c.owner(event,live,now-dt.timedelta(seconds=6))
+                event['issue']['pull_request']={}
+                with self.assertRaises(ValueError): c.owner(event,live,now)
+
+        def test_run_calls_transport_once_only_after_fresh_admission(self):
+            with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'GITHUB_SHA':TARGET,'RUNNER_TEMP':tmp}):
+                execute=unittest.mock.Mock(return_value={'passed':True})
+                prepared=(WORKFLOW,REMOTE,h,{'execute':execute})
+                with patch.object(c,'sections',side_effect=AssertionError('recompilation forbidden')),patch.object(c,'admit',return_value=(TARGET,prepared)):
+                    self.assertEqual(c.main('--run'),0)
+                    execute.assert_called_once_with(REMOTE,TARGET,Path(tmp)/'docker-startup-candidate.json')
+                execute.reset_mock()
+                with patch.object(c,'sections',side_effect=AssertionError('premature compilation')),patch.object(c,'admit',side_effect=ValueError('REJECT')):
+                    with self.assertRaises(ValueError): c.main('--run')
+                    execute.assert_not_called()
+
+        def test_closed_envelope_rejects_raw_private_fields_and_false_cleanup(self):
+            value={'schema':'pc.closed-docker-diagnostic-envelope.v2','target':TARGET,'transport_status':'TIMED_OUT',
+                'diagnostic':None,'passed':False,'production_mutation':False,'deployment_authorized':False,
+                'local_cleanup_attestation':'OWNED_ANCESTRY_REAPED'}
+            with tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'closed.json'; path.write_text(json.dumps(value))
+                self.assertEqual(c.publish(TARGET,path,h),value)
+                for key,bad in [('raw_stderr',SECRET),('passed',True),('local_cleanup_attestation','NOT_ATTESTED'),('target','b'*40)]:
+                    v=dict(value); v[key]=bad; path.write_text(json.dumps(v))
+                    with self.assertRaises(ValueError): c.publish(TARGET,path,h)
+
+        def test_read_rejects_symlink_and_size(self):
+            with tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'file'; p.write_bytes(b'1234'); link=Path(tmp)/'link'; link.symlink_to(p)
+                self.assertEqual(c.read(p,4),b'1234')
+                with self.assertRaises(ValueError): c.read(p,3)
+                with self.assertRaises(OSError): c.read(link,4)
+
+    class ActualRoutes(unittest.TestCase):
+        def test_actual_job_conditions_closed_new_command_only(self):
+            import re
+            expressions=[]
+            for name in ('startup_as_contract','startup_as_compare'):
+                block=WORKFLOW.decode().split('\n  '+name+':\n',1)[1].split('\n    runs-on:',1)[0]
+                raw=re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)',block+'\n')[1]
+                source=' '.join(row.strip() for row in raw.splitlines()).replace('&&',' and ').replace('||',' or ').replace('null','None')
+                tree=ast.parse(source,mode='eval')
+                allowed=(ast.Expression,ast.BoolOp,ast.And,ast.Or,ast.Compare,ast.Eq,ast.Attribute,ast.Name,ast.Load,ast.Constant)
+                self.assertTrue(all(type(n) in allowed for n in ast.walk(tree)))
+                expressions.append(compile(tree,'<actual-startup-route>','eval'))
+            def route(event='issue_comment',issue=4637,body=c.COMMAND,author='owner',actor='owner',trigger='owner',
+                      association='OWNER',app=0,result='success',attempt='1',edited=False,pr=None):
+                github=NS(event_name=event,repository_owner='owner',actor=actor,triggering_actor=trigger,run_attempt=attempt,
+                    event=NS(issue=NS(number=issue,pull_request=pr),comment=NS(body=body,user=NS(login=author),
+                    author_association=association,performed_via_github_app=NS(id=app),created_at='same',updated_at='different' if edited else 'same')))
+                ctx={'github':github,'needs':NS(startup_as_contract=NS(result=result))}
+                return tuple(bool(eval(v,{'__builtins__':{}},ctx)) for v in expressions)
+            self.assertEqual(route(),(True,True))
+            self.assertEqual(route(actor='bot',trigger='bot',app=1144995),(True,True))
+            self.assertEqual(route(event='pull_request'),(True,False))
+            self.assertEqual(route(result='failure'),(True,False))
+            for changes in ({'body':'/production diagnose-docker current-main'},{'body':c.COMMAND+' '},
+                            {'issue':3072},{'author':'other'},{'actor':'other'},{'association':'NONE'},
+                            {'event':'push'},{'attempt':'2'},{'edited':True},{'pr':{}},{'body':c.COMMAND+'\n'}):
+                with self.subTest(changes=changes): self.assertEqual(route(**changes),(False,False))
+
+    class PlaintextAdmission(unittest.TestCase):
+        def review_live(self):
+            return {'id':91,'issue_url':'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/5469',
+                'user':{'login':'pachaninm-lab'},'author_association':'OWNER','performed_via_github_app':{'id':1144995},
+                'created_at':'2026-11-09T11:00:00Z','updated_at':'2026-11-09T11:00:00Z','body':REVIEW_BODY}
+
+        def test_complete_predecessors_are_authenticated_not_only_copied_hashes(self):
+            raw=queue(record())
+            for marker,cap in ((c.PURPOSE_MARKER,18999),(c.ADMISSION_MARKER,7720)):
+                prior,wire=c.record_block(PREDECESSOR_QUEUE,marker,cap)
+                prior['unauthorized_extra']=True
+                bad=raw.replace(wire,c.wire(prior).encode(),1)
+                with self.assertRaises(ValueError): c.purpose(bad,SOURCES)
+                with self.assertRaises(ValueError): c.purpose(raw.replace(marker.encode(),b'',1),SOURCES)
+                with self.assertRaises(ValueError): c.purpose(raw+(marker+c.wire(prior)+'\n```\n').encode(),SOURCES)
+
+        def test_noncanonical_oversize_and_duplicate_wire_fail(self):
+            v=record()
+            variants=[(PREDECESSOR_QUEUE+c.MARKER+json.dumps(v,indent=1)+'\n```\n').encode(),
+                queue(v).replace(b'"schema":"pc.docker-startup-source-admission.v2"',
+                    b'"schema":"pc.docker-startup-source-admission.v2","schema":"pc.docker-startup-source-admission.v2"'),
+                queue(v)+b'x'*3145728]
+            v['core']['padding']='x'*4096; variants.append(queue(v))
+            for raw in variants:
+                with self.assertRaises(ValueError): c.purpose(raw,SOURCES)
+
+        def test_v2_record_is_closed_and_typed_including_all_pins(self):
+            variants=[]
+            for key,bad in [('schema','pc.docker-startup-source-admission.v1'),('core',None),('unknown',1),
+                            ('governancePatch',None),('governanceReview',None),('governanceAfter',[])]:
+                v=record(); v[key]=bad; variants.append(v)
+            for key,bad in [('bytes',True),('bytes',0),('sha256','a'*63),('blob','A'*40),('mode','100755'),('path','unknown')]:
+                v=record(); v['core']['sourceAfter'][0][key]=bad; variants.append(v)
+            for key,bad in [('bytes',True),('bytes',0),('sha256','A'*64),('blob','f'*39),('mode','100644'),('path','unknown')]:
+                v=record(); v['governanceAfter'][2][key]=bad; variants.append(v)
+            old=c.record_block(PREDECESSOR_QUEUE,c.ADMISSION_MARKER,7720)[0]
+            v=record(); v['governanceAfter']=old['governanceAfter']; variants.append(v)
+            v=record(); v['core']['sourceAfter'].reverse(); variants.append(v)
+            v=record(); v['governanceAfter'].reverse(); variants.append(v)
+            for v in variants:
+                with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+
+        def test_designated_real_reviewers_and_complete_receipts_required(self):
+            for which in ('source','governance'):
+                for key,bad in [('status','CLEAN'),('status','PENDING'),('independent',1),('reviewerIdentity','fixture-independent'),
+                                ('authorIdentity','old-author'),('artifact',None),('comment',None)]:
+                    v=record(); r=v['core']['sourceReview'] if which=='source' else v['governanceReview']; r[key]=bad
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+                for key,bad in [('id',91),('id',True),('id',91.0),('id','091'),('id','0'),('id','1'*21),('id','+91'),
+                                ('issue',5469.0),('appId',1144995.0),('publisher','other'),('createdAt','2026-99-99T11:00:00Z')]:
+                    v=record(); r=v['core']['sourceReview'] if which=='source' else v['governanceReview']; r['comment'][key]=bad
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+            v=record(); v['governanceReview']['comment']['id']='91'
+            with self.assertRaises(ValueError): c.purpose(queue(v),SOURCES)
+
+        def test_public_review_requires_exact_full_body_identity_and_provenance(self):
+            c.source_review(record(),self.review_live())
+            variants=[]
+            for key,bad in [('id',92),('id',True),('id',91.0),('id','91'),('issue_url','https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/4637'),
+                            ('user',{'login':'other'}),('author_association','MEMBER'),('performed_via_github_app',{'id':1144995.0}),
+                            ('updated_at','2026-11-09T11:00:01Z'),('created_at','2026-11-09T11:00:01Z'),
+                            ('body',REVIEW_BODY[:-1]),('body','WRAPPER'+REVIEW_BODY),('body',{'sha256':hashlib.sha256(REVIEW_BODY.encode()).hexdigest()})]:
+                v=self.review_live(); v[key]=bad; variants.append(v)
+            for v in variants:
+                with self.assertRaises((ValueError,TypeError,KeyError)): c.source_review(record(),v)
+
+        def test_public_review_utf8_bytes_and_exact_limit(self):
+            body='я'*10000
+            v=record(); v['core']['sourceReview']['artifact']={'bytes':20000,'sha256':hashlib.sha256(body.encode()).hexdigest()}
+            live=self.review_live(); live['body']=body
+            c.source_review(v,live)
+            v['core']['sourceReview']['artifact']['bytes']=len(body)
+            with self.assertRaises(ValueError): c.source_review(v,live)
+            body+='x'; live['body']=body
+            v['core']['sourceReview']['artifact']={'bytes':20001,'sha256':hashlib.sha256(body.encode()).hexdigest()}
+            with self.assertRaises(ValueError): c.source_review(v,live)
+
+        def test_source_drift_for_each_of_four_files_fails_before_compile_api_or_keys(self):
+            env={'GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo','GITHUB_EVENT_NAME':'issue_comment',
+                'GITHUB_RUN_ATTEMPT':'1','GITHUB_REF':'refs/heads/main','GITHUB_SHA':TARGET,'GITHUB_WORKFLOW_SHA':TARGET,
+                'GITHUB_WORKFLOW_REF':'pachaninm-lab/pachanin-demo/'+c.WORKFLOW+'@refs/heads/main'}
+            for bad_path in c.SOURCE_PATHS:
+                def blob(target,path,cap):
+                    if path==c.QUEUE: return queue(record())
+                    return SOURCES[path]+(b'\n# drift\n' if path==bad_path else b'')
+                for mode in ('--admit','--run','--key-script','--publish'):
+                    with patch.dict(os.environ,env),patch.object(c,'git',return_value=(TARGET+'\n').encode()), \
+                         patch.object(c,'accepted_blob',side_effect=blob),patch.object(c,'sections') as sections,patch.object(c,'api') as api:
+                        with self.assertRaises(ValueError): c.main(mode)
+                        sections.assert_not_called(); api.assert_not_called()
+
+        def test_all_committed_and_worktree_sources_and_two_distinct_ancestors_required(self):
+            calls=[]
+            def blob(target,path,cap):
+                calls.append((target,path,cap))
+                return SOURCES[path] if path in SOURCES else queue(record())
+            gitcalls=[]
+            def git(*args):
+                gitcalls.append(args)
+                return (TARGET+'\n').encode() if args==('rev-parse','HEAD') else b''
+            with patch.object(c,'git',side_effect=git),patch.object(c,'accepted_blob',side_effect=blob):
+                sources,v=c.accepted_sources(TARGET)
+            self.assertEqual(tuple(path for _,path,_ in calls),c.SOURCE_PATHS+(c.QUEUE,))
+            self.assertEqual(gitcalls,[('rev-parse','HEAD'),('merge-base','--is-ancestor',c.BASE,TARGET),
+                ('merge-base','--is-ancestor',c.RETAINED,TARGET)])
+            self.assertEqual(sources,SOURCES)
+            for denied in (c.BASE,c.RETAINED):
+                def missing(*args):
+                    if denied in args: raise ValueError('SYNTHETIC_MISSING_ANCESTOR')
+                    return git(*args)
+                with patch.object(c,'git',side_effect=missing),patch.object(c,'accepted_blob',side_effect=blob):
+                    with self.assertRaises(ValueError): c.accepted_sources(TARGET)
+
+        def test_committed_blob_worktree_regular_mode_size_and_content_identity(self):
+            with tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'source.py'; raw=b'pass\n'; p.write_bytes(raw)
+                mode='100644'; committed=raw
+                def git(*args):
+                    blob=c.pin(str(p),committed)['blob']
+                    if args[0]=='ls-tree': return (mode+' blob '+blob+'\t'+str(p)+'\n').encode()
+                    if args[1]=='-s': return str(len(committed)).encode()
+                    return committed
+                with patch.object(c,'git',side_effect=git):
+                    self.assertEqual(c.accepted_blob(TARGET,str(p),5),raw)
+                    p.write_bytes(b'fail\n')
+                    with self.assertRaises(ValueError): c.accepted_blob(TARGET,str(p),5)
+                    p.write_bytes(raw); p.chmod(0o755)
+                    with self.assertRaises(ValueError): c.accepted_blob(TARGET,str(p),5)
+                    p.chmod(0o644); mode='100755'
+                    with self.assertRaises(ValueError): c.accepted_blob(TARGET,str(p),5)
+                    mode='100644'; committed=raw+b'x'
+                    with self.assertRaises(ValueError): c.accepted_blob(TARGET,str(p),5)
+                    committed=raw; q=Path(tmp)/'real.py'; p.rename(q); p.symlink_to(q)
+                    with self.assertRaises(OSError): c.accepted_blob(TARGET,str(p),5)
+
+        def test_full_prefix_drift_rejected_before_host_compilation(self):
+            for path,position in ((c.WORKFLOW,100),(c.TEST,100)):
+                bad=dict(SOURCES); data=bytearray(bad[path]); data[position]^=1; bad[path]=bytes(data)
+                with patch('builtins.compile',side_effect=AssertionError('HOST_MUST_NOT_COMPILE')):
+                    with self.assertRaises(ValueError): c.sections(bad)
+
+        def test_workflow_provider_repair_preserves_prefix_and_new_run_bounds(self):
+            import re
+            self.assertLessEqual(len(WORKFLOW),500000)
+            self.assertEqual(hashlib.sha256(WORKFLOW[:477440]).hexdigest(),c.PREFIX_SHA)
+            tail=WORKFLOW[477440:].decode()
+            runs=re.findall(r'^        run: \|\n((?:(?:          [^\n]*)?\n)+)',tail,re.M)
+            self.assertEqual(len(runs),6)
+            self.assertTrue(all(len(textwrap.dedent(run))<=21000 for run in runs))
+            compare=tail.split('\n  startup_as_compare:',1)[1]
+            self.assertNotIn('runner.temp',compare.split('\n    steps:',1)[0])
+            resolver=compare.split('      - name: Reuse unchanged pinned identity resolver with private runner evidence\n',1)[1].split('      - name:',1)[0]
+            self.assertIn('          EVIDENCE_DIR: ${{ runner.temp }}/docker-startup-key-private',resolver)
+            self.assertLess(compare.index(' --admit'),compare.index(' --key-script'))
+            self.assertLess(compare.index(' --key-script'),compare.index(' --run'))
+            self.assertIn('module.startup_contract_suite()',tail)
+            self.assertNotIn('PY_DOCKER_STARTUP_CONTROLLER',tail)
+
+        def test_api_fixed_routes_response_cap_and_redirect_refusal(self):
+            import io
+            from contextlib import contextmanager
+            @contextmanager
+            def response(raw):
+                handle=io.BytesIO(raw); handle.status=200
+                yield handle
+            opener=unittest.mock.Mock()
+            with patch.dict(os.environ,{'GH_TOKEN':'SYNTHETIC_LOCAL_FIXTURE'}), \
+                 patch.object(c.urllib.request,'build_opener',return_value=opener):
+                opener.open.return_value=response(b'{}')
+                self.assertEqual(c.api('issues/comments/91'),{})
+                opener.open.assert_called_once()
+                request=opener.open.call_args.args[0]
+                self.assertEqual(request.full_url,'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/comments/91')
+                self.assertEqual(opener.open.call_args.kwargs,{'timeout':10})
+                for path in ('issues/comments/091','issues/comments/0','issues/comments/91?x=1','git/ref/heads/other','https://example.test'):
+                    opener.open.reset_mock()
+                    with self.assertRaises(ValueError): c.api(path)
+                    opener.open.assert_not_called()
+                opener.open.return_value=response(b' '*65537)
+                with self.assertRaises(ValueError): c.api('issues/4637')
+            self.assertIsNone(c.NoRedirect().redirect_request(None,None,None,None,None,None))
+
+    return unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(cls) for cls in (StartupMeasurements,SourceAndOwner,ActualRoutes,PlaintextAdmission))
