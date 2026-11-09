@@ -14937,3 +14937,152 @@ Complete frozen five-source patch, losslessly JSON-encoded (no omission):
 ```json
 {"schema":"pc.docker-startup-source-admission.v1","core":{"purposeId":"docker-startup-exact-source-admission-20261108","owner":"ACCOUNT_1_CORE","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","governanceBranch":"governance/gekta-recovery-trusted-routes-20260927","metadataBranch":"governance/industrial-load-diagnostics-20260919","retainedMetadataScope":["docs/platform-v7/autopilot/autopilot-state.json","docs/platform-v7/execution-queue.md","docs/platform-v7/autopilot/prompts/current-codex-task.md","docs/platform-v7/autopilot/prompts/current-review-task.md","scripts/p7-autopilot-guard.sh","scripts/p7-autopilot-guard.test.mjs",".github/workflows/platform-v7-autopilot-guard.yml"],"metadataChangedPaths":["docs/platform-v7/execution-queue.md"],"authorityBaseExactMain":"f05fc11d816333e3539c75c648598b084ce51b33","ownerBasis":{"commentId":6615436499,"bodyBytes":19034,"bodySha256":"9a9dd28f9f91e3a7a03ed38807a0979e67f48635656c304ae00c4bcaa655adf6","updatedAt":"2026-11-05T02:10:01Z","section":3},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"},"sourcePaths":[".github/workflows/production-docker-headroom-diagnostic.yml","scripts/test_production_stopped_runtime_headroom.py"],"sourcePayloads":[{"before":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"3c79a43a5495848711e5e9518c9e933aba83fc82","bytes":477440,"sha256":"2860b9abd30a929a8e0538f5515f5ea34864d8b5e08cac8910511c296c19b22c"},"after":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"0f0dd1a2e367befd7083acba07b3853c648d56cf","bytes":539439,"sha256":"e8893355770b8db2db65618df178f9a79ee701c4095e4eee6c5322cebfeb2e60"}},{"before":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},"after":{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"}}],"wholeBeforePrefixRequired":true,"governanceBefore":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"b2ba003b3f80897065cb582d66e4b9c32a267c4f","bytes":145288,"sha256":"e9b608594b5641c5a51dbe9c31f3095e01c6ecf1c499417bd8dba23885d175c7"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"dd38d18342d95c3dca92bcdf92fd6bee673b7283","bytes":189692,"sha256":"e138627ffcc74b64554f07762a9da70c7c160d9b270140f597602e0ce9310928"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"a1ca5ded38328f03f2a795e25be3e8004c6a54f0","bytes":318448,"sha256":"410fb425cf09642fe04aab57d21adcb2a6494cd9a4ff9fcd41dd49d3a87bf150"}],"state":{"path":"docs/platform-v7/autopilot/autopilot-state.json","mode":"100644","blob":"aee9ddbb7a45f145db6185c5289038d3a931c1de","bytes":3145513,"sha256":"8afad21d3db9fa5b20ab11fcc4d60cb164dcf47b6168b7e9b804ee4c1f3be570"},"unchangedHelpers":[{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"},{"path":"scripts/production_stopped_runtime_headroom.py","mode":"100644","blob":"1577966d56b9cdd6a5ce586f9f63096a53a4e7b9","bytes":34619,"sha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"},{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","blob":"c205a662192d1d777a2f8db167e4fce86f92047d","bytes":174348,"sha256":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"path":".github/workflows/production-stopped-runtime-headroom.yml","mode":"100644","blob":"9d68f6ec4b032f6fae0dad8a68782b53423d1db2","bytes":16047,"sha256":"24530a00803c3d8858271fc566ccd19d201cb687439582ecf72ff84c8e93ca8b"},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","blob":"68eeba7446ec04da91facffcb2da81a64c90c706","bytes":92348,"sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af"},{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","blob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","bytes":18220,"sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943"},{"path":".github/workflows/production-full-stack-exact-sha.yml","mode":"100644","blob":"f0073b774c9448d8af497be02bbbe3c18f8c9b9d","bytes":61098,"sha256":"87aa4e5002aa68bf4476fe4a6af72e1fd9f3855c96e486b5dd097c7d55ba70cf"}],"sourcePatch":{"bytes":63529,"sha256":"08a2a0b8d59658df72887a3f84f8695f35f7e8d9198443cc17709f6c4756045c"},"sourceReviewArtifact":{"bytes":17317,"sha256":"0a88721124e28b1d34cb0bb2574c926c379708a5cd9935fb3cfb1c8367a106af"},"snapshot":{"exactFiles":8,"sharedCommand":["python3","-I","-B","scripts/test_production_stopped_runtime_headroom.py"],"wholeSharedSuiteRequired":true,"wholeNewStartupSuiteRequired":true,"unfilteredNodeRequired":true},"startupInline":[{"tag":"PY_DOCKER_STARTUP_CONTROLLER","filename":"docker-startup-controller.py","bytes":12869,"sha256":"3eea00d140637df95f776a4b280da65c4fc9372e8696d817d88f618d8b9cdfa0"},{"tag":"PY_DOCKER_STARTUP_FIXTURES","filename":"docker-startup-fixtures.py","bytes":22428,"sha256":"24b2ab640b48f0e7bd5d7992552f9ba0ccea39602ebabcfa300fdfc1b0d2215f"}],"bounds":{"maximumTransportsPerCommand":1,"maximumSequentialChildren":2,"argv":["/usr/bin/docker","--version"],"profiles":["INHERITED_AS","EXACT_AS_512_MIB"],"addressSpaceBytes":536870912,"commandSeconds":12,"comparisonSeconds":15,"transportSeconds":45,"maximumStreamBytes":16384,"commandFreshSeconds":300,"cpuSeconds":2,"coreBytes":0,"fileOutputBytes":0,"automaticReruns":0},"queueCapBytes":3145728,"stateCapBytes":3145728,"productionInvocationAuthorized":false,"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"},"governanceAfter":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"36c82539fe9609251f4df556ea7293bff746556b","bytes":162270,"sha256":"8bf0f867f23fecee396ac2096d999fb63dc67794387a0b2c1fb9022aebdeb5e3"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"c6dfcfae0b7362aba3407be3478e7288548f8e19","bytes":293410,"sha256":"9e3fff294b159352738bf03969b58c65d7efb9e43aade0984093b01265fd0d07"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"56869deea762403eb41cc4df34765ee6b15e2f70","bytes":332164,"sha256":"3dfd78cc82695f5a2675a782050b45ef1841c7c8133028509014e6291cb0e6b8"}],"governancePatch":{"bytes":138483,"sha256":"ecbf77bf2336bf709049a7c5f91692db463651dc043166cb4fe45c017024c75e"},"governanceReview":{"status":"CLEAN","reviewerIdentity":"/root/release_status_1357","authorIdentity":"/root/model_metadata_public_review","independent":true,"findings":{"P0":0,"P1":0,"P2":0},"artifact":{"bytes":20816,"sha256":"548676bb5ef20d647766a35b3778618855a1d44436510dfa3b2b699995ca4c98"},"payloads":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"36c82539fe9609251f4df556ea7293bff746556b","bytes":162270,"sha256":"8bf0f867f23fecee396ac2096d999fb63dc67794387a0b2c1fb9022aebdeb5e3"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"c6dfcfae0b7362aba3407be3478e7288548f8e19","bytes":293410,"sha256":"9e3fff294b159352738bf03969b58c65d7efb9e43aade0984093b01265fd0d07"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"56869deea762403eb41cc4df34765ee6b15e2f70","bytes":332164,"sha256":"3dfd78cc82695f5a2675a782050b45ef1841c7c8133028509014e6291cb0e6b8"}]}}
 ```
+
+
+## Proposed compact renewal: gekta-standalone-document-language-20261108
+
+This prospective renewal takes effect only after its own separately accepted metadata merge under the review/audit/native/readiness requirements below; e20 is content evidence, not accepted authority.
+
+- Same purpose and exact two-file payload as the original public renewal. Preserve the entire accepted prefix, old 20261015 admission, nineteen-path vector, state, prompts, guards, workflows, caps and other owners. No new scope/manifest or historical rewrite. Retain e20 in ordinary nonforce metadata ancestry.
+- Same matching standalone workspace effect for both existing client-navigation controls: RU/EN/ZH → ru/en/zh-CN; embedded/nested/mismatched paths excluded. Supported single-workspace cleanup restores prior values/absence only while its assigned value remains. Differently-valued later writes survive; arbitrary overlap/same-value-owner counterexample remains unrepaired and outside the reviewed lifecycle. SPA navigation is unchanged.
+- Existing private source review covers the pinned afters/context patch. The zero-context carrier has a different disclosed hash and reproduces the same payloads; it is not a separately reviewed diff. Prior syntax/forward/reverse checks are historical source evidence. The 16 mocked mounted cases are defined; private native Vitest, project typecheck and full TSX parsing are NOT_RUN. No real Next/navigation-click or production acceptance follows.
+- Only after separate exact-head metadata review/audit/native/readiness/manual expected-SHA acceptance, derive these two after-files from then-current accepted main with both before pins matched and retained source ancestry preserved. Require fresh actual-source-head review/audit/native/readiness/manual merge. Consent/account/model/MFA/DB/cost boundaries, images, release and live/browser acceptance remain separate.
+
+### Unchanged source and genuine historical review pins
+
+```json
+{
+  "purpose": "gekta-standalone-document-language-renewal-20261108",
+  "priorAdmissionPreserved": "gekta-standalone-document-language-20261015",
+  "sourceBase": "912daf6c710dd0cfd9677af39ebb8585c87206f9",
+  "metadataBranch": "governance/gekta-live-language-history-notice-20261011",
+  "implementationBranch": "fix/gekta-anonymous-document-evidence-20261009",
+  "existingScopeCount": 19,
+  "existingScopeCanonicalSha256": "403f362a83f2037dc2c71ef7ff399672a3b72f873de27686195a691bd29afe3e",
+  "paths": [
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "mode": "100644",
+      "before": {"blob":"9a0743075bc6898bb80d1cee0bc90e4507b30525","bytes":64713,"sha256":"4c9ce464b52c60425eee16854a265f0751bee46c109a87358ecc2fc7cea0c81b"},
+      "after": {"blob":"b56a2df456e4d06d5d699e9babce4df52588585b","bytes":65962,"sha256":"6e906bc5f28538fdeed132de2e5e9122bd5e717d94f82be3c63e7750301bc30c"}
+    },
+    {
+      "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+      "mode": "100644",
+      "before": {"blob":"030dc5091ce2c3c117b97480fa366f35e182e847","bytes":33430,"sha256":"5c8718555c27bb9cbdca5225fa13368a7775a04ae76c038b3e124335092a4ee5"},
+      "after": {"blob":"465549122dcfdc824703975b59e503380bf295ee","bytes":39656,"sha256":"b64cc3322b7e7548d4bca19b117dc4a5c7afa6a0d5d2ef64878ea6a07cc5e6bd"}
+    }
+  ],
+  "reviewedContextPatch": {"bytes":8788,"sha256":"f8fef977c7efa2ccbb1f986874e490163c9af940b6fcb3bced31686edb74a80e"},
+  "completeZeroContextPatch": {"bytes":8296,"sha256":"8973b2ff9b8db8b5e6c80262077aef7687136bb1699f6334f18277ca792a3ebb"},
+  "sourceReview": {
+    "kind": "independent-private-source-session-review",
+    "reviewer": "/root/pr6123_release_gate",
+    "verdict": "PASS_PRIVATE_SOURCE_REVIEW",
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6726983845",
+    "commentBodyBytes": 8710,
+    "commentBodySha256": "31c2f10bae686f7138ed1c97180b549a23064f72786cd9d39509d605c4fcf620",
+    "reportBytes": 8710,
+    "reportSha256": "31c2f10bae686f7138ed1c97180b549a23064f72786cd9d39509d605c4fcf620",
+    "receiptBytes": 14715,
+    "receiptSha256": "986091b589417b5ede5448f8f0bd084de7084e175c384b41e017eb7982657b9b",
+    "notCurrentPrHeadApproval": true
+  }
+}
+```
+
+### Immutable public recovery carrier
+
+[Full original public append and source diff](https://github.com/pachaninm-lab/pachanin-demo/blob/e20c5b6c5881f51e6b14fd89c582bd3d19a77c4c/docs/platform-v7/execution-queue.md#separate-admission-renewal-gekta-standalone-document-language-20261108).
+
+```json
+{
+  "kind": "immutable-public-content-only-not-accepted-authority",
+  "commit": "e20c5b6c5881f51e6b14fd89c582bd3d19a77c4c",
+  "path": "docs/platform-v7/execution-queue.md",
+  "blob": "e40684cd386d29fa5e754201e3e346b1255328d6",
+  "bytes": 3141655,
+  "sha256": "22ac241c90e50b1084f8b71e2cbdbabc67f945068da6848245ca1769f8b9caa2",
+  "appendOffsetBytes": 3128300,
+  "appendBytes": 13355,
+  "appendSha256": "b0d7a3f5f2e23adcde7abc79a00be313b2534a50194ffe6ad8240ec4a333e9f2",
+  "patchHeading": "Complete zero-context source carrier"
+}
+```
+
+Recover the raw Git blob from that exact commit/path or GitHub's Git Blob API, never a moving branch or rendered/truncated page. Verify blob identity, full byte count/SHA256, then the UTF-8 byte range [3128300,3141655): it must be the complete original 13,355-byte append with the pinned hash. Its full behavior/limitations and source-review qualifiers are incorporated unchanged; only carrier placement differs.
+
+Within that verified append extract the complete diff fence after the pinned heading. Require exactly 8,296 bytes and the completeZeroContextPatch hash above. Apply with `git apply --unidiff-zero` only to both exact before blobs; verify mode100644 and every after blob/byte/SHA256 pin, and reverse to the same before bytes. Missing carrier, mismatched bytes, scope or pins blocks derivation; no substitute or partial patch is authorized. Preserve the original public record and private freeze intact.
+
+
+## Proposed exact admission: gekta-preflight-5908-budget-class-extraction-20261109
+
+The full reviewed purpose/contract/carrier is incorporated from immutable DOCUMENT CONTENT ONLY, not accepted authority: commiteb85692c97a60758eec45aff66083b78ff24d6df, `docs/platform-v7/execution-queue.md`, blobf79bde38ec38d16dba0f7920ac564f8c364e347e,3143643B/SHA2567fef4fd2a912aa1258070f097c719c2bf02de9abafdf831ac2b9555f74d33642. Verify complete raw bytes, then range[3134250,3143643),9393B/SHA256cb4dece58292a48a992712da5c4be770f1399b20e1a25b8817b03a728df0654a; extract the complete5227B JSON fence under `Complete inert transformation carrier V2`, SHA25673ad94fe7b33afda11fdb84186fef740ab6ecd29eb77288bee844edf9ca15770. No moving/rendered/truncated substitute; mismatch blocks.
+
+All source pins are [Git blob,bytes,SHA256]:
+```text
+W=.github/workflows/production-like-kubernetes-acceptance.yml;mode=100644
+W.before=[94fab5c55ec224c783570c5c6a25cc0753f6575f,55220,8116d0e8a4affc7cd2c6dc1ee89668c3ba79fea229c14f6ca7d45de1be126363]
+W.after=[e5c888554976712e3e13a60a57a6000e583d5d45,21020,af408ac7e71b336c10a508d2024514d16cbfa7932a835a4874936a9eeb49c9c2]
+S=scripts/release/production-like-kubernetes-source-preflight-test.sh;mode=100755
+S.before=[a8eca0cb7c52441f1344f3222384ac86bc9587fd,21144,c6f5895133120f49df407d58a222f9173bc2706f9f88a5acbf3a413596e75217]
+S.after=[567b02448c0cb7db965cfb6e81f988e7d02ad3e4,54115,7fc36ae3e41bf436fd34f6c2feab66b9aa22351e8b09885b256649a576617cba]
+```
+
+Only after this metadata's separate exact-head review/owner audit/native/security/fresh readiness/manual full-SHA acceptance, prospectively replace only retained5908's old180s/kill5 prerequisite in coordinationAdmissions['gekta-anonymous-reserve-interface-locale-correction-20261010'].sourcePrerequisites with exact-case same-repository collector420/435/kill5. Preserve raw old state/history. GitHub's case-insensitive wrapper may grant uppercase10min while strict collector stays180/195; all ordinary/branch-scope limits, existing classes, commands and checks remain. Admit the complete oversized SourceBudgetChecks extraction to the existing script, explicit selection and unchanged default suites.420s is proposed, not measured sufficient/minimal.
+
+Executable Python: reject -O/-OO; enforce canonical base64 decode/re-encode equality, bounded single-member gzip and independent non-assert input/output blob/byte/SHA/mode checks. Caller intentionally compile+execs exact hash-verified decoded bytes in an explicit namespace, never importlib/paths/cached bytecode; this differs from the transform no-dynamic-execution rule. Reviewed full carrier only; extra/mismatched output blocks. Source branch `fix/gekta-k8s-retained-capacity-20261009` retains its two-path scope. Match both before pins on then-current accepted main; all foreign leaves stay intact.
+
+Private source/carrier review: https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6729214298;15951B/SHA256c1925bab8b9fc1a64ad826606330ac259cd035eabe2a8b5799af82ad2f1fd780, not head approval. Sequence: accepted joint metadata, then separate preflight-source review/audit/native/readiness/manual acceptance, then corrected language composed once on resulting main and its new actual-head gates. Preserve the19-path language vector, full accepted queue prefix/state/caps and Docker priority; no host/model/release grant.
+
+### Dated language execution qualification
+
+The retained language component's React NOT_RUN wording records the private review snapshot of2026-11-08T23:38:57Z. ROOT's local receipt https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6729000175 at2026-11-09T00:00:07Z is4242B/SHA256 f5b773eb4c79b8fc2d37dae50bbd6a8c83b708ee809b340ae3a35ab2ddc9e30c: the same52 files/2084 cases passed, including language49/new16, on exact4a5/465 bytes. This supersedes only that local selected-suite NOT_RUN claim. The preserved first environment failure and disclosed reconstructed Git index/unmaterialized absolute link remain qualifications. No native, browser, published-head or release PASS follows; ae363 remains BLOCKED.
+
+
+## Proposed exact lookup renewal: gekta-document-language-lookup-correction-20261109
+
+Basis: accepted #6125 at 2ae3c14d6ad5ea3a9fdc2d4574b2aa15224b57c4, `docs/platform-v7/execution-queue.md` blob 2142c27131156448d0769b505e459b859b399cf0, 3134250B. Incorporate its exact record [3128300,3134250),5950B/SHA256 25e1aa358fe42a9e1ba63915a0e70983e4f31d9743c8fd4e50fdb9358f45ffef: same purpose, routing, lifecycle and boundaries. Preserve every accepted prefix byte, old admissions, 19-path vector, state, prompts, guards, workflows, caps and owners. Overlap/same-value ownership remains unsupported/unrepaired.
+
+Carrier ae3634a7d3e0b16012d887694e050fa71d33e100 is immutable CONTENT ONLY, BLOCKED, never accepted authority. Only first exact case-insensitive existing-meta lookup changes; all 16 cases/test bytes stay unchanged.
+
+Pins=[Git blob,bytes,SHA256]; mode100644.
+```text
+R=apps/web/components/gekta/GektaChatWorkspace.tsx
+T=apps/web/tests/unit/gektaVoiceAndLegal.test.ts
+R.before=[9a0743075bc6898bb80d1cee0bc90e4507b30525,64713,4c9ce464b52c60425eee16854a265f0751bee46c109a87358ecc2fc7cea0c81b]
+R.public=[b56a2df456e4d06d5d699e9babce4df52588585b,65962,6e906bc5f28538fdeed132de2e5e9122bd5e717d94f82be3c63e7750301bc30c]
+R.after=[4a5ec3f9a6873ee900637c881e5fe52115205bbd,66037,638403fb281e9450885f64689d70bb8a0e08e4d4ddbd10fc93541c37d2202e77]
+T.before=[030dc5091ce2c3c117b97480fa366f35e182e847,33430,5c8718555c27bb9cbdca5225fa13368a7775a04ae76c038b3e124335092a4ee5]
+T.public=T.after=[465549122dcfdc824703975b59e503380bf295ee,39656,b64cc3322b7e7548d4bca19b117dc4a5c7afa6a0d5d2ef64878ea6a07cc5e6bd]
+```
+
+Fetch raw R/T at exact carrier commit/path or Git Blob API; verify public pins/modes. No moving/truncated substitute. Complete diff below: 983B/SHA256 48e6028a5eb7eca6aca6f62635d23629480c4d6dcb17f2cff659394fecdc2947. Apply to R.public, T unchanged; verify after pins and reverse exact public bytes. Missing/mismatched pins/carrier or extra change blocks. Full before-to-after payload: R+25/T+125, total+150/-0. Reviewed contextual patch:8865B/SHA256 ef007bdba09c6fc1e3b4622efd39f1420d63cc635d4d4c68cf7d8a2ddd7121a6; zero-context:8373B/SHA256 4e46fca9b9e4e44f220bb735977bfdc43d6af793503f6948af30eba0103a0610.
+
+Independent private review: https://github.com/pachaninm-lab/pachanin-demo/pull/5908#issuecomment-6728780308, 8468B/SHA256 8efa411bf86e4808032e2640194c66169f08a4cfb7b4359c20d2a819176515f3. PRIVATE PASS, not head approval. New full React/native/browser NOT_RUN; old PASS never transfers. K8s timeout remains separate.
+
+New after requires separate metadata acceptance: independent exact-head review, owner audit, applicable native/security, fresh readiness, manual full expected-SHA merge BEFORE source update. Then match both before pins on accepted main, retain source ancestry/nonforce, change only these two leaves; require new head review/audit/native/browser/readiness/manual acceptance. Docker priority/main handoff and release/host/model authority stay separate.
+
+```diff
+diff --git a/apps/web/components/gekta/GektaChatWorkspace.tsx b/apps/web/components/gekta/GektaChatWorkspace.tsx
+index b56a2df456e4d06d5d699e9babce4df52588585b..4a5ec3f9a6873ee900637c881e5fe52115205bbd 100644
+--- a/apps/web/components/gekta/GektaChatWorkspace.tsx
++++ b/apps/web/components/gekta/GektaChatWorkspace.tsx
+@@ -169,7 +169,9 @@
+     const root = document.documentElement;
+     const language = locale === 'zh' ? 'zh-CN' : locale;
+     const previousLanguage = root.getAttribute('lang');
+-    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
++    const contentLanguage = Array.from(
++      document.querySelectorAll<HTMLMetaElement>('meta[http-equiv]'),
++    ).find((meta) => meta.httpEquiv.toLowerCase() === 'content-language');
+     const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
+     root.setAttribute('lang', language);
+     contentLanguage?.setAttribute('content', language);
+```
+
+## DSA2 — Docker startup plaintext recovery, 2026-11-09
+
+```json
+{"schema":"pc.docker-startup-source-admission.v2","core":{"purposeId":"docker-startup-plaintext-recovery-20261109","authorityBaseExactMain":"a346563c821781fd4530e25cb2ac77fb0b89e7bc","retainedSourceHead":"b93f7e98f1873ffbbbf1380a59f6113b940fbbfb","predecessor":{"admission":{"bytes":7720,"sha256":"da73ded89448edbcdb42d94304d311a1b478398751d83dd383faefc448f60067"},"sourcePurpose":{"bytes":18999,"sha256":"7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f"}},"sourceAfter":[{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","blob":"63ebbcfe4b4797fb7df1214b1711557543d96129","bytes":483004,"sha256":"f902604ce3a86c3e5bb2b9bc40cbbfc02a80c5c6c19b9ff6d0aa2d6949d0438e"},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","blob":"d711526d6ca0869663ec951ced19e793f0450fcf","bytes":100464,"sha256":"748938274163bda35a9755129f884244a92db5fa686f5da3ee06c65b985a2064"},{"path":"scripts/production_docker_startup_host.py","mode":"100644","blob":"91533b2f6e52e87c38576c6f3d099bf2971200ed","bytes":12987,"sha256":"4b9df5abb9d989e96f39d0791e03dbe4adfc1ee1b3167e27ee42d1b700e1b3d9"},{"path":"scripts/production_docker_startup_controller.py","mode":"100644","blob":"fbbed00e3ed3be7c0195a9043975c89369fb36c0","bytes":18378,"sha256":"2a11ef3496ac12b4180c43297a9fcb20cb39d86474732e6e822ce3080e15a67d"}],"sourcePatch":{"bytes":77981,"sha256":"7f31687ab577f24890f1499c73c074956a9f96d4f4dbb8d9f2bd2bd710e9371e"},"sourceReview":{"status":"CLEAN_PRIVATE_SOURCE_ONLY","reviewerIdentity":"/root/release_review","authorIdentity":"/root/model_release","independent":true,"findings":{"P0":0,"P1":0,"P2":0},"artifact":{"bytes":16381,"sha256":"df8a818624a5ebc6539964dc88ecc323a254229025a74a13271dc50c3a0717bf"},"kind":"PRIVATE_SOURCE_REVIEW","comment":{"id":"6735261220","issue":5469,"publisher":"pachaninm-lab","appId":1144995,"createdAt":"2026-11-09T08:08:56Z"}},"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"},"governanceAfter":[{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"7b60a51cc81a399f7cc46b2fbe05d8d9a019699f","bytes":176080,"sha256":"4400c07534be6a99056ecd9ede6036a557681b7a78ea199a14b7693d33cad28a"},{"path":"docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","mode":"100644","blob":"d6dafcacf7eda8947538d802c28b3fc00d24b1ad","bytes":397971,"sha256":"ad3b65ad00bea9863a6840de04984ea7b7976468dcc2c95a9dcf78ae63143d06"},{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"9488a9ba56edd2b2c012f0acb6be10cbe70c62d1","bytes":344197,"sha256":"1cfe435c4cd424ee83070c0aceb14d4168c2a282aa59a8a81f8c8141a1d1bf98"}],"governancePatch":{"bytes":137263,"sha256":"2bfd38126bfbace59d068ab40cc59299bce729badbfb0e2080f3ec185494a4f2"},"governanceReview":{"status":"CLEAN_PRIVATE_SOURCE_ONLY","reviewerIdentity":"/root/language_release","authorIdentity":"/root","independent":true,"findings":{"P0":0,"P1":0,"P2":0},"artifact":{"bytes":15495,"sha256":"102aa5d4e4bbccb8bf3bad4f7541f645caf24af9dfa4d7965d7a0c24e25e9008"},"comment":{"id":"6735646734","issue":5469,"publisher":"pachaninm-lab","appId":1144995,"createdAt":"2026-11-09T08:31:31Z"}}}
+```
