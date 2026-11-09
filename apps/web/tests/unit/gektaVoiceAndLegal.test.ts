@@ -165,6 +165,131 @@ describe('Gekta interface language inheritance', () => {
   });
 });
 
+describe('Gekta standalone document language lifecycle', () => {
+  let meta: HTMLMetaElement;
+  let previousLanguage: string | null;
+  let previousUrl: string;
+  let previousScrollTo: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    previousLanguage = document.documentElement.getAttribute('lang');
+    previousUrl = window.location.href;
+    previousScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+    window.localStorage.clear();
+    document.documentElement.lang = 'ru';
+    meta = document.createElement('meta');
+    meta.httpEquiv = 'Content-Language';
+    meta.content = 'ru';
+    document.head.appendChild(meta);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 401 }));
+  });
+
+  afterEach(() => {
+    cleanup();
+    meta.remove();
+    window.history.replaceState(null, '', previousUrl);
+    if (previousLanguage === null) document.documentElement.removeAttribute('lang');
+    else document.documentElement.setAttribute('lang', previousLanguage);
+    if (previousScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', previousScrollTo);
+    else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
+    vi.restoreAllMocks();
+  });
+
+  it('updates the mounted workspace and document on RU -> EN -> ZH -> RU client navigation', async () => {
+    window.history.replaceState(null, '', '/gekta');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'ru' }));
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+    for (const [locale, pathname, language] of [
+      ['en', '/gekta/en', 'en'], ['zh', '/gekta/zh', 'zh-CN'], ['ru', '/gekta', 'ru'],
+    ] as const) {
+      window.history.replaceState(null, '', pathname);
+      view.rerender(createElement(GektaChatWorkspace, { locale }));
+      await waitFor(() => expect(document.documentElement.lang).toBe(language));
+      expect(meta.content).toBe(language);
+      expect(view.container.querySelector('textarea')?.closest('[lang]')?.getAttribute('lang')).toBe(language);
+    }
+  });
+
+  it.each([
+    { pathname: '/platform-v7', locale: 'en' as const },
+    { pathname: '/gekta/console', locale: 'en' as const },
+    { pathname: '/gekta/register', locale: 'en' as const },
+    { pathname: '/gekta/en/price', locale: 'en' as const },
+    { pathname: '/gekta/en-extra', locale: 'en' as const },
+    { pathname: '/gekta', locale: 'en' as const },
+    { pathname: '/gekta/en', locale: 'ru' as const },
+    { pathname: '/gekta/en', locale: 'zh' as const },
+  ])('leaves document language unchanged at $pathname with locale $locale', ({ pathname, locale }) => {
+    window.history.replaceState(null, '', pathname);
+    render(createElement(GektaChatWorkspace, { locale }));
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+  });
+
+  it('restores the Russian document when leaving the English workspace for a legal page', async () => {
+    window.history.replaceState(null, '', '/gekta/en');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    expect(meta.content).toBe('en');
+    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
+    view.unmount();
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+  });
+
+  it('keeps the matching locale when React replaces the single workspace before a legal exit', async () => {
+    window.history.replaceState(null, '', '/gekta/en');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en', key: 'first' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    view.rerender(createElement(GektaChatWorkspace, { locale: 'en', key: 'replacement' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    expect(meta.content).toBe('en');
+    window.history.replaceState(null, '', '/legal/usloviya-ispolzovaniya-gekta');
+    view.unmount();
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+  });
+
+  it.each([
+    { changed: 'both attributes', root: 'fr', content: 'fr', afterRoot: 'fr', afterContent: 'fr' },
+    { changed: 'root language', root: 'fr', content: 'en', afterRoot: 'fr', afterContent: 'ru' },
+    { changed: 'content language', root: 'en', content: 'fr', afterRoot: 'ru', afterContent: 'fr' },
+  ])('preserves differently-valued $changed while restoring unchanged attributes', async ({ root, content, afterRoot, afterContent }) => {
+    window.history.replaceState(null, '', '/gekta/en');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    document.documentElement.lang = root;
+    meta.content = content;
+    view.unmount();
+    expect(document.documentElement.lang).toBe(afterRoot);
+    expect(meta.content).toBe(afterContent);
+  });
+
+  it('preserves absent metadata instead of inventing a head element or an old lang', async () => {
+    window.history.replaceState(null, '', '/gekta/en');
+    meta.remove();
+    document.documentElement.removeAttribute('lang');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    expect(document.head.querySelector('meta[http-equiv="Content-Language" i]')).toBeNull();
+    view.unmount();
+    expect(document.documentElement.hasAttribute('lang')).toBe(false);
+  });
+
+  it('matches Content-Language case-insensitively and restores an absent content attribute', async () => {
+    window.history.replaceState(null, '', '/gekta/zh');
+    meta.httpEquiv = 'content-language';
+    meta.removeAttribute('content');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
+    expect(meta.content).toBe('zh-CN');
+    view.unmount();
+    expect(meta.hasAttribute('content')).toBe(false);
+  });
+});
+
 // Behavioral coverage runs in the existing CI-executed consent suite.
 describe('G-A02 first prompt behavioral regressions', () => {
 const QUESTION = 'Как подготовить почву под пшеницу?';
