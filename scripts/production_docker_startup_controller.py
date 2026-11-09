@@ -8,21 +8,25 @@ TEST = 'scripts/test_production_stopped_runtime_headroom.py'
 QUEUE = 'docs/platform-v7/execution-queue.md'
 HOST = 'scripts/production_docker_startup_host.py'
 CONTROLLER = 'scripts/production_docker_startup_controller.py'
-SOURCE_PATHS = (WORKFLOW, TEST, HOST, CONTROLLER)
-SOURCE_CAPS = (500000, 262144, 20000, 65536)
-BASE = 'a346563c821781fd4530e25cb2ac77fb0b89e7bc'
-RETAINED = 'b93f7e98f1873ffbbbf1380a59f6113b940fbbfb'
+COLD = '.github/workflows/production-cold-preservation.yml'
+PROMPT = 'docs/platform-v7/autopilot/prompts/current-review-task.md'
+SOURCE_PATHS = (WORKFLOW, TEST, HOST, CONTROLLER, COLD)
+SOURCE_CAPS = (500000, 262144, 20000, 65536, 262144)
+BASE = '753c40593b84325e02555849a2f11e6f4ede61f9'
+RETAINED = '8cdc6694cc343437f3f1f341c2a9820faef8ec75'
 PREFIX_BYTES = 477440
 PREFIX_SHA = '2860b9abd30a929a8e0538f5515f5ea34864d8b5e08cac8910511c296c19b22c'
 TEST_SHA = 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
-PURPOSE = 'docker-startup-plaintext-recovery-20261109'
+PURPOSE = 'docker-startup-cross-contract-repair-20261109'
 COMMAND = '/production diagnose-docker-startup-as current-main'
-MARKER = '\n## DSA2 — Docker startup plaintext recovery, 2026-11-09\n\n```json\n'
+MARKER = '\n## DSA3 — Docker startup cross-contract repair, 2026-11-09\n\n```json\n'
+DSA2_MARKER = '\n## DSA2 — Docker startup plaintext recovery, 2026-11-09\n\n```json\n'
 ADMISSION_MARKER = '\n## DSA — Docker startup exact source admission, 2026-11-08\n\n```json\n'
 PURPOSE_MARKER = '\n## Docker startup address-space comparison purpose 20261108\n\n```json\n'
 PREDECESSOR = {
     'admission': {'bytes':7720,'sha256':'da73ded89448edbcdb42d94304d311a1b478398751d83dd383faefc448f60067'},
-    'sourcePurpose': {'bytes':18999,'sha256':'7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f'}}
+    'sourcePurpose': {'bytes':18999,'sha256':'7d86b90e6069dad7284b62a42eaf45281c764a4fb3060e1a0d0572c3957b0c3f'},
+    'dsa2': {'bytes':3132,'sha256':'442a0d3ac63f45e61f488fac7a516496dccd26052fd37d5b376ed2463d9ce403'}}
 SOURCE_REVIEWER = '/root/release_review'
 SOURCE_AUTHOR = '/root/model_release'
 GOVERNANCE_REVIEWER = '/root/language_release'
@@ -103,11 +107,12 @@ def review_receipt(r, source):
     require(type(receipt['createdAt']) is str and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z',receipt['createdAt']))
     dt.datetime.fromisoformat(receipt['createdAt'].replace('Z','+00:00'))
 
-def purpose(queue, sources):
+def purpose(queue, prompt, sources):
     require(type(queue) is bytes and len(queue) <= 3145728 and type(sources) is dict and tuple(sources) == SOURCE_PATHS)
+    require(type(prompt) is bytes and len(prompt) <= 2097152)
     text = queue.decode('utf-8')
     prior = {}
-    for name,marker in (('admission',ADMISSION_MARKER),('sourcePurpose',PURPOSE_MARKER)):
+    for name,marker in (('admission',ADMISSION_MARKER),('sourcePurpose',PURPOSE_MARKER),('dsa2',DSA2_MARKER)):
         value,raw = record_block(text,marker,PREDECESSOR[name]['bytes'])
         require(len(raw) == PREDECESSOR[name]['bytes'] and hashlib.sha256(raw).hexdigest() == PREDECESSOR[name]['sha256'])
         prior[name] = value
@@ -118,8 +123,12 @@ def purpose(queue, sources):
     require(canonical([p['after'] for p in old['sourcePayloads']]) == canonical(source['sourcePins']))
     require(source['command'] == COMMAND and source['runtimeAllowance'] == old['runtimeAllowance'] == 'NOT_ISSUED_BY_SOURCE' and
             old['productionInvocationAuthorized'] is False and source['authorityGranted'] == 'SOURCE_PURPOSE_ONLY_SEPARATE_FINITE_OWNER_COMMAND_REQUIRED')
-    v,_ = record_block(text,MARKER,4096)
-    require(set(v) == {'schema','core','governanceAfter','governancePatch','governanceReview'} and v['schema'] == 'pc.docker-startup-source-admission.v2')
+    dsa2 = prior['dsa2']
+    require(dsa2['schema'] == 'pc.docker-startup-source-admission.v2' and
+            canonical(dsa2['core']['predecessor']) == canonical({k:PREDECESSOR[k] for k in ('admission','sourcePurpose')}) and
+            dsa2['core']['runtimeAllowance'] == 'NOT_ISSUED_BY_SOURCE')
+    v,_ = record_block(prompt.decode('utf-8'),MARKER,4096)
+    require(set(v) == {'schema','core','governanceAfter','governancePatch','governanceReview'} and v['schema'] == 'pc.docker-startup-source-admission.v3')
     core = v['core']
     require(type(core) is dict and set(core) == {'purposeId','authorityBaseExactMain','retainedSourceHead','predecessor',
         'sourceAfter','sourcePatch','sourceReview','runtimeAllowance'})
@@ -131,7 +140,7 @@ def purpose(queue, sources):
     artifact(core['sourcePatch'])
     review_receipt(core['sourceReview'],True)
     require(type(v['governanceAfter']) is list and len(v['governanceAfter']) == 3)
-    for after,before in zip(v['governanceAfter'],prior['admission']['governanceAfter']):
+    for after,before in zip(v['governanceAfter'],dsa2['governanceAfter']):
         require(type(after) is dict and set(after) == {'path','mode','blob','bytes','sha256'})
         require((after['path'],after['mode']) == (before['path'],before['mode']) and type(after['blob']) is str and
                 re.fullmatch('[0-9a-f]{40}',after['blob']) and after['blob'] != before['blob'])
@@ -139,6 +148,9 @@ def purpose(queue, sources):
     artifact(v['governancePatch'])
     review_receipt(v['governanceReview'],False)
     require(core['sourceReview']['comment']['id'] != v['governanceReview']['comment']['id'])
+    for current,old_review in ((core['sourceReview'],dsa2['core']['sourceReview']),(v['governanceReview'],dsa2['governanceReview'])):
+        require(current['comment']['id'] != old_review['comment']['id'] and
+                current['artifact']['sha256'] != old_review['artifact']['sha256'])
     return v
 
 def source_review(record, live):
@@ -154,11 +166,24 @@ def source_review(record, live):
     raw = live['body'].encode('utf-8')
     require(100 <= len(raw) == r['artifact']['bytes'] <= 20000 and hashlib.sha256(raw).hexdigest() == r['artifact']['sha256'])
 
+def restore_dsa2_workflow(raw):
+    """Undo exactly three admitted growth checks, then authenticate the entire prior carrier."""
+    import hashlib
+    old=b"          import hashlib,pathlib,stat\n          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')\n          info=path.lstat()\n          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220\n          raw=path.read_bytes()\n          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'\n          raw=raw[:34021]+b'\\n'+raw[62173:]\n          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'\n          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'\n"
+    new=b"          import hashlib,pathlib,stat\n          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')\n          info=path.lstat()\n          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}\n          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities\n          raw=path.read_bytes()\n          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]\n          raw=raw[:62220]\n          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'\n          raw=raw[:34021]+b'\\n'+raw[62173:]\n          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'\n          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'\n"
+    if type(raw) is not bytes or raw.count(new)!=3 or raw.count(old)!=0:
+        raise ValueError('STARTUP_WORKFLOW_INVERSE_REJECTED')
+    restored=raw.replace(new,old)
+    if len(restored)!=483004 or hashlib.sha256(restored).hexdigest()!='f902604ce3a86c3e5bb2b9bc40cbbfc02a80c5c6c19b9ff6d0aa2d6949d0438e':
+        raise ValueError('STARTUP_WORKFLOW_INVERSE_REJECTED')
+    return restored
+
 def sections(sources):
     # Runtime callers supply only accepted_sources() bytes; no new file is opened here.
     require(type(sources) is dict and tuple(sources) == SOURCE_PATHS)
     raw = sources[WORKFLOW]
-    require(hashlib.sha256(raw[:PREFIX_BYTES]).hexdigest() == PREFIX_SHA)
+    retained = restore_dsa2_workflow(raw)
+    require(hashlib.sha256(retained[:PREFIX_BYTES]).hexdigest() == PREFIX_SHA)
     require(hashlib.sha256(sources[TEST][:62220]).hexdigest() == TEST_SHA)
     def extract(tag):
         rows = re.findall(rb"^          (?:cat > .*|python3 .*|python3 -) <<'"+tag.encode()+rb"'\n(.*?)^          "+tag.encode()+rb"\n",raw,re.M|re.S)
@@ -194,7 +219,7 @@ def accepted_blob(target,path,cap):
 def accepted_sources(target):
     require(type(target) is str and re.fullmatch('[0-9a-f]{40}',target) and git('rev-parse','HEAD').decode().strip() == target)
     sources = {p:accepted_blob(target,p,cap) for p,cap in zip(SOURCE_PATHS,SOURCE_CAPS)}
-    record = purpose(accepted_blob(target,QUEUE,3145728),sources)
+    record = purpose(accepted_blob(target,QUEUE,3145728),accepted_blob(target,PROMPT,2097152),sources)
     git('merge-base','--is-ancestor',BASE,target)
     git('merge-base','--is-ancestor',RETAINED,target)
     return sources,record

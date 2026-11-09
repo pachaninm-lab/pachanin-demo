@@ -5946,8 +5946,11 @@ jobs:
           import hashlib,pathlib,stat
           path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
           info=path.lstat()
-          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities
           raw=path.read_bytes()
+          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]
+          raw=raw[:62220]
           assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
           raw=raw[:34021]+b'\n'+raw[62173:]
           assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
@@ -6649,8 +6652,11 @@ jobs:
           import hashlib,pathlib,stat
           path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
           info=path.lstat()
-          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities
           raw=path.read_bytes()
+          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]
+          raw=raw[:62220]
           assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
           raw=raw[:34021]+b'\n'+raw[62173:]
           assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
@@ -6815,8 +6821,11 @@ jobs:
           import hashlib,pathlib,stat
           path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
           info=path.lstat()
-          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities
           raw=path.read_bytes()
+          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]
+          raw=raw[:62220]
           assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
           raw=raw[:34021]+b'\n'+raw[62173:]
           assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'

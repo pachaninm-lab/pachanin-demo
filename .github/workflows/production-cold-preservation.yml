@@ -195,7 +195,7 @@ jobs:
           def closed(pairs):
               require(len(pairs) == len(dict(pairs)))
               return dict(pairs)
-          inspection_sizes = {'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7': 370287, '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f': 400684, '11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f': 411656}
+          inspection_sizes = {'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7': 370287, '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f': 400684, '11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f': 411656, '4c22e8279277ad59a210c1cc16b60391486b37f626a70960f0b7731fd04396c0': 483913}
           def accepted(path, mode, digest):
               p = pathlib.Path(path)
               info = p.lstat()
@@ -388,12 +388,30 @@ jobs:
           if len(refs)!=1 or type(refs[0]) is not tuple or len(refs[0])!=11 or tuple(sorted(refs[0]))!=refs[0]:
               raise SystemExit('BOOTSTRAP_SAVED_REFERENCE_PROFILE')
           def verified_inspector_workflow(raw):
-              # Only three exact carriers; the inverse is never applied to unknown bytes.
+              # Four exact carriers; complete DSA2 recovery precedes the historical inspector inverses.
               import base64, hashlib, json, textwrap, zlib
               digest = lambda value: hashlib.sha256(value).hexdigest()
-              identities = {'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7': 370287, '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f': 400684, '11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f': 411656}
+              identities = {'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7': 370287, '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f': 400684, '11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f': 411656, '4c22e8279277ad59a210c1cc16b60391486b37f626a70960f0b7731fd04396c0': 483913}
               if type(raw) is not bytes or len(raw) != identities.get(digest(raw)):
                   raise AssertionError('BOOTSTRAP_INSPECTOR_IDENTITY')
+              def restore_dsa2_workflow(raw):
+                  """Undo exactly three admitted growth checks, then authenticate the entire prior carrier."""
+                  import hashlib
+                  old=b"          import hashlib,pathlib,stat\n          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')\n          info=path.lstat()\n          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220\n          raw=path.read_bytes()\n          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'\n          raw=raw[:34021]+b'\\n'+raw[62173:]\n          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'\n          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'\n"
+                  new=b"          import hashlib,pathlib,stat\n          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')\n          info=path.lstat()\n          identities={62220:'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9',109142:'0924c1fb5e06f0582411084ac1c57db51a07738b6701ce0327ba93709fc079c7'}\n          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size in identities\n          raw=path.read_bytes()\n          assert len(raw)==info.st_size and hashlib.sha256(raw).hexdigest()==identities[info.st_size]\n          raw=raw[:62220]\n          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'\n          raw=raw[:34021]+b'\\n'+raw[62173:]\n          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'\n          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'\n"
+                  if type(raw) is not bytes or raw.count(new)!=3 or raw.count(old)!=0:
+                      raise ValueError('STARTUP_WORKFLOW_INVERSE_REJECTED')
+                  restored=raw.replace(new,old)
+                  if len(restored)!=483004 or hashlib.sha256(restored).hexdigest()!='f902604ce3a86c3e5bb2b9bc40cbbfc02a80c5c6c19b9ff6d0aa2d6949d0438e':
+                      raise ValueError('STARTUP_WORKFLOW_INVERSE_REJECTED')
+                  return restored
+              if len(raw) == 483913:
+                  try:
+                      raw = restore_dsa2_workflow(raw)[:411656]
+                  except ValueError:
+                      raise AssertionError('BOOTSTRAP_INSPECTOR_INVERSE') from None
+                  if len(raw) != 411656 or digest(raw) != '11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f':
+                      raise AssertionError('BOOTSTRAP_INSPECTOR_INVERSE')
               for name, expected in (
                   ('PY_INSPECTION_0', '92c6da9777dceef4b31235aa6e4bfc3e5829646404b39a121826846dad392eea'),
                   ('PY_INSPECTION_1', 'b01ef2cf05fe0132ddbfce5d26483390789380d6c75a1b0f18e9212ad65fca0f'),

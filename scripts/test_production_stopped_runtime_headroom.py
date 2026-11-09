@@ -1025,7 +1025,7 @@ def startup_contract_suite():
     WORKFLOW, REMOTE, h, transport = c.sections(SOURCES)
     accepted_queue = Path(c.QUEUE).read_text()
     PREDECESSOR_QUEUE = ''.join(marker+c.wire(c.record_block(accepted_queue,marker,cap)[0])+'\n```\n'
-        for marker,cap in ((c.PURPOSE_MARKER,18999),(c.ADMISSION_MARKER,7720)))
+        for marker,cap in ((c.PURPOSE_MARKER,18999),(c.ADMISSION_MARKER,7720),(c.DSA2_MARKER,3132)))
     REVIEW_BODY = 'SYNTHETIC LOCAL CONTRACT FIXTURE; NOT A REAL REVIEW OR EXECUTION DISPOSITION. ' * 3
     REAL_POPEN = subprocess.Popen
     IDENTITY = tuple((1, i+1, 0o100755, 0, 0, 123456, 7, 8) for i in range(4))
@@ -1041,16 +1041,16 @@ def startup_contract_suite():
                 'comment':{'id':identifier,'issue':5469,'publisher':'pachaninm-lab','appId':1144995,'createdAt':'2026-11-09T11:00:00Z'}}
             if source: value['kind']='PRIVATE_SOURCE_REVIEW'
             return value
-        prior=c.record_block(PREDECESSOR_QUEUE,c.ADMISSION_MARKER,7720)[0]
+        prior=c.record_block(PREDECESSOR_QUEUE,c.DSA2_MARKER,3132)[0]
         governance=[{**row,'blob':'f'*40,'bytes':row['bytes']+1,'sha256':'e'*64} for row in prior['governanceAfter']]
-        return {'schema':'pc.docker-startup-source-admission.v2','core':{'purposeId':c.PURPOSE,
+        return {'schema':'pc.docker-startup-source-admission.v3','core':{'purposeId':c.PURPOSE,
             'authorityBaseExactMain':c.BASE,'retainedSourceHead':c.RETAINED,'predecessor':copy.deepcopy(c.PREDECESSOR),
             'sourceAfter':[c.pin(p,SOURCES[p]) for p in c.SOURCE_PATHS],
             'sourcePatch':{'bytes':123456,'sha256':'a'*64},'sourceReview':review(True,'91'),'runtimeAllowance':'NOT_ISSUED_BY_SOURCE'},
             'governanceAfter':governance,'governancePatch':{'bytes':123456,'sha256':'b'*64},'governanceReview':review(False,'92')}
 
-    def queue(value):
-        return (PREDECESSOR_QUEUE + c.MARKER + c.wire(value) + '\n```\n').encode()
+    def prompt(value):
+        return (c.MARKER + c.wire(value) + '\n```\n').encode()
 
     def event_pair():
         live = {'id':42,'issue_url':'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/4637',
@@ -1192,7 +1192,7 @@ def startup_contract_suite():
     class SourceAndOwner(unittest.TestCase):
         def test_real_sections_preserve_old_transport_and_caps(self):
             self.assertEqual(len(REMOTE.encode())<=20000,True)
-            self.assertEqual(hashlib.sha256(WORKFLOW[:477440]).hexdigest(),c.PREFIX_SHA)
+            self.assertEqual(hashlib.sha256(c.restore_dsa2_workflow(WORKFLOW)[:477440]).hexdigest(),c.PREFIX_SHA)
             self.assertEqual(hashlib.sha256(SOURCES[c.TEST][:62220]).hexdigest(),c.TEST_SHA)
             self.assertEqual(h['ARGV'],('/usr/bin/docker','--version'))
             self.assertEqual((h['COMMAND_SECONDS'],h['OUTER_SECONDS'],transport['TRANSPORT_SECONDS']),(12,15,45))
@@ -1206,15 +1206,15 @@ def startup_contract_suite():
             self.assertEqual(calls[0].args[0].id,'ARGV')
 
         def test_valid_synthetic_purpose_has_no_execution_authority(self):
-            v=c.purpose(queue(record()),SOURCES)
+            v=c.purpose(queue(),prompt(record()),SOURCES)
             self.assertEqual(v['core']['runtimeAllowance'],'NOT_ISSUED_BY_SOURCE')
 
         def test_pending_missing_duplicate_old_purposes_fail(self):
             v=record(); v['core']['sourceReview']['status']='PENDING'
-            for raw in (queue(v),b'no new purpose',queue(record())*2,
-                        queue(record()).replace(b'"schema":',b'"schema":"duplicate","schema":',1)):
+            for raw in (prompt(v),b'no new purpose',prompt(record())*2,
+                        prompt(record()).replace(b'"schema":',b'"schema":"duplicate","schema":',1)):
                 with self.subTest(raw=raw[:80]):
-                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(raw,SOURCES)
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(),raw,SOURCES)
 
         def test_wrong_scope_bounds_pins_review_and_booleans_fail(self):
             variants=[]
@@ -1230,7 +1230,7 @@ def startup_contract_suite():
             v=record(); v['governanceReview']['reviewerIdentity']=c.GOVERNANCE_AUTHOR; variants.append(v)
             for v in variants:
                 with self.subTest(v=v):
-                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(),prompt(v),SOURCES)
 
         def test_missing_source_admission_fails_before_any_api_or_transport(self):
             env={'GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo','GITHUB_EVENT_NAME':'issue_comment',
@@ -1262,7 +1262,7 @@ def startup_contract_suite():
                  'GITHUB_WORKFLOW_SHA':TARGET,'GITHUB_WORKFLOW_REF':'pachaninm-lab/pachanin-demo/'+c.WORKFLOW+'@refs/heads/main',
                  'GITHUB_EVENT_PATH':'fixture-event','GITHUB_ACTOR':'connector','TRIGGERING_ACTOR':'connector'}
             def blob(target,path,cap):
-                return SOURCES[path] if path in SOURCES else queue(record())
+                return SOURCES[path] if path in SOURCES else queue() if path==c.QUEUE else prompt(record())
             for case in ('valid','wrong_main','api_error','second_comment_edited','rerun','workflow_sha','review_changed','review_missing'):
                 calls=[]
                 def api(path):
@@ -1377,26 +1377,26 @@ def startup_contract_suite():
                 'created_at':'2026-11-09T11:00:00Z','updated_at':'2026-11-09T11:00:00Z','body':REVIEW_BODY}
 
         def test_complete_predecessors_are_authenticated_not_only_copied_hashes(self):
-            raw=queue(record())
-            for marker,cap in ((c.PURPOSE_MARKER,18999),(c.ADMISSION_MARKER,7720)):
+            raw=queue()
+            for marker,cap in ((c.PURPOSE_MARKER,18999),(c.ADMISSION_MARKER,7720),(c.DSA2_MARKER,3132)):
                 prior,wire=c.record_block(PREDECESSOR_QUEUE,marker,cap)
                 prior['unauthorized_extra']=True
                 bad=raw.replace(wire,c.wire(prior).encode(),1)
-                with self.assertRaises(ValueError): c.purpose(bad,SOURCES)
-                with self.assertRaises(ValueError): c.purpose(raw.replace(marker.encode(),b'',1),SOURCES)
-                with self.assertRaises(ValueError): c.purpose(raw+(marker+c.wire(prior)+'\n```\n').encode(),SOURCES)
+                with self.assertRaises(ValueError): c.purpose(bad,prompt(record()),SOURCES)
+                with self.assertRaises(ValueError): c.purpose(raw.replace(marker.encode(),b'',1),prompt(record()),SOURCES)
+                with self.assertRaises(ValueError): c.purpose(raw+(marker+c.wire(prior)+'\n```\n').encode(),prompt(record()),SOURCES)
 
         def test_noncanonical_oversize_and_duplicate_wire_fail(self):
             v=record()
-            variants=[(PREDECESSOR_QUEUE+c.MARKER+json.dumps(v,indent=1)+'\n```\n').encode(),
-                queue(v).replace(b'"schema":"pc.docker-startup-source-admission.v2"',
-                    b'"schema":"pc.docker-startup-source-admission.v2","schema":"pc.docker-startup-source-admission.v2"'),
-                queue(v)+b'x'*3145728]
-            v['core']['padding']='x'*4096; variants.append(queue(v))
+            variants=[(c.MARKER+json.dumps(v,indent=1)+'\n```\n').encode(),
+                prompt(v).replace(b'"schema":"pc.docker-startup-source-admission.v3"',
+                    b'"schema":"pc.docker-startup-source-admission.v3","schema":"pc.docker-startup-source-admission.v3"'),
+                prompt(v)+b'x'*2097152]
+            v['core']['padding']='x'*4096; variants.append(prompt(v))
             for raw in variants:
-                with self.assertRaises(ValueError): c.purpose(raw,SOURCES)
+                with self.assertRaises(ValueError): c.purpose(queue(),raw,SOURCES)
 
-        def test_v2_record_is_closed_and_typed_including_all_pins(self):
+        def test_v3_record_is_closed_and_typed_including_all_pins(self):
             variants=[]
             for key,bad in [('schema','pc.docker-startup-source-admission.v1'),('core',None),('unknown',1),
                             ('governancePatch',None),('governanceReview',None),('governanceAfter',[])]:
@@ -1405,25 +1405,25 @@ def startup_contract_suite():
                 v=record(); v['core']['sourceAfter'][0][key]=bad; variants.append(v)
             for key,bad in [('bytes',True),('bytes',0),('sha256','A'*64),('blob','f'*39),('mode','100644'),('path','unknown')]:
                 v=record(); v['governanceAfter'][2][key]=bad; variants.append(v)
-            old=c.record_block(PREDECESSOR_QUEUE,c.ADMISSION_MARKER,7720)[0]
+            old=c.record_block(PREDECESSOR_QUEUE,c.DSA2_MARKER,3132)[0]
             v=record(); v['governanceAfter']=old['governanceAfter']; variants.append(v)
             v=record(); v['core']['sourceAfter'].reverse(); variants.append(v)
             v=record(); v['governanceAfter'].reverse(); variants.append(v)
             for v in variants:
-                with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+                with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(),prompt(v),SOURCES)
 
         def test_designated_real_reviewers_and_complete_receipts_required(self):
             for which in ('source','governance'):
                 for key,bad in [('status','CLEAN'),('status','PENDING'),('independent',1),('reviewerIdentity','fixture-independent'),
                                 ('authorIdentity','old-author'),('artifact',None),('comment',None)]:
                     v=record(); r=v['core']['sourceReview'] if which=='source' else v['governanceReview']; r[key]=bad
-                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(),prompt(v),SOURCES)
                 for key,bad in [('id',91),('id',True),('id',91.0),('id','091'),('id','0'),('id','1'*21),('id','+91'),
                                 ('issue',5469.0),('appId',1144995.0),('publisher','other'),('createdAt','2026-99-99T11:00:00Z')]:
                     v=record(); r=v['core']['sourceReview'] if which=='source' else v['governanceReview']; r['comment'][key]=bad
-                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(v),SOURCES)
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(queue(),prompt(v),SOURCES)
             v=record(); v['governanceReview']['comment']['id']='91'
-            with self.assertRaises(ValueError): c.purpose(queue(v),SOURCES)
+            with self.assertRaises(ValueError): c.purpose(queue(),prompt(v),SOURCES)
 
         def test_public_review_requires_exact_full_body_identity_and_provenance(self):
             c.source_review(record(),self.review_live())
@@ -1447,13 +1447,14 @@ def startup_contract_suite():
             v['core']['sourceReview']['artifact']={'bytes':20001,'sha256':hashlib.sha256(body.encode()).hexdigest()}
             with self.assertRaises(ValueError): c.source_review(v,live)
 
-        def test_source_drift_for_each_of_four_files_fails_before_compile_api_or_keys(self):
+        def test_source_drift_for_each_of_five_files_fails_before_compile_api_or_keys(self):
             env={'GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo','GITHUB_EVENT_NAME':'issue_comment',
                 'GITHUB_RUN_ATTEMPT':'1','GITHUB_REF':'refs/heads/main','GITHUB_SHA':TARGET,'GITHUB_WORKFLOW_SHA':TARGET,
                 'GITHUB_WORKFLOW_REF':'pachaninm-lab/pachanin-demo/'+c.WORKFLOW+'@refs/heads/main'}
             for bad_path in c.SOURCE_PATHS:
                 def blob(target,path,cap):
-                    if path==c.QUEUE: return queue(record())
+                    if path==c.QUEUE: return queue()
+                    if path==c.PROMPT: return prompt(record())
                     return SOURCES[path]+(b'\n# drift\n' if path==bad_path else b'')
                 for mode in ('--admit','--run','--key-script','--publish'):
                     with patch.dict(os.environ,env),patch.object(c,'git',return_value=(TARGET+'\n').encode()), \
@@ -1465,14 +1466,14 @@ def startup_contract_suite():
             calls=[]
             def blob(target,path,cap):
                 calls.append((target,path,cap))
-                return SOURCES[path] if path in SOURCES else queue(record())
+                return SOURCES[path] if path in SOURCES else queue() if path==c.QUEUE else prompt(record())
             gitcalls=[]
             def git(*args):
                 gitcalls.append(args)
                 return (TARGET+'\n').encode() if args==('rev-parse','HEAD') else b''
             with patch.object(c,'git',side_effect=git),patch.object(c,'accepted_blob',side_effect=blob):
                 sources,v=c.accepted_sources(TARGET)
-            self.assertEqual(tuple(path for _,path,_ in calls),c.SOURCE_PATHS+(c.QUEUE,))
+            self.assertEqual(tuple(path for _,path,_ in calls),c.SOURCE_PATHS+(c.QUEUE,c.PROMPT))
             self.assertEqual(gitcalls,[('rev-parse','HEAD'),('merge-base','--is-ancestor',c.BASE,TARGET),
                 ('merge-base','--is-ancestor',c.RETAINED,TARGET)])
             self.assertEqual(sources,SOURCES)
@@ -1514,8 +1515,8 @@ def startup_contract_suite():
         def test_workflow_provider_repair_preserves_prefix_and_new_run_bounds(self):
             import re
             self.assertLessEqual(len(WORKFLOW),500000)
-            self.assertEqual(hashlib.sha256(WORKFLOW[:477440]).hexdigest(),c.PREFIX_SHA)
-            tail=WORKFLOW[477440:].decode()
+            self.assertEqual(hashlib.sha256(c.restore_dsa2_workflow(WORKFLOW)[:477440]).hexdigest(),c.PREFIX_SHA)
+            tail=c.restore_dsa2_workflow(WORKFLOW)[477440:].decode()
             runs=re.findall(r'^        run: \|\n((?:(?:          [^\n]*)?\n)+)',tail,re.M)
             self.assertEqual(len(runs),6)
             self.assertTrue(all(len(textwrap.dedent(run))<=21000 for run in runs))
@@ -1552,4 +1553,127 @@ def startup_contract_suite():
                 with self.assertRaises(ValueError): c.api('issues/4637')
             self.assertIsNone(c.NoRedirect().redirect_request(None,None,None,None,None,None))
 
-    return unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(cls) for cls in (StartupMeasurements,SourceAndOwner,ActualRoutes,PlaintextAdmission))
+
+
+    def queue():
+        return PREDECESSOR_QUEUE.encode()
+
+    class CrossContractAdmission(unittest.TestCase):
+        def test_queue_and_prompt_are_separate_bounded_authority_inputs(self):
+            c.purpose(queue(),prompt(record()),SOURCES)
+            for q,p in ((queue(),b''),(b'',prompt(record())),(queue()+b'x'*3145728,prompt(record())),
+                        (queue(),prompt(record())+b'x'*2097152),(prompt(record()),queue())):
+                with self.subTest(queue_bytes=len(q),prompt_bytes=len(p)):
+                    with self.assertRaises((ValueError,TypeError,KeyError)): c.purpose(q,p,SOURCES)
+
+        def test_dsa3_cannot_reuse_dsa2_review_or_drop_its_exact_predecessor(self):
+            for key,bad in [('bytes',3131),('bytes',True),('sha256','a'*64)]:
+                value=record(); value['core']['predecessor']['dsa2'][key]=bad
+                with self.assertRaises(ValueError): c.purpose(queue(),prompt(value),SOURCES)
+            value=record(); del value['core']['predecessor']['dsa2']
+            with self.assertRaises(ValueError): c.purpose(queue(),prompt(value),SOURCES)
+            dsa2=c.record_block(PREDECESSOR_QUEUE,c.DSA2_MARKER,3132)[0]
+            for source in (True,False):
+                old=dsa2['core']['sourceReview'] if source else dsa2['governanceReview']
+                for key in ('comment','artifact'):
+                    value=record(); current=value['core']['sourceReview'] if source else value['governanceReview']
+                    current[key]=copy.deepcopy(old[key])
+                    with self.assertRaises(ValueError): c.purpose(queue(),prompt(value),SOURCES)
+
+        def test_all_three_growth_callers_accept_only_exact_original_or_new_test(self):
+            import re
+            blocks=re.findall(rb"^          python3 - <<'PY_GROWTH_SHARED_PREFIX'\n(.*?)^          PY_GROWTH_SHARED_PREFIX\n",WORKFLOW,re.M|re.S)
+            self.assertEqual(len(blocks),3)
+            self.assertEqual(len(set(blocks)),1)
+            source=textwrap.dedent(blocks[0].decode())
+            with tempfile.TemporaryDirectory() as tmp:
+                base=Path(tmp); path=base/c.TEST; path.parent.mkdir(parents=True)
+                cases=((SOURCES[c.TEST][:62220],True),(SOURCES[c.TEST],True),
+                       (SOURCES[c.TEST]+b'\n',False),
+                       (SOURCES[c.TEST][:-1]+bytes([SOURCES[c.TEST][-1]^1]),False),
+                       (SOURCES[c.TEST][:62220]+b'not admitted suffix',False))
+                for raw,accepted in cases:
+                    path.write_bytes(raw)
+                    result=subprocess.run([sys.executable,'-B','-c',source],cwd=base,
+                        stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
+                    self.assertEqual(result.returncode==0,accepted,result.stderr.decode())
+                actual=path.with_name('actual.py');path.rename(actual);path.symlink_to(actual)
+                result=subprocess.run([sys.executable,'-B','-c',source],cwd=base,
+                    stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
+                self.assertNotEqual(result.returncode,0)
+
+        def test_complete_workflow_inverse_rejects_unknown_prefix_suffix_or_partial_repair(self):
+            old=c.restore_dsa2_workflow(WORKFLOW)
+            self.assertEqual(len(old),483004)
+            self.assertEqual(hashlib.sha256(old).hexdigest(),'f902604ce3a86c3e5bb2b9bc40cbbfc02a80c5c6c19b9ff6d0aa2d6949d0438e')
+            for raw in (old,WORKFLOW+b'\n',WORKFLOW[:-1],bytes([WORKFLOW[0]^1])+WORKFLOW[1:],
+                        WORKFLOW[:-1]+bytes([WORKFLOW[-1]^1]),b'x'*len(WORKFLOW),None,bytearray(WORKFLOW)):
+                with self.assertRaises(ValueError): c.restore_dsa2_workflow(raw)
+
+        def cold_identity_function(self):
+            text=SOURCES[c.COLD].decode()
+            raw=text.split("<<'PY_PAYLOAD'\n",1)[1].split('\n          PY_PAYLOAD\n',1)[0]
+            tree=ast.parse(textwrap.dedent(raw))
+            node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='verified_inspector_workflow')
+            scope={}
+            exec(compile(ast.Module(body=[node],type_ignores=[]),'<actual-closed-cold-identity>','exec'),scope)
+            return node,scope[node.name]
+
+        def test_cold_and_startup_use_identical_complete_inverse(self):
+            node,_=self.cold_identity_function()
+            nested=next(n for n in node.body if isinstance(n,ast.FunctionDef) and n.name=='restore_dsa2_workflow')
+            current=next(n for n in ast.parse(SOURCES[c.CONTROLLER]).body
+                         if isinstance(n,ast.FunctionDef) and n.name=='restore_dsa2_workflow')
+            self.assertEqual(ast.dump(nested),ast.dump(current))
+
+        def test_cold_exact_new_carrier_and_retained_historical_inverses(self):
+            import base64,zlib
+            node,normalize=self.cold_identity_function()
+            expected=normalize(WORKFLOW)
+            self.assertEqual((len(expected),hashlib.sha256(expected).hexdigest()),
+                (370287,'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7'))
+            old=c.restore_dsa2_workflow(WORKFLOW)[:411656]
+            self.assertEqual(normalize(old),expected)
+            packed=[ast.literal_eval(n.args[0]) for n in sorted((n for n in ast.walk(node) if isinstance(n,ast.Call)
+                    and isinstance(n.func,ast.Attribute) and n.func.attr=='b64decode'),key=lambda n:n.lineno)]
+            self.assertEqual(len(packed),2)
+            for start,stop,value in reversed(json.loads(zlib.decompress(base64.b64decode(packed[0])))):
+                old=old[:start]+value.encode()+old[stop:]
+            self.assertEqual(old,expected)
+            self.assertEqual(normalize(old),expected)
+            self.assertEqual(normalize(expected),expected)
+            for raw in (c.restore_dsa2_workflow(WORKFLOW),b'x'*len(WORKFLOW),WORKFLOW+b'\n',WORKFLOW[:-1],
+                        bytes([WORKFLOW[0]^1])+WORKFLOW[1:],WORKFLOW[:-1]+bytes([WORKFLOW[-1]^1])):
+                with self.assertRaises(AssertionError): normalize(raw)
+
+        def test_cold_physical_binding_and_payload_allowlists_share_exact_new_identity(self):
+            text=SOURCES[c.COLD].decode()
+            binding=textwrap.dedent(text.split("python3 - <<'PY_BIND'\n",1)[1].split('\n          PY_BIND\n',1)[0])
+            tree=ast.parse(binding)
+            sizes=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign)
+                       and any(isinstance(t,ast.Name) and t.id=='inspection_sizes' for t in n.targets))
+            node,_=self.cold_identity_function()
+            identities=next(ast.literal_eval(n.value) for n in node.body if isinstance(n,ast.Assign)
+                            and any(isinstance(t,ast.Name) and t.id=='identities' for t in n.targets))
+            self.assertEqual(sizes,identities)
+            self.assertEqual(len(sizes),4)
+            self.assertEqual(sizes[hashlib.sha256(WORKFLOW).hexdigest()],len(WORKFLOW))
+            self.assertLess(len(SOURCES[c.COLD]),200000)
+            self.assertIn("pins(purpose['sourcePins'], controller_paths, ['100644'] * 3)",binding)
+            self.assertIn("accepted('.github/workflows/production-docker-headroom-diagnostic.yml', '100644', purpose['inspectionSha256'])",binding)
+
+        def test_both_authority_files_drift_fail_before_compilation_or_network(self):
+            for which in (c.QUEUE,c.PROMPT):
+                def blob(target,path,cap):
+                    if path in SOURCES: return SOURCES[path]
+                    raw=queue() if path==c.QUEUE else prompt(record())
+                    if path==which:
+                        if path==c.QUEUE: return raw.replace(b'"schema":',b'"unadmitted":1,"schema":',1)
+                        return raw.replace(b'"runtimeAllowance":"NOT_ISSUED_BY_SOURCE"',b'"runtimeAllowance":"ISSUED"')
+                    return raw
+                with patch.object(c,'git',return_value=(TARGET+'\n').encode()),patch.object(c,'accepted_blob',side_effect=blob), \
+                     patch.object(c,'sections') as sections,patch.object(c,'api') as api:
+                    with self.assertRaises(ValueError): c.accepted_sources(TARGET)
+                    sections.assert_not_called();api.assert_not_called()
+
+    return unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(cls) for cls in (StartupMeasurements,SourceAndOwner,ActualRoutes,PlaintextAdmission,CrossContractAdmission))
