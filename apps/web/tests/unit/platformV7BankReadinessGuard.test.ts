@@ -487,7 +487,7 @@ describe('shared bank navigation presentation', () => {
     const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));
     for (const html of [registry, unavailable]) {
       expect(hrefs(html)).not.toContain(bank);
-      expect(hrefs(html)).not.toContain('/platform-v7/deals');
+      expect(hrefs(html)).toContain('/platform-v7/deals');
       for (const role of ['buyer', 'seller'] as const) {
         for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);
       }

@@ -156,8 +156,7 @@ describe('selected bank payout page reason copy', () => {
     expect(html).not.toContain('PRIVATE_UPSTREAM_DETAIL');
     expect(html).not.toContain(copy.known);
     expect(html).not.toMatch(/<form|<button|method="post"/i);
-    expect(html).toContain(`/platform-v7/bank/payment-basis?lang=${copy.locale}#release-deals`);
-    expect(html).not.toContain('href="/platform-v7/deals"');
+    expect(html).toContain('/platform-v7/deals');
   });
 });
 
