@@ -250,7 +250,7 @@ describe('shared bank payment-basis read entry', () => {
       expect(metadata.robots).toEqual({ index: false, follow: false });
       expect(html).toContain('data-testid="platform-v7-bank-release-safety-v8"');
       expect(html).toContain(copy.unknown);
-      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');
+      expect(html).toContain(`/platform-v7/deals/deal-read-entry/execution?lang=${copy.locale}`);
       expect(html).toContain('dealId=deal-read-entry&amp;shipmentId=shipment-read-entry');
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
       expect(projection).toEqual(before);
@@ -276,7 +276,7 @@ describe('shared bank payment-basis read entry', () => {
     const { Page } = loadReadEntry();
     const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'deal-read-entry' }) }));
     expect(html).toContain('Серверная проверка выплаты недоступна');
-    expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');
+    expect(html).not.toContain('/platform-v7/deals/deal-read-entry/execution');
     expect(html).not.toMatch(/<form|<button|method=["']post/i);
   });
 
@@ -344,7 +344,7 @@ describe('shared bank payment-basis read entry', () => {
       expect(init.method ?? 'GET').toBe('GET');
       expect(init.headers).toEqual({ authorization: 'Bearer disposable-unit-fixture' });
       expect(init.body).toBeUndefined();
-      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');
+      expect(html).toContain('/platform-v7/deals/deal-read-entry/execution?lang=ru');
       expect(html).toContain('выплата заблокирована');
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
       expect(body).toEqual(before);
@@ -372,7 +372,7 @@ describe('shared bank payment-basis read entry', () => {
         const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));
         expect(fetchBoundary).toHaveBeenCalledTimes(1);
         expect(html).toContain('Серверная проверка выплаты недоступна');
-        expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');
+        expect(html).not.toContain('/platform-v7/deals/deal-read-entry/execution');
         expect(html).not.toContain('PRIVATE_READ_FIXTURE_DETAIL');
         expect(html).not.toMatch(/<form|<button|method=["']post/i);
       },
@@ -487,7 +487,7 @@ describe('shared bank navigation presentation', () => {
     const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));
     for (const html of [registry, unavailable]) {
       expect(hrefs(html)).not.toContain(bank);
-      expect(hrefs(html)).toContain('/platform-v7/deals');
+      expect(hrefs(html)).not.toContain('/platform-v7/deals');
       for (const role of ['buyer', 'seller'] as const) {
         for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);
       }
@@ -519,6 +519,8 @@ describe('shared bank navigation presentation', () => {
     for (const query of [{}, { dealId: 'unavailable-deal' }]) {
       const html = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(query) }));
       expect(hrefs(html)).toContain(bank);
+      expect(hrefs(html)).not.toContain('/platform-v7/deals');
+      for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
     }
   });
