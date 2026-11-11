@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import ctypes
 import base64
+import grp
 import hashlib
 import ipaddress
 import json
@@ -3217,13 +3218,24 @@ def original_directory(path: str) -> list[int]:
     original_require(path == ORIGINAL_ROOT and hasattr(os, 'O_NOATIME'), 'IDENTITY')
     descriptors: list[int] = []
     try:
-        for part in ['/', *path.split('/')[1:]]:
+        parts = ['/', *path.split('/')[1:]]
+        for depth, part in enumerate(parts):
             fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME,
                          dir_fd=descriptors[-1] if descriptors else None)
             descriptors.append(fd)
             info = os.fstat(fd)
-            original_require(stat.S_ISDIR(info.st_mode) and info.st_uid == info.st_gid == 0
-                             and not stat.S_IMODE(info.st_mode) & 0o022, 'IDENTITY')
+            mode = stat.S_IMODE(info.st_mode)
+            original_require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not mode & 0o022, 'IDENTITY')
+            if info.st_gid != 0:
+                # The release runner can traverse only the shared ancestor. Both
+                # private archive directories and all files still require GID 0.
+                original_require(depth == 3 and parts[1:4] == ['var', 'lib', 'pc-release-authority']
+                                 and len(parts) >= depth + 3 and mode == 0o710, 'IDENTITY')
+                try:
+                    runner_group = grp.getgrnam('pcactions').gr_gid
+                except (KeyError, OSError):
+                    raise OriginalRefusal('IDENTITY') from None
+                original_require(runner_group > 0 and info.st_gid == runner_group, 'IDENTITY')
         original_require(stat.S_IMODE(os.fstat(descriptors[-1]).st_mode) == 0o700
                          and stat.S_IMODE(os.fstat(descriptors[-2]).st_mode) == 0o700, 'IDENTITY')
         return descriptors
@@ -3743,6 +3755,52 @@ def read_original_docker_review(text: str) -> None:
     raw = run(['gh', 'api', 'repos/pachaninm-lab/pachanin-demo/issues/comments/' + str(record['sourceReview'][0])])
     original_require(type(raw) is str, 'IDENTITY')
     validate_original_docker_review(text, original_json(raw.encode('utf-8')))
+
+
+ORIGINAL_BOUNDARY_BASE = '8fc8061fa924cad7182b93b3e6a08b2abb697c27'
+ORIGINAL_BOUNDARY_PROGRESS_KEY = 'gektaOriginal19AuthorityRootBoundary'
+ORIGINAL_BOUNDARY_BEFORE = {
+    '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml': 'a2f1c298d840be4d6e75cb1dc70ffa5bd4dc78e9',
+    'scripts/production-market-release-preflight.py': 'c45e7e2aa18d672e2d1372ac0cf7c83934c3a6c3',
+    'scripts/test-production-market-release-preflight.py': 'a3588d4e1ec131ae58440b49f5e8833dd12b6b5a',
+}
+ORIGINAL_BOUNDARY_PURPOSE = {
+    'schema': 'pc.original19-release-authority-boundary.v1',
+    'purposeId': 'original19-shared-authority-runner-traversal-20261111',
+    'owner': 'ACCOUNT_1_CORE',
+    'priorSourceBase': ORIGINAL_BOUNDARY_BASE,
+    'sourceBranch': 'ops/farmer-market-release-preflight-20260916',
+    'observationCommentId': 6805153274,
+    'sharedAncestor': {'depth': 3, 'uid': 0, 'group': 'pcactions', 'mode': '0710'},
+    'privateDirectories': {'uid': 0, 'gid': 0, 'mode': '0700'},
+    'privateFiles': {'uid': 0, 'gid': 0, 'mode': '0600', 'nlink': 1},
+    'authorityGranted': 'SOURCE_ONLY_AFTER_SEPARATE_METADATA_ACCEPTANCE',
+    'productionMutationAuthorized': False,
+    'productionInvocationAuthorized': False,
+    'releaseAuthorized': False,
+    'masterCredit': 0,
+}
+
+
+def validate_original_authority_boundary_renewal(progress: bytes, sources: dict[str, bytes]) -> None:
+    original_require(type(progress) is bytes and 0 < len(progress) <= 1024 * 1024, 'BOUNDS')
+    document = original_json(progress)
+    original_require(type(document) is dict and ORIGINAL_BOUNDARY_PROGRESS_KEY in document, 'IDENTITY')
+    record = document[ORIGINAL_BOUNDARY_PROGRESS_KEY]
+    original_require(type(record) is dict and set(record) == set(ORIGINAL_BOUNDARY_PURPOSE) | {'sourcePins'}
+                     and type(sources) is dict and set(sources) == set(ORIGINAL_BOUNDARY_BEFORE), 'IDENTITY')
+    for key, value in ORIGINAL_BOUNDARY_PURPOSE.items():
+        original_require(json.dumps(record[key], sort_keys=True, separators=(',', ':')) ==
+                         json.dumps(value, sort_keys=True, separators=(',', ':')), 'IDENTITY')
+    pins = record['sourcePins']
+    original_require(type(pins) is dict and set(pins) == set(sources), 'IDENTITY')
+    for path, raw in sources.items():
+        original_require(type(raw) is bytes and 0 < len(raw) <= 1024 * 1024, 'BOUNDS')
+        pin = {'mode': '100644', 'beforeBlob': ORIGINAL_BOUNDARY_BEFORE[path],
+               'afterBlob': hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest(),
+               'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+        original_require(json.dumps(pins[path], sort_keys=True, separators=(',', ':')) ==
+                         json.dumps(pin, sort_keys=True, separators=(',', ':')), 'IDENTITY')
 
 
 def validate_original_purpose_record(text: str, sources: dict[str, bytes]) -> str:

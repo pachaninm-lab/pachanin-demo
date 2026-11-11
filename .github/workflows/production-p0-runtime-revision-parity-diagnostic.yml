@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != '5adbd6264e686b2a430210e703eeda21a0c0a461cb20c2410b1a4e51eaff620a':
+          if hashlib.sha256(inspector_source).hexdigest() != 'e68e33eaa526b40e2185d07d392cb500ac469204b8685b9141e9b20e63aa99d4':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -103,6 +103,7 @@ jobs:
           if not retention.startswith('        if: ' + '$' + '{{ always() }}\n'):
               raise SystemExit('VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE')
           for marker in ('module.' + 'validate_original_purpose_record(text, sources)',
+                         'module.' + 'validate_original_authority_boundary_renewal(progress, current_sources)',
                          'module.' + 'validate_original_envelope(value, sys.argv[1])',
                          '--original-volume-' + 'inventory'):
               if workflow_text.count(marker) != 1:
@@ -124,6 +125,45 @@ jobs:
           if bad:
               raise SystemExit('forbidden mutation surface: ' + ' | '.join(bad))
           PY
+
+      - name: Verify the separately accepted Original19 boundary source
+        env:
+          ORIGINAL_BOUNDARY_AUTHORITY_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -B - <<'PYBOUNDARY'
+          import importlib.util, os, subprocess
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('market_preflight', 'scripts/production-market-release-preflight.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          def git(*args):
+              return subprocess.check_output(['git', *args], timeout=10, stderr=subprocess.DEVNULL)
+
+          try:
+              ref = os.environ['ORIGINAL_BOUNDARY_AUTHORITY_REF']
+              if not module.SHA.fullmatch(ref):
+                  raise ValueError('ref')
+              git('merge-base', '--is-ancestor', module.ORIGINAL_BOUNDARY_BASE, ref)
+              if os.environ['GITHUB_EVENT_NAME'] == 'issue_comment' and git('rev-parse', 'HEAD').strip() != ref.encode():
+                  raise ValueError('event checkout')
+              path = 'docs/platform-v7/autopilot/progress.json'
+              progress = git('show', ref + ':' + path)
+              if Path(path).read_bytes() != progress:
+                  raise ValueError('authority changed in source')
+              current_sources = {}
+              for name in module.ORIGINAL_BOUNDARY_BEFORE:
+                  entry = git('ls-tree', '-z', 'HEAD', '--', name)
+                  if not entry.startswith(b'100644 blob '):
+                      raise ValueError('source mode')
+                  current_sources[name] = Path(name).read_bytes()
+              module.validate_original_authority_boundary_renewal(progress, current_sources)
+          except Exception:
+              raise SystemExit('ORIGINAL19_AUTHORITY_BOUNDARY_SOURCE_NOT_ACCEPTED')
+          print('ORIGINAL19_AUTHORITY_BOUNDARY_SOURCE_ACCEPTED=1')
+          PYBOUNDARY
 
       - name: Test bounded market preflight without production access
         shell: bash
@@ -180,7 +220,8 @@ jobs:
           spec.loader.exec_module(module)
           try:
               text = Path('docs/platform-v7/autopilot/prompts/current-review-task.md').read_text(encoding='utf-8')
-              sources = {name: Path(name).read_bytes() for name in module.ORIGINAL_BEFORE_BLOBS}
+              sources = {name: subprocess.check_output(['git', 'show', module.ORIGINAL_BOUNDARY_BASE + ':' + name],
+                         timeout=10, stderr=subprocess.DEVNULL) for name in module.ORIGINAL_BEFORE_BLOBS}
               digest = module.validate_original_purpose_record(text, sources)
               manifest = Path('docs/platform-v7/autopilot/scopes/farmer-market-release-preflight-20260916.json').read_bytes()
               module.validate_original_docker_scope(text, manifest)
