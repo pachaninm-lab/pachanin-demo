@@ -5,11 +5,13 @@ import importlib.util
 import json
 import os
 import sqlite3
+import stat
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import textwrap
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -2800,6 +2802,80 @@ def original_fixture_identity():
 
 
 class OriginalInventory(unittest.TestCase):
+    def directory_fixture(self, groups, *, shared_mode=0o710, shared_uid=0, group_lookup=2103,
+                          root=None, expected=True):
+        root = m.ORIGINAL_ROOT if root is None else root
+        modes = [0o755, 0o755, 0o755, shared_mode, 0o700, 0o700]
+        infos = [SimpleNamespace(st_mode=stat.S_IFDIR | mode, st_uid=shared_uid if index == 3 else 0,
+                                 st_gid=groups.get(index, 0)) for index, mode in enumerate(modes)]
+        descriptors = list(range(40, 46))
+        lookup_effect = group_lookup if isinstance(group_lookup, Exception) else None
+        with (patch.object(m, 'ORIGINAL_ROOT', root),
+              patch.object(m.os, 'open', side_effect=descriptors) as opened,
+              patch.object(m.os, 'fstat', side_effect=lambda fd: infos[fd - 40]),
+              patch.object(m.os, 'close') as closed,
+              patch.object(m.grp, 'getgrnam', return_value=SimpleNamespace(gr_gid=group_lookup),
+                           side_effect=lookup_effect) as lookup):
+            if expected:
+                self.assertEqual(m.original_directory(root), descriptors)
+                closed.assert_not_called()
+                if groups:
+                    lookup.assert_called_once_with('pcactions')
+                else:
+                    lookup.assert_not_called()
+            else:
+                with self.assertRaisesRegex(m.OriginalRefusal, '^IDENTITY$'):
+                    m.original_directory(root)
+                self.assertEqual([call.args[0] for call in closed.call_args_list],
+                                 descriptors[:opened.call_count][::-1])
+            for index, call in enumerate(opened.call_args_list):
+                self.assertTrue(call.args[1] & m.os.O_NOFOLLOW)
+                self.assertTrue(call.args[1] & m.os.O_NOATIME)
+                self.assertEqual(call.kwargs['dir_fd'], descriptors[index - 1] if index else None)
+
+    def test_original_directory_accepts_the_exact_shared_runner_boundary(self):
+        self.directory_fixture({3: 2103})
+        self.directory_fixture({})
+
+    def test_original_directory_rejects_other_group_boundaries(self):
+        for groups, options in (
+            ({3: 2104}, {}), ({3: 2103}, {'group_lookup': KeyError()}),
+            ({3: 2103}, {'group_lookup': 0}), ({3: 2103}, {'shared_uid': 99}),
+            ({3: 2103}, {'shared_mode': 0o700}), ({3: 2103}, {'shared_mode': 0o750}),
+            ({3: 2103}, {'shared_mode': 0o730}), ({3: 2103}, {'shared_mode': 0o711}),
+            ({3: 2103}, {'shared_mode': 0o2710}), ({2: 2103}, {}),
+            ({3: 2103, 4: 2103}, {}), ({3: 2103, 5: 2103}, {}),
+            ({3: 2103}, {'root': '/var/lib/unrelated/parent/leaf'}),
+        ):
+            with self.subTest(groups=groups, options=options):
+                self.directory_fixture(groups, expected=False, **options)
+
+    def test_original_boundary_renewal_requires_the_exact_sources_and_purpose(self):
+        sources = {path: (PATH.parents[1] / path).read_bytes() for path in m.ORIGINAL_BOUNDARY_BEFORE}
+        pins = {}
+        for path, raw in sources.items():
+            pins[path] = {'mode': '100644', 'beforeBlob': m.ORIGINAL_BOUNDARY_BEFORE[path],
+                          'afterBlob': m.hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest(),
+                          'bytes': len(raw), 'sha256': m.hashlib.sha256(raw).hexdigest()}
+        record = {**m.ORIGINAL_BOUNDARY_PURPOSE, 'sourcePins': pins}
+        def validate(value, actual=sources):
+            m.validate_original_authority_boundary_renewal(
+                json.dumps({m.ORIGINAL_BOUNDARY_PROGRESS_KEY: value}).encode(), actual)
+        validate(record)
+        path = next(iter(sources))
+        for change in (
+            {'sourcePins': {**pins, path: {**pins[path], 'mode': '120000'}}},
+            {'sourcePins': {**pins, path: {**pins[path], 'beforeBlob': '0' * 40}}},
+            {'sharedAncestor': {**record['sharedAncestor'], 'depth': 4}},
+            {'privateDirectories': {**record['privateDirectories'], 'gid': 2103}},
+            {'productionInvocationAuthorized': True}, {'productionMutationAuthorized': 0},
+            {'releaseAuthorized': True}, {'masterCredit': False},
+        ):
+            with self.subTest(change=change), self.assertRaises(m.OriginalRefusal):
+                validate({**record, **change})
+        with self.assertRaises(m.OriginalRefusal):
+            validate(record, {**sources, path: sources[path] + b'\n'})
+
     def test_exact_public_receipt_pins(self):
         self.assertEqual(len(m.ORIGINAL_RECEIPT), 16)
         self.assertEqual(m.ORIGINAL_RECEIPT['runId'], '39779050389')
@@ -2959,6 +3035,7 @@ class OriginalInventory(unittest.TestCase):
         check = WorkflowContract()
         check.setUpClass()
         for marker in ('module.validate_original_purpose_record(text, sources)',
+                       'module.validate_original_authority_boundary_renewal(progress, current_sources)',
                        'module.validate_original_envelope(value, sys.argv[1])', '--original-volume-inventory'):
             with self.subTest(marker=marker), self.assertRaisesRegex(SystemExit, 'ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING'):
                 check.enforce(check.source, check.workflow.replace(marker, 'disabled_profile_gate'))
