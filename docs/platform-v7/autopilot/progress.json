@@ -93,5 +93,44 @@
         "sha256": "f65eaa0513ddee85742a2338df3a2d14846e2a59ea36da2a8ea2f940f51e131a"
       }
     }
+  },
+  "gektaApiBaselineContentEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "fafb380d72f19c8e541e632cc16162d669f1f418",
+        "sha256": "94521a2d8642c59f93e6ebeb8408ad1eb1efd8d329ff5d587ec865b22caf6d59"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "cc3c98ed26ecef52d265eca75bb3f4869f51b012",
+        "sha256": "ed7545d92edf0be209244fa20cab79937e1ad170269b2769cc0f90bd3deca26b"
+      }
+    ],
+    "baseline": {
+      "revision": "a81d69fb9aa0434ed581e057252808f4cda82f08",
+      "observedImageId": "sha256:577fec1493698c4dc17473be557b56623baa71c20bbb195e29c1d10d2efd9927",
+      "observedRun": 43092634346,
+      "observedArtifact": 13888638785,
+      "canonicalRun": 41494613531,
+      "canonicalJob": 125446173829,
+      "index": "sha256:d60bd30dd5873ee918b67e0eb68f549b3dbd3fbc9a8546ac4fd4eeb9abc2539f",
+      "config": "sha256:38c3171b89ffa3663b87a3a6b32aeecbe7f37544441202b03ddb17b926fe50d9",
+      "rootfsSHA256": "9bd5f19a9129d28ed918fe2d0c810e0b7802df0426769a5763e8d2b25cb2dc66",
+      "projectedDefaultsSHA256": "f90721149b4a48d43297b5253f757f3812ad9aafca74a43356a17fdf4e8c8163"
+    },
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0
   }
 }
