@@ -508,6 +508,28 @@ describe('shared bank navigation presentation', () => {
     },
   );
 
+  it.each(copies)('keeps canonical bank recovery inside a usable bank registry in $locale', async copy => {
+    readEntryBoundary.locale.mockResolvedValue(copy.locale);
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': canonical }));
+    const { CanonicalPage } = loadReadEntry();
+    const unavailable = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve({ dealId: 'unavailable-deal', shipmentId: 'stale-shipment' }) }));
+    const expectedRecovery = `${canonical}?lang=${copy.locale}#release-deals`;
+    expect(hrefs(unavailable)).toContain(expectedRecovery);
+    expect(hrefs(unavailable)).not.toContain(`${shared}?lang=${copy.locale}#release-deals`);
+    const recovery = new URL(expectedRecovery, 'https://example.test');
+    expect(canRoleAccessCabinet('bank', recovery.pathname)).toBe(true);
+    expect(recovery.searchParams.has('dealId')).toBe(false);
+    expect(recovery.searchParams.has('shipmentId')).toBe(false);
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': recovery.pathname }));
+    const registry = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(Object.fromEntries(recovery.searchParams)) }));
+    expect(hrefs(registry)).toContain('#release-deals');
+    expect(registry).toContain('id="release-deals"');
+    expect(hrefs(registry)).not.toContain('/platform-v7/deals');
+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('unavailable-deal');
+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();
+    for (const html of [unavailable, registry]) expect(html).not.toMatch(/<form|<button|method=["']post/i);
+  });
+
   it.each(copies)('preserves the bank return link on the canonical bank-only page in $locale', async copy => {
     readEntryBoundary.locale.mockResolvedValue(copy.locale);
     readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': canonical }));
