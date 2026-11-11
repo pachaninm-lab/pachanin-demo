@@ -1014,6 +1014,7 @@ function generalAgroResponseBudgetRule(
 }
 
 function buildGroundedPrompt(request: NormalizedRequest): string {
+  const soilMoistureGuidance = soilMoistureMeasurementGuidance(request);
   const verifiedPlatformContext = request.answerMode === 'verified_platform'
     ? [
       'PUBLIC_PLATFORM_CONTEXT_JSON:',
@@ -1046,7 +1047,23 @@ function buildGroundedPrompt(request: NormalizedRequest): string {
     ...(request.answerMode === 'general_agro'
       ? ['SUBJECT_AND_EVIDENCE_REMINDER:', subjectAndEvidenceReminder(request.locale)]
       : []),
+    ...(soilMoistureGuidance ? ['SOIL_MOISTURE_MEASUREMENT:', soilMoistureGuidance] : []),
   ].join('\n');
+}
+
+function soilMoistureMeasurementGuidance(request: NormalizedRequest): string {
+  if (request.answerMode !== 'general_agro' || request.currentDataRequired || request.documents.length) return '';
+
+  const question = request.originalQuestion.normalize('NFKC');
+  const russian = /(?:провер|измер|оцен|определ)\p{L}*\s+(?:(?:фактическ|текущ)\p{L}*\s+)?(?:влажност[ьи]\s+(?:почвы|грунта)|влаг[ау]\s+в\s+(?:почве|грунте))/iu.test(question);
+  const english = /\b(?:check|measure|estimate|determine|test)\s+(?:the\s+)?soil\s+(?:moisture|water content)\b/iu.test(question);
+  const chinese = /(?:测量|检测|判断|检查|估算|测定)(?:一下)?土壤(?:含水量|水分|湿度)|土壤(?:含水量|水分|湿度)(?:怎么|如何|怎样)(?:测量|检测|判断|检查|估算|测定|测)/u.test(question);
+  if (!russian && !english && !chinese) return '';
+
+  return 'For field soil-moisture checks, distinguish two practical methods when asked: '
+    + 'estimate moisture by the feel and appearance of a sample collected at the relevant depth, taking soil texture into account; '
+    + 'or measure with a soil-moisture sensor installed at that depth. A probe or spade collects the sample; explain how the moisture is assessed. '
+    + 'For seedbed checks, sample at the intended sowing depth in representative parts of the field.';
 }
 
 function subjectAndEvidenceReminder(locale: PublicLocale): string {
