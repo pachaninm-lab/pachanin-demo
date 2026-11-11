@@ -73,7 +73,7 @@ jobs:
           NODE
           python3 -I -B - "$file" <<'UNIT_POLICY_FIXTURES'
           """Pure fixtures for the actual proposed unit/verb query. Never executes pkcheck."""
-          import ast, pathlib, re, subprocess, sys, textwrap, types, unittest
+          import ast, os, pathlib, re, subprocess, sys, textwrap, types, unittest
 
           workflow=pathlib.Path(sys.argv[1]).read_text()
           start=workflow.index("          polkit = 'UNAVAILABLE'\n")
@@ -82,7 +82,7 @@ jobs:
           tree=ast.parse(source)
           compiled=compile(tree,'<actual-proposed-unit-policy-query>','exec')
 
-          def measure(code=0, error=None, missing=False, pid=123, start_ticks='900', observed_pid=123, bad_stat=None):
+          def measure(code=0, error=None, missing=False, pid=123, start_ticks='900', observed_pid=123, bad_stat=None, stderr_data=b'', capture_unavailable=False):
               calls=[]
               stat=str(observed_pid)+' (fixture with spaces) S '+' '.join(['0']*18+[start_ticks])
               class FakePath:
@@ -91,28 +91,50 @@ jobs:
                   def read_text(self):
                       if bad_stat is not None:raise bad_stat
                       return stat
+              def create_capture(name, flags):
+                  if capture_unavailable:
+                      raise OSError('synthetic memfd unavailable')
+                  return os.memfd_create(name, flags)
               def run(argv,**kwargs):
                   calls.append((argv,kwargs))
                   if error is not None:raise error
+                  fd=kwargs['stderr']
+                  if fd != subprocess.DEVNULL:
+                      assert os.fstat(fd).st_size==4096
+                      try:
+                          os.pwrite(fd,b'x',4096)
+                      except OSError:
+                          pass
+                      else:
+                          raise AssertionError('stderr capture can grow')
+                      if stderr_data:
+                          os.write(fd,stderr_data)
                   return types.SimpleNamespace(returncode=code)
-              namespace={'os':types.SimpleNamespace(getpid=lambda:pid,getuid=lambda:1001),
+              namespace={'os':types.SimpleNamespace(
+                  getpid=lambda:pid,getuid=lambda:1001,memfd_create=create_capture,
+                  MFD_CLOEXEC=os.MFD_CLOEXEC,MFD_ALLOW_SEALING=os.MFD_ALLOW_SEALING,
+                  ftruncate=os.ftruncate,pread=os.pread,close=os.close),
                   'pathlib':types.SimpleNamespace(Path=FakePath),
                   'shutil':types.SimpleNamespace(which=lambda name:None if missing else '/usr/bin/pkcheck'),
                   'subprocess':types.SimpleNamespace(run=run,DEVNULL=subprocess.DEVNULL,TimeoutExpired=subprocess.TimeoutExpired)}
               exec(compiled,namespace)
-              return namespace['polkit'],calls,namespace['polkit_error_kind']
+              return namespace['polkit'],calls,namespace['polkit_error_kind'],namespace['polkit_error_reason']
 
           class FixedUnitPolicy(unittest.TestCase):
               def test_fixed_unit_verb_and_complete_live_subject(self):
-                  state,calls,error_kind=measure()
+                  state,calls,error_kind,error_reason=measure()
                   self.assertEqual(state,'AUTHORIZED');self.assertEqual(len(calls),1)
                   self.assertEqual(error_kind,'NONE')
+                  self.assertEqual(error_reason,'NONE')
                   self.assertEqual(calls[0][0],['/usr/bin/pkcheck','--action-id','org.freedesktop.systemd1.manage-units',
                       '--process','123,900,1001','--detail','unit','tai-qwen3-8b.service','--detail','verb','restart'])
               def test_no_interactive_agent_or_raw_output_or_stdin(self):
-                  _,calls,_=measure();argv,kw=calls[0]
+                  _,calls,_,_=measure();argv,kw=calls[0]
+                  fd=kw['stderr']
+                  self.assertGreaterEqual(fd,0)
+                  with self.assertRaises(OSError):os.fstat(fd)
                   self.assertNotIn('--allow-user-interaction',argv);self.assertNotIn('--enable-internal-agent',argv)
-                  self.assertEqual(kw,{'stdin':subprocess.DEVNULL,'stdout':subprocess.DEVNULL,'stderr':subprocess.DEVNULL,
+                  self.assertEqual(kw,{'stdin':subprocess.DEVNULL,'stdout':subprocess.DEVNULL,'stderr':fd,
                       'timeout':5,'check':False,'env':{'PATH':'/usr/bin:/bin','LC_ALL':'C'}})
               def test_documented_exit_codes_remain_distinct(self):
                   for code,state in ((0,'AUTHORIZED'),(1,'DENIED'),(2,'INTERACTION_REQUIRED'),(3,'DISMISSED'),
@@ -130,30 +152,47 @@ jobs:
                   )
                   for kwargs,expected in cases:
                       with self.subTest(expected=expected):
-                          status,calls,kind=measure(**kwargs)
+                          status,calls,kind,_=measure(**kwargs)
                           self.assertEqual(status,'CHECK_ERROR')
                           self.assertEqual(kind,expected)
                           self.assertEqual(len(calls),1)
+              def test_policy_error_reasons_and_fallback(self):
+                  for data,expected in (
+                      (b'Only trusted callers (e.g. uid 0 or an action owner) can use CheckAuthorization() and pass details', 'DETAILS_CALLER_NOT_TRUSTED'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: synthetic', 'DBUS_SERVICE_UNKNOWN'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.NameHasNoOwner: synthetic', 'DBUS_NAME_HAS_NO_OWNER'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.NoReply: synthetic', 'DBUS_NO_REPLY'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.AccessDenied: synthetic', 'DBUS_ACCESS_DENIED'),
+                      (b'synthetic unrecognized data', 'UNKNOWN'),
+                  ):
+                      with self.subTest(expected=expected):
+                          status,calls,kind,reason=measure(code=127,stderr_data=data)
+                          self.assertEqual((status,kind,reason),('CHECK_ERROR','POLICY_CHECK_ERROR',expected))
+                          self.assertEqual(len(calls),1)
+                  status,calls,kind,reason=measure(code=127,capture_unavailable=True)
+                  self.assertEqual((status,kind,reason),('CHECK_ERROR','POLICY_CHECK_ERROR','CAPTURE_UNAVAILABLE'))
+                  self.assertEqual(calls[0][1]['stderr'],subprocess.DEVNULL)
               def test_unknown_exit_and_signal_stay_unknown(self):
                   for code in (7,-9,255):self.assertEqual(measure(code=code)[0],'ERROR')
               def test_timeout_has_no_retry(self):
-                  result,calls,error_kind=measure(error=subprocess.TimeoutExpired('synthetic query',5))
+                  result,calls,error_kind,error_reason=measure(error=subprocess.TimeoutExpired('synthetic query',5))
                   self.assertEqual(error_kind,'NONE')
+                  self.assertEqual(error_reason,'NONE')
                   self.assertEqual(result,'CHECK_TIMEOUT');self.assertEqual(len(calls),1)
               def test_unavailable_checker_has_no_fallback(self):
-                  result,calls,kind=measure(missing=True);self.assertEqual(result,'UNAVAILABLE');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
+                  result,calls,kind,_=measure(missing=True);self.assertEqual(result,'UNAVAILABLE');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_subject_pid_mismatch_prevents_query(self):
-                  result,calls,kind=measure(observed_pid=321);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
+                  result,calls,kind,_=measure(observed_pid=321);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_invalid_start_time_prevents_query(self):
                   for start in ('0','-1','bad'):
-                      result,calls,kind=measure(start_ticks=start);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
+                      result,calls,kind,_=measure(start_ticks=start);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_unreadable_subject_prevents_query(self):
-                  result,calls,kind=measure(bad_stat=OSError('synthetic missing proc'))
+                  result,calls,kind,_=measure(bad_stat=OSError('synthetic missing proc'))
                   self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_scope_is_explicit_in_closed_output(self):
                   self.assertIn("print('CONTROL_PROBE_POLKIT_QUERY_SCOPE=FIXED_UNIT_RESTART')",workflow)
-                  self.assertIn('|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|POLKIT_ERROR_KIND|',workflow)
-                  self.assertIn('"$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 28',workflow)
+                  self.assertIn('|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|POLKIT_ERROR_KIND|POLKIT_ERROR_REASON|',workflow)
+                  self.assertIn('"$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 29',workflow)
               def test_actual_query_has_no_shell_or_service_action(self):
                   calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='run']
                   self.assertEqual(len(calls),1)
@@ -362,6 +401,7 @@ jobs:
 
           polkit = 'UNAVAILABLE'
           polkit_error_kind = 'NONE'
+          polkit_error_reason = 'NONE'
           pkcheck = shutil.which('pkcheck')
           if pkcheck:
               try:
@@ -374,43 +414,81 @@ jobs:
               except (OSError, ValueError, IndexError):
                   polkit = 'SUBJECT_UNVERIFIED'
               else:
+                  capture_fd = None
                   try:
-                      result = subprocess.run(
-                          [pkcheck, '--action-id', 'org.freedesktop.systemd1.manage-units', '--process', subject,
-                          '--detail', 'unit', 'tai-qwen3-8b.service', '--detail', 'verb', 'restart'],
-                          stdin=subprocess.DEVNULL,
-                          stdout=subprocess.DEVNULL,
-                          stderr=subprocess.DEVNULL,
-                          timeout=5,
-                          check=False,
-                          env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
-                      )
-                  except subprocess.TimeoutExpired:
-                      polkit = 'CHECK_TIMEOUT'
-                  except OSError as error:
-                      polkit = 'CHECK_ERROR'
-                      if isinstance(error, FileNotFoundError):
-                          polkit_error_kind = 'EXEC_NOT_FOUND'
-                      elif isinstance(error, PermissionError):
-                          polkit_error_kind = 'EXEC_PERMISSION_DENIED'
-                      else:
-                          polkit_error_kind = 'EXEC_ERROR'
-                  else:
-                      if result.returncode == 0:
-                          polkit = 'AUTHORIZED'
-                      elif result.returncode == 1:
-                          polkit = 'DENIED'
-                      elif result.returncode == 2:
-                          polkit = 'INTERACTION_REQUIRED'
-                      elif result.returncode == 3:
-                          polkit = 'DISMISSED'
-                      elif result.returncode == 126:
-                          polkit = 'INVALID_INVOCATION'
-                      elif result.returncode == 127:
+                      import fcntl
+                      capture_fd = os.memfd_create('gekta-polkit-error', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+                      os.ftruncate(capture_fd, 4096)
+                      # Linux UAPI constants cover Python builds without the seal names.
+                      add_seals = getattr(fcntl, 'F_ADD_SEALS', 1033)
+                      seals = (getattr(fcntl, 'F_SEAL_GROW', 0x0004)
+                               | getattr(fcntl, 'F_SEAL_SHRINK', 0x0002)
+                               | getattr(fcntl, 'F_SEAL_SEAL', 0x0001))
+                      fcntl.fcntl(capture_fd, add_seals, seals)
+                  except (ImportError, AttributeError, OSError):
+                      if capture_fd is not None:
+                          os.close(capture_fd)
+                      capture_fd = None
+                  try:
+                      try:
+                          result = subprocess.run(
+                              [pkcheck, '--action-id', 'org.freedesktop.systemd1.manage-units', '--process', subject,
+                              '--detail', 'unit', 'tai-qwen3-8b.service', '--detail', 'verb', 'restart'],
+                              stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL,
+                              stderr=capture_fd if capture_fd is not None else subprocess.DEVNULL,
+                              timeout=5,
+                              check=False,
+                              env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
+                          )
+                      except subprocess.TimeoutExpired:
+                          polkit = 'CHECK_TIMEOUT'
+                      except OSError as error:
                           polkit = 'CHECK_ERROR'
-                          polkit_error_kind = 'POLICY_CHECK_ERROR'
+                          if isinstance(error, FileNotFoundError):
+                              polkit_error_kind = 'EXEC_NOT_FOUND'
+                          elif isinstance(error, PermissionError):
+                              polkit_error_kind = 'EXEC_PERMISSION_DENIED'
+                          else:
+                              polkit_error_kind = 'EXEC_ERROR'
                       else:
-                          polkit = 'ERROR'
+                          if result.returncode == 0:
+                              polkit = 'AUTHORIZED'
+                          elif result.returncode == 1:
+                              polkit = 'DENIED'
+                          elif result.returncode == 2:
+                              polkit = 'INTERACTION_REQUIRED'
+                          elif result.returncode == 3:
+                              polkit = 'DISMISSED'
+                          elif result.returncode == 126:
+                              polkit = 'INVALID_INVOCATION'
+                          elif result.returncode == 127:
+                              polkit = 'CHECK_ERROR'
+                              polkit_error_kind = 'POLICY_CHECK_ERROR'
+                              polkit_error_reason = 'CAPTURE_UNAVAILABLE'
+                              if capture_fd is not None:
+                                  try:
+                                      detail = os.pread(capture_fd, 4096, 0)
+                                  except OSError:
+                                      pass
+                                  else:
+                                      polkit_error_reason = 'UNKNOWN'
+                                      for marker, reason in (
+                                          (b'Only trusted callers (e.g. uid 0 or an action owner) can use CheckAuthorization() and pass details',
+                                           'DETAILS_CALLER_NOT_TRUSTED'),
+                                          (b'GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown:', 'DBUS_SERVICE_UNKNOWN'),
+                                          (b'GDBus.Error:org.freedesktop.DBus.Error.NameHasNoOwner:', 'DBUS_NAME_HAS_NO_OWNER'),
+                                          (b'GDBus.Error:org.freedesktop.DBus.Error.NoReply:', 'DBUS_NO_REPLY'),
+                                          (b'GDBus.Error:org.freedesktop.DBus.Error.AccessDenied:', 'DBUS_ACCESS_DENIED'),
+                                      ):
+                                          if marker in detail:
+                                              polkit_error_reason = reason
+                                              break
+                          else:
+                              polkit = 'ERROR'
+                  finally:
+                      if capture_fd is not None:
+                          os.close(capture_fd)
 
           print('CONTROL_PROBE_SERVICE_USER_MATCH=' + str(int(service_user == current_user)))
           print('CONTROL_PROBE_RESTART_POLICY=' + (restart_policy if re.fullmatch(r'[A-Za-z0-9_.:-]+', restart_policy) else 'INVALID'))
@@ -438,12 +516,13 @@ jobs:
           print('CONTROL_PROBE_POLKIT_QUERY_SCOPE=FIXED_UNIT_RESTART')
           print('CONTROL_PROBE_POLKIT_MANAGE_UNITS=' + polkit)
           print('CONTROL_PROBE_POLKIT_ERROR_KIND=' + polkit_error_kind)
+          print('CONTROL_PROBE_POLKIT_ERROR_REASON=' + polkit_error_reason)
           print('CONTROL_PROBE_EXECSTART_SHA256=' + hashlib.sha256(execstart.encode()).hexdigest())
           print('CONTROL_PROBE_ENVFILES_SHA256=' + hashlib.sha256(environment_files_raw.encode()).hexdigest())
           PY
           REMOTE_PROBE
-          grep -E '^CONTROL_PROBE_(SERVICE_USER_MATCH|RESTART_POLICY|FRAGMENT_PRESENT|FRAGMENT_WRITABLE|FRAGMENT_PARENT_WRITABLE|ENV_PARSE_OK|ENV_FILES_COUNT|ENV_FILES_PRESENT|ENV_FILES_WRITABLE|DROPINS_COUNT|DROPINS_WRITABLE|EXEC_PATH_PRESENT|EXEC_PATH_WRITABLE|EXEC_PATH_MATCHES_PROCESS|EXEC_HAS_THREADS|EXEC_HAS_THREADS_BATCH|EXEC_HAS_PARALLEL|EXEC_HAS_CTX|EXEC_HAS_KV_UNIFIED|ENV_LLAMA_THREADS_PRESENT|ENV_LLAMA_THREADS_BATCH_PRESENT|ENV_LLAMA_PARALLEL_PRESENT|ENV_LLAMA_KV_UNIFIED_PRESENT|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|POLKIT_ERROR_KIND|EXECSTART_SHA256|ENVFILES_SHA256)=' "$RUNNER_TEMP/raw-control-probe" > "$RUNNER_TEMP/control-probe"
-          [[ "$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 28 ]]
+          grep -E '^CONTROL_PROBE_(SERVICE_USER_MATCH|RESTART_POLICY|FRAGMENT_PRESENT|FRAGMENT_WRITABLE|FRAGMENT_PARENT_WRITABLE|ENV_PARSE_OK|ENV_FILES_COUNT|ENV_FILES_PRESENT|ENV_FILES_WRITABLE|DROPINS_COUNT|DROPINS_WRITABLE|EXEC_PATH_PRESENT|EXEC_PATH_WRITABLE|EXEC_PATH_MATCHES_PROCESS|EXEC_HAS_THREADS|EXEC_HAS_THREADS_BATCH|EXEC_HAS_PARALLEL|EXEC_HAS_CTX|EXEC_HAS_KV_UNIFIED|ENV_LLAMA_THREADS_PRESENT|ENV_LLAMA_THREADS_BATCH_PRESENT|ENV_LLAMA_PARALLEL_PRESENT|ENV_LLAMA_KV_UNIFIED_PRESENT|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|POLKIT_ERROR_KIND|POLKIT_ERROR_REASON|EXECSTART_SHA256|ENVFILES_SHA256)=' "$RUNNER_TEMP/raw-control-probe" > "$RUNNER_TEMP/control-probe"
+          [[ "$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 29 ]]
           if grep -Ev '^CONTROL_PROBE_[A-Z0-9_]+=([0-9]+|[a-f0-9]{64}|[A-Z_]+|[a-z0-9_.:-]+)$' "$RUNNER_TEMP/control-probe"; then
             echo 'Control probe emitted a value outside the bounded grammar.' >&2
             exit 40
