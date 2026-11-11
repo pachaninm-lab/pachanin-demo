@@ -250,6 +250,40 @@ describe('RestrictedPublicQwenService', () => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    ['ru', 'Назови два способа проверить влажность почвы перед посевом.'],
+    ['en', 'How can I measure soil moisture before sowing?'],
+    ['zh', '播种前怎样测量土壤水分？'],
+  ])('grounds soil-moisture measurement in practical methods (%s)', async (locale, question) => {
+    const fetchMock = jest.fn().mockImplementation(() => Promise.resolve(providerStreamResponse('Check soil moisture before sowing.')));
+    global.fetch = fetchMock;
+    const service = new RestrictedPublicQwenService();
+    const request = { ...GENERAL_AGRO_REQUEST, locale, question, originalQuestion: question };
+
+    for await (const _event of service.generateStream(request)) { /* consume */ }
+
+    const prompt = JSON.parse(fetchMock.mock.calls[0][1].body).messages.at(-1).content;
+    expect(prompt).toContain('SOIL_MOISTURE_MEASUREMENT:');
+    expect(prompt).toContain('feel and appearance of a sample');
+    expect(prompt).toContain('soil-moisture sensor installed at that depth');
+    expect(prompt).toContain('sample at the intended sowing depth');
+  });
+
+  it.each([
+    ['Как проверить влажность зерна при хранении?', false],
+    ['Зачем важна влажность почвы?', false],
+    ['Как измерить влажность почвы сегодня на моём поле?', true],
+  ])('keeps soil-moisture methods scoped to general measurement questions (%s)', async (question, currentDataRequired) => {
+    const fetchMock = jest.fn().mockResolvedValue(providerResponse('Проверьте доступные данные на участке.'));
+    global.fetch = fetchMock;
+    await new RestrictedPublicQwenService().generate({
+      ...GENERAL_AGRO_REQUEST, question, originalQuestion: question, currentDataRequired,
+    });
+
+    const prompt = JSON.parse(fetchMock.mock.calls[0][1].body).messages.at(-1).content;
+    expect(prompt).not.toContain('SOIL_MOISTURE_MEASUREMENT:');
+  });
+
   it.each(['buffered', 'streaming'])('preserves full bounded document evidence in the %s provider request', async mode => {
     const text = 'Начало\n  x < 12 && y > 3\n' + 'я'.repeat(8_000) + '\nQA_DOCUMENT_END_987';
     const documents = [{ name: 'Условия.docx', text, truncated: true }];
