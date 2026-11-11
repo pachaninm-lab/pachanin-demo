@@ -1,0 +1,159 @@
+name: Production Legacy Boot Evidence
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/production-legacy-boot-evidence.yml
+      - scripts/production-legacy-boot-evidence.py
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact PR files against the accepted base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SOURCE_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          SOURCE_REF: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_REPO" == "$GITHUB_REPOSITORY" && "$SOURCE_REF" == 'ops/gekta-legacy-boot-evidence-20261111' ]]
+          python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-pr "$BASE_SHA" "$HEAD_SHA"
+          python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
+
+  observe:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 && github.event.issue.pull_request == null &&
+      github.event.comment.body == '/production observe-legacy-boot current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner && github.triggering_actor == github.repository_owner &&
+      github.run_attempt == '1'
+    concurrency:
+      group: production-docker-headroom-readonly-diagnostic
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+      DEFAULT_HOST: 195.19.12.120
+      EVIDENCE_DIR: artifacts/legacy-boot-evidence
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify exact source and fresh owner command
+        id: provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMAND_ID: ${{ github.event.comment.id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMAND_ID" =~ ^[0-9]+$ ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
+          gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMAND_ID" |
+            jq -e --arg owner "$GITHUB_REPOSITORY_OWNER" --arg issue "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/4637" '
+              .user.login == $owner and .author_association == "OWNER" and .issue_url == $issue and
+              .body == "/production observe-legacy-boot current-main" and .created_at == .updated_at and
+              ((now - (.created_at | fromdateiso8601)) as $age | $age >= 0 and $age <= 600)
+            ' >/dev/null
+          python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-main "$GITHUB_SHA"
+          python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
+
+      - name: Reuse the pinned production SSH resolver
+        env:
+          SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+          SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+          SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+          SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+          SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          workflow=.github/workflows/production-docker-headroom-diagnostic.yml
+          [[ "$(git hash-object "$workflow")" == '44b16b8a0cd882cf13e795da6ac3081d1c7e0654' ]]
+          python3 -I -S -B - "$workflow" > "$RUNNER_TEMP/legacy-boot-ssh-resolver.sh" <<'PY'
+          from pathlib import Path
+          import sys
+          import textwrap
+
+          source = Path(sys.argv[1]).read_text()
+          section, end, _ = source.partition('\n      - name: Collect one closed Docker admission signal\n')
+          marker = '      - name: Resolve protected key and pinned VPS identity\n        shell: bash\n        run: |\n'
+          _, start, resolver = section.rpartition(marker)
+          if not start or not end:
+              raise SystemExit('unexpected resolver section')
+          print(textwrap.dedent(resolver), end='')
+          PY
+          bash "$RUNNER_TEMP/legacy-boot-ssh-resolver.sh"
+
+      - name: Observe one authenticated current-boot journal record
+        id: boot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
+          [[ "$PROD_HOST" == "$DEFAULT_HOST" && "$PROD_PORT" =~ ^[0-9]{1,5}$ ]]
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          script=scripts/production-legacy-boot-evidence.py
+          before="$(date +%s%3N)"
+          receipt=NOT_PROVEN
+          if response="$(timeout --kill-after=2s 30s /usr/bin/ssh -F /dev/null -T \
+            -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ClearAllForwardings=yes -o ConnectTimeout=12 -o ServerAliveInterval=5 \
+            -o ServerAliveCountMax=1 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$SSH_USER_SECRET@$PROD_HOST" '/usr/bin/python3 -I -S -B -' < "$script" 2>/dev/null | head -c 65)"; then
+            if (( ${#response} < 64 )); then
+              receipt="$(python3 -I -S -B "$script" --reconcile "$response" "$before" "$(date +%s%3N)")"
+            fi
+          fi
+          [[ "$receipt" == BOOT_AFTER_LEGACY_CUTOFF || "$receipt" == NOT_PROVEN ]]
+          printf 'result=%s\n' "$receipt" >> "$GITHUB_OUTPUT"
+
+      - name: Remove protected transport material
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/legacy-boot-ssh-resolver.sh"
+
+      - name: Publish closed evidence
+        if: always() && steps.provenance.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.boot.outputs.result }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          result=NOT_PROVEN
+          if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi
+          body="$(printf '## Read-only Ubuntu boot evidence\n\n- Exact source: `%s`\n- Run: `%s`\n- Journal and clock reconciliation: `%s`\n- Production mutation: `NONE`\n- Original19 and release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
+          printf '%s\n' "$body" >> "$GITHUB_STEP_SUMMARY"
+          gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body "$body" >/dev/null
+          [[ "$result" == BOOT_AFTER_LEGACY_CUTOFF ]]
