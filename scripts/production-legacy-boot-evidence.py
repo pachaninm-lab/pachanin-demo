@@ -1,10 +1,13 @@
 """Bounded, read-only evidence for the guest boot after run 41730479605."""
 
+import ast
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import time
@@ -19,6 +22,14 @@ STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
 SOURCE_PATHS = {'.github/workflows/production-legacy-boot-evidence.yml',
                 'scripts/production-legacy-boot-evidence.py'}
+MAX_DIRECTORY_DEPTH = 7
+IDENTITY_CODES = {'MATCH', 'PROCESS_UID', 'NOATIME_UNAVAILABLE', 'PRIVATE_PARENT_MODE', 'PRIVATE_LEAF_MODE'} | {
+    f'ANCESTOR_{depth}_{cause}' for depth in range(MAX_DIRECTORY_DEPTH + 1)
+    for cause in ('TYPE', 'OWNER', 'GROUP', 'WRITABLE', 'UNAVAILABLE')
+} | {
+    f'{name}_{cause}' for name in ('RECEIPT', 'CIPHERTEXT', 'KEY')
+    for cause in ('TYPE', 'OWNER', 'GROUP', 'MODE', 'LINKS', 'SIZE', 'UNAVAILABLE')
+}
 
 
 def git(*args):
@@ -49,7 +60,7 @@ def verify_source(base, head, verify_diff):
     state = json.loads(accepted_content(base, head, STATE))
     if sorted(state['approvedConcurrentScopes'][SOURCE_BRANCH]) != sorted(SOURCE_PATHS):
         raise ValueError('invalid accepted source scope')
-    manifest = json.loads(accepted_content(base, head, AUTHORITY))['gektaLegacyBootEvidence']
+    manifest = json.loads(accepted_content(base, head, AUTHORITY))['gektaLegacyBootIdentityEvidence']
     if (manifest['schemaVersion'] != 'platform-v7.concurrent-scope.v1' or
             manifest['status'] != 'active' or manifest['branch'] != SOURCE_BRANCH or
             manifest['productionInvocationAuthorized'] is not False or manifest['releaseAuthorized'] is not False or
@@ -69,6 +80,79 @@ def verify_source(base, head, verify_diff):
         if hashlib.sha256(git('cat-file', 'blob', blob)).hexdigest() != pin['sha256']:
             raise ValueError('source SHA-256 differs from the manifest')
     print('LEGACY_BOOT_SOURCE_PINS_PASS')
+
+
+def file_identity(info, label, maximum, exact=None):
+    for passed, cause in (
+        (stat.S_ISREG(info.st_mode), 'TYPE'), (info.st_uid == 0, 'OWNER'),
+        (info.st_gid == 0, 'GROUP'), (stat.S_IMODE(info.st_mode) == 0o600, 'MODE'),
+        (info.st_nlink == 1, 'LINKS'),
+        (0 < info.st_size <= maximum and (exact is None or info.st_size == exact), 'SIZE'),
+    ):
+        if not passed:
+            return f'{label}_{cause}'
+    return 'MATCH'
+
+
+def observe_identity(root, archive_size):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'PROCESS_UID'
+    if not hasattr(os, 'O_NOATIME'):
+        return 'NOATIME_UNAVAILABLE'
+    descriptors = []
+    try:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME
+        for depth, component in enumerate(['/', *root.split('/')[1:]]):
+            try:
+                fd = os.open(component, flags, dir_fd=descriptors[-1] if descriptors else None)
+                descriptors.append(fd)
+                info = os.fstat(fd)
+            except OSError:
+                return f'ANCESTOR_{depth}_UNAVAILABLE'
+            for passed, reason in (
+                (stat.S_ISDIR(info.st_mode), 'TYPE'), (info.st_uid == 0, 'OWNER'),
+                (info.st_gid == 0, 'GROUP'), (not stat.S_IMODE(info.st_mode) & 0o022, 'WRITABLE'),
+            ):
+                if not passed:
+                    return f'ANCESTOR_{depth}_{reason}'
+        if stat.S_IMODE(os.fstat(descriptors[-2]).st_mode) != 0o700:
+            return 'PRIVATE_PARENT_MODE'
+        if stat.S_IMODE(os.fstat(descriptors[-1]).st_mode) != 0o700:
+            return 'PRIVATE_LEAF_MODE'
+        for name, label, maximum, exact in (
+            ('receipt.json', 'RECEIPT', 2 * 1024**3, None),
+            ('preservation.tar.gpg', 'CIPHERTEXT', archive_size, archive_size),
+            ('passphrase', 'KEY', 65, 65),
+        ):
+            try:
+                info = os.stat(name, dir_fd=descriptors[-1], follow_symlinks=False)
+            except OSError:
+                return f'{label}_UNAVAILABLE'
+            result = file_identity(info, label, maximum, exact)
+            if result != 'MATCH':
+                return result
+        return 'MATCH'
+    finally:
+        for fd in reversed(descriptors):
+            os.close(fd)
+
+
+def build_identity_payload(accepted_source, payload_script):
+    assignments = {}
+    for node in ast.parse(Path(accepted_source).read_bytes()).body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            name = node.targets[0].id
+            if name in {'ORIGINAL_ROOT', 'ORIGINAL_RECEIPT'}:
+                assignments[name] = ast.literal_eval(node.value)
+    root = assignments['ORIGINAL_ROOT']
+    size = assignments['ORIGINAL_RECEIPT']['ciphertextBytes']
+    if not re.fullmatch(r'/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+', root) or any(
+            part in {'.', '..'} for part in root.split('/')) or not 3 <= len(root.split('/')) <= MAX_DIRECTORY_DEPTH + 1:
+        raise ValueError('invalid pinned root shape')
+    if type(size) is not int or not 0 < size <= 2 * 1024**3:
+        raise ValueError('invalid pinned ciphertext size')
+    print('IDENTITY_SPEC = ' + repr((root, size)))
+    sys.stdout.write(Path(payload_script).read_text())
 
 
 def kernel_boot_entry(raw, boot_id):
@@ -117,6 +201,8 @@ def reconcile(raw, started_ms, ended_ms):
 
 
 def self_test():
+    from types import SimpleNamespace
+
     boot_id = 'a' * 32
     entry = {'_BOOT_ID': boot_id, '_TRANSPORT': 'kernel', 'SYSLOG_FACILITY': '0',
              'SYSLOG_IDENTIFIER': 'kernel', 'MESSAGE': 'Linux version 6.18',
@@ -140,19 +226,32 @@ def self_test():
     assert not reconcile(f'{boot} 5000', before, before - 1)
     assert not reconcile(f'{boot} 5000', before, before + 35_001)
     assert not reconcile(f'{boot} 5000\nextra', before, after)
-    print('PASS: 14 local boot evidence cases')
+    info = {'st_mode': stat.S_IFREG | 0o600, 'st_uid': 0, 'st_gid': 0, 'st_nlink': 1, 'st_size': 65}
+    assert file_identity(SimpleNamespace(**info), 'KEY', 65, 65) == 'MATCH'
+    for key, value, reason in (
+        ('st_mode', stat.S_IFLNK | 0o600, 'TYPE'), ('st_uid', 1, 'OWNER'), ('st_gid', 1, 'GROUP'),
+        ('st_mode', stat.S_IFREG | 0o640, 'MODE'), ('st_nlink', 2, 'LINKS'), ('st_size', 64, 'SIZE'),
+    ):
+        assert file_identity(SimpleNamespace(**{**info, key: value}), 'KEY', 65, 65) == 'KEY_' + reason
+    print('PASS: 21 local boot and identity cases')
 
 
 if __name__ == '__main__':
     try:
         if len(sys.argv) == 1:
             read_guest()
+        elif sys.argv[1:] == ['--identity']:
+            print(observe_identity(*globals()['IDENTITY_SPEC']))
         elif sys.argv[1:] == ['--self-test']:
             self_test()
         elif len(sys.argv) == 4 and sys.argv[1] == '--verify-pr':
             verify_source(sys.argv[2], sys.argv[3], verify_diff=True)
         elif len(sys.argv) == 3 and sys.argv[1] == '--verify-main':
             verify_source(sys.argv[2], sys.argv[2], verify_diff=False)
+        elif len(sys.argv) == 4 and sys.argv[1] == '--build-identity-payload':
+            build_identity_payload(sys.argv[2], sys.argv[3])
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-identity':
+            print(sys.argv[2] if sys.argv[2] in IDENTITY_CODES else 'NOT_PROVEN')
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
