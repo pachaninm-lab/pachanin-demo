@@ -1,8 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { applyCsrfHeader } from '@/lib/csrf';
 import type { AppLocale } from '@/i18n/locale';
+import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
+import { ALL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import type { StaffHomeContract } from '@/lib/platform-v7/staff-capabilities';
 import styles from '@/app/platform-v7/profile/team/OrganizationTeamAdminClient.module.css';
 
@@ -11,6 +14,69 @@ const COPY = {
   en: { title: 'Staff cabinet', signedIn: 'Signed in with your login and password.', action: 'Prepare a protected action', lead: 'Protected operations require additional verification.', setup: 'Add this key to your authenticator.', code: 'Verification code', confirm: 'Confirm', error: 'Verification did not complete. Start again.', backups: 'Save these backup codes. Each works once.', open: 'Continue' },
   zh: { title: '员工账户', signedIn: '已通过登录名和密码登录。', action: '准备受保护操作', lead: '受保护操作需要额外验证。', setup: '将此密钥添加到身份验证应用。', code: '验证码', confirm: '确认', error: '验证未完成。请重新开始。', backups: '请保存备用代码。每个代码只能使用一次。', open: '继续' },
 } as const;
+
+const PREVIEW_COPY = {
+  ru: { title: 'Предпросмотр 13 кабинетов', role: 'Кабинет для просмотра', employee: 'Сотрудник организации', notice: 'Тестовые данные. Действия отключены.', organization: 'Организация', sampleOrganization: 'ООО «Золотое Поле Тест»', access: 'Разделы профиля', sections: 'Команда, уведомления и назначенные задачи' },
+  en: { title: 'Preview 13 workspaces', role: 'Workspace to preview', employee: 'Organization employee', notice: 'Sample data. Actions are disabled. Business workspace samples are in Russian.', organization: 'Organization', sampleOrganization: 'Golden Field Test LLC', access: 'Profile sections', sections: 'Team, notifications, and assigned tasks' },
+  zh: { title: '预览 13 个工作台', role: '要预览的工作台', employee: '机构员工', notice: '测试数据。操作已禁用。业务工作台示例为俄语。', organization: '机构', sampleOrganization: '金色田野测试有限公司', access: '个人页面栏目', sections: '团队、通知和分配的任务' },
+} as const;
+
+const PREVIEW_ROLE_LABELS = {
+  operator: 'ADMIN',
+  buyer: 'BUYER',
+  seller: 'FARMER',
+  logistics: 'LOGISTICIAN',
+  driver: 'DRIVER',
+  surveyor: 'SURVEYOR',
+  elevator: 'ELEVATOR',
+  lab: 'LAB',
+  bank: 'ACCOUNTING',
+  arbitrator: 'ARBITRATOR',
+  compliance: 'COMPLIANCE_OFFICER',
+  executive: 'EXECUTIVE',
+} as const satisfies Record<keyof typeof ALL_ROLE_EXECUTION_COCKPITS, keyof typeof ownerAccessCenterMessages.ru.cabinetRoles>;
+
+type PreviewRole = keyof typeof PREVIEW_ROLE_LABELS | 'employee';
+
+function OwnerCabinetPreview({ locale }: { locale: AppLocale }) {
+  const [role, setRole] = React.useState<PreviewRole>('seller');
+  const copy = PREVIEW_COPY[locale];
+  const roleLabels = ownerAccessCenterMessages[locale].cabinetRoles;
+  const titleId = React.useId();
+  const cockpit = role === 'employee' ? null : ALL_ROLE_EXECUTION_COCKPITS[role];
+
+  return <section className={styles.panel} aria-labelledby={titleId}>
+    <h2 id={titleId}>{copy.title}</h2>
+    <p>{copy.notice}</p>
+    <label>{copy.role}
+      <select value={role} onChange={(event) => {
+        const value = event.currentTarget.value;
+        if (value === 'employee' || Object.hasOwn(PREVIEW_ROLE_LABELS, value)) setRole(value as PreviewRole);
+      }}>
+        {Object.entries(PREVIEW_ROLE_LABELS).map(([key, label]) => (
+          <option key={key} value={key}>{roleLabels[label]}</option>
+        ))}
+        <option value='employee'>{copy.employee}</option>
+      </select>
+    </label>
+    {cockpit ? <div lang='ru'>
+      <h3>{cockpit.title}</h3>
+      <RoleExecutionCockpitContent cockpit={{
+        ...cockpit,
+        operations: cockpit.operations.map((operation) => ({
+          ...operation,
+          action: { label: operation.action.label, disabled: true },
+        })),
+      }} />
+    </div> : <>
+      <h3>{copy.employee}</h3>
+      <dl>
+        <dt>{copy.organization}</dt><dd>{copy.sampleOrganization}</dd>
+        <dt>{copy.access}</dt><dd>{copy.sections}</dd>
+      </dl>
+    </>}
+  </section>;
+}
 
 export function OwnMfaVerificationPanel({ locale }: { locale: AppLocale }) {
   const copy = COPY[locale];
@@ -75,5 +141,8 @@ export function PasswordStaffHome({ locale, home }: { locale: AppLocale; home: S
     <p role='status'>{copy.signedIn}</p>
     <ul>{home.assignments.map((assignment) => <li key={assignment.id}>{assignment.role}</li>)}</ul>
     <OwnMfaVerificationPanel locale={locale} />
+    {home.assignments.some(({ role, status }) => role === 'PLATFORM_OWNER' && status === 'ACTIVE')
+      ? <OwnerCabinetPreview locale={locale} />
+      : null}
   </section>;
 }
