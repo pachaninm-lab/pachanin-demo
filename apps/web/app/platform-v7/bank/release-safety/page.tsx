@@ -175,7 +175,7 @@ function renderRegistry(locale: Locale, reviewEntry: ReviewEntry | null) {
   const copy = COPY[locale];
   return (
     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={copy.eyebrow} title={copy.title} description={copy.description} statusLabel={copy.status} statusTone='warning' labels={copy.labels}
-      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href={reviewEntry ? '#release-deals' : '/platform-v7/deals'}>{copy.registryAction}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{copy.bankAction}</Link> : undefined }}
+      priority={{ state: 'waiting', title: copy.priorityTitle, description: copy.priorityDescription, amount: copy.amount, blocker: copy.blocker, owner: copy.owner, result: copy.result, primaryAction: reviewEntry ? <Link className={moneyCockpitClasses.primaryLink} href='#release-deals'>{copy.registryAction}</Link> : <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{copy.bankAction}</Link> : undefined }}
       facts={[{ label: copy.reserveLabel, value: copy.reserveValue, hint: copy.reserveHint }, { label: copy.evidenceLabel, value: copy.evidenceValue, hint: copy.evidenceHint }, { label: copy.requestLabel, value: copy.requestValue, hint: copy.requestHint }, { label: copy.callbackLabel, value: copy.callbackValue, hint: copy.callbackHint }]}
     >
       <MoneyBoundary>{copy.boundary}</MoneyBoundary>
@@ -377,7 +377,7 @@ function renderUnavailable(locale: Locale, reviewEntry: ReviewEntry | null) {
   const copy = SELECTED_COPY[locale];
   return (
     <MoneyObligationCockpit testId='platform-v7-bank-release-safety-v8' eyebrow={common.eyebrow} title={copy.unavailableTitle} description={copy.unavailableDescription} statusLabel={copy.values.blocked} statusTone='critical' labels={common.labels}
-      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: <Link className={moneyCockpitClasses.primaryLink} href={reviewEntry ? `${reviewEntry}?lang=${locale}#release-deals` : '/platform-v7/deals'}>{copy.openDeals}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{common.bankAction}</Link> : undefined }} facts={[]}
+      priority={{ state: 'critical', title: copy.unavailableTitle, description: copy.unavailableDescription, blocker: copy.unavailableDescription, owner: common.owner, result: common.result, primaryAction: reviewEntry ? <Link className={moneyCockpitClasses.primaryLink} href={`${reviewEntry}?lang=${locale}#release-deals`}>{copy.openDeals}</Link> : <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>, secondaryAction: showBankReturn ? <Link className={moneyCockpitClasses.secondaryLink} href={PLATFORM_V7_BANK_ROUTE}>{common.bankAction}</Link> : undefined }} facts={[]}
     ><MoneyBoundary>{copy.boundary}</MoneyBoundary></MoneyObligationCockpit>
   );
 }
