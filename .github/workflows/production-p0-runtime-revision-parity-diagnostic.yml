@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != '61872b8814b2fef3fb62524983fd05bbfe176840479c61a7f1c85d8d77918066':
+          if hashlib.sha256(inspector_source).hexdigest() != '5adbd6264e686b2a430210e703eeda21a0c0a461cb20c2410b1a4e51eaff620a':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -131,6 +131,7 @@ jobs:
           set -Eeuo pipefail
           python3 -B scripts/test-production-market-release-preflight.py
           python3 -B scripts/test-production-market-release-preflight.py --native-original-gpg
+          python3 -B scripts/test-production-market-release-preflight.py --native-bounded-docker
 
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
@@ -170,8 +171,8 @@ jobs:
           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
           git merge-base --is-ancestor 9b2b895b3e71648f9084d8a80a97458488ef06df "$target"
-          python3 -B - <<'PYPURPOSE'
-          import importlib.util
+          python3 -B - "$target" <<'PYPURPOSE'
+          import importlib.util, subprocess, sys
           from pathlib import Path
           path = Path('scripts/production-market-release-preflight.py')
           spec = importlib.util.spec_from_file_location('market_preflight', path)
@@ -181,6 +182,11 @@ jobs:
               text = Path('docs/platform-v7/autopilot/prompts/current-review-task.md').read_text(encoding='utf-8')
               sources = {name: Path(name).read_bytes() for name in module.ORIGINAL_BEFORE_BLOBS}
               digest = module.validate_original_purpose_record(text, sources)
+              manifest = Path('docs/platform-v7/autopilot/scopes/farmer-market-release-preflight-20260916.json').read_bytes()
+              module.validate_original_docker_scope(text, manifest)
+              subprocess.run(['git', 'merge-base', '--is-ancestor', module.DOCKER_RENEWAL_EPOCH, sys.argv[1]],
+                             check=True, timeout=10, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              module.read_original_docker_review(text)
           except Exception:
               raise SystemExit('ORIGINAL19_NATIVE_FD_PURPOSE_NOT_ACCEPTED')
           print('ORIGINAL19_ACCEPTED_PURPOSE_SHA256=' + digest)

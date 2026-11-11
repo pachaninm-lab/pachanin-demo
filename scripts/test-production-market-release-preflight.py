@@ -3053,9 +3053,589 @@ class NativeOriginalGPG(unittest.TestCase):
             self.assertNotIn('known-synthetic',encoded)
 
 
+# The following tests add a source-renewal and real-process boundary suite.
+# They use only synthetic local children. No Docker daemon, socket, host,
+# production passphrase/ciphertext or external review service is contacted.
+
+def docker_renewal_fixture():
+    sources = {name: (PATH.parents[1] / name).read_bytes() for name in m.ORIGINAL_BEFORE_BLOBS}
+    prefix = (PATH.parents[1] / 'docs/platform-v7/autopilot/prompts/current-review-task.md').read_bytes()
+    size, digest = m.DOCKER_RENEWAL_PREFIX
+    assert len(prefix) >= size and m.hashlib.sha256(prefix[:size]).hexdigest() == digest
+    # In an eventual accepted checkout the real renewal may already follow the
+    # historical prefix. Keep that history exact; this record is a unit fixture.
+    prefix = prefix[:size].decode('utf-8')
+    record = copy.deepcopy(m.DOCKER_RENEWAL_FIXED)
+    record['sourcePins'] = {name: [m.hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest(),
+                                  len(raw), m.hashlib.sha256(raw).hexdigest()] for name, raw in sources.items()}
+    body = 'SYNTHETIC UNIT REVIEW ONLY; NO ACTUAL REVIEW OR ADMISSION\n' + '\n'.join(
+        name + ' ' + pin[0] + ' ' + pin[2] for name, pin in record['sourcePins'].items())
+    record['sourceReview'] = [1, len(body.encode()), m.hashlib.sha256(body.encode()).hexdigest()]
+    comment = {'id': 1, 'body': body, 'author_association': 'OWNER', 'user': {'login': 'pachaninm-lab'},
+               'created_at': '2026-11-09T00:00:00Z', 'updated_at': '2026-11-09T00:00:00Z',
+               'performed_via_github_app': {'id': 1144995},
+               'issue_url': 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/5469'}
+    def document(value):
+        return prefix + m.DOCKER_RENEWAL_BEGIN + '\n```text\n' + json.dumps(value, separators=(',', ':')) + '\n```\n' + m.DOCKER_RENEWAL_END + '\n'
+    return sources, prefix, record, comment, document
+
+
+class BoundedDockerAuthority(unittest.TestCase):
+    def test_actual_old_whole_prefix_does_not_admit_candidate_sources(self):
+        sources, prefix, _, _, _ = docker_renewal_fixture()
+        with self.assertRaises(m.OriginalRefusal):
+            m.validate_original_purpose_record(prefix, sources)
+
+    def test_exact_candidate_bytes_with_actual_unchanged_old_record(self):
+        sources, prefix, record, comment, document = docker_renewal_fixture()
+        text = document(record)
+        digest = m.validate_original_purpose_record(text, sources)
+        self.assertEqual(digest, m.hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+        self.assertEqual(text.encode()[:len(prefix.encode())], prefix.encode())
+        m.validate_original_docker_review(text, comment)
+        m.validate_original_docker_scope(text, (PATH.parents[1] / 'docs/platform-v7/autopilot/scopes/farmer-market-release-preflight-20260916.json').read_bytes())
+
+    def test_missing_duplicate_malformed_renewal_cannot_fall_back(self):
+        sources, prefix, record, _, document = docker_renewal_fixture()
+        text = document(record)
+        for bad in (text + text[len(prefix):], text.replace(m.DOCKER_RENEWAL_END, ''),
+                    text.replace(m.DOCKER_RENEWAL_BEGIN, ''), text.replace('\n```text\n{"schema":"pc.original19-docker-budget', '\n```json\n{"schema":"pc.original19-docker-budget')):
+            with self.subTest(case=bad[-80:]), self.assertRaises(m.OriginalRefusal):
+                m.validate_original_purpose_record(bad, sources)
+
+    def test_whole_prefix_and_predecessor_cannot_be_rewritten(self):
+        sources, _, record, _, document = docker_renewal_fixture()
+        text = document(record)
+        for bad in (text[:10] + ('X' if text[10] != 'X' else 'Y') + text[11:],
+                    text.replace('market-original-inventory-witness-20261101', 'market-original-inventory-witness-20261100', 1)):
+            with self.assertRaises(m.OriginalRefusal):
+                m.validate_original_purpose_record(bad, sources)
+
+    def test_wrong_epoch_limits_fixture_or_runtime_credit_rejected(self):
+        sources, _, record, _, document = docker_renewal_fixture()
+        mutations = [('metadataEpoch', '0' * 40), ('fixtureReceipt', [4658, '0' * 64]),
+                     ('productionInvocationAuthorized', True), ('releaseAuthorized', True), ('masterCredit', False),
+                     ('scopeManifest', ['0' * 40, 3720, '0' * 64])]
+        for key, value in mutations:
+            bad = copy.deepcopy(record); bad[key] = value
+            with self.subTest(key=key), self.assertRaises(m.OriginalRefusal):
+                m.validate_original_purpose_record(document(bad), sources)
+        for key, value in [('dockerAsBytes', -1), ('parentAsBytes', 2147483648), ('gpgAsBytes', 536870912),
+                           ('localAsBytes', 2147483648),
+                           ('remoteSeconds', 180), ('unlimitedFallback', True), ('automaticRetry', True),
+                           ('oneActiveDockerChild', 1), ('capacityTotalBytes', 16777217)]:
+            bad = copy.deepcopy(record); bad['limits'][key] = value
+            with self.subTest(key=key), self.assertRaises(m.OriginalRefusal):
+                m.validate_original_purpose_record(document(bad), sources)
+
+    def test_complete_three_source_drift_and_foreign_source_rejected(self):
+        sources, _, record, _, document = docker_renewal_fixture()
+        for path in sources:
+            bad = dict(sources); bad[path] += b'\n'
+            with self.subTest(path=path), self.assertRaises(m.OriginalRefusal):
+                m.validate_original_purpose_record(document(record), bad)
+        for bad in ({**sources, 'foreign.py': b'x'}, {name: raw for name, raw in list(sources.items())[1:]}):
+            with self.assertRaises(m.OriginalRefusal):
+                m.validate_original_purpose_record(document(record), bad)
+
+    def test_full_review_body_provenance_timestamp_and_pins_checked(self):
+        _, _, record, comment, document = docker_renewal_fixture()
+        for key, value in [('body', comment['body'] + '\n'), ('id', True), ('author_association', 'CONTRIBUTOR'),
+                           ('user', {'login': 'foreign'}), ('updated_at', '2026-11-09T00:00:01Z'),
+                           ('performed_via_github_app', {'id': 99}), ('issue_url', 'https://example.invalid/')]:
+            bad = copy.deepcopy(comment); bad[key] = value
+            with self.subTest(key=key), self.assertRaises(m.OriginalRefusal):
+                m.validate_original_docker_review(document(record), bad)
+
+    def test_review_read_is_bounded_read_only_and_exact_comment(self):
+        _, _, record, comment, document = docker_renewal_fixture()
+        with patch.object(m, 'run', return_value=json.dumps(comment)) as command:
+            m.read_original_docker_review(document(record))
+        command.assert_called_once_with(['gh', 'api', 'repos/pachaninm-lab/pachanin-demo/issues/comments/1'])
+        with patch.object(m, 'run', return_value=None), self.assertRaises(m.OriginalRefusal):
+            m.read_original_docker_review(document(record))
+
+    def test_changed_scope_and_document_cap_are_not_waived(self):
+        sources, _, record, _, document = docker_renewal_fixture()
+        text = document(record)
+        with self.assertRaises(m.OriginalRefusal):
+            m.validate_original_docker_scope(text, b'{}')
+        with self.assertRaises(m.OriginalRefusal):
+            m.validate_original_purpose_record(text + 'x' * (2 * 1024 * 1024 - len(text.encode()) + 1), sources)
+
+    def test_actual_workflow_gates_review_scope_and_ancestry_before_transport(self):
+        raw = (PATH.parents[1] / '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        purpose = raw.split("<<'PYPURPOSE'\n", 1)[1].split('\n          PYPURPOSE', 1)[0]
+        for marker in ('module.validate_original_purpose_record(text, sources)', 'module.validate_original_docker_scope(text, manifest)',
+                       'module.read_original_docker_review(text)', 'module.DOCKER_RENEWAL_EPOCH'):
+            self.assertIn(marker, purpose)
+        self.assertLess(raw.index('module.read_original_docker_review(text)'), raw.index('\n  diagnostic:\n'))
+        self.assertIn('timeout 180s ssh', raw)
+
+
+class BoundedDockerRouting(unittest.TestCase):
+    def test_closed_local_decoder_rechecks_paths_permissions_and_exact_fields(self):
+        argv=['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--','/var/lib/docker/containers']
+        operation=m.local_operation(argv)
+        self.assertEqual(operation,{'op':'disk-usage','category':'docker_containers'})
+        with patch.object(m,'capacity_fixed_path_ready',return_value=True) as ready:
+            self.assertEqual(m.local_command(operation),argv)
+        self.assertEqual([(value.args,value.kwargs) for value in ready.call_args_list],
+                         [(('/usr/bin/du',),{'directory':False}),(('/var/lib/docker/containers',),{'directory':True})])
+        with patch.object(m,'capacity_fixed_path_ready',return_value=False),self.assertRaises(m.DockerExecutionRefusal):
+            m.local_command(operation)
+        backup=['/usr/bin/pg_restore','--list','/var/lib/pc-release-authority/backups/synthetic.backup']
+        info=type('SyntheticBackupStat',(),{'st_mode':0o100600,'st_size':10,'st_uid':0,'st_mtime':0})()
+        with patch.object(m.Path,'lstat',return_value=info):
+            self.assertEqual(m.local_command(m.local_operation(backup)),backup)
+            for field,value in [('st_mode',0o120600),('st_mode',0o100644),('st_uid',1),('st_size',0),('st_mtime',10**20)]:
+                bad=copy.copy(info);setattr(bad,field,value)
+                with self.subTest(field=field,value=value),patch.object(m.Path,'lstat',return_value=bad),self.assertRaises(m.DockerExecutionRefusal):
+                    m.local_command(m.local_operation(backup))
+        for bad in ({'op':'disk-usage','category':'foreign'}, {'op':'disk-usage','category':'docker_containers','argv':['foreign']},
+                    {'op':'backup-catalog','name':'../synthetic.backup'}, {'op':'backup-catalog','name':'x.backup','stdin':'foreign'}):
+            with self.assertRaises(m.DockerExecutionRefusal):m.local_command(bad)
+        for bad in (['sh','-c','true'],[*argv[:-1],'/foreign'],['/usr/bin/pg_restore','--list','/foreign/x.backup']):
+            with self.assertRaises(m.DockerExecutionRefusal):m.local_operation(bad)
+
+    def test_unstarted_context_has_no_inventory_or_dispatch_state(self):
+        context=m.DockerExecution(m.time.monotonic()+5)
+        self.assertFalse(context.inventory_permitted())
+        with patch.object(m.os,'fork') as fork:
+            result=context.request({'op':'volumes-list'},'standard',m.time.monotonic()+1,100)
+        self.assertEqual(result['status'],'NOT_RUN');fork.assert_not_called();context.close()
+
+    def test_closed_operation_roundtrip_preserves_existing_readonly_programs(self):
+        cases = [(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=web'], None),
+                 (['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=api', '--filter', 'label=com.docker.compose.project=test'], None),
+                 (['docker', 'ps', '-aq', '--no-trunc', '--filter', 'label=com.docker.compose.project=test'], None),
+                 (['docker', 'inspect', '1' * 64], None), (['docker', 'image', 'inspect', 'sha256:' + '2' * 64], None),
+                 (['docker', 'info', '--format', '{{json .DockerRootDir}}'], None),
+                 (['docker', 'volume', 'ls', '-q'], None)]
+        for program in (m.DB_PROGRAM, m.DB_PROBE_PROGRAM, m.read_only_program(m.CATALOG_SQL), m.read_only_program(m.PRINCIPAL_SQL)):
+            cases.append((['docker', 'exec', '-i', '1' * 64, '/nodejs/bin/node', '-'], program))
+        for argv, source in cases:
+            encoded = m.docker_operation(argv, source)
+            actual, data, remote = m.docker_command(encoded, m.FixedDockerExecutable())
+            self.assertEqual(actual, ['/usr/bin/docker', '--host', 'unix:///run/docker.sock', *argv[1:]])
+            self.assertEqual(data, source.encode() if source else b'')
+            self.assertEqual(remote, source is not None)
+
+    def test_arbitrary_argv_stdin_options_and_extra_fields_cannot_launch(self):
+        for argv, source in [(['sh', '-c', 'true'], None), (['docker', 'exec', '-i', '1' * 64, '/nodejs/bin/node', '-'], 'arbitrary'),
+                             (['docker', 'inspect', '--privileged'], None), (['docker', '--host', 'tcp://foreign:1', 'ps'], None),
+                             (['docker', 'volume', 'ls', '-q'], 'unexpected')]:
+            with self.subTest(argv=argv), patch.object(m.subprocess, 'Popen') as child, self.assertRaises(m.DockerExecutionRefusal):
+                m.docker_operation(argv, source)
+            child.assert_not_called()
+        with self.assertRaises(m.DockerExecutionRefusal):
+            m.docker_command({'op': 'volumes-list', 'argv': ['foreign']}, m.FixedDockerExecutable())
+
+    def test_real_compose_paths_are_revalidated_by_broker(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / 'compose.yml'; path.write_text('services: {}\n')
+            command = ['docker', 'compose', '--project-directory', td, '--project-name', 'test', '-f', str(path), 'config', '--format', 'json']
+            operation = m.docker_operation(command)
+            self.assertEqual(m.docker_command(operation, m.FixedDockerExecutable())[0][3:], command[1:])
+            path.unlink()
+            with self.assertRaises(m.DockerExecutionRefusal):
+                m.docker_command(operation, m.FixedDockerExecutable())
+
+    def test_ordinary_and_original_name_seams_receive_explicit_dependency(self):
+        names = tuple('synthetic-%02d' % i for i in range(19))
+        class Execution:
+            def __init__(self): self.calls=[]
+            def run(self, argv, source=None, **kwargs):
+                self.calls.append((argv, source, kwargs))
+                if argv[1:3] == ['volume', 'ls']: return '\n'.join(names) + '\n'
+                if argv[1] == 'ps': return '1' * 64 + '\n'
+                if argv[1] == 'inspect': return json.dumps([web()])
+                return None
+        execution = Execution(); deadline=m.time.monotonic()+1
+        with patch.object(m, 'run', side_effect=AssertionError('default runner reached')):
+            self.assertEqual(len(m.containers('web', execution=execution)),1)
+            self.assertEqual(m.original_current_names(execution=execution, deadline=deadline), names)
+        self.assertEqual(execution.calls[-1][2], {'deadline':deadline})
+
+    def test_capacity_seam_keeps_real_bytes_and_nonrenewable_profile(self):
+        class Execution:
+            def __init__(self):self.calls=[]
+            def capacity(self,argv,deadline,io_limit):
+                self.calls.append((argv,deadline,io_limit))
+                return {'status':'SUCCESS','elapsed_ms':1,'stdout_bytes':3,'stderr_bytes':2,
+                        'cleanup':True,'payload':'YWJj'}
+        execution=Execution(); outer=m.time.monotonic()+2
+        runner=m.CapacityProfileRunner(outer,execution=execution)
+        with patch.object(m.subprocess,'Popen',side_effect=AssertionError('default capacity seam reached')):
+            self.assertEqual(runner.execute('volumes_list'),('SUCCESS',1,b'abc'))
+            self.assertEqual(runner.execute('volumes_list'),('SUCCESS',1,b'abc'))
+        self.assertEqual((runner.calls,runner.total,runner.stdout_total),(2,10,6))
+        self.assertEqual(execution.calls[1][2],m.CAPACITY_TOTAL_BYTES-5)
+        self.assertTrue(all(call[1]<=outer for call in execution.calls))
+
+    def test_collection_routes_transitive_calls_without_api_readiness_gate(self):
+        seen=[]
+        class Execution:
+            work_deadline=m.time.monotonic()+5
+            def run(self,*args,**kwargs):seen.append('run');return None
+        execution=Execution()
+        def bound(name,value):
+            def invoke(*args,**kwargs):
+                self.assertIs(kwargs.get('execution'),execution);seen.append(name);return value
+            return invoke
+        with patch.object(m,'containers',side_effect=bound('containers',[])),\
+             patch.object(m,'backups',side_effect=bound('backups',{'restore_verification':'NOT_PROVEN'})),\
+             patch.object(m,'caddy_config',side_effect=bound('caddy',None)),\
+             patch.object(m,'filesystem_capacity',side_effect=bound('filesystem',{})),\
+             patch.object(m,'capacity_readonly_profile',side_effect=bound('capacity',m.empty_capacity_profile())),\
+             patch.object(m,'outbox_topology',side_effect=bound('outbox',{'status':'NOT_PROVEN'})),\
+             patch.object(m,'release_inventory',side_effect=bound('release',{})):
+            value=m.collect(SHA,execution=execution)
+        self.assertFalse(value['deployment_authorized'])
+        self.assertTrue({'containers','backups','caddy','filesystem','capacity','outbox','release'}<=set(seen))
+
+    def test_ambiguous_exec_suppresses_witness_before_key_or_archive(self):
+        class Execution:
+            work_deadline=m.time.monotonic()+5
+            def inventory_permitted(self):return False
+            def run(self,*args,**kwargs):raise AssertionError('must not query')
+        with original_fixture_identity(),patch.object(m,'original_directory') as directory,patch.object(m,'OriginalGPGStream') as gpg:
+            value=m.original_inventory_witness(execution=Execution())
+        self.assertEqual((value['status'],value['failure']),('NOT_PROVEN','UNAVAILABLE'))
+        self.assertFalse(value['full_eof_mdc']);directory.assert_not_called();gpg.assert_not_called()
+
+
+BOUNDED_NATIVE_CASES = (
+    'limits_and_inherited_fds', 'stricter_as_refused', 'stricter_nofile_refused',
+    'exec_completed_unknown_metadata', 'exec_nonzero_ambiguous', 'exec_timeout_ambiguous',
+    'exec_output_limit_ambiguous', 'nonexec_failure_not_api_gate', 'invalid_program_not_started',
+    'capacity_exact_io', 'capacity_stdout_limit', 'capacity_stderr_limit', 'capacity_total_limit',
+    'expired_command_not_started', 'absolute_outer_deadline', 'partial_frame', 'partial_header_retained_writer',
+    'partial_body_retained_writer', 'oversized_frame',
+    'duplicate_frame', 'nonfinite_frame', 'foreign_operation', 'detached_pipe_holder',
+    'broker_death_owned_cleanup', 'parent_death_broker_cleanup', 'foreign_pid_never_signalled',
+    'existing_child_refuses_ownership', 'gpg_helper_keeps_256mib', 'broker_stopped_before_exec',
+    'local_stopped_before_exec', 'parent_death_before_exec', 'parent_death_detached_local',
+    'local_du_limits_and_inherited_fds', 'local_pg_restore_limits_and_inherited_fds', 'execve_refused_not_started',
+    'gpg_with_broker_native_fd',
+)
+
+
+def bounded_native_worker(case):
+    import errno,resource,signal,time
+    assert case in BOUNDED_NATIVE_CASES
+    def no_children():
+        try:os.waitid(os.P_ALL,0,os.WEXITED|os.WNOWAIT|os.WNOHANG|0x40000000)
+        except ChildProcessError:return
+        raise AssertionError('owned ancestry remains')
+    class SyntheticExecutable(m.FixedDockerExecutable):
+        def __init__(self,path):self.path=str(path)
+        def verify(self):
+            value=os.stat(self.path,follow_symlinks=False)
+            return tuple(getattr(value,key) for key in ('st_dev','st_ino','st_mode','st_uid','st_gid','st_size','st_mtime_ns','st_ctime_ns'))
+    with tempfile.TemporaryDirectory() as td:
+        executable=Path(td)/'synthetic-cli'
+        program='print("ok")\n'
+        if case in ('limits_and_inherited_fds','local_du_limits_and_inherited_fds','local_pg_restore_limits_and_inherited_fds','gpg_with_broker_native_fd'):
+            program='''import resource
+closed=[]
+for fd in (3,8192):
+ try:os.fstat(fd)
+ except OSError as e:
+  assert e.errno==9
+  closed.append(fd)
+print(json.dumps({'as':resource.getrlimit(resource.RLIMIT_AS),'cpu':resource.getrlimit(resource.RLIMIT_CPU),'nofile':resource.getrlimit(resource.RLIMIT_NOFILE),'closed':closed}))
+'''
+        elif case=='exec_completed_unknown_metadata':program='sys.stdin.buffer.read();print(\'{"status":"NOT_PROVEN"}\')\n'
+        elif case in ('exec_nonzero_ambiguous','nonexec_failure_not_api_gate'):program='sys.stderr.write("PUBLIC_SYNTHETIC_ERROR");sys.exit(7)\n'
+        elif case=='exec_timeout_ambiguous':program='sys.stdin.buffer.read();time.sleep(30)\n'
+        elif case=='exec_output_limit_ambiguous':program='sys.stdin.buffer.read();sys.stdout.write("x"*(1048576+1))\n'
+        elif case=='capacity_exact_io':program='sys.stdout.write("abc");sys.stderr.write("12345")\n'
+        elif case in ('capacity_stdout_limit','capacity_total_limit'):program='sys.stdout.write("x"*(2097152+1))\n'
+        elif case=='capacity_stderr_limit':program='sys.stderr.write("x"*(2097152+1))\n'
+        elif case=='detached_pipe_holder':program='''ready_r,ready_w=os.pipe()
+pid=os.fork()
+if pid==0:
+ os.close(ready_r);os.setsid();os.write(ready_w,b'R');os.close(ready_w);time.sleep(30);os._exit(0)
+os.close(ready_w);assert os.read(ready_r,1)==b'R';os.close(ready_r)
+sys.exit(0)
+'''
+        elif case in ('broker_death_owned_cleanup','parent_death_broker_cleanup','parent_death_detached_local'):
+            program=f'''ready_r,ready_w=os.pipe()
+pid=os.fork()
+if pid==0:
+ os.close(ready_r);os.setsid();os.write(ready_w,b'R');os.close(ready_w);time.sleep(30);os._exit(0)
+os.close(ready_w);assert os.read(ready_r,1)==b'R';os.close(ready_r)
+os.kill({os.getpid()},signal.SIGUSR1)
+time.sleep(30)
+'''
+            if case=='parent_death_detached_local':
+                program='import resource\nassert resource.getrlimit(resource.RLIMIT_AS)==(536870912,536870912)\n'+program
+        executable.write_text('#!'+sys.executable+'\nimport os,sys,json,time,signal\n'+program);executable.chmod(0o700)
+        binary=SyntheticExecutable(executable)
+        local_case=case in ('local_stopped_before_exec','parent_death_detached_local',
+                            'local_du_limits_and_inherited_fds','local_pg_restore_limits_and_inherited_fds')
+        if local_case:
+            # These fixture seams are installed BEFORE the broker forks. Only
+            # the exact existing closed local paths are substituted; the real
+            # decoder, pipe protocol, limits, exec and ancestry cleanup execute.
+            original_ready=m.capacity_fixed_path_ready
+            m.capacity_fixed_path_ready=lambda path,**kw: (True if path in ('/usr/bin/du','/var/lib/docker/containers')
+                                                          else original_ready(path,**kw))
+            original_lstat=m.Path.lstat
+            fixture_stat=type('SyntheticBackupStat',(),{'st_mode':0o100600,'st_size':10,'st_uid':0,'st_mtime':0})()
+            m.Path.lstat=lambda path,*a,**kw: (fixture_stat if str(path)=='/var/lib/pc-release-authority/backups/synthetic.backup'
+                                              else original_lstat(path,*a,**kw))
+            local_actual_exec=m.os.execve
+            def substitute_fixed_local(path,argv,env):
+                assert path in ('/usr/bin/du','/usr/bin/pg_restore')
+                return local_actual_exec(str(executable),[str(executable),*argv[1:]],env)
+            m.os.execve=substitute_fixed_local
+        if case=='existing_child_refuses_ownership':
+            child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+            try:
+                try:m.OwnedProcessTree()
+                except m.DockerExecutionRefusal:pass
+                else:raise AssertionError('existing unrelated child admitted')
+            finally:child.kill();child.wait(timeout=2)
+            no_children();return
+        if case=='foreign_pid_never_signalled':
+            owner=m.OwnedProcessTree()
+            try:
+                with patch.object(owner,'children',return_value={os.getppid()}),patch.object(m.os,'kill') as killed:
+                    assert owner.cleanup(time.monotonic()+.03) is False
+                killed.assert_not_called()
+            finally:assert owner.close(time.monotonic()+1)
+            no_children();return
+        if case in ('parent_death_broker_cleanup','parent_death_before_exec','parent_death_detached_local'):
+            owner=m.OwnedProcessTree();notice=[]
+            previous=signal.signal(signal.SIGUSR1,lambda *_:notice.append(True))
+            actual_exec=m.os.execve
+            if case=='parent_death_before_exec':
+                coordinator=os.getpid()
+                def preexec_stop(*args):
+                    os.kill(coordinator,signal.SIGUSR1)
+                    os.kill(os.getpid(),signal.SIGSTOP)
+                    raise AssertionError('stopped child unexpectedly resumed')
+                m.os.execve=preexec_stop
+            try:
+                worker=os.fork()
+                if worker==0:
+                    try:
+                        context=m.DockerExecution(time.monotonic()+8,binary)
+                        context.start()
+                        if case=='parent_death_detached_local':
+                            context.capacity(['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--','/var/lib/docker/containers'],time.monotonic()+5,m.CAPACITY_TOTAL_BYTES)
+                        else:context.run(['docker','volume','ls','-q'])
+                    finally:os._exit(0)
+                limit=time.monotonic()+3
+                while not notice and time.monotonic()<limit:time.sleep(.005)
+                assert notice and owner.observe(worker) is None
+                os.kill(worker,signal.SIGKILL)
+                # Reap native exits only; do not signal/rescue the broker or
+                # its children. A procfs snapshot can race adoption, so only
+                # ECHILD within this one absolute budget proves completion.
+                limit=time.monotonic()+3
+                with patch.object(m.os,'kill',side_effect=AssertionError('observer must not mask failed broker cleanup')):
+                    reaped=0
+                    while time.monotonic()<limit:
+                        try:finished=os.waitid(os.P_ALL,0,os.WEXITED|os.WNOHANG|owner.WALL)
+                        except ChildProcessError:break
+                        if finished is not None:reaped+=1
+                        else:time.sleep(.005)
+                    else:raise AssertionError('parent loss ancestry did not reach ECHILD before deadline')
+                    assert reaped>=2
+                    assert owner.cleanup(time.monotonic()+1)
+            finally:
+                signal.signal(signal.SIGUSR1,previous)
+                m.os.execve=actual_exec
+                if owner.active:owner.close(time.monotonic()+1)
+            no_children();return
+        if case=='stricter_as_refused':resource.setrlimit(resource.RLIMIT_AS,(536870912,536870912))
+        if case=='stricter_nofile_refused':resource.setrlimit(resource.RLIMIT_NOFILE,(32,32))
+        sentinel=None; original_frame_write=m.docker_frame_write
+        if case in ('limits_and_inherited_fds','local_du_limits_and_inherited_fds','local_pg_restore_limits_and_inherited_fds','gpg_with_broker_native_fd'):
+            sentinel=os.memfd_create('PUBLIC_SYNTHETIC_NOT_KEY',flags=0)
+            assert sentinel==3
+            os.set_inheritable(sentinel,True);os.dup2(sentinel,8192,inheritable=True)
+            def verified_ack(fd,value,maximum,deadline):
+                if isinstance(value,dict) and value.get('fd_boundary')=='CLOSED_BEFORE_ACK':
+                    for inherited in (sentinel,8192):
+                        try:os.fstat(inherited)
+                        except OSError as error:assert error.errno==errno.EBADF
+                        else:raise AssertionError('broker can still access inherited descriptor')
+                    assert resource.getrlimit(resource.RLIMIT_NOFILE)==(64,64)
+                return original_frame_write(fd,value,maximum,deadline)
+            m.docker_frame_write=verified_ack
+        broker_preexec_notice=[]
+        broker_actual_exec=m.os.execve
+        broker_previous_signal=None
+        if case in ('broker_stopped_before_exec','local_stopped_before_exec'):
+            target=os.getpid()
+            broker_previous_signal=signal.signal(signal.SIGUSR1,lambda *_:broker_preexec_notice.append(True))
+            def stopped_broker_exec(*args):
+                os.kill(target,signal.SIGUSR1);os.kill(os.getpid(),signal.SIGSTOP)
+                raise AssertionError('stopped child unexpectedly resumed')
+            m.os.execve=stopped_broker_exec
+        if case=='execve_refused_not_started':
+            def refused_exec(*args):raise FileNotFoundError('synthetic exec refusal')
+            m.os.execve=refused_exec
+        context=m.DockerExecution(time.monotonic()+(2.7 if case in ('absolute_outer_deadline','partial_header_retained_writer','partial_body_retained_writer') else 6),binary)
+        expected_clean=True
+        try:
+            if case in ('stricter_as_refused','stricter_nofile_refused'):
+                try:context.start()
+                except (m.DockerExecutionRefusal,OSError):pass
+                else:raise AssertionError('stricter inherited limit raised')
+                expected_clean=context.owner is None
+                return
+            context.start()
+            assert resource.getrlimit(resource.RLIMIT_AS)==(536870912,536870912)
+            command=['docker','volume','ls','-q']
+            exec_command=['docker','exec','-i','1'*64,'/nodejs/bin/node','-']
+            if case=='limits_and_inherited_fds':
+                value=json.loads(context.run(command));assert value=={'as':[2147483648,2147483648],'cpu':[2,2],'nofile':[64,64],'closed':[3,8192]}
+            elif case=='gpg_with_broker_native_fd':
+                value=json.loads(context.run(command));assert value=={'as':[2147483648,2147483648],'cpu':[2,2],'nofile':[64,64],'closed':[3,8192]}
+                actual_witness=m.original_inventory_witness
+                def coupled_witness():return actual_witness(execution=context)
+                # Reuse the unchanged complete real-GPG/FD/hash/privacy fixture
+                # under the new live broker and actual parent hard512 boundary.
+                # Its nineteen names and filesystem root remain synthetic.
+                with patch.object(m,'original_inventory_witness',side_effect=coupled_witness):
+                    NativeOriginalGPG().test_complete_synthetic_reader_native_fd_hashes_and_redaction()
+                assert context.inventory_permitted() and resource.getrlimit(resource.RLIMIT_AS)==(536870912,536870912)
+            elif case in ('local_du_limits_and_inherited_fds','local_pg_restore_limits_and_inherited_fds'):
+                if case=='local_du_limits_and_inherited_fds':
+                    argv=['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--','/var/lib/docker/containers']
+                    result=context.capacity(argv,time.monotonic()+1,m.CAPACITY_TOTAL_BYTES)
+                    assert result['status']=='SUCCESS' and result['exec_outcome']=='NOT_STARTED'
+                    value=json.loads(m.base64.b64decode(result['payload'],validate=True))
+                else:value=json.loads(context.run(['pg_restore','--list','/var/lib/pc-release-authority/backups/synthetic.backup']))
+                assert value=={'as':[536870912,536870912],'cpu':[175,175],'nofile':[64,64],'closed':[3,8192]}
+                assert not context.ambiguous_exec and context.inventory_permitted()
+            elif case=='execve_refused_not_started':
+                result=context.request(m.docker_operation(exec_command,m.DB_PROGRAM),'standard',time.monotonic()+1,2*m.MAX_BYTES)
+                assert result['status']=='NONZERO' and result['started'] is False and result['exec_outcome']=='NOT_STARTED'
+                assert result['cleanup'] and not context.ambiguous_exec and context.inventory_permitted()
+            elif case=='exec_completed_unknown_metadata':
+                assert json.loads(context.run(exec_command,m.DB_PROGRAM))=={'status':'NOT_PROVEN'}
+                assert not context.ambiguous_exec and context.inventory_permitted()
+            elif case in ('exec_nonzero_ambiguous','exec_timeout_ambiguous','exec_output_limit_ambiguous'):
+                assert context.run(exec_command,m.DB_PROGRAM,deadline=time.monotonic()+.8) is None
+                assert context.ambiguous_exec and not context.inventory_permitted()
+                with original_fixture_identity(),patch.object(m,'original_directory') as directory:
+                    value=m.original_inventory_witness(execution=context)
+                assert value['status']=='NOT_PROVEN' and not value['full_eof_mdc'];directory.assert_not_called()
+            elif case=='nonexec_failure_not_api_gate':
+                assert context.run(command) is None and not context.ambiguous_exec and context.inventory_permitted()
+            elif case=='invalid_program_not_started':
+                assert context.run(exec_command,'NOT_A_REVIEWED_PROGRAM') is None and context.sequence==0
+                assert context.inventory_permitted() and context.run(command)=='ok\n'
+            elif case.startswith('capacity_'):
+                runner=m.CapacityProfileRunner(time.monotonic()+2,execution=context)
+                if case=='capacity_total_limit':runner.total=m.CAPACITY_TOTAL_BYTES-2
+                status,_,payload=runner.execute('volumes_list')
+                if case=='capacity_exact_io':
+                    assert (status,payload,runner.total,runner.stdout_total,runner.last_io_bytes)==('SUCCESS',b'abc',8,3,8)
+                elif case=='capacity_total_limit':
+                    assert status=='OUTPUT_LIMIT' and payload is None and runner.exhausted and runner.last_io_bytes==3
+                    assert runner.execute('volumes_list')==('NOT_RUN',0,None)
+                else:
+                    assert status=='OUTPUT_LIMIT' and payload is None and runner.last_io_bytes==m.CAPACITY_OUTPUT_BYTES+1
+            elif case=='expired_command_not_started':
+                assert context.run(command,deadline=time.monotonic()-1) is None and context.sequence==0
+                assert context.run(command)=='ok\n'
+            elif case=='absolute_outer_deadline':
+                assert context.run(command)=='ok\n'
+                sequence=context.sequence;time.sleep(.8)
+                assert context.run(command) is None and context.sequence==sequence and not context.inventory_permitted()
+                expected_clean=False
+            elif case in ('partial_header_retained_writer','partial_body_retained_writer'):
+                packet=b'\x00\x00' if case=='partial_header_retained_writer' else (100).to_bytes(4,'big')+b'{"sequence":'
+                started=time.monotonic();os.write(context.command,packet)
+                # Keep the writer open. EOF cannot be the reason for refusal.
+                until=context.work_deadline+.3
+                while time.monotonic()<until and context.owner.observe(context.pid) is None:time.sleep(.005)
+                assert context.owner.observe(context.pid)==125 and time.monotonic()-started<1.2
+                expected_clean=False
+            elif case in ('partial_frame','oversized_frame','duplicate_frame','nonfinite_frame','foreign_operation'):
+                if case=='partial_frame':packet=(100).to_bytes(4,'big')+b'{"sequence":'
+                elif case=='oversized_frame':packet=(m.DOCKER_REQUEST_BYTES+1).to_bytes(4,'big')
+                else:
+                    if case=='duplicate_frame':raw=b'{"sequence":1,"sequence":1}'
+                    elif case=='nonfinite_frame':raw=b'{"deadline":NaN}'
+                    else:raw=json.dumps({'sequence':1,'kind':'standard','deadline':time.monotonic()+1,'io_limit':100,
+                                         'operation':{'op':'volumes-list','argv':['foreign']}}).encode()
+                    packet=len(raw).to_bytes(4,'big')+raw
+                os.write(context.command,packet);os.close(context.command);context.command=None;expected_clean=False
+            elif case=='detached_pipe_holder':
+                assert context.run(command,deadline=time.monotonic()+.8) is None
+                assert context.clean and not context.ambiguous_exec
+            elif case=='broker_death_owned_cleanup':
+                def stop_broker(*_):
+                    assert context.owner.observe(context.pid) is None
+                    os.kill(context.pid,signal.SIGKILL)
+                previous=signal.signal(signal.SIGUSR1,stop_broker)
+                try:assert context.run(exec_command,m.DB_PROGRAM) is None
+                finally:signal.signal(signal.SIGUSR1,previous)
+                assert context.ambiguous_exec and not context.inventory_permitted();expected_clean=False
+            elif case=='gpg_helper_keeps_256mib':
+                value=subprocess.run([sys.executable,'-c','import resource,json;print(json.dumps(resource.getrlimit(resource.RLIMIT_AS)))'],
+                                     preexec_fn=m.original_child_limits,capture_output=True,text=True,timeout=2)
+                assert value.returncode==0 and json.loads(value.stdout)==[268435456,268435456]
+                assert resource.getrlimit(resource.RLIMIT_AS)==(536870912,536870912)
+            elif case=='broker_stopped_before_exec':
+                started=time.monotonic()
+                assert context.run(exec_command,m.DB_PROGRAM,deadline=time.monotonic()+.8) is None
+                assert context.ambiguous_exec and context.clean and broker_preexec_notice
+                assert time.monotonic()-started<1.2
+            elif case=='local_stopped_before_exec':
+                started=time.monotonic()
+                argv=['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--','/var/lib/docker/containers']
+                value=context.capacity(argv,time.monotonic()+.8,m.CAPACITY_TOTAL_BYTES)
+                assert value['status']=='TIMED_OUT' and value['cleanup'] and broker_preexec_notice and time.monotonic()-started<1.2
+                assert value['exec_outcome']=='NOT_STARTED' and context.inventory_permitted()
+            else:raise AssertionError('unhandled native case')
+        finally:
+            clean=context.close()
+            if expected_clean:assert clean
+            else:assert clean is False
+            m.docker_frame_write=original_frame_write
+            if case in ('broker_stopped_before_exec','local_stopped_before_exec'):
+                m.os.execve=broker_actual_exec;signal.signal(signal.SIGUSR1,broker_previous_signal)
+            if sentinel is not None:os.close(sentinel);os.close(8192)
+            no_children()
+
+
+class NativeBoundedDocker(unittest.TestCase):
+    """Fresh real processes and real RLIMIT/FD/signal/pipe behavior, no daemon."""
+
+
+def install_bounded_native_case(name):
+    def test(self):
+        value=subprocess.run([sys.executable,'-I','-B',str(Path(__file__).resolve()),'--native-bounded-worker',name],
+                             stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=12)
+        self.assertEqual(value.returncode,0,value.stdout+'\n'+value.stderr)
+        self.assertEqual(value.stderr,'')
+        self.assertEqual(json.loads(value.stdout),{'case':name,'status':'PASS_SYNTHETIC_NATIVE','productionOperations':0})
+    setattr(NativeBoundedDocker,'test_'+name,test)
+
+
+for bounded_case in BOUNDED_NATIVE_CASES:
+    install_bounded_native_case(bounded_case)
+
+
+
 if __name__ == '__main__':
     if sys.argv[1:] == ['--native-original-gpg']:
         unittest.main(argv=[sys.argv[0]], defaultTest='NativeOriginalGPG')
+    elif sys.argv[1:] == ['--native-bounded-docker']:
+        unittest.main(argv=[sys.argv[0]], defaultTest='NativeBoundedDocker')
+    elif len(sys.argv) == 3 and sys.argv[1] == '--native-bounded-worker':
+        bounded_native_worker(sys.argv[2])
+        print(json.dumps({'case':sys.argv[2], 'status':'PASS_SYNTHETIC_NATIVE', 'productionOperations':0}))
     else:
+        del NativeBoundedDocker
         del NativeOriginalGPG
         unittest.main()
