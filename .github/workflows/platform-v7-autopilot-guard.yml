@@ -2572,3 +2572,80 @@ jobs:
           (github.head_ref != 'governance/product-deal-execution-route-20261001' && github.head_ref != 'fix/deal-execution-route-20261001' && (github.event_name != 'pull_request' || !contains(fromJSON('["agent/role-scoped-ai-assistant","feat/industrial-assistant-shortcuts","agent/buyer-secondary-canonical-aliases-v1","agent/design-system-v8-buyer-financing-authority-v7","agent/legacy-compatibility-aliases-v1","agent/domain-grain-alias-canonicalization-v2","agent/role-grain-alias-canonicalization","agent/design-system-v8-foundation","agent/transaction-shell-deal-workspace-v8","codex/design-system-v8-field-roles-only","agent/transaction-role-cockpits-v8","agent/money-roles-v8-rebased","agent/operational-oversight-roles-v8","agent/secondary-critical-routes-v8-final","agent/documents-readiness-v8","agent/transaction-critical-routes-v8","agent/money-settlement-views-v8-rebased","codex/design-system-v8-dispute-fallback-hardening","codex/design-system-v8-auction-execution-current-main","codex/design-system-v8-physical-execution-chain","codex/auction-postgresql-read-authority-current-main","agent/physical-execution-server-authority-v8","agent/acceptance-server-authority-v8","agent/acceptance-server-authority-v8-v2","agent/documents-basis-server-authority-v8","agent/physical-execution-legacy-isolation-v8","agent/bank-release-canonical-deal-authority-v8","agent/auction-legacy-isolation-v8-v2","agent/server-verified-shell-role-v8","agent/shell-server-notifications-v8","agent/fgis-access-postgresql-authority-v8-v4","agent/design-system-v8-runtime-isolation","agent/design-system-v8-operator-root","agent/design-system-v8-operator-authority","agent/design-system-v8-status-authority","agent/design-system-v8-connectors-authority","agent/design-system-v8-profile-authority","agent/design-system-v8-reports-authority","agent/design-system-v8-api-docs-authority","agent/design-system-v8-onboarding-authority","agent/design-system-v8-api-contracts-authority","agent/design-system-v8-profile-team-authority","agent/design-system-v8-operator-queues-canonical","agent/profile-team-postgresql-authority-v8-final","agent/design-system-v8-api-contract-hardening-v4","agent/bank-payment-basis-canonical-route-v2","agent/design-system-v8-stale-regressions-v2","agent/bank-escrow-canonical-route-v2","agent/design-system-v8-buyer-rfq-authority-v2","agent/design-system-v8-route-inventory","agent/design-system-v8-bank-secondary-authority"]'), github.head_ref))) &&
           (github.event_name != 'pull_request' || github.head_ref != 'ops/production-stopped-runtime-headroom-20261022')
         run: bash scripts/p7-autopilot-guard.sh
+
+  trusted-legacy-boot-scope:
+    name: Legacy boot evidence scope · trusted base
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.ref == 'ops/gekta-legacy-boot-evidence-20261111' &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source against the accepted manifest
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SOURCE_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_REPO" == "$GITHUB_REPOSITORY" ]]
+          python3 -I -S -B - "$BASE_SHA" "$HEAD_SHA" <<'PY'
+          import hashlib
+          import json
+          import re
+          import subprocess
+          import sys
+
+          base, head = sys.argv[1:]
+          manifest_path = 'docs/platform-v7/autopilot/scopes/gekta-legacy-boot-evidence-20261111.json'
+          source_branch = 'ops/gekta-legacy-boot-evidence-20261111'
+          expected = {'.github/workflows/production-legacy-boot-evidence.yml',
+                      'scripts/production-legacy-boot-evidence.py'}
+
+          def git(*args):
+              return subprocess.check_output(['git', *args], timeout=20)
+
+          def leaf(ref, path):
+              row = git('ls-tree', '-z', ref, '--', path)
+              match = re.fullmatch(rb'100644 blob ([0-9a-f]{40})\t' + re.escape(path.encode()) + rb'\0', row)
+              if match is None:
+                  raise SystemExit('LEGACY_BOOT_NOT_REGULAR_FILE')
+              return match[1].decode('ascii')
+
+          if not all(re.fullmatch(r'[0-9a-f]{40}', ref) for ref in (base, head)):
+              raise SystemExit('LEGACY_BOOT_INVALID_REFS')
+          if git('rev-parse', 'HEAD').strip() != base.encode():
+              raise SystemExit('LEGACY_BOOT_WRONG_BASE_CHECKOUT')
+          git('merge-base', '--is-ancestor', base, head)
+          manifest_blob = leaf(base, manifest_path)
+          if leaf(head, manifest_path) != manifest_blob:
+              raise SystemExit('LEGACY_BOOT_MANIFEST_CHANGED')
+          manifest = json.loads(git('cat-file', 'blob', manifest_blob))
+          if (manifest['schemaVersion'] != 'platform-v7.concurrent-scope.v1' or
+                  manifest['status'] != 'active' or manifest['branch'] != source_branch or
+                  manifest['productionInvocationAuthorized'] is not False or manifest['releaseAuthorized'] is not False or
+                  sorted(manifest['allowedPaths']) != sorted(expected)):
+              raise SystemExit('LEGACY_BOOT_MANIFEST_INVALID')
+          changed = git('diff', '--no-renames', '--name-only', '-z', base, head).split(b'\0')[:-1]
+          if sorted(changed) != sorted(path.encode() for path in expected):
+              raise SystemExit('LEGACY_BOOT_UNEXPECTED_DIFF')
+          pins = manifest['sourcePins']
+          if sorted(pin['path'] for pin in pins) != sorted(expected):
+              raise SystemExit('LEGACY_BOOT_PIN_PATHS_INVALID')
+          for pin in pins:
+              blob = leaf(head, pin['path'])
+              if pin['mode'] != '100644' or pin['blob'] != blob:
+                  raise SystemExit('LEGACY_BOOT_SOURCE_BLOB_MISMATCH')
+              if hashlib.sha256(git('cat-file', 'blob', blob)).hexdigest() != pin['sha256']:
+                  raise SystemExit('LEGACY_BOOT_SOURCE_SHA256_MISMATCH')
+          print('LEGACY_BOOT_SCOPE_PASS')
+          PY
