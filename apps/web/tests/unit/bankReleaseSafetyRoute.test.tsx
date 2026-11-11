@@ -187,7 +187,7 @@ describe('BankReleaseSafetyPage', () => {
     expect(page).toContain('getCanonicalBankReleaseWorkspace');
     expect(page).toContain('buildBankReleaseProjection');
     expect(page).toContain('searchParams?: Promise<PageSearchParams>');
-    expect(page).toContain('if (!dealId) return renderRegistry(locale, showBankReturn)');
+    expect(page).toContain('if (!dealId) return renderRegistry(locale, reviewEntry)');
     expect(authority).toContain("serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)");
     expect(authority).toContain('await serverAuthHeaders()');
     expect(authority).toContain("cache: 'no-store'");

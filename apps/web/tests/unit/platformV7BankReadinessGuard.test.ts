@@ -485,10 +485,12 @@ describe('shared bank navigation presentation', () => {
     const { Page } = loadReadEntry();
     const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
     const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));
+    expect(hrefs(registry)).toContain('#release-deals');
+    expect(hrefs(unavailable)).toContain(`${shared}?lang=${copy.locale}#release-deals`);
     for (const html of [registry, unavailable]) {
       expect(hrefs(html)).not.toContain(bank);
-      expect(hrefs(html)).toContain('/platform-v7/deals');
-      for (const role of ['buyer', 'seller'] as const) {
+      expect(hrefs(html)).not.toContain('/platform-v7/deals');
+      for (const role of ['bank', 'buyer', 'seller'] as const) {
         for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);
       }
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
@@ -504,30 +506,38 @@ describe('shared bank navigation presentation', () => {
       for (const query of [{}, { dealId: 'unavailable-deal' }]) {
         const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));
         expect(hrefs(html)).not.toContain(bank);
+        expect(hrefs(html)).toContain('/platform-v7/deals');
       }
     },
   );
 
-  it.each(copies)('keeps canonical bank recovery inside a usable bank registry in $locale', async copy => {
+  for (const entry of [
+    { path: canonical, roles: ['bank'] as const },
+    { path: shared, roles: ['bank', 'buyer', 'seller'] as const },
+  ]) it.each(copies)(`keeps ${entry.path} recovery inside a usable registry in $locale`, async copy => {
     readEntryBoundary.locale.mockResolvedValue(copy.locale);
-    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': canonical }));
-    const { CanonicalPage } = loadReadEntry();
-    const unavailable = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve({ dealId: 'unavailable-deal', shipmentId: 'stale-shipment' }) }));
-    const expectedRecovery = `${canonical}?lang=${copy.locale}#release-deals`;
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': entry.path }));
+    const { Page } = loadReadEntry();
+    const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal', shipmentId: 'stale-shipment' }) }));
+    const expectedRecovery = `${entry.path}?lang=${copy.locale}#release-deals`;
     expect(hrefs(unavailable)).toContain(expectedRecovery);
-    expect(hrefs(unavailable)).not.toContain(`${shared}?lang=${copy.locale}#release-deals`);
     const recovery = new URL(expectedRecovery, 'https://example.test');
-    expect(canRoleAccessCabinet('bank', recovery.pathname)).toBe(true);
+    for (const role of entry.roles) expect(canRoleAccessCabinet(role, recovery.pathname)).toBe(true);
     expect(recovery.searchParams.has('dealId')).toBe(false);
     expect(recovery.searchParams.has('shipmentId')).toBe(false);
     readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': recovery.pathname }));
-    const registry = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(Object.fromEntries(recovery.searchParams)) }));
+    const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(Object.fromEntries(recovery.searchParams)) }));
     expect(hrefs(registry)).toContain('#release-deals');
     expect(registry).toContain('id="release-deals"');
     expect(hrefs(registry)).not.toContain('/platform-v7/deals');
     expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('unavailable-deal');
     expect(readEntryBoundary.profile).not.toHaveBeenCalled();
-    for (const html of [unavailable, registry]) expect(html).not.toMatch(/<form|<button|method=["']post/i);
+    for (const html of [unavailable, registry]) {
+      for (const role of entry.roles) {
+        for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, new URL(href, recovery).pathname)).toBe(true);
+      }
+      expect(html).not.toMatch(/<form|<button|method=["']post/i);
+    }
   });
 
   it.each(copies)('preserves the bank return link on the canonical bank-only page in $locale', async copy => {
