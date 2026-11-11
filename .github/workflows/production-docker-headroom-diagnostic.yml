@@ -1714,7 +1714,14 @@ jobs:
           if __name__ == '__main__':
               try:
                   report = validate_report(collect())
-                  print(json.dumps(report, sort_keys=True, separators=(',', ':')))
+                  try:
+                      # Unlike CLOCK_MONOTONIC, CLOCK_BOOTTIME includes time spent suspended.
+                      uptime_ns = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
+                      uptime_ms = (uptime_ns + 999999) // 1000000
+                  except (AttributeError, OSError):
+                      uptime_ms = None
+                  print(json.dumps({'diagnostic': report, 'boot_uptime_ms': uptime_ms},
+                                   sort_keys=True, separators=(',', ':')))
                   raise SystemExit(0 if report['status'] == 'SUCCESS' else 1)
               except Exception:
                   # A failed closed-schema collector emits no raw errors or host fields.
@@ -1722,6 +1729,7 @@ jobs:
           PY_CLOSED_DOCKER_SIGNAL
           python3 -I - "$source" "$RUNNER_TEMP/closed-diagnostic-candidate.json" <<'PY_CLOSED_DOCKER_TRANSPORT'
           import ctypes
+          from datetime import datetime, timezone
           import json
           import os
           from pathlib import Path
@@ -1733,6 +1741,18 @@ jobs:
           import time
 
           TRANSPORT_SECONDS = 45
+          # After the last native runner log for 41730479605/126246484810 (22:25:37 UTC).
+          LEGACY_CUTOFF_MS = int(datetime(2026, 11, 3, 22, 26, tzinfo=timezone.utc).timestamp()) * 1000
+
+
+          def boot_boundary(uptime_ms, before_ms, after_ms):
+              if type(uptime_ms) is not int or not 0 <= uptime_ms < 2**53:
+                  return 'NOT_PROVEN'
+              if not 0 <= after_ms - before_ms <= (TRANSPORT_SECONDS + 1) * 1000:
+                  return 'NOT_PROVEN'
+              # The guest sampled uptime after the runner started SSH, so this is a
+              # lower bound on boot UTC. Do not depend on the guest's wall clock.
+              return 'BOOT_AFTER_LEGACY_CUTOFF' if before_ms - uptime_ms > LEGACY_CUTOFF_MS + 5000 else 'NOT_PROVEN'
 
 
           def closed_json(raw):
@@ -1773,6 +1793,7 @@ jobs:
               streams = {'out': bytearray(), 'err': bytearray()}
               cleanup = True
               parent = os.getpid()
+              boundary = 'NOT_PROVEN'
 
               def child_limits():
                   import resource
@@ -1782,6 +1803,7 @@ jobs:
 
               try:
                   lease = namespace['OwnedChildLease']()
+                  before_ms = time.time_ns() // 1000000
                   proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                       close_fds=True, start_new_session=True, preexec_fn=child_limits)
                   # A bounded pipe write is driven with the same deadline as response reads.
@@ -1825,11 +1847,16 @@ jobs:
                           envelope['transport_status'] = 'NONZERO'
                       else:
                           try:
-                              value = namespace['validate_report'](closed_json(bytes(streams['out']).decode('utf-8', errors='strict')))
+                              response = closed_json(bytes(streams['out']).decode('utf-8', errors='strict'))
+                              if type(response) is not dict or set(response) != {'diagnostic', 'boot_uptime_ms'}:
+                                  raise ValueError('CLOSED_REMOTE_RESPONSE')
+                              value = namespace['validate_report'](response['diagnostic'])
                               if (value['status'] == 'SUCCESS') != (code == 0):
                                   raise ValueError('CLOSED_EXIT_BINDING')
                               envelope.update(transport_status='VALIDATED_REMOTE_REPORT', diagnostic=value,
                                               passed=code == 0)
+                              if code == 0:
+                                  boundary = boot_boundary(response['boot_uptime_ms'], before_ms, time.time_ns() // 1000000)
                           except (ValueError, TypeError, KeyError):
                               envelope['transport_status'] = 'INVALID_REMOTE_REPORT'
               except subprocess.TimeoutExpired:
@@ -1850,6 +1877,8 @@ jobs:
               if len(raw.encode()) > 4096:
                   raise ValueError('CLOSED_ENVELOPE_BOUND')
               output.write_text(raw)
+              if envelope['passed']:
+                  output.with_name('closed-boot-boundary.txt').write_text(boundary + '\n')
               return envelope
 
 
@@ -2786,11 +2815,17 @@ jobs:
           (root / 'closed-diagnostic.json').write_text(json.dumps(record, sort_keys=True, separators=(',', ':')) + '\n')
           status = diagnostic['status'] if diagnostic is not None else 'NOT_COLLECTED'
           signal = diagnostic['failure_signal'] if diagnostic is not None else 'UNKNOWN'
+          boundary = 'NOT_PROVEN'
+          boot_path = path.with_name('closed-boot-boundary.txt')
+          if record['passed'] and boot_path.is_file() and not boot_path.is_symlink() and 0 < boot_path.stat().st_size <= 40:
+              if boot_path.read_bytes() == b'BOOT_AFTER_LEGACY_CUTOFF\n':
+                  boundary = 'BOOT_AFTER_LEGACY_CUTOFF'
           body = '\n'.join(['## Closed Docker admission diagnostic',
               '- Exact source: `' + record['target'] + '`.',
               '- Transport: `' + record['transport_status'] + '`.',
               '- Docker observation: `' + status + '`; signal: `' + signal + '`.',
               '- Local cleanup: `' + record['local_cleanup_attestation'] + '`.',
+              '- Ubuntu boot after legacy run `41730479605`: `' + boundary + '`. This is a boot observation only.',
               '- Root cause: `NOT_ESTABLISHED`; original19/integrity/runtime/DB/backup/rollback: `NOT_ATTESTED`.',
               '- Mutation: `NONE`; deployment/startup/restore authorization: `NOT_GRANTED`.',
               '- One fixed read-only query; no automatic retry. No raw errors, IDs, paths or configuration published.',
