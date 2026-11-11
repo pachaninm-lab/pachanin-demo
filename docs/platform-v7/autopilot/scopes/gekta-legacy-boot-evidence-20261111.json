@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-11-11-gekta-release-completion",
+  "authorityBaseExactMain": "788440c86c12cf331319dec6878bb6e9581c219a",
+  "branch": "ops/gekta-legacy-boot-evidence-20261111",
+  "purpose": "Obtain bounded authenticated evidence of the current Ubuntu boot before the legacy operation reconciliation required by Original19.",
+  "allowedPaths": [
+    ".github/workflows/production-legacy-boot-evidence.yml",
+    "scripts/production-legacy-boot-evidence.py"
+  ],
+  "sourcePins": [
+    {
+      "path": ".github/workflows/production-legacy-boot-evidence.yml",
+      "mode": "100644",
+      "blob": "8e1ff26591ef22761d1da1b0f22f9e72ce9e1406",
+      "sha256": "eb254908b6dc724f45d11662d9bb072e90477af983965392c16ac9712c94ea85"
+    },
+    {
+      "path": "scripts/production-legacy-boot-evidence.py",
+      "mode": "100644",
+      "blob": "b84ad4b1894d8c392e0b090d677d1830b8bd4f29",
+      "sha256": "f338fb0ee2a8b2b51d50f60053b242991ddc60813146df4874e0c9fa54140409"
+    }
+  ],
+  "effectiveAfter": "Separate acceptance of this manifest on main. A source PR must match both pins and retain this manifest unchanged.",
+  "productionInvocationAuthorized": false,
+  "releaseAuthorized": false
+}
