@@ -100,16 +100,17 @@ jobs:
                   'shutil':types.SimpleNamespace(which=lambda name:None if missing else '/usr/bin/pkcheck'),
                   'subprocess':types.SimpleNamespace(run=run,DEVNULL=subprocess.DEVNULL,TimeoutExpired=subprocess.TimeoutExpired)}
               exec(compiled,namespace)
-              return namespace['polkit'],calls
+              return namespace['polkit'],calls,namespace['polkit_error_kind']
 
           class FixedUnitPolicy(unittest.TestCase):
               def test_fixed_unit_verb_and_complete_live_subject(self):
-                  state,calls=measure()
+                  state,calls,error_kind=measure()
                   self.assertEqual(state,'AUTHORIZED');self.assertEqual(len(calls),1)
+                  self.assertEqual(error_kind,'NONE')
                   self.assertEqual(calls[0][0],['/usr/bin/pkcheck','--action-id','org.freedesktop.systemd1.manage-units',
                       '--process','123,900,1001','--detail','unit','tai-qwen3-8b.service','--detail','verb','restart'])
               def test_no_interactive_agent_or_raw_output_or_stdin(self):
-                  _,calls=measure();argv,kw=calls[0]
+                  _,calls,_=measure();argv,kw=calls[0]
                   self.assertNotIn('--allow-user-interaction',argv);self.assertNotIn('--enable-internal-agent',argv)
                   self.assertEqual(kw,{'stdin':subprocess.DEVNULL,'stdout':subprocess.DEVNULL,'stderr':subprocess.DEVNULL,
                       'timeout':5,'check':False,'env':{'PATH':'/usr/bin:/bin','LC_ALL':'C'}})
@@ -120,25 +121,39 @@ jobs:
               def test_checker_error_is_not_unit_denial(self):
                   self.assertNotEqual(measure(code=127)[0],'DENIED')
                   self.assertNotEqual(measure(error=OSError('unavailable'))[0],'DENIED')
+              def test_check_error_reason_is_closed_and_distinct(self):
+                  cases=(
+                      ({'error':FileNotFoundError('synthetic path')},'EXEC_NOT_FOUND'),
+                      ({'error':PermissionError('synthetic permission')},'EXEC_PERMISSION_DENIED'),
+                      ({'error':OSError('synthetic failure')},'EXEC_ERROR'),
+                      ({'code':127},'POLICY_CHECK_ERROR'),
+                  )
+                  for kwargs,expected in cases:
+                      with self.subTest(expected=expected):
+                          status,calls,kind=measure(**kwargs)
+                          self.assertEqual(status,'CHECK_ERROR')
+                          self.assertEqual(kind,expected)
+                          self.assertEqual(len(calls),1)
               def test_unknown_exit_and_signal_stay_unknown(self):
                   for code in (7,-9,255):self.assertEqual(measure(code=code)[0],'ERROR')
               def test_timeout_has_no_retry(self):
-                  result,calls=measure(error=subprocess.TimeoutExpired('synthetic query',5))
+                  result,calls,error_kind=measure(error=subprocess.TimeoutExpired('synthetic query',5))
+                  self.assertEqual(error_kind,'NONE')
                   self.assertEqual(result,'CHECK_TIMEOUT');self.assertEqual(len(calls),1)
               def test_unavailable_checker_has_no_fallback(self):
-                  result,calls=measure(missing=True);self.assertEqual(result,'UNAVAILABLE');self.assertEqual(calls,[])
+                  result,calls,kind=measure(missing=True);self.assertEqual(result,'UNAVAILABLE');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_subject_pid_mismatch_prevents_query(self):
-                  result,calls=measure(observed_pid=321);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[])
+                  result,calls,kind=measure(observed_pid=321);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_invalid_start_time_prevents_query(self):
                   for start in ('0','-1','bad'):
-                      result,calls=measure(start_ticks=start);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[])
+                      result,calls,kind=measure(start_ticks=start);self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_unreadable_subject_prevents_query(self):
-                  result,calls=measure(bad_stat=OSError('synthetic missing proc'))
-                  self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[])
+                  result,calls,kind=measure(bad_stat=OSError('synthetic missing proc'))
+                  self.assertEqual(result,'SUBJECT_UNVERIFIED');self.assertEqual(calls,[]);self.assertEqual(kind,'NONE')
               def test_scope_is_explicit_in_closed_output(self):
                   self.assertIn("print('CONTROL_PROBE_POLKIT_QUERY_SCOPE=FIXED_UNIT_RESTART')",workflow)
-                  self.assertIn('|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|',workflow)
-                  self.assertIn('"$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 27',workflow)
+                  self.assertIn('|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|POLKIT_ERROR_KIND|',workflow)
+                  self.assertIn('"$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 28',workflow)
               def test_actual_query_has_no_shell_or_service_action(self):
                   calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='run']
                   self.assertEqual(len(calls),1)
@@ -346,6 +361,7 @@ jobs:
           current_user = pwd.getpwuid(os.getuid()).pw_name
 
           polkit = 'UNAVAILABLE'
+          polkit_error_kind = 'NONE'
           pkcheck = shutil.which('pkcheck')
           if pkcheck:
               try:
@@ -371,8 +387,14 @@ jobs:
                       )
                   except subprocess.TimeoutExpired:
                       polkit = 'CHECK_TIMEOUT'
-                  except OSError:
+                  except OSError as error:
                       polkit = 'CHECK_ERROR'
+                      if isinstance(error, FileNotFoundError):
+                          polkit_error_kind = 'EXEC_NOT_FOUND'
+                      elif isinstance(error, PermissionError):
+                          polkit_error_kind = 'EXEC_PERMISSION_DENIED'
+                      else:
+                          polkit_error_kind = 'EXEC_ERROR'
                   else:
                       if result.returncode == 0:
                           polkit = 'AUTHORIZED'
@@ -386,6 +408,7 @@ jobs:
                           polkit = 'INVALID_INVOCATION'
                       elif result.returncode == 127:
                           polkit = 'CHECK_ERROR'
+                          polkit_error_kind = 'POLICY_CHECK_ERROR'
                       else:
                           polkit = 'ERROR'
 
@@ -414,12 +437,13 @@ jobs:
           print('CONTROL_PROBE_ENV_LLAMA_KV_UNIFIED_PRESENT=' + str(int('LLAMA_ARG_KV_UNIFIED' in env_names)))
           print('CONTROL_PROBE_POLKIT_QUERY_SCOPE=FIXED_UNIT_RESTART')
           print('CONTROL_PROBE_POLKIT_MANAGE_UNITS=' + polkit)
+          print('CONTROL_PROBE_POLKIT_ERROR_KIND=' + polkit_error_kind)
           print('CONTROL_PROBE_EXECSTART_SHA256=' + hashlib.sha256(execstart.encode()).hexdigest())
           print('CONTROL_PROBE_ENVFILES_SHA256=' + hashlib.sha256(environment_files_raw.encode()).hexdigest())
           PY
           REMOTE_PROBE
-          grep -E '^CONTROL_PROBE_(SERVICE_USER_MATCH|RESTART_POLICY|FRAGMENT_PRESENT|FRAGMENT_WRITABLE|FRAGMENT_PARENT_WRITABLE|ENV_PARSE_OK|ENV_FILES_COUNT|ENV_FILES_PRESENT|ENV_FILES_WRITABLE|DROPINS_COUNT|DROPINS_WRITABLE|EXEC_PATH_PRESENT|EXEC_PATH_WRITABLE|EXEC_PATH_MATCHES_PROCESS|EXEC_HAS_THREADS|EXEC_HAS_THREADS_BATCH|EXEC_HAS_PARALLEL|EXEC_HAS_CTX|EXEC_HAS_KV_UNIFIED|ENV_LLAMA_THREADS_PRESENT|ENV_LLAMA_THREADS_BATCH_PRESENT|ENV_LLAMA_PARALLEL_PRESENT|ENV_LLAMA_KV_UNIFIED_PRESENT|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|EXECSTART_SHA256|ENVFILES_SHA256)=' "$RUNNER_TEMP/raw-control-probe" > "$RUNNER_TEMP/control-probe"
-          [[ "$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 27 ]]
+          grep -E '^CONTROL_PROBE_(SERVICE_USER_MATCH|RESTART_POLICY|FRAGMENT_PRESENT|FRAGMENT_WRITABLE|FRAGMENT_PARENT_WRITABLE|ENV_PARSE_OK|ENV_FILES_COUNT|ENV_FILES_PRESENT|ENV_FILES_WRITABLE|DROPINS_COUNT|DROPINS_WRITABLE|EXEC_PATH_PRESENT|EXEC_PATH_WRITABLE|EXEC_PATH_MATCHES_PROCESS|EXEC_HAS_THREADS|EXEC_HAS_THREADS_BATCH|EXEC_HAS_PARALLEL|EXEC_HAS_CTX|EXEC_HAS_KV_UNIFIED|ENV_LLAMA_THREADS_PRESENT|ENV_LLAMA_THREADS_BATCH_PRESENT|ENV_LLAMA_PARALLEL_PRESENT|ENV_LLAMA_KV_UNIFIED_PRESENT|POLKIT_QUERY_SCOPE|POLKIT_MANAGE_UNITS|POLKIT_ERROR_KIND|EXECSTART_SHA256|ENVFILES_SHA256)=' "$RUNNER_TEMP/raw-control-probe" > "$RUNNER_TEMP/control-probe"
+          [[ "$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 28 ]]
           if grep -Ev '^CONTROL_PROBE_[A-Z0-9_]+=([0-9]+|[a-f0-9]{64}|[A-Z_]+|[a-z0-9_.:-]+)$' "$RUNNER_TEMP/control-probe"; then
             echo 'Control probe emitted a value outside the bounded grammar.' >&2
             exit 40
