@@ -1055,12 +1055,9 @@ function soilMoistureMeasurementGuidance(request: NormalizedRequest): string {
   if (request.answerMode !== 'general_agro' || request.currentDataRequired || request.documents.length) return '';
 
   const question = request.originalQuestion.normalize('NFKC');
-  const russian = /влажност[ьи]\s+(?:почвы|грунта)|влаг[ау]\s+в\s+(?:почве|грунте)/iu.test(question)
-    && /провер\p{L}*|измер\p{L}*|оцен\p{L}*|определ\p{L}*/iu.test(question);
-  const english = /\bsoil\s+(?:moisture|water content)\b/iu.test(question)
-    && /\b(?:check|measure|estimate|determine|test)\w*\b/iu.test(question);
-  const chinese = /土壤(?:含水量|水分|湿度)/u.test(question)
-    && /测量|检测|判断|检查|估算|测定/u.test(question);
+  const russian = /(?:провер|измер|оцен|определ)\p{L}*\s+(?:(?:фактическ|текущ)\p{L}*\s+)?(?:влажност[ьи]\s+(?:почвы|грунта)|влаг[ау]\s+в\s+(?:почве|грунте))/iu.test(question);
+  const english = /\b(?:check|measure|estimate|determine|test)\s+(?:the\s+)?soil\s+(?:moisture|water content)\b/iu.test(question);
+  const chinese = /(?:测量|检测|判断|检查|估算|测定)(?:一下)?土壤(?:含水量|水分|湿度)|土壤(?:含水量|水分|湿度)(?:怎么|如何|怎样)(?:测量|检测|判断|检查|估算|测定|测)/u.test(question);
   if (!russian && !english && !chinese) return '';
 
   return 'For field soil-moisture checks, distinguish two practical methods when asked: '

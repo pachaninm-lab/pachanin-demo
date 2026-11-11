@@ -272,6 +272,9 @@ describe('RestrictedPublicQwenService', () => {
   it.each([
     ['Как проверить влажность зерна при хранении?', false],
     ['Зачем важна влажность почвы?', false],
+    ['Как проверить температуру почвы, если влажность почвы уже известна?', false],
+    ['How do I check soil temperature if the soil moisture is known?', false],
+    ['已知土壤水分，如何测量土壤温度？', false],
     ['Как измерить влажность почвы сегодня на моём поле?', true],
   ])('keeps soil-moisture methods scoped to general measurement questions (%s)', async (question, currentDataRequired) => {
     const fetchMock = jest.fn().mockResolvedValue(providerResponse('Проверьте доступные данные на участке.'));
