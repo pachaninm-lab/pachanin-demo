@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 /**
  * ASVS V6.1.3 / V6.3.4, and the concrete defect behind them (#4690).
@@ -240,6 +240,55 @@ describe('password login and explicit authenticated MFA', () => {
 
 
 describe('password-session staff landing contract', () => {
+  const ownerHome = {
+    identity: { id: 'owner', email: 'owner@example.test', fullName: null },
+    assignments: [{ id: 'own', role: 'PLATFORM_OWNER', status: 'ACTIVE', validFrom: '2026-10-05T00:00:00Z', validUntil: null }],
+    authenticationAssurance: { mfaVerified: false },
+  } satisfies import('../../lib/platform-v7/staff-capabilities').StaffHomeContract;
+
+  it('lets an active owner preview thirteen sample workspaces without calling an API', async () => {
+    const { PasswordStaffHome } = await import('../../components/platform-v7/staff/PasswordStaffHome');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { container } = render(createElement(PasswordStaffHome, { locale: 'ru', home: ownerHome }));
+      const preview = within(screen.getByRole('region', { name: 'Предпросмотр 13 кабинетов' }));
+      const picker = preview.getByRole<HTMLSelectElement>('combobox', { name: 'Кабинет для просмотра' });
+      const roles = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive', 'employee'];
+      expect(Array.from(picker.options, (option) => option.value)).toEqual(roles);
+      for (const role of roles) {
+        fireEvent.change(picker, { target: { value: role } });
+        expect(picker.value).toBe(role);
+        expect(preview.queryAllByRole('link')).toEqual([]);
+        if (role === 'employee') {
+          expect(preview.getByRole('heading', { name: 'Сотрудник организации' })).toBeTruthy();
+        } else {
+          expect(preview.getByTestId(`platform-v7-${role}-screen-contract`)).toBeTruthy();
+          expect(preview.getAllByRole<HTMLButtonElement>('button').every((button) => button.disabled)).toBe(true);
+        }
+      }
+      expect(container.querySelector('form')).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Подготовить защищённое действие' })).toBeTruthy();
+    } finally {
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('does not offer the preview to an active staff member without the owner assignment', async () => {
+    const { PasswordStaffHome } = await import('../../components/platform-v7/staff/PasswordStaffHome');
+    try {
+      render(createElement(PasswordStaffHome, { locale: 'ru', home: {
+        ...ownerHome,
+        assignments: [{ ...ownerHome.assignments[0], role: 'AUDITOR' }],
+      } }));
+      expect(screen.queryByRole('region', { name: 'Предпросмотр 13 кабинетов' })).toBeNull();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('accepts own identity labels without converting them into capability grants', async () => {
     const { parseStaffHomeContract } = await import('../../lib/platform-v7/staff-capabilities');
     const home = { identity: { id: 'owner', email: 'owner@example.test', fullName: null },
