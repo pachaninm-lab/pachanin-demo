@@ -250,7 +250,7 @@ describe('shared bank payment-basis read entry', () => {
       expect(metadata.robots).toEqual({ index: false, follow: false });
       expect(html).toContain('data-testid="platform-v7-bank-release-safety-v8"');
       expect(html).toContain(copy.unknown);
-      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');
+      expect(html).toContain(`/platform-v7/deals/deal-read-entry/execution?lang=${copy.locale}`);
       expect(html).toContain('dealId=deal-read-entry&amp;shipmentId=shipment-read-entry');
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
       expect(projection).toEqual(before);
@@ -276,7 +276,7 @@ describe('shared bank payment-basis read entry', () => {
     const { Page } = loadReadEntry();
     const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'deal-read-entry' }) }));
     expect(html).toContain('Серверная проверка выплаты недоступна');
-    expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');
+    expect(html).not.toContain('/platform-v7/deals/deal-read-entry/execution');
     expect(html).not.toMatch(/<form|<button|method=["']post/i);
   });
 
@@ -344,7 +344,7 @@ describe('shared bank payment-basis read entry', () => {
       expect(init.method ?? 'GET').toBe('GET');
       expect(init.headers).toEqual({ authorization: 'Bearer disposable-unit-fixture' });
       expect(init.body).toBeUndefined();
-      expect(html).toContain('/platform-v7/deals/deal-read-entry/clean');
+      expect(html).toContain('/platform-v7/deals/deal-read-entry/execution?lang=ru');
       expect(html).toContain('выплата заблокирована');
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
       expect(body).toEqual(before);
@@ -372,7 +372,7 @@ describe('shared bank payment-basis read entry', () => {
         const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));
         expect(fetchBoundary).toHaveBeenCalledTimes(1);
         expect(html).toContain('Серверная проверка выплаты недоступна');
-        expect(html).not.toContain('/platform-v7/deals/deal-read-entry/clean');
+        expect(html).not.toContain('/platform-v7/deals/deal-read-entry/execution');
         expect(html).not.toContain('PRIVATE_READ_FIXTURE_DETAIL');
         expect(html).not.toMatch(/<form|<button|method=["']post/i);
       },
@@ -485,10 +485,12 @@ describe('shared bank navigation presentation', () => {
     const { Page } = loadReadEntry();
     const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
     const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal' }) }));
+    expect(hrefs(registry)).toContain('#release-deals');
+    expect(hrefs(unavailable)).toContain(`${shared}?lang=${copy.locale}#release-deals`);
     for (const html of [registry, unavailable]) {
       expect(hrefs(html)).not.toContain(bank);
-      expect(hrefs(html)).toContain('/platform-v7/deals');
-      for (const role of ['buyer', 'seller'] as const) {
+      expect(hrefs(html)).not.toContain('/platform-v7/deals');
+      for (const role of ['bank', 'buyer', 'seller'] as const) {
         for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, href)).toBe(true);
       }
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
@@ -504,9 +506,39 @@ describe('shared bank navigation presentation', () => {
       for (const query of [{}, { dealId: 'unavailable-deal' }]) {
         const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(query) }));
         expect(hrefs(html)).not.toContain(bank);
+        expect(hrefs(html)).toContain('/platform-v7/deals');
       }
     },
   );
+
+  for (const entry of [
+    { path: canonical, roles: ['bank'] as const },
+    { path: shared, roles: ['bank', 'buyer', 'seller'] as const },
+  ]) it.each(copies)(`keeps ${entry.path} recovery inside a usable registry in $locale`, async copy => {
+    readEntryBoundary.locale.mockResolvedValue(copy.locale);
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': entry.path }));
+    const { Page } = loadReadEntry();
+    const unavailable = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: 'unavailable-deal', shipmentId: 'stale-shipment' }) }));
+    const expectedRecovery = `${entry.path}?lang=${copy.locale}#release-deals`;
+    expect(hrefs(unavailable)).toContain(expectedRecovery);
+    const recovery = new URL(expectedRecovery, 'https://example.test');
+    for (const role of entry.roles) expect(canRoleAccessCabinet(role, recovery.pathname)).toBe(true);
+    expect(recovery.searchParams.has('dealId')).toBe(false);
+    expect(recovery.searchParams.has('shipmentId')).toBe(false);
+    readEntryBoundary.headers.mockResolvedValue(new Headers({ 'x-pc-pathname': recovery.pathname }));
+    const registry = renderToStaticMarkup(await Page({ searchParams: Promise.resolve(Object.fromEntries(recovery.searchParams)) }));
+    expect(hrefs(registry)).toContain('#release-deals');
+    expect(registry).toContain('id="release-deals"');
+    expect(hrefs(registry)).not.toContain('/platform-v7/deals');
+    expect(readEntryBoundary.workspace).toHaveBeenCalledExactlyOnceWith('unavailable-deal');
+    expect(readEntryBoundary.profile).not.toHaveBeenCalled();
+    for (const html of [unavailable, registry]) {
+      for (const role of entry.roles) {
+        for (const href of hrefs(html)) expect(canRoleAccessCabinet(role, new URL(href, recovery).pathname)).toBe(true);
+      }
+      expect(html).not.toMatch(/<form|<button|method=["']post/i);
+    }
+  });
 
   it.each(copies)('preserves the bank return link on the canonical bank-only page in $locale', async copy => {
     readEntryBoundary.locale.mockResolvedValue(copy.locale);
@@ -519,6 +551,8 @@ describe('shared bank navigation presentation', () => {
     for (const query of [{}, { dealId: 'unavailable-deal' }]) {
       const html = renderToStaticMarkup(await CanonicalPage({ searchParams: Promise.resolve(query) }));
       expect(hrefs(html)).toContain(bank);
+      expect(hrefs(html)).not.toContain('/platform-v7/deals');
+      for (const href of hrefs(html)) expect(canRoleAccessCabinet('bank', href)).toBe(true);
       expect(html).not.toMatch(/<form|<button|method=["']post/i);
     }
   });

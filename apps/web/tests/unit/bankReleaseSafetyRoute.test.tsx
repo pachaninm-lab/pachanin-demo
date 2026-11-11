@@ -76,7 +76,7 @@ describe('selected bank payout page reason copy', () => {
     expect(pageBoundary.workspace).toHaveBeenCalledWith(projection.dealId);
     expect(pageBoundary.projection).toHaveBeenCalledWith(workspace, undefined);
     expect(JSON.stringify(projection)).toBe(before);
-    expect(html).toContain('/platform-v7/deals/deal-copy/clean');
+    expect(html).toContain(`/platform-v7/deals/deal-copy/execution?lang=${locale}`);
     expect(html).not.toMatch(/<form|<button|method="post"/i);
     return html;
   }
@@ -187,7 +187,7 @@ describe('BankReleaseSafetyPage', () => {
     expect(page).toContain('getCanonicalBankReleaseWorkspace');
     expect(page).toContain('buildBankReleaseProjection');
     expect(page).toContain('searchParams?: Promise<PageSearchParams>');
-    expect(page).toContain('if (!dealId) return renderRegistry(locale, showBankReturn)');
+    expect(page).toContain('if (!dealId) return renderRegistry(locale, reviewEntry)');
     expect(authority).toContain("serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)");
     expect(authority).toContain('await serverAuthHeaders()');
     expect(authority).toContain("cache: 'no-store'");
