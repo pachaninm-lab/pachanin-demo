@@ -16,9 +16,9 @@ const COPY = {
 } as const;
 
 const PREVIEW_COPY = {
-  ru: { title: 'Предпросмотр 13 кабинетов', role: 'Кабинет для просмотра', employee: 'Сотрудник организации', notice: 'Тестовые данные. Действия отключены.', employeeContent: 'В профиле сотрудника доступны команда, уведомления и назначенные задачи.' },
-  en: { title: 'Preview 13 workspaces', role: 'Workspace to preview', employee: 'Organization employee', notice: 'Sample data. Actions are disabled.', employeeContent: 'The employee profile shows the team, notifications, and assigned tasks.' },
-  zh: { title: '预览 13 个工作台', role: '要预览的工作台', employee: '机构员工', notice: '测试数据。操作已禁用。', employeeContent: '员工个人页面显示团队、通知和分配的任务。' },
+  ru: { title: 'Предпросмотр 13 кабинетов', role: 'Кабинет для просмотра', employee: 'Сотрудник организации', notice: 'Тестовые данные. Действия отключены.', organization: 'Организация', sampleOrganization: 'ООО «Золотое Поле Тест»', access: 'Разделы профиля', sections: 'Команда, уведомления и назначенные задачи' },
+  en: { title: 'Preview 13 workspaces', role: 'Workspace to preview', employee: 'Organization employee', notice: 'Sample data. Actions are disabled. Business workspace samples are in Russian.', organization: 'Organization', sampleOrganization: 'Golden Field Test LLC', access: 'Profile sections', sections: 'Team, notifications, and assigned tasks' },
+  zh: { title: '预览 13 个工作台', role: '要预览的工作台', employee: '机构员工', notice: '测试数据。操作已禁用。业务工作台示例为俄语。', organization: '机构', sampleOrganization: '金色田野测试有限公司', access: '个人页面栏目', sections: '团队、通知和分配的任务' },
 } as const;
 
 const PREVIEW_ROLE_LABELS = {
@@ -59,7 +59,7 @@ function OwnerCabinetPreview({ locale }: { locale: AppLocale }) {
         <option value='employee'>{copy.employee}</option>
       </select>
     </label>
-    {cockpit ? <>
+    {cockpit ? <div lang='ru'>
       <h3>{cockpit.title}</h3>
       <RoleExecutionCockpitContent cockpit={{
         ...cockpit,
@@ -68,9 +68,12 @@ function OwnerCabinetPreview({ locale }: { locale: AppLocale }) {
           action: { label: operation.action.label, disabled: true },
         })),
       }} />
-    </> : <>
+    </div> : <>
       <h3>{copy.employee}</h3>
-      <p>{copy.employeeContent}</p>
+      <dl>
+        <dt>{copy.organization}</dt><dd>{copy.sampleOrganization}</dd>
+        <dt>{copy.access}</dt><dd>{copy.sections}</dd>
+      </dl>
     </>}
   </section>;
 }
@@ -137,9 +140,9 @@ export function PasswordStaffHome({ locale, home }: { locale: AppLocale; home: S
     <p>{home.identity.fullName || home.identity.email}</p>
     <p role='status'>{copy.signedIn}</p>
     <ul>{home.assignments.map((assignment) => <li key={assignment.id}>{assignment.role}</li>)}</ul>
+    <OwnMfaVerificationPanel locale={locale} />
     {home.assignments.some(({ role, status }) => role === 'PLATFORM_OWNER' && status === 'ACTIVE')
       ? <OwnerCabinetPreview locale={locale} />
       : null}
-    <OwnMfaVerificationPanel locale={locale} />
   </section>;
 }

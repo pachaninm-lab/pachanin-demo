@@ -252,7 +252,10 @@ describe('password-session staff landing contract', () => {
     vi.stubGlobal('fetch', fetchMock);
     try {
       const { container } = render(createElement(PasswordStaffHome, { locale: 'ru', home: ownerHome }));
-      const preview = within(screen.getByRole('region', { name: 'Предпросмотр 13 кабинетов' }));
+      const previewRegion = screen.getByRole('region', { name: 'Предпросмотр 13 кабинетов' });
+      const preview = within(previewRegion);
+      const protectedAction = screen.getByRole('button', { name: 'Подготовить защищённое действие' });
+      expect(protectedAction.compareDocumentPosition(previewRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       const picker = preview.getByRole<HTMLSelectElement>('combobox', { name: 'Кабинет для просмотра' });
       const roles = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive', 'employee'];
       expect(Array.from(picker.options, (option) => option.value)).toEqual(roles);
@@ -262,14 +265,14 @@ describe('password-session staff landing contract', () => {
         expect(preview.queryAllByRole('link')).toEqual([]);
         if (role === 'employee') {
           expect(preview.getByRole('heading', { name: 'Сотрудник организации' })).toBeTruthy();
+          expect(preview.getByText('ООО «Золотое Поле Тест»')).toBeTruthy();
         } else {
-          expect(preview.getByTestId(`platform-v7-${role}-screen-contract`)).toBeTruthy();
+          expect(preview.getByTestId(`platform-v7-${role}-screen-contract`).closest('[lang="ru"]')).toBeTruthy();
           expect(preview.getAllByRole<HTMLButtonElement>('button').every((button) => button.disabled)).toBe(true);
         }
       }
       expect(container.querySelector('form')).toBeNull();
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(screen.getByRole('button', { name: 'Подготовить защищённое действие' })).toBeTruthy();
     } finally {
       cleanup();
       vi.unstubAllGlobals();
@@ -281,7 +284,7 @@ describe('password-session staff landing contract', () => {
     try {
       render(createElement(PasswordStaffHome, { locale: 'ru', home: {
         ...ownerHome,
-        assignments: [{ ...ownerHome.assignments[0], role: 'AUDITOR' }],
+        assignments: [{ ...ownerHome.assignments[0], role: 'SECURITY_AUDITOR' }],
       } }));
       expect(screen.queryByRole('region', { name: 'Предпросмотр 13 кабинетов' })).toBeNull();
     } finally {
