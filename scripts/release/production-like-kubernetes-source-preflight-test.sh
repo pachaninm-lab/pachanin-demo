@@ -29,7 +29,7 @@ FIXED = ['AGENTS.md', '.github/workflows/platform-v7-autopilot-guard.yml',
 
 class SourceBudgetChecks(unittest.TestCase):
     def expected_owned_guard_seconds(self, ref):
-        return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009') else 300
+        return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009') else 300
 
     def fixture(self, root, test_fail=False, guard_fail=False):
             repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()
@@ -198,7 +198,7 @@ while True:
             return report, calls, group_proof
 
     def test_named_owned_refs_keep_300_except_admitted_measured_pair(self):
-        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005']:
             with self.subTest(ref=ref):
                 report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                 self.assertEqual(report['result'], 'PASS')
@@ -208,14 +208,14 @@ while True:
                 self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
 
     def test_other_and_empty_refs_keep_guard_180_outer_195(self):
-        for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'codex/gekta-security-review-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra', 'test/bank-acceptance-contract-6085-extra', 'fix/bank-acceptance-preflight-budget-6089-extra']:
+        for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'codex/gekta-security-review-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra', 'test/bank-acceptance-contract-6085-extra', 'fix/bank-acceptance-preflight-budget-6089-extra', 'fix/password-only-cabinet-login-20261005-extra']:
             with self.subTest(ref=ref):
                 report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)
                 self.assertEqual(report['result'], 'PASS')
                 self.assertEqual(calls[0]['outer_timeout'], 195)
 
     def test_fork_name_collision_and_missing_identity_keep_original_budget(self):
-        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005']:
             for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
                 with self.subTest(ref=ref, head_repository=head_repo, repository=repo):
                     report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180,
@@ -224,7 +224,7 @@ while True:
                     self.assertEqual(calls[0]['outer_timeout'], 195)
 
     def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):
-        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005']:
             with self.subTest(ref=ref):
                 report, calls, group = self.execute_collector('guard-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                 self.assertEqual(report['result'], 'FAIL')
@@ -233,7 +233,7 @@ while True:
                 self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
 
     def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):
-        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005']:
             with self.subTest(ref=ref):
                 report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                 self.assertEqual(report['result'], 'FAIL')
@@ -241,7 +241,7 @@ while True:
                 self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
 
     def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):
-        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+        for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005']:
             with self.subTest(ref=ref):
                 report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                 self.assertEqual(report['result'], 'FAIL')
@@ -279,7 +279,7 @@ while True:
                 self.assertEqual(calls[0]['outer_timeout'], 195)
 
     def test_bank_acceptance_refs_have_bounded_same_repository_budget(self):
-        for ref in ['test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089']:
+        for ref in ['test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005']:
             with self.subTest(ref=ref):
                 report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
                 self.assertEqual(report['result'], 'PASS')
@@ -316,7 +316,7 @@ while True:
             '\n  production-like-kubernetes:\n', 1)[0]
         runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
             '\n  production-like-kubernetes-gate:\n', 1)[0]
-        self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\n", preflight)
+        self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\n", preflight)
         job_expression = preflight.split('    timeout-minutes: ', 1)[1].splitlines()[0]
         # This fixed ASCII model follows GitHub's case-insensitive string comparison.
         self.assertTrue(job_expression.isascii())
@@ -328,6 +328,9 @@ while True:
             ('push', target, 1, 1, 8),
             ('pull_request', target, 2, 1, 8),
             ('pull_request', target, None, 1, 8),
+            ('pull_request', 'fix/password-only-cabinet-login-20261005', 1, 1, 10),
+            ('pull_request', 'fix/password-only-cabinet-login-20261005', 2, 1, 8),
+            ('pull_request', 'fix/password-only-cabinet-login-20261005-extra', 1, 1, 8),
             *[('pull_request', ref, 1, 1, 8) for ref in
               ('', target + '-extra', target + '/extra', 'prefix/' + target, target + ' ')],
         ]:
