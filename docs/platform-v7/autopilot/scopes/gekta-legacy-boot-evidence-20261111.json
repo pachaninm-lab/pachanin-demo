@@ -13,17 +13,17 @@
     {
       "path": ".github/workflows/production-legacy-boot-evidence.yml",
       "mode": "100644",
-      "blob": "8e1ff26591ef22761d1da1b0f22f9e72ce9e1406",
-      "sha256": "eb254908b6dc724f45d11662d9bb072e90477af983965392c16ac9712c94ea85"
+      "blob": "7282e9410f49ca6f75606232cc5df0c44c4d4bc9",
+      "sha256": "4db5d3ab9594baca477e4a125e4a2920a8959f86c7d029ab1345ee8df95c036d"
     },
     {
       "path": "scripts/production-legacy-boot-evidence.py",
       "mode": "100644",
-      "blob": "b84ad4b1894d8c392e0b090d677d1830b8bd4f29",
-      "sha256": "f338fb0ee2a8b2b51d50f60053b242991ddc60813146df4874e0c9fa54140409"
+      "blob": "3426c30b5aebc1acff7e229d7b6e1922c75b0200",
+      "sha256": "036e838e3e7cd8282754f6ed3201401d33add407688f920ec295d7094a7dcd5a"
     }
   ],
-  "effectiveAfter": "Separate acceptance of this manifest on main. A source PR must match both pins and retain this manifest unchanged.",
+  "effectiveAfter": "Separate acceptance of this manifest on main. The implementation workflow verifies the accepted-base manifest, exact diff, modes and both pins. Independent exact-head review verifies the same facts before merge.",
   "productionInvocationAuthorized": false,
   "releaseAuthorized": false
 }
