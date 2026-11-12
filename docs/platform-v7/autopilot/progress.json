@@ -384,8 +384,8 @@
       {
         "path": "scripts/production-legacy-boot-evidence.py",
         "mode": "100644",
-        "blob": "6c96f864daff1fae8387f31c38606d09d7e424b5",
-        "sha256": "13a2248f8a30dfd8adba39124ae26899ca383f6fc1123a3eed1e7be18cbb555c"
+        "blob": "7e7971ba801aac61b09c14a79b538ac73d6f75dc",
+        "sha256": "a0e9f01b63e890fe62678337e2a3be3bedbf4147df6abe062e0e461de4c1c0e9"
       }
     ],
     "baselineEvidence": "gektaApiBaselineContentEvidence",
