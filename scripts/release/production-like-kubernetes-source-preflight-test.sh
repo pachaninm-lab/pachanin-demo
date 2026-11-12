@@ -251,7 +251,7 @@ while True:
                 self.assertEqual(report['checks'], [])
 
     def test_measured_pair_exact_names_and_repository_controls(self):
-        positive = ['fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review']
+        positive = ['fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'ops/production-api-only-archive-rollback-20261112']
         for ref in positive:
             with self.subTest(ref=ref):
                 report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
@@ -263,6 +263,9 @@ while True:
                 self.assertEqual(report['checks'][1]['budget_seconds'], 180)
                 self.assertEqual(report['checks'][1]['outer_timeout_seconds'], 195)
         for ref, head_repo, repo in [
+            ('ops/production-api-only-archive-rollback-20261112-extra','fixture/repository','fixture/repository'),
+            ('ops/production-api-only-archive-rollback-20261112','fork/project','fixture/repository'),
+            ('ops/production-api-only-archive-rollback-20261112','','fixture/repository'),
             ('CODEX/GEKTA-SECURITY-REVIEW','fixture/repository','fixture/repository'),
             ('codex/gekta-security-review ','fixture/repository','fixture/repository'),
             ('prefix/codex/gekta-security-review','fixture/repository','fixture/repository'),
@@ -316,7 +319,7 @@ while True:
             '\n  production-like-kubernetes:\n', 1)[0]
         runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
             '\n  production-like-kubernetes-gate:\n', 1)[0]
-        self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\n", preflight)
+        self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\n", preflight)
         job_expression = preflight.split('    timeout-minutes: ', 1)[1].splitlines()[0]
         # This fixed ASCII model follows GitHub's case-insensitive string comparison.
         self.assertTrue(job_expression.isascii())
