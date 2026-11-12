@@ -40,7 +40,8 @@ jobs:
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 4637 && github.event.issue.pull_request == null &&
       (github.event.comment.body == '/production observe-legacy-boot current-main' ||
-       github.event.comment.body == '/production observe-original19-identity current-main') &&
+       github.event.comment.body == '/production observe-original19-identity current-main' ||
+       github.event.comment.body == '/production observe-api-baseline-content current-main') &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner && github.triggering_actor == github.repository_owner &&
@@ -61,6 +62,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Verify exact source and fresh owner command
         id: provenance
@@ -80,11 +82,12 @@ jobs:
                      ((now - (.created_at | fromdateiso8601)) as $age | $age >= 0 and $age <= 600)) |
               if .body == "/production observe-legacy-boot current-main" then "boot"
               elif .body == "/production observe-original19-identity current-main" then "identity"
+              elif .body == "/production observe-api-baseline-content current-main" then "api"
               else empty end
             ')"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-main "$GITHUB_SHA"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
-          [[ "$operation" == boot || "$operation" == identity ]]
+          [[ "$operation" == boot || "$operation" == identity || "$operation" == api ]]
           printf 'operation=%s\n' "$operation" >> "$GITHUB_OUTPUT"
 
       - name: Reuse the pinned production SSH resolver
@@ -134,11 +137,14 @@ jobs:
           remote='/usr/bin/python3 -I -S -B -'
           if [[ "$OPERATION" == identity ]]; then
             umask 077
-            source=scripts/production-market-release-preflight.py
+            source="$RUNNER_TEMP/original19-identity-reference.py"
+            git show '8fc8061fa924cad7182b93b3e6a08b2abb697c27:scripts/production-market-release-preflight.py' > "$source"
             [[ "$(git hash-object "$source")" == 'c45e7e2aa18d672e2d1372ac0cf7c83934c3a6c3' ]]
             payload="$RUNNER_TEMP/original19-identity-payload.py"
             python3 -I -S -B "$script" --build-identity-payload "$source" "$script" > "$payload"
             remote='/usr/bin/python3 -I -S -B - --identity'
+          elif [[ "$OPERATION" == api ]]; then
+            remote='/usr/bin/python3 -I -S -B - --api-baseline'
           else
             [[ "$OPERATION" == boot ]]
           fi
@@ -153,6 +159,8 @@ jobs:
             if (( ${#response} < 64 )); then
               if [[ "$OPERATION" == identity ]]; then
                 receipt="$(python3 -I -S -B "$script" --validate-identity "$response")"
+              elif [[ "$OPERATION" == api ]]; then
+                receipt="$(python3 -I -S -B "$script" --validate-api "$response")"
               else
                 receipt="$(python3 -I -S -B "$script" --reconcile "$response" "$before" "$(date +%s%3N)")"
               fi
@@ -164,7 +172,7 @@ jobs:
       - name: Remove protected transport material
         if: always()
         shell: bash
-        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/legacy-boot-ssh-resolver.sh" "$RUNNER_TEMP/original19-identity-payload.py"
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/legacy-boot-ssh-resolver.sh" "$RUNNER_TEMP/original19-identity-reference.py" "$RUNNER_TEMP/original19-identity-payload.py"
 
       - name: Publish closed evidence
         if: always() && steps.provenance.outcome == 'success'
@@ -178,6 +186,9 @@ jobs:
           if [[ "$OPERATION" == identity ]]; then
             result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-identity "$RESULT")"
             body="$(printf '## Read-only Original19 identity classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Fixed identity result: `%s`\n- Production mutation: `NONE`\n- Original19 and release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
+          elif [[ "$OPERATION" == api ]]; then
+            result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api "$RESULT")"
+            body="$(printf '## Read-only running API image metadata comparison\n\n- Exact source: `%s`\n- Run: `%s`\n- Fixed content result: `%s`\n- Evidence scope: Docker-reported OCI layer IDs and selected image defaults.\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
           else
             result=NOT_PROVEN
             if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi

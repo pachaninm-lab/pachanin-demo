@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import stat
 import subprocess
 import sys
@@ -18,6 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
+AUTHORITY_KEY = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
 SOURCE_PATHS = {'.github/workflows/production-legacy-boot-evidence.yml',
@@ -29,6 +31,24 @@ IDENTITY_CODES = {'MATCH', 'PROCESS_UID', 'NOATIME_UNAVAILABLE', 'PRIVATE_PARENT
 } | {
     f'{name}_{cause}' for name in ('RECEIPT', 'CIPHERTEXT', 'KEY')
     for cause in ('TYPE', 'OWNER', 'GROUP', 'MODE', 'LINKS', 'SIZE', 'UNAVAILABLE')
+}
+API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
+             'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
+API_REVISION = 'a81d69fb9aa0434ed581e057252808f4cda82f08'
+API_LOCAL_ID = 'sha256:577fec1493698c4dc17473be557b56623baa71c20bbb195e29c1d10d2efd9927'
+API_ROOTFS_COUNT = 25
+API_ROOTFS_SHA256 = '9bd5f19a9129d28ed918fe2d0c810e0b7802df0426769a5763e8d2b25cb2dc66'
+API_DEFAULTS_SHA256 = 'f90721149b4a48d43297b5253f757f3812ad9aafca74a43356a17fdf4e8c8163'
+API_DEFAULT_FIELDS = (
+    'User', 'ExposedPorts', 'Env', 'Entrypoint', 'Cmd', 'WorkingDir', 'ArgsEscaped',
+    'Volumes', 'StopSignal', 'StopTimeout', 'Healthcheck', 'Shell', 'OnBuild',
+    'NetworkDisabled', 'Hostname', 'Domainname', 'AttachStdin', 'AttachStdout',
+    'AttachStderr', 'Tty', 'OpenStdin', 'StdinOnce', 'MacAddress',
+)
+API_FIELD_DEFAULTS = {
+    **dict.fromkeys(('User', 'WorkingDir', 'StopSignal', 'Hostname', 'Domainname', 'MacAddress'), ''),
+    **dict.fromkeys(('ArgsEscaped', 'NetworkDisabled', 'AttachStdin', 'AttachStdout', 'AttachStderr',
+                     'Tty', 'OpenStdin', 'StdinOnce'), False),
 }
 
 
@@ -60,7 +80,7 @@ def verify_source(base, head, verify_diff):
     state = json.loads(accepted_content(base, head, STATE))
     if sorted(state['approvedConcurrentScopes'][SOURCE_BRANCH]) != sorted(SOURCE_PATHS):
         raise ValueError('invalid accepted source scope')
-    manifest = json.loads(accepted_content(base, head, AUTHORITY))['gektaLegacyBootIdentityEvidence']
+    manifest = json.loads(accepted_content(base, head, AUTHORITY))[AUTHORITY_KEY]
     if (manifest['schemaVersion'] != 'platform-v7.concurrent-scope.v1' or
             manifest['status'] != 'active' or manifest['branch'] != SOURCE_BRANCH or
             manifest['productionInvocationAuthorized'] is not False or manifest['releaseAuthorized'] is not False or
@@ -155,6 +175,84 @@ def build_identity_payload(accepted_source, payload_script):
     sys.stdout.write(Path(payload_script).read_text())
 
 
+def docker_read(*args):
+    command = ['/usr/bin/docker', '--config', '/proc/self/fd', '--host', 'unix:///var/run/docker.sock', *args]
+    deadline = time.monotonic() + 4
+    maximum = 64 * 1024
+    output = bytearray()
+    child = subprocess.Popen(command, cwd='/', env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'},
+                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        with selectors.DefaultSelector() as selector:
+            selector.register(child.stdout, selectors.EVENT_READ)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    raise ValueError('Docker observation deadline')
+                block = os.read(child.stdout.fileno(), min(8192, maximum + 1 - len(output)))
+                if not block:
+                    break
+                output.extend(block)
+                if len(output) > maximum:
+                    raise ValueError('Docker observation output')
+        if child.wait(timeout=max(0, deadline - time.monotonic())) != 0:
+            raise ValueError('Docker observation refused')
+    finally:
+        child.stdout.close()
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=1)
+    return output.decode('utf-8', errors='strict').splitlines()
+
+
+def api_binding():
+    ids = docker_read('ps', '-q', '--no-trunc', '--filter', 'label=com.docker.compose.service=api')
+    if len(ids) != 1 or re.fullmatch(r'[a-f0-9]{64}', ids[0]) is None:
+        raise ValueError('ambiguous running API')
+    binding = docker_read('container', 'inspect', '--format', '{{.Image}} {{.State.Running}}', ids[0])
+    if len(binding) != 1 or re.fullmatch(r'sha256:[a-f0-9]{64} true', binding[0]) is None:
+        raise ValueError('invalid running API binding')
+    return ids[0], binding[0].split()[0]
+
+
+def api_image_result(parts):
+    if len(parts) != 5 or parts[:3] != [API_LOCAL_ID, 'linux', 'amd64']:
+        return 'BASELINE_CHANGED'
+    layers = json.loads(parts[3])
+    config = json.loads(parts[4])
+    if not isinstance(config, dict) or not isinstance(config.get('Labels'), dict):
+        return 'BASELINE_CHANGED'
+    labels = config['Labels']
+    if labels.get('org.opencontainers.image.revision') != API_REVISION:
+        return 'BASELINE_CHANGED'
+    if (not isinstance(layers, list) or len(layers) != API_ROOTFS_COUNT or
+            any(type(layer) is not str or re.fullmatch(r'sha256:[a-f0-9]{64}', layer) is None
+                for layer in layers)):
+        return 'ROOTFS_DIFFERENT'
+    layers_digest = hashlib.sha256(json.dumps(layers, separators=(',', ':')).encode('ascii')).hexdigest()
+    if layers_digest != API_ROOTFS_SHA256:
+        return 'ROOTFS_DIFFERENT'
+    defaults = {key: config.get(key, API_FIELD_DEFAULTS.get(key)) for key in API_DEFAULT_FIELDS}
+    encoded = json.dumps(defaults, ensure_ascii=True, sort_keys=True, separators=(',', ':')).encode('ascii')
+    if (hashlib.sha256(encoded).hexdigest() != API_DEFAULTS_SHA256 or
+            labels.get('org.opencontainers.image.source') != 'https://github.com/pachaninm-lab/pachanin-demo'):
+        return 'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT'
+    return 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'
+
+
+def observe_api_baseline():
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'NOT_PROVEN'
+    before = api_binding()
+    if before[1] != API_LOCAL_ID:
+        return 'BASELINE_CHANGED'
+    template = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
+    parts = docker_read('image', 'inspect', '--format', template, before[1])
+    if api_binding() != before:
+        return 'BASELINE_UNSTABLE'
+    return api_image_result(parts)
+
+
 def kernel_boot_entry(raw, boot_id):
     if len(raw) > JOURNAL_MAX_BYTES or not re.fullmatch(r'[0-9a-f]{32}', boot_id):
         raise ValueError('invalid journal input')
@@ -202,6 +300,7 @@ def reconcile(raw, started_ms, ended_ms):
 
 def self_test():
     from types import SimpleNamespace
+    from unittest.mock import patch
 
     boot_id = 'a' * 32
     entry = {'_BOOT_ID': boot_id, '_TRANSPORT': 'kernel', 'SYSLOG_FACILITY': '0',
@@ -233,7 +332,32 @@ def self_test():
         ('st_mode', stat.S_IFREG | 0o640, 'MODE'), ('st_nlink', 2, 'LINKS'), ('st_size', 64, 'SIZE'),
     ):
         assert file_identity(SimpleNamespace(**{**info, key: value}), 'KEY', 65, 65) == 'KEY_' + reason
-    print('PASS: 21 local boot and identity cases')
+    layers = ['sha256:' + 'f' * 64]
+    image_source = 'https://github.com/pachaninm-lab/pachanin-demo'
+    config = {'Labels': {'org.opencontainers.image.revision': API_REVISION,
+                         'org.opencontainers.image.source': image_source}, 'Env': ['FIXTURE=1']}
+    defaults = {key: config.get(key, API_FIELD_DEFAULTS.get(key)) for key in API_DEFAULT_FIELDS}
+    pins = {'API_ROOTFS_COUNT': 1,
+            'API_ROOTFS_SHA256': hashlib.sha256(json.dumps(layers, separators=(',', ':')).encode()).hexdigest(),
+            'API_DEFAULTS_SHA256': hashlib.sha256(json.dumps(defaults, sort_keys=True, separators=(',', ':')).encode()).hexdigest()}
+    fixture = [API_LOCAL_ID, 'linux', 'amd64', json.dumps(layers), json.dumps(config)]
+    with patch.dict(globals(), pins):
+        assert api_image_result(fixture) == 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'
+        assert api_image_result(fixture[:4]) == 'BASELINE_CHANGED'
+        assert api_image_result([fixture[0], 'linux', 'arm64', *fixture[3:]]) == 'BASELINE_CHANGED'
+        assert api_image_result([*fixture[:3], json.dumps([]), fixture[4]]) == 'ROOTFS_DIFFERENT'
+        assert api_image_result([*fixture[:3], json.dumps(['sha256:' + 'a' * 64]), fixture[4]]) == 'ROOTFS_DIFFERENT'
+        assert api_image_result([*fixture[:4], json.dumps({**config, 'Env': ['FIXTURE=2']})]) == 'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT'
+        bad_source = {**config['Labels'], 'org.opencontainers.image.source': 'https://example.invalid/other'}
+        assert api_image_result([*fixture[:4], json.dumps({**config, 'Labels': bad_source})]) == 'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT'
+        assert api_image_result([*fixture[:4], json.dumps({**config, 'StopTimeout': 0})]) == 'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT'
+        assert api_image_result([*fixture[:4], json.dumps({**config, 'ArgsEscaped': False})]) == 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'
+    binding = ('1' * 64, API_LOCAL_ID)
+    with (patch('os.getuid', return_value=0), patch('os.geteuid', return_value=0),
+          patch.dict(globals(), {'api_binding': iter((binding, ('2' * 64, API_LOCAL_ID))).__next__,
+                                 'docker_read': lambda *_: fixture})):
+        assert observe_api_baseline() == 'BASELINE_UNSTABLE'
+    print('PASS: 31 local boot, identity and API content cases')
 
 
 if __name__ == '__main__':
@@ -242,6 +366,8 @@ if __name__ == '__main__':
             read_guest()
         elif sys.argv[1:] == ['--identity']:
             print(observe_identity(*globals()['IDENTITY_SPEC']))
+        elif sys.argv[1:] == ['--api-baseline']:
+            print(observe_api_baseline())
         elif sys.argv[1:] == ['--self-test']:
             self_test()
         elif len(sys.argv) == 4 and sys.argv[1] == '--verify-pr':
@@ -252,6 +378,8 @@ if __name__ == '__main__':
             build_identity_payload(sys.argv[2], sys.argv[3])
         elif len(sys.argv) == 3 and sys.argv[1] == '--validate-identity':
             print(sys.argv[2] if sys.argv[2] in IDENTITY_CODES else 'NOT_PROVEN')
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api':
+            print(sys.argv[2] if sys.argv[2] in API_CODES else 'NOT_PROVEN')
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
