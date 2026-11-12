@@ -47,6 +47,8 @@ PRESERVED = (
     ('cold-bindings-preservation-20261023', 'e1a618c49c2ba10498e17f8a139272412bd1055a28de0d42ee639a5187bc6e8c'),
 )
 MAX_OUTPUT = 4 * 1024 * 1024
+MAX_COMPOSE_FILE_ENTRIES = 128
+MAX_DISTINCT_COMPOSE_FILES = 16
 MAX_BASELINE_ARCHIVE = 2 * 1024**3
 BASELINE_ARCHIVE_SCHEMA = 'pc.api-only-baseline-archive.v1'
 BASELINE_ARCHIVE = 'baseline-image.tar'
@@ -1594,12 +1596,17 @@ class Host:
         check = directory(working)
         os.close(check)
         paths = [part.strip() for part in files.split(',')]
-        demand(0 < len(paths) <= 16 and len(paths) == len(set(paths)), 'COMPOSE_FILE_SET')
+        demand(0 < len(paths) <= MAX_COMPOSE_FILE_ENTRIES and all(paths), 'COMPOSE_FILE_ENTRIES')
         paths = [p if p.startswith('/') else str(Path(working) / p) for p in paths]
+        demand(len(set(paths)) <= MAX_DISTINCT_COMPOSE_FILES, 'COMPOSE_DISTINCT_FILE_SET')
         override = str(Path(working) / OVERRIDE)
-        paths = [p for p in paths if p != override]
+        if override in paths:
+            demand(paths.count(override) == 1 and paths[-1] == override, 'COMPOSE_MANAGED_OVERRIDE_POSITION')
+            paths.pop()
+        demand(paths, 'COMPOSE_FILE_ENTRIES')
         inputs = {}
-        for path in paths:
+        # Read each file once, but pass the full ordered list to Compose for model comparison.
+        for path in dict.fromkeys(paths):
             record = file_read(path)
             raw = record['bytes']
             validate_compose_input_profile(raw)
