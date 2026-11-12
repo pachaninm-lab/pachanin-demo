@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "branch": "ops/production-api-only-archive-rollback-20261112",
+  "allowedPaths": [
+    "scripts/release/api-only-release-controller.py",
+    "scripts/release/test-api-only-release-controller.py",
+    ".github/workflows/production-api-only-release.yml",
+    "docs/ops/production-api-only-release.md"
+  ],
+  "sourcePins": [
+    {
+      "path": "scripts/release/api-only-release-controller.py",
+      "mode": "100644",
+      "afterBlob": "69c6296eb4ab1e52801b06dd21c62559bf74a58a",
+      "bytes": 112380,
+      "sha256": "6eabde85411c13752ea6e6d2a0736cd060c2753f68668b8c20dd80c245828943",
+      "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
+    },
+    {
+      "path": "scripts/release/test-api-only-release-controller.py",
+      "mode": "100644",
+      "afterBlob": "ea8c12d393db06193aa94bfe11078eb17ef39609",
+      "bytes": 66626,
+      "sha256": "b1eff3ea937ac029819113cbd8646f3516b483916af1cc858914222685038e2d",
+      "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
+    },
+    {
+      "path": ".github/workflows/production-api-only-release.yml",
+      "mode": "100644",
+      "afterBlob": "75f4157bf30bfb2fcbb4b3502acdfcac7d5b9d48",
+      "bytes": 29762,
+      "sha256": "c14d9646dafc187b656b77b6971fe33e6c4d39d84eaae87eb76b17b191f3792c",
+      "beforeBlob": "74a4345b57973e1baceece3ac1124cf2ac06535d"
+    },
+    {
+      "path": "docs/ops/production-api-only-release.md",
+      "mode": "100644",
+      "afterBlob": "9f676cbae0e94f2ea49ffd44dd00ee052ef969a1",
+      "bytes": 9488,
+      "sha256": "2b96f0bd86830362205298f78e7774cb311a2d31cb9b0af31587e6ecd6a97eb0",
+      "beforeBlob": "7c4b724763efe2a578730aeace41a267c01c5a9b"
+    }
+  ],
+  "purpose": "Preserve the immutable registry proof and admit a same-run private containerd image archive as a verified recovery baseline for the legacy API image.",
+  "evidenceRun": 43167549986,
+  "evidenceResult": "EXACT_BASELINE_IMAGE_RESTORED",
+  "productionInvocationAuthorized": false,
+  "productionMutationAuthorized": false,
+  "releaseAuthorized": false,
+  "masterCredit": 0
+}
