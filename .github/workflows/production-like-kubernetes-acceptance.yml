@@ -42,7 +42,7 @@ jobs:
     name: Exact-head source and scope preflight
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}
     permissions:
       contents: read
     env:
@@ -151,6 +151,7 @@ jobs:
                       'product/r1-role-mode-consumer-20260921',
                       'ops/ir20-api-database-binding-20260919',
                       'ops/production-api-only-release-20261101',
+                      'ops/production-api-only-archive-rollback-20261112',
                       'fix/gekta-lexical-context-20261101',
                       'fix/gekta-latest-history-20261101',
                       'fix/gekta-lab-relevance-20261101',
@@ -168,7 +169,7 @@ jobs:
                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
                                   bool(own_repository) and
                                   os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)
-                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009'}
+                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'ops/production-api-only-archive-rollback-20261112', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009'}
                   measured_budget = owned_budget and os.environ.get('GITHUB_HEAD_REF', '') in measured_budget_refs
                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),
                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]
