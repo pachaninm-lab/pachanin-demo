@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiBaselineRollbackRehearsal'
+AUTHORITY_KEY = 'gektaApiRunningImageArchiveRehearsal'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -36,6 +36,8 @@ IDENTITY_CODES = {'MATCH', 'PROCESS_UID', 'NOATIME_UNAVAILABLE', 'PRIVATE_PARENT
 API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
              'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
 API_ROOTFS_COUNT = 25
+IMAGE_METADATA_FORMAT = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
+ARCHIVE_LIMIT = 2 * 1024**3
 API_DEFAULT_FIELDS = (
     'User', 'ExposedPorts', 'Env', 'Entrypoint', 'Cmd', 'WorkingDir', 'ArgsEscaped',
     'Volumes', 'StopSignal', 'StopTimeout', 'Healthcheck', 'Shell', 'OnBuild',
@@ -285,11 +287,39 @@ def observe_api_baseline(baseline):
     before = api_binding()
     if before[1] != baseline['observedImageId']:
         return 'BASELINE_CHANGED'
-    template = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
-    parts = docker_read('image', 'inspect', '--format', template, before[1])
+    parts = docker_read('image', 'inspect', '--format', IMAGE_METADATA_FORMAT, before[1])
     if api_binding() != before:
         return 'BASELINE_UNSTABLE'
     return api_image_result(parts, baseline)
+
+
+def export_api_archive(baseline):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        raise ValueError('Docker image export requires the protected host identity')
+    before = api_binding()
+    if before[1] != baseline['observedImageId']:
+        raise ValueError('running API image changed')
+    parts = docker_read('image', 'inspect', '--format', IMAGE_METADATA_FORMAT, before[1])
+    if api_image_result(parts, baseline) != 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH':
+        raise ValueError('running API content differs from the accepted image')
+    subprocess.run(['/usr/bin/docker', '--config', '/proc/self/fd', '--host', 'unix:///var/run/docker.sock',
+                    'image', 'save', before[1]], cwd='/', env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'},
+                   stdin=subprocess.DEVNULL, stdout=sys.stdout.buffer, stderr=subprocess.DEVNULL,
+                   timeout=180, check=True)
+    if api_binding() != before:
+        raise ValueError('running API identity changed during export')
+
+
+def capture_api_archive(stream, target, limit=ARCHIVE_LIMIT):
+    total = 0
+    with open(target, 'xb') as archive:
+        while block := stream.read(min(1024 * 1024, limit + 1 - total)):
+            total += len(block)
+            if total > limit:
+                raise ValueError('image archive exceeds the size bound')
+            archive.write(block)
+    if total == 0:
+        raise ValueError('empty image archive')
 
 
 def kernel_boot_entry(raw, boot_id):
@@ -338,6 +368,8 @@ def reconcile(raw, started_ms, ended_ms):
 
 
 def self_test():
+    from io import BytesIO
+    from tempfile import TemporaryDirectory
     from types import SimpleNamespace
     from unittest.mock import patch
 
@@ -424,7 +456,39 @@ def self_test():
           patch.dict(globals(), {'api_binding': iter((binding, ('2' * 64, image_id))).__next__,
                                  'docker_read': lambda *_: fixture})):
         assert observe_api_baseline(baseline) == 'BASELINE_UNSTABLE'
-    print('PASS: 41 local boot, identity, API content and image recovery cases')
+    with TemporaryDirectory() as folder:
+        target = Path(folder) / 'api.tar'
+        capture_api_archive(BytesIO(b'abcd'), target, limit=4)
+        assert target.read_bytes() == b'abcd'
+        for data, path in ((b'', Path(folder) / 'empty'), (b'12345', Path(folder) / 'large'), (b'ok', target)):
+            try:
+                capture_api_archive(BytesIO(data), path, limit=4)
+            except (ValueError, FileExistsError):
+                pass
+            else:
+                raise AssertionError('invalid archive input was accepted')
+    for uid, last_binding, content, expected_calls, should_fail in (
+        (1000, binding, 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH', 0, True),
+        (0, binding, 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH', 1, False),
+        (0, ('2' * 64, image_id), 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH', 1, True),
+        (0, binding, 'ROOTFS_DIFFERENT', 0, True),
+    ):
+        observations = iter((binding, last_binding))
+        with (patch('os.getuid', return_value=uid), patch('os.geteuid', return_value=uid),
+              patch('subprocess.run') as execute,
+              patch.dict(globals(), {'api_binding': observations.__next__, 'docker_read': lambda *_: [],
+                                     'api_image_result': lambda *_: content})):
+            try:
+                export_api_archive(baseline)
+            except ValueError:
+                assert should_fail
+            else:
+                assert not should_fail
+            assert execute.call_count == expected_calls
+            if expected_calls:
+                assert execute.call_args.args[0][-3:] == ['image', 'save', image_id]
+                assert execute.call_args.kwargs['timeout'] == 180
+    print('PASS: 49 local boot, identity, API content and image recovery cases')
 
 
 if __name__ == '__main__':
@@ -435,6 +499,8 @@ if __name__ == '__main__':
             print(observe_identity(*globals()['IDENTITY_SPEC']))
         elif sys.argv[1:] == ['--api-baseline']:
             print(observe_api_baseline(api_baseline_spec(globals()['API_BASELINE'])))
+        elif sys.argv[1:] == ['--export-running-api-archive']:
+            export_api_archive(api_baseline_spec(globals()['API_BASELINE']))
         elif sys.argv[1:] == ['--self-test']:
             self_test()
         elif len(sys.argv) == 4 and sys.argv[1] == '--verify-pr':
@@ -448,6 +514,8 @@ if __name__ == '__main__':
         elif len(sys.argv) == 3 and sys.argv[1] == '--rollback-rehearsal-inputs':
             ref = sys.argv[2]
             print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
+        elif len(sys.argv) == 3 and sys.argv[1] == '--capture-api-image-archive':
+            capture_api_archive(sys.stdin.buffer, sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--verify-restored-api-image':
             ref = sys.argv[2]
             limit = 64 * 1024
