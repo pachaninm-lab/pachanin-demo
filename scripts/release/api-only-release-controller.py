@@ -797,6 +797,48 @@ def compose_structural_view(raw):
     return ''.join(output)
 
 
+def validate_compose_references(plain, raw):
+    operator = re.compile(r'(?<![A-Za-z0-9_./-])[&*][A-Za-z0-9_-]+')
+    if operator.search(plain) is None:
+        return
+    # Accept only bounded block anchors and whole mapping-value aliases.
+    # References in keys, nested reference graphs and indirect file paths stay closed.
+    value = re.compile(r'^( *)([A-Za-z_][A-Za-z0-9_.-]*): +([&*])([A-Za-z0-9_-]{1,64}) *$')
+    lines, raw_lines = plain.split('\n'), raw.split(b'\n')
+    demand(len(lines) == len(raw_lines), 'COMPOSE_REFERENCE_LINE_PROFILE')
+    anchors = set()
+    anchor_indent = None
+    anchor_size = 0
+    anchor_has_content = False
+    aliases = 0
+    for line, raw_line in zip(lines, raw_lines):
+        line = line.removesuffix('\r')
+        indent = len(line) - len(line.lstrip(' '))
+        significant = bool(line.strip())
+        if significant and anchor_indent is not None and indent <= anchor_indent:
+            demand(anchor_has_content, 'COMPOSE_ANCHOR_BLOCK_REQUIRED')
+            anchor_indent = None
+        if operator.search(line) is None:
+            if anchor_indent is not None:
+                anchor_has_content |= significant
+                anchor_size += len(raw_line) + 1
+                demand(anchor_size <= 16 * 1024, 'COMPOSE_ANCHOR_BLOCK_BOUND')
+            continue
+        match = value.fullmatch(line)
+        demand(match is not None and anchor_indent is None, 'COMPOSE_REFERENCE_POSITION')
+        _, key, kind, name = match.groups()
+        demand(key.lower() not in ('env_file', 'include', 'extends', 'label_file', 'secrets',
+                                   'configs', 'provider'), 'COMPOSE_REFERENCE_EXTERNAL_INPUT')
+        if kind == '&':
+            demand(name not in anchors and len(anchors) < 16, 'COMPOSE_ANCHOR_DEFINITION')
+            anchors.add(name)
+            anchor_indent, anchor_size, anchor_has_content = indent, 0, False
+        else:
+            demand(name in anchors and aliases < 8, 'COMPOSE_ALIAS_BOUND')
+            aliases += 1
+    demand(anchor_indent is None or anchor_has_content, 'COMPOSE_ANCHOR_BLOCK_REQUIRED')
+
+
 def validate_compose_input_profile(raw):
     """Admit literal block YAML only; reject hidden transitive inputs before rendering."""
     demand(type(raw) is bytes and 0<len(raw)<=1024*1024,'COMPOSE_INPUT_BOUND')
@@ -811,10 +853,9 @@ def validate_compose_input_profile(raw):
     # Values use captured explicit/default env files; env_file interpolation
     # itself is rejected by the separate literal parser.
     plain=re.sub(r'"(?:[^"\\\r\n]|\\.)*"|\'(?:[^\'\r\n]|\'\')*\'','""',text)
-    plain=re.sub(r'(?m)(?:^|\s)#.*$','',plain)
+    plain=re.sub(r'(?m)(?:^|[^\S\r\n])#.*$','',plain)
     plain=re.sub(r'\$\{[^{}\r\n]*\}','VALUE',plain)
-    demand(re.search(r'(?<![A-Za-z0-9_./-])[&*][A-Za-z0-9_-]+',plain) is None,
-           'COMPOSE_EXTERNAL_PROFILE')
+    validate_compose_references(plain, raw)
     # Empty reset/override collections contain no transitive input.
     plain=re.sub(r'\[\s*\]|\{\s*\}','',plain)
     demand(not any(v in plain for v in '{}[]'),'COMPOSE_EXTERNAL_PROFILE')

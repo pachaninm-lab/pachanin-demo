@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "93d76cb49c53e7ddde7375ee1272487efe19b202",
-      "bytes": 113900,
-      "sha256": "e40cb4f59da587261423a5b9d3551fd41fa47320f7af83fae00a0fec675d1bd6",
+      "afterBlob": "fbc923086a5de62a968717ea219cdb97e5fa8c92",
+      "bytes": 115938,
+      "sha256": "c2f7d822f17a032a072b7b8320468d14c5ed840c6550bf2b7c9dbe9009e100a2",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "28d34804ecd08e8449d4966534cf818624449c71",
-      "bytes": 72351,
-      "sha256": "18444b3a3d87c580c31611d974795c82c61186af70669546093e614480657bb9",
+      "afterBlob": "6e575ce454ac2f5476f5f425165b7ec4cd5bb5a8",
+      "bytes": 73845,
+      "sha256": "d57b7387eb50614501b4cb4231c91a70023cc1d2f9f6f663ce83ec071a491cf8",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -54,5 +54,11 @@
     "evidenceResult": "COMPOSE_FILE_SET",
     "sourceBase": "886dbb3b603142b404826dfa58bf185a0a77f0d9",
     "purpose": "Preserve the exact order of repeated ordinary Compose inputs and retain the original limit of sixteen distinct protected files. Keep managed override position and effective model checks."
+  },
+  "composeReferenceEvidence": {
+    "evidenceRun": 43217365893,
+    "evidenceResult": "PROFILE_ANCHOR_OR_ALIAS",
+    "sourceBase": "70b0363f3788e5f4f90daa7bca6703310c09de2d",
+    "purpose": "Admit only bounded block anchor definitions and whole mapping-value aliases. Keep YAML merge keys, indirect external files, nested references and other unsupported syntax closed."
   }
 }
