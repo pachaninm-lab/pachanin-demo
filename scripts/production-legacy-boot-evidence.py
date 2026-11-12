@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposeSyntaxEvidence'
+AUTHORITY_KEY = 'gektaApiComposeReferencePositionEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -37,10 +37,10 @@ API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
              'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
 API_ROOTFS_COUNT = 25
 COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
-COMPOSE_CONTROLLER_BLOB = '93d76cb49c53e7ddde7375ee1272487efe19b202'
+COMPOSE_CONTROLLER_BLOB = 'fbc923086a5de62a968717ea219cdb97e5fa8c92'
 COMPOSE_PROFILE_CODES = (
     'PROFILE_TAB_INDENT', 'PROFILE_ENCODED_INPUT', 'PROFILE_INDIRECT_KEY', 'PROFILE_DIRECTIVE',
-    'PROFILE_ANCHOR_OR_ALIAS', 'PROFILE_FLOW_COLLECTION', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
+    'PROFILE_FLOW_COLLECTION', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
 )
 IMAGE_METADATA_FORMAT = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
 ARCHIVE_LIMIT = 2 * 1024**3
@@ -130,9 +130,32 @@ def build_api_baseline_payload(ref):
     sys.stdout.write(source)
 
 
+REFERENCE_POSITION_CODES = (
+    'PROFILE_REF_NESTED', 'PROFILE_REF_SEQUENCE_ALIAS', 'PROFILE_REF_SEQUENCE_ANCHOR',
+    'PROFILE_REF_INLINE_ANCHOR', 'PROFILE_REF_KEY_OPERATOR', 'PROFILE_REF_KEY_FORMAT',
+    'PROFILE_REF_EMBEDDED_OR_OTHER',
+)
+
+
+def reference_position_code(line, anchor_indent):
+    if anchor_indent is not None:
+        return 'PROFILE_REF_NESTED'
+    if re.match(r'^ *- +\*[A-Za-z0-9_-]+ *$', line):
+        return 'PROFILE_REF_SEQUENCE_ALIAS'
+    if re.match(r'^ *- +&[A-Za-z0-9_-]+(?: +.*)?$', line):
+        return 'PROFILE_REF_SEQUENCE_ANCHOR'
+    if re.match(r'^ *[^:]+: +&[A-Za-z0-9_-]+ +\S', line):
+        return 'PROFILE_REF_INLINE_ANCHOR'
+    if re.match(r'^ *[&*]', line):
+        return 'PROFILE_REF_KEY_OPERATOR'
+    if re.match(r'^ *[^:]+: +[&*][A-Za-z0-9_-]+ *$', line):
+        return 'PROFILE_REF_KEY_FORMAT'
+    return 'PROFILE_REF_EMBEDDED_OR_OTHER'
+
+
 def compose_profile_source(source):
     selected_names = {'ReleaseError', 'demand', 'directory', 'file_read', 'compose_structural_view',
-                      'validate_compose_input_profile', 'declared_env_files'}
+                      'validate_compose_references', 'validate_compose_input_profile', 'declared_env_files'}
     selected = [node for node in ast.parse(source).body if
                 isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in selected_names]
     if len(selected) != len(selected_names):
@@ -145,6 +168,13 @@ def compose_profile_source(source):
         raise ValueError('unknown pinned profile layout')
     for node, code in zip(sites, COMPOSE_PROFILE_CODES):
         node.value = code
+    position = [node for node in ast.walk(module) if
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and
+                node.func.id == 'demand' and len(node.args) == 2 and
+                isinstance(node.args[1], ast.Constant) and node.args[1].value == 'COMPOSE_REFERENCE_POSITION']
+    if len(position) != 1:
+        raise ValueError('unknown pinned reference-position check')
+    position[0].args[1] = ast.parse('reference_position_code(line, anchor_indent)', mode='eval').body
     return ast.unparse(module)
 
 
@@ -365,7 +395,7 @@ def observe_api_compose_shape(baseline):
 
 
 def validate_api_compose_profile(value):
-    return value if value in (*COMPOSE_PROFILE_CODES, 'PROFILE_COMPATIBLE', 'PROFILE_OTHER_UNSUPPORTED') else 'NOT_PROVEN'
+    return value if value in (*COMPOSE_PROFILE_CODES, *REFERENCE_POSITION_CODES, 'PROFILE_COMPATIBLE', 'PROFILE_OTHER_UNSUPPORTED') else 'NOT_PROVEN'
 
 
 def classify_api_compose_profile(working, files, profile):
@@ -375,7 +405,8 @@ def classify_api_compose_profile(working, files, profile):
     total, _, duplicates, empty, _ = map(int, shape.split('_')[1:])
     if total > 128 or total - duplicates > 16 or empty:
         return 'NOT_PROVEN'
-    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re}
+    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re,
+                 'reference_position_code': reference_position_code}
     exec(compile(profile, '<pinned-api-compose-profile>', 'exec'), namespace)
     try:
         for path in dict.fromkeys(str(Path(working) / value.strip()) for value in files.split(',')):
@@ -385,7 +416,7 @@ def classify_api_compose_profile(working, files, profile):
         reason = str(error)
         if reason.startswith(('DIRECTORY_', 'PROTECTED_FILE_')):
             return 'NOT_PROVEN'
-        return reason if reason in COMPOSE_PROFILE_CODES else 'PROFILE_OTHER_UNSUPPORTED'
+        return reason if validate_api_compose_profile(reason) != 'NOT_PROVEN' else 'PROFILE_OTHER_UNSUPPORTED'
     except (OSError, UnicodeError):
         return 'NOT_PROVEN'
     return 'PROFILE_COMPATIBLE'
@@ -531,7 +562,14 @@ def self_test():
         (b'services:\n  api:\n    image: fixture\n', 'PROFILE_COMPATIBLE'),
         (b'services:\n\tapi: fixture\n', 'PROFILE_TAB_INDENT'),
         (b'include: private.yml\n', 'PROFILE_INDIRECT_KEY'),
-        (b'services:\n  api: &base\n', 'PROFILE_ANCHOR_OR_ALIAS'),
+        (b'x-block: &base\n  KEY: fixture\nservices:\n  api:\n    environment: *base\n', 'PROFILE_COMPATIBLE'),
+        (b'x-block: &base\n  KEY: fixture\n  SUB: *base\n', 'PROFILE_REF_NESTED'),
+        (b'x-block: &base\n  KEY: fixture\nvalues:\n  - *base\n', 'PROFILE_REF_SEQUENCE_ALIAS'),
+        (b'values:\n  - &base fixture\n', 'PROFILE_REF_SEQUENCE_ANCHOR'),
+        (b'x-value: &base fixture\n', 'PROFILE_REF_INLINE_ANCHOR'),
+        (b'*base: fixture\n', 'PROFILE_REF_KEY_OPERATOR'),
+        (b'"quoted key": *base\n', 'PROFILE_REF_KEY_FORMAT'),
+        (b'x-value: echo *fixture\n', 'PROFILE_REF_EMBEDDED_OR_OTHER'),
         (b'services: {api: {image: fixture}}\n', 'PROFILE_FLOW_COLLECTION'),
         (b'services:\n  api: !unrecognized fixture\n', 'PROFILE_TAG'),
     ):
