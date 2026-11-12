@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposeReferencePositionEvidence'
+AUTHORITY_KEY = 'gektaApiComposePost6178Evidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -37,7 +37,7 @@ API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
              'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
 API_ROOTFS_COUNT = 25
 COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
-COMPOSE_CONTROLLER_BLOB = 'fbc923086a5de62a968717ea219cdb97e5fa8c92'
+COMPOSE_CONTROLLER_BLOB = '9c2f8f6f171a0fcabf20a34fa479851e9c70054d'
 COMPOSE_PROFILE_CODES = (
     'PROFILE_TAB_INDENT', 'PROFILE_ENCODED_INPUT', 'PROFILE_INDIRECT_KEY', 'PROFILE_DIRECTIVE',
     'PROFILE_FLOW_COLLECTION', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
@@ -132,7 +132,8 @@ def build_api_baseline_payload(ref):
 
 REFERENCE_POSITION_CODES = (
     'PROFILE_REF_NESTED', 'PROFILE_REF_SEQUENCE_ALIAS', 'PROFILE_REF_SEQUENCE_ANCHOR',
-    'PROFILE_REF_INLINE_ANCHOR', 'PROFILE_REF_KEY_OPERATOR', 'PROFILE_REF_KEY_FORMAT',
+    'PROFILE_REF_INLINE_ANCHOR', 'PROFILE_REF_INLINE_BLOCK_SCALAR', 'PROFILE_REF_INLINE_FLOW',
+    'PROFILE_REF_INLINE_TAG', 'PROFILE_REF_KEY_OPERATOR', 'PROFILE_REF_KEY_FORMAT',
     'PROFILE_REF_EMBEDDED_OR_OTHER',
 )
 
@@ -144,7 +145,15 @@ def reference_position_code(line, anchor_indent):
         return 'PROFILE_REF_SEQUENCE_ALIAS'
     if re.match(r'^ *- +&[A-Za-z0-9_-]+(?: +.*)?$', line):
         return 'PROFILE_REF_SEQUENCE_ANCHOR'
-    if re.match(r'^ *[^:]+: +&[A-Za-z0-9_-]+ +\S', line):
+    inline = re.match(r'^ *[^:]+: +&[A-Za-z0-9_-]+ +(?P<value>\S.*)$', line)
+    if inline:
+        value = inline['value']
+        if value.startswith(('|', '>')):
+            return 'PROFILE_REF_INLINE_BLOCK_SCALAR'
+        if value.startswith(('[', '{')):
+            return 'PROFILE_REF_INLINE_FLOW'
+        if value.startswith('!'):
+            return 'PROFILE_REF_INLINE_TAG'
         return 'PROFILE_REF_INLINE_ANCHOR'
     if re.match(r'^ *[&*]', line):
         return 'PROFILE_REF_KEY_OPERATOR'
@@ -155,7 +164,8 @@ def reference_position_code(line, anchor_indent):
 
 def compose_profile_source(source):
     selected_names = {'ReleaseError', 'demand', 'directory', 'file_read', 'compose_structural_view',
-                      'validate_compose_references', 'validate_compose_input_profile', 'declared_env_files'}
+                      'compose_inline_scalar_anchor', 'validate_compose_references',
+                      'validate_compose_input_profile', 'declared_env_files'}
     selected = [node for node in ast.parse(source).body if
                 isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in selected_names]
     if len(selected) != len(selected_names):
@@ -566,7 +576,13 @@ def self_test():
         (b'x-block: &base\n  KEY: fixture\n  SUB: *base\n', 'PROFILE_REF_NESTED'),
         (b'x-block: &base\n  KEY: fixture\nvalues:\n  - *base\n', 'PROFILE_REF_SEQUENCE_ALIAS'),
         (b'values:\n  - &base fixture\n', 'PROFILE_REF_SEQUENCE_ANCHOR'),
-        (b'x-value: &base fixture\n', 'PROFILE_REF_INLINE_ANCHOR'),
+        (b'x-value: &base fixture\nother: *base\n', 'PROFILE_COMPATIBLE'),
+        (b'x-value: &base "fixture"\nother: *base\n', 'PROFILE_COMPATIBLE'),
+        (b'x-value: &base first\nother: *base trailing\n', 'PROFILE_REF_EMBEDDED_OR_OTHER'),
+        (b'x-value: &base first\nother: &next second: nested\n', 'PROFILE_REF_INLINE_ANCHOR'),
+        (b'x-value: &base |\n  fixture\n', 'PROFILE_REF_INLINE_BLOCK_SCALAR'),
+        (b'x-value: &base [fixture]\n', 'PROFILE_REF_INLINE_FLOW'),
+        (b'x-value: &base !custom fixture\n', 'PROFILE_REF_INLINE_TAG'),
         (b'*base: fixture\n', 'PROFILE_REF_KEY_OPERATOR'),
         (b'"quoted key": *base\n', 'PROFILE_REF_KEY_FORMAT'),
         (b'x-value: echo *fixture\n', 'PROFILE_REF_EMBEDDED_OR_OTHER'),
