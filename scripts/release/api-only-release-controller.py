@@ -49,6 +49,7 @@ PRESERVED = (
 MAX_OUTPUT = 4 * 1024 * 1024
 MAX_COMPOSE_FILE_ENTRIES = 128
 MAX_DISTINCT_COMPOSE_FILES = 16
+MAX_ORDERED_COMPOSE_BYTES = MAX_DISTINCT_COMPOSE_FILES * 1024 * 1024
 MAX_BASELINE_ARCHIVE = 2 * 1024**3
 BASELINE_ARCHIVE_SCHEMA = 'pc.api-only-baseline-archive.v1'
 BASELINE_ARCHIVE = 'baseline-image.tar'
@@ -1508,7 +1509,8 @@ class Host:
 
     def image(self, reference):
         demand(type(reference) is str and (IMAGE_ID.fullmatch(reference) or DIGEST.fullmatch(reference) or
-               re.fullmatch(r'ghcr\.io/pachaninm-lab/grainflow-api:sha-[0-9a-f]{7}', reference)), 'IMAGE_REFERENCE')
+               re.fullmatch(r'ghcr\.io/pachaninm-lab/grainflow-api:sha-[0-9a-f]{7}', reference) or
+               reference == getattr(self, 'legacy_baseline_ref', None)), 'IMAGE_REFERENCE')
         rows = closed_json(self.run(['image', 'inspect', reference]))
         demand(type(rows) is list and len(rows) == 1 and IMAGE_ID.fullmatch(rows[0].get('Id', '')),
                'IMAGE_IDENTITY')
@@ -1586,7 +1588,7 @@ class Host:
                                     k) for k in extra), 'UNEXPECTED_PRESERVATION_ADDITION')
         return digest(self.preserved_tokens)
 
-    def configure(self, api):
+    def configure(self, api, intent=None):
         labels = api['Config'].get('Labels') or {}
         project = labels.get('com.docker.compose.project', '')
         working = labels.get('com.docker.compose.project.working_dir', '')
@@ -1613,9 +1615,17 @@ class Host:
             inputs[path] = record
             for env_path in declared_env_files(raw, working):
                 inputs[env_path] = file_read(env_path)
+        demand(sum(len(inputs[path]['bytes']) for path in paths) <= MAX_ORDERED_COMPOSE_BYTES,
+               'COMPOSE_ORDERED_BYTES')
         default_env = str(Path(working) / '.env')
         inputs[default_env] = file_read(default_env, optional=True)
         self.project, self.working, self.override_path = project, working, override
+        self.legacy_baseline_ref = None
+        if (intent is not None and intent['baseline_publication']['schema'] == BASELINE_ARCHIVE_SCHEMA and
+                api.get('Image') == intent['baseline_image_id']):
+            original_reference = 'pc-crop-transfer/api:' + intent['baseline_sha']
+            if api['Config'].get('Image') == original_reference:
+                self.legacy_baseline_ref = original_reference
         self.compose = ['compose', '--project-directory', working, '--project-name', project]
         for path in paths:
             self.compose.extend(['-f', path])
@@ -1649,7 +1659,7 @@ class Host:
         demand(len(apis) == 1, 'CANONICAL_API_AMBIGUOUS')
         api = apis[0]
         if self.compose is None:
-            self.configure(api)
+            self.configure(api, intent)
             self.api_before = api
         labels = api['Config'].get('Labels') or {}
         demand(labels.get('com.docker.compose.project') == self.project, 'API_PROJECT_CHANGED')

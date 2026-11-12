@@ -219,6 +219,11 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(host.compose[5:][1::2], [*paths, managed])
         self.assertEqual([call.args[0] for call in read.call_args_list],
                          [primary, secondary, working + '/.env'])
+        with (patch.object(c, 'directory', return_value=21), patch.object(c.os, 'close'),
+              patch.object(c, 'file_read', return_value=model),
+              patch.object(c, 'MAX_ORDERED_COMPOSE_BYTES', len(model['bytes']) * 2)):
+            with self.assertRaisesRegex(c.ReleaseError, 'COMPOSE_ORDERED_BYTES'):
+                host.configure({'Config': {'Labels': labels}})
 
         for files, reason in (
             ([primary] * 129, 'COMPOSE_FILE_ENTRIES'),
@@ -236,6 +241,26 @@ class ControllerTests(unittest.TestCase):
                     with self.assertRaisesRegex(c.ReleaseError, reason):
                         host.configure({'Config': {'Labels': labels}})
                     read.assert_not_called()
+
+    def test_original_transfer_reference_is_bound_only_to_the_archived_baseline(self):
+        value = archive_intent()
+        reference = 'pc-crop-transfer/api:' + value['baseline_sha']
+        api = {'Image': value['baseline_image_id'], 'Config': {'Image': reference, 'Labels': {
+            'com.docker.compose.project': 'fixture', 'com.docker.compose.project.working_dir': '/fixture',
+            'com.docker.compose.project.config_files': '/fixture/compose.yml'}}}
+        host = object.__new__(c.Host)
+        host.run = lambda args: c.canonical([{'Id': value['baseline_image_id']}])
+        model = {'bytes': b'services:\n  api:\n    image: fixture\n'}
+        with (patch.object(c, 'directory', return_value=21), patch.object(c.os, 'close'),
+              patch.object(c, 'file_read', return_value=model)):
+            host.configure(api, value)
+            self.assertEqual(host.image(reference)['Id'], value['baseline_image_id'])
+            with self.assertRaisesRegex(c.ReleaseError, 'IMAGE_REFERENCE'):
+                host.image('pc-crop-transfer/api:' + '0' * 40)
+            for observed, proof in ((api, intent()), ({**api, 'Image': 'sha256:' + '0' * 64}, value)):
+                host.configure(observed, proof)
+                with self.assertRaisesRegex(c.ReleaseError, 'IMAGE_REFERENCE'):
+                    host.image(reference)
 
     def test_source_migrations_excludes_only_the_pinned_manual_rollback(self):
         with tempfile.TemporaryDirectory() as folder:
