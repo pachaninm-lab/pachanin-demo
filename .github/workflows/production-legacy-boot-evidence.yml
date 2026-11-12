@@ -104,6 +104,7 @@ jobs:
        github.event.comment.body == '/production observe-original19-identity current-main' ||
        github.event.comment.body == '/production observe-api-baseline-content current-main' ||
        github.event.comment.body == '/production observe-api-compose-shape current-main' ||
+       github.event.comment.body == '/production observe-api-compose-profile current-main' ||
        github.event.comment.body == '/production rehearse-running-api-store current-main') &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
@@ -147,12 +148,13 @@ jobs:
               elif .body == "/production observe-original19-identity current-main" then "identity"
               elif .body == "/production observe-api-baseline-content current-main" then "api"
               elif .body == "/production observe-api-compose-shape current-main" then "api-compose"
+              elif .body == "/production observe-api-compose-profile current-main" then "api-compose-profile"
               elif .body == "/production rehearse-running-api-store current-main" then "api-archive"
               else empty end
             ')"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-main "$GITHUB_SHA"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
-          [[ "$operation" == boot || "$operation" == identity || "$operation" == api || "$operation" == api-compose || "$operation" == api-archive ]]
+          [[ "$operation" == boot || "$operation" == identity || "$operation" == api || "$operation" == api-compose || "$operation" == api-compose-profile || "$operation" == api-archive ]]
           printf 'operation=%s\n' "$operation" >> "$GITHUB_OUTPUT"
 
       - name: Reuse the pinned production SSH resolver
@@ -209,12 +211,17 @@ jobs:
             payload="$RUNNER_TEMP/original19-identity-payload.py"
             python3 -I -S -B "$script" --build-identity-payload "$source" "$script" > "$payload"
             remote='/usr/bin/python3 -I -S -B - --identity'
-          elif [[ "$OPERATION" == api || "$OPERATION" == api-compose ]]; then
+          elif [[ "$OPERATION" == api || "$OPERATION" == api-compose || "$OPERATION" == api-compose-profile ]]; then
             umask 077
             payload="$RUNNER_TEMP/api-baseline-content-payload.py"
-            python3 -I -S -B "$script" --build-api-baseline-payload "$GITHUB_SHA" > "$payload"
-            remote='/usr/bin/python3 -I -S -B - --api-baseline'
-            if [[ "$OPERATION" == api-compose ]]; then remote='/usr/bin/python3 -I -S -B - --api-compose-shape'; fi
+            if [[ "$OPERATION" == api-compose-profile ]]; then
+              python3 -I -S -B "$script" --build-api-compose-profile-payload "$GITHUB_SHA" > "$payload"
+              remote='/usr/bin/python3 -I -S -B - --api-compose-profile'
+            else
+              python3 -I -S -B "$script" --build-api-baseline-payload "$GITHUB_SHA" > "$payload"
+              remote='/usr/bin/python3 -I -S -B - --api-baseline'
+              if [[ "$OPERATION" == api-compose ]]; then remote='/usr/bin/python3 -I -S -B - --api-compose-shape'; fi
+            fi
           else
             [[ "$OPERATION" == boot ]]
           fi
@@ -233,6 +240,8 @@ jobs:
                 receipt="$(python3 -I -S -B "$script" --validate-api "$response")"
               elif [[ "$OPERATION" == api-compose ]]; then
                 receipt="$(python3 -I -S -B "$script" --validate-api-compose-shape "$response")"
+              elif [[ "$OPERATION" == api-compose-profile ]]; then
+                receipt="$(python3 -I -S -B "$script" --validate-api-compose-profile "$response")"
               else
                 receipt="$(python3 -I -S -B "$script" --reconcile "$response" "$before" "$(date +%s%3N)")"
               fi
@@ -364,6 +373,9 @@ jobs:
           elif [[ "$OPERATION" == api-compose ]]; then
             result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api-compose-shape "$RESULT")"
             body="$(printf '## Read-only running API Compose list classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Entries, raw duplicates, normalized duplicates, empty entries, API-only overrides: `%s`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
+          elif [[ "$OPERATION" == api-compose-profile ]]; then
+            result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api-compose-profile "$RESULT")"
+            body="$(printf '## Read-only API Compose syntax classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Pinned profile result: `%s`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
           else
             result=NOT_PROVEN
             if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi
