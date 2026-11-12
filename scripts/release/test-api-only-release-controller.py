@@ -199,6 +199,35 @@ class FakeHost:
 
 
 class ControllerTests(unittest.TestCase):
+    def test_source_migrations_excludes_only_the_pinned_manual_rollback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def git(*args):
+                return subprocess.check_output(['/usr/bin/git', *args], cwd=root, text=True).strip()
+            def commit(message):
+                git('add', '--all')
+                git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', message)
+                return git('rev-parse', 'HEAD')
+            git('init', '-q')
+            rollback = root / c.MANUAL_ROLLBACK_SOURCE[0]
+            rollback.parent.mkdir(parents=True)
+            migration = rollback.with_name('migration.sql')
+            migration.write_bytes(b'SELECT 1;\n')
+            rollback.write_bytes(b'SELECT 2;\n')
+            (rollback.parent.parent / 'migration_lock.toml').write_text('provider = "postgresql"\n')
+            blob = git('hash-object', str(rollback))
+            with (patch.object(c, '__file__', str(root / 'scripts/release/api-only-release-controller.py')),
+                  patch.object(c, 'MANUAL_ROLLBACK_SOURCE', (c.MANUAL_ROLLBACK_SOURCE[0], blob))):
+                accepted = commit('known manual rollback beside forward SQL')
+                self.assertEqual(c.source_migrations(accepted), {rollback.parent.name: hashlib.sha256(migration.read_bytes()).hexdigest()})
+                rollback.write_bytes(b'SELECT 3;\n')
+                with self.assertRaisesRegex(c.ReleaseError, 'ROLLBACK_SOURCE_IDENTITY'):
+                    c.source_migrations(commit('changed manual rollback'))
+                rollback.write_bytes(b'SELECT 2;\n')
+                rollback.with_name('other.sql').write_bytes(b'SELECT 4;\n')
+                with self.assertRaisesRegex(c.ReleaseError, 'UNEXPECTED_MIGRATION_SOURCE'):
+                    c.source_migrations(commit('unadmitted extra SQL'))
+
     def test_archive_is_retained_under_the_lease_before_release_can_mutate_api(self):
         host = FakeHost('wrong_image')
         result = c.release(archive_intent(), host)
