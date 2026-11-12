@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "9c2f8f6f171a0fcabf20a34fa479851e9c70054d",
-      "bytes": 117352,
-      "sha256": "aee7cfa8a0aaf80bd8d00b1fa356d8124afac929d80bdfd82789eae3a16129ed",
+      "afterBlob": "e323ea5976b49ad73c3ab6abd69b61a38edcfc2c",
+      "bytes": 118550,
+      "sha256": "005f01ef2aaca1e8fb0975c7d221d319515d2f6dd6e5dd92d5e38329dd95dfa7",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "9ecef1e4735883a16fc36936c39dac4d843f04e4",
-      "bytes": 75307,
-      "sha256": "be87f61aedd2635448d90edc171a3c36d4abd1d4e4191165b618a7d602786638",
+      "afterBlob": "058da070c347734784fe603f7eaeb8d68768bc71",
+      "bytes": 77321,
+      "sha256": "3e4b27395a00852882f433f059f6b07017b1792d3d64d7b441fcf9ccc35d3e35",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -66,5 +66,11 @@
     "evidenceResult": "PROFILE_REF_INLINE_ANCHOR",
     "sourceBase": "acb6174e61c2e55ecc949aec60def2dc71a850be",
     "purpose": "Admit a bounded literal scalar after a mapping-value anchor on the same line. Continue rejecting external file aliases, malformed reference positions and multiline anchor scalars."
+  },
+  "composeInlineInterpolationEvidence": {
+    "evidenceRun": 43298493913,
+    "evidenceResult": "PROFILE_INLINE_INTERPOLATION",
+    "sourceBase": "8db6ab28de88f009f314baaeafc879d708b5e25b",
+    "purpose": "Admit bounded Compose variable substitutions in an inline anchored plain scalar while preserving the external-input, renderer equality and rollback guards."
   }
 }

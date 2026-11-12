@@ -797,13 +797,43 @@ def compose_structural_view(raw):
     return ''.join(output)
 
 
+COMPOSE_INLINE_ANCHOR_KEY = r"""[A-Za-z_][A-Za-z0-9_.-]*|"[A-Za-z_][A-Za-z0-9_.-]*"|'[A-Za-z_][A-Za-z0-9_.-]*'"""
+COMPOSE_INLINE_ANCHOR_PREFIX = (r'(?P<indent> *)(?P<item>- +)?(?P<key>' + COMPOSE_INLINE_ANCHOR_KEY +
+                                r'): +&(?P<name>[A-Za-z0-9_-]{1,64}) +')
+COMPOSE_INLINE_INTERPOLATION = re.compile(
+    r'(?<!\$)\$\{[A-Za-z_][A-Za-z0-9_]*(?::?[-+?](?:[A-Za-z0-9_./@%+=,!?$ \t-]|:(?![ \t]))*)?\}'
+)
+
+
+def compose_inline_interpolation_view(line):
+    """Mask bounded interpolation in an anchored plain value for syntax checks only."""
+    if '${' not in line or len(line) > 16 * 1024:
+        return line
+    anchor = re.match(COMPOSE_INLINE_ANCHOR_PREFIX, line)
+    if anchor is None:
+        return line
+    value = line[anchor.end():]
+    if not value or value[0] in ('"', "'"):
+        return line
+    comment = re.search(r'[ \t]+#', value)
+    end = comment.start() if comment else len(value)
+    scalar = value[:end]
+    for _ in range(8):
+        masked = COMPOSE_INLINE_INTERPOLATION.sub('VALUE', scalar)
+        if masked == scalar:
+            break
+        scalar = masked
+    if '${' in scalar:
+        return line
+    return line[:anchor.end()] + scalar + value[end:]
+
+
 def compose_inline_scalar_anchor(raw_line):
-    key = r"""[A-Za-z_][A-Za-z0-9_.-]*|"[A-Za-z_][A-Za-z0-9_.-]*"|'[A-Za-z_][A-Za-z0-9_.-]*'"""
     quoted = r""""(?:[^"\\\r\n]|\\.)*"|'(?:[^'\r\n]|'')*'"""
     literal = r'[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=,\${} \t-]*'
-    match = re.fullmatch(r'(?P<indent> *)(?P<item>- +)?(?P<key>' + key + r'): +'
-                         r'&(?P<name>[A-Za-z0-9_-]{1,64}) +(?P<scalar>' + quoted + '|' + literal +
-                         r')(?: +\#.*)? *', raw_line.decode('utf-8').removesuffix('\r'))
+    line = compose_inline_interpolation_view(raw_line.decode('utf-8').removesuffix('\r'))
+    match = re.fullmatch(COMPOSE_INLINE_ANCHOR_PREFIX + r'(?P<scalar>' + quoted + '|' + literal +
+                         r')(?: +\#.*)? *', line)
     if match is None:
         return None
     scalar = match['scalar'].rstrip()
@@ -880,7 +910,8 @@ def validate_compose_input_profile(raw):
     # Strip quoted scalars and comments before looking for YAML operators.
     # Values use captured explicit/default env files; env_file interpolation
     # itself is rejected by the separate literal parser.
-    plain=re.sub(r'"(?:[^"\\\r\n]|\\.)*"|\'(?:[^\'\r\n]|\'\')*\'','""',text)
+    reference_view = '\n'.join(compose_inline_interpolation_view(line) for line in text.split('\n'))
+    plain=re.sub(r'"(?:[^"\\\r\n]|\\.)*"|\'(?:[^\'\r\n]|\'\')*\'','""',reference_view)
     plain=re.sub(r'(?m)(?:^|[^\S\r\n])#.*$','',plain)
     plain=re.sub(r'\$\{[^{}\r\n]*\}','VALUE',plain)
     validate_compose_references(plain, raw)
