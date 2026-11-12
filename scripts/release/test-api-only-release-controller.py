@@ -2,7 +2,9 @@
 """Fault injection for the full release/rollback sequence; no production adapter execution."""
 import contextlib
 import copy
+import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -10,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 PATH = Path(__file__).with_name('api-only-release-controller.py')
 spec = importlib.util.spec_from_file_location('controller', PATH)
@@ -46,6 +49,17 @@ def intent():
                      'catalog_sha256':value['catalog_sha256'],'principal_sha256':copy.deepcopy(value['principal_sha256']),
                      'migrations':copy.deepcopy(value['migrations']),'isolated_cleanup':'VERIFIED',
                      'negative_cases':{'wrong_database':'PASS','principal_bypass':'PASS','policy_drift':'PASS','function_grant_drift':'PASS'}}
+    return value
+
+
+def archive_intent(archive=b'fixture image archive'):
+    value = intent()
+    value['baseline_publication'] = {
+        'schema': c.BASELINE_ARCHIVE_SCHEMA, 'image_id': value['baseline_image_id'],
+        'revision': value['baseline_sha'], 'source': c.CANONICAL_SOURCE,
+        'verification': 'EXACT_BASELINE_IMAGE_RESTORED', 'image_store': 'CONTAINERD',
+        'archive_sha256': hashlib.sha256(archive).hexdigest(), 'archive_bytes': len(archive),
+    }
     return value
 
 
@@ -134,6 +148,12 @@ class FakeHost:
 
     def journal_write(self, phase): self.event('journal:' + phase, mutation=True)
 
+    def retain_baseline_archive(self, value):
+        self.event('archive:retain', mutation=True)
+
+    def ensure_baseline_image(self, value, baseline):
+        self.event('archive:ensure', mutation=True)
+
     def backup(self, value, baseline):
         self.event('backup', mutation=True)
         return {'classification': 'CRITICAL_STATE_RESTORE_VERIFIED_NOT_RELEASE_ACCEPTANCE',
@@ -179,6 +199,116 @@ class FakeHost:
 
 
 class ControllerTests(unittest.TestCase):
+    def test_archive_is_retained_under_the_lease_before_release_can_mutate_api(self):
+        host = FakeHost('wrong_image')
+        result = c.release(archive_intent(), host)
+        self.assertEqual(result['result'], 'ROLLED_BACK_API_IMAGE_ONLY')
+        names = [name for name, _ in host.events]
+        for first, second in (('reserve', 'archive:retain'), ('archive:retain', 'backup'),
+                              ('archive:retain', 'write:target'), ('archive:ensure', 'write:baseline')):
+            self.assertLess(names.index(first), names.index(second))
+        self.assertTrue(all(held for name, held in host.events if name.startswith('archive:')))
+
+    def test_archive_retention_failure_stops_before_backup_pull_or_api_mutation(self):
+        host = FakeHost('archive:retain')
+        result = c.release(archive_intent(), host)
+        self.assertEqual(result['result'], 'HOLD')
+        names = [name for name, _ in host.events]
+        self.assertIn('journal:HOLD_BEFORE_API_MUTATION', names)
+        self.assertTrue({'backup', 'pull', 'write:target', 'recreate:1'}.isdisjoint(names))
+
+    def test_archive_preflight_never_retains_or_reloads_image(self):
+        host = FakeHost()
+        result = c.release(archive_intent(), host, preflight=True)
+        self.assertEqual(result['result'], 'PREFLIGHT_ONLY')
+        self.assertFalse(any(name.startswith('archive:') for name, _ in host.events))
+
+    def test_archive_proof_is_closed_and_bound_to_image_revision_size_and_backend(self):
+        c.validate_intent(archive_intent(), 1000)
+        invalid = {'image_id': 'sha256:' + '0' * 64, 'revision': '0' * 40, 'image_store': 'CLASSIC',
+                   'archive_sha256': 'bad', 'archive_bytes': c.MAX_BASELINE_ARCHIVE + 1,
+                   'verification': 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH', 'extra': True}
+        for key, value in invalid.items():
+            candidate = archive_intent()
+            candidate['baseline_publication'][key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(c.ReleaseError, 'BASELINE_ARCHIVE_NOT_PROVEN'):
+                c.validate_intent(candidate, 1000)
+
+    def test_runner_proof_checks_actual_private_file_hash_and_refuses_tagged_archive(self):
+        data = b'fixture image archive'
+        proof = archive_intent(data)['baseline_publication']
+        observed = {'image_id': proof['image_id'], 'revision': proof['revision'], 'registry_digests': None}
+        restored = {'result': proof['verification'], 'store': proof['image_store'],
+                    'image_id': proof['image_id'], 'repo_tags': None}
+        with tempfile.TemporaryDirectory() as root:
+            archive = Path(root) / 'fixture.tar'
+            archive.write_bytes(data)
+            archive.chmod(0o600)
+            self.assertEqual(c.acquire_baseline_archive(observed, archive, restored), proof)
+            with self.assertRaisesRegex(c.ReleaseError, 'BASELINE_ARCHIVE_REHEARSAL_NOT_PROVEN'):
+                c.acquire_baseline_archive(observed, archive, {**restored, 'repo_tags': ['other/image:tag']})
+            with self.assertRaisesRegex(c.ReleaseError, 'BASELINE_REGISTRY_PROOF_REQUIRED'):
+                c.acquire_baseline_archive({**observed, 'registry_digests': [intent()['api_digest']]}, archive, restored)
+            archive.chmod(0o644)
+            with self.assertRaisesRegex(c.ReleaseError, 'BASELINE_ARCHIVE_FILE_PROFILE'):
+                c.acquire_baseline_archive(observed, archive, restored)
+
+    def test_archive_writer_rejects_partial_extra_and_modified_bytes_without_committing(self):
+        data = b'fixture image archive'
+        proof = archive_intent(data)['baseline_publication']
+        privileged = os.geteuid() == 0
+        with tempfile.TemporaryDirectory(dir='/root' if privileged else None) as root, contextlib.ExitStack() as stack:
+            if not privileged:
+                stack.enter_context(patch.object(c, 'directory', lambda _: os.open(root, os.O_RDONLY | os.O_DIRECTORY)))
+                stack.enter_context(patch.object(c.os, 'fchown'))
+            for payload, code in ((data[:-1], 'TRUNCATED'), (data+b'!', 'EXTRA_BYTES'),
+                                  (b'!' + data[1:], 'DIGEST_MISMATCH')):
+                with self.subTest(code=code), self.assertRaisesRegex(c.ReleaseError, 'BASELINE_ARCHIVE_' + code):
+                    c.retain_archive(io.BytesIO(payload), root, proof, 3)
+                self.assertEqual(list(Path(root).iterdir()), [])
+            c.retain_archive(io.BytesIO(data), root, proof, 3)
+            committed = Path(root) / c.BASELINE_ARCHIVE
+            self.assertEqual(committed.read_bytes(), data)
+            self.assertEqual(committed.stat().st_mode & 0o777, 0o600)
+            if privileged:
+                self.assertEqual((committed.stat().st_uid, committed.stat().st_gid), (0, 0))
+            with self.assertRaises(FileExistsError):
+                c.retain_archive(io.BytesIO(data), root, proof, 3)
+            self.assertEqual(list(Path(root).iterdir()), [committed])
+
+    def test_rollback_imports_only_when_image_is_missing_and_hash_is_proven(self):
+        value = archive_intent()
+        image_id = value['baseline_image_id']
+        host = object.__new__(c.Host)
+        host.journal_path = '/root/fixture'
+        host.assert_archive_store = lambda: None
+        host.assert_baseline_publication = lambda current, baseline: self.assertEqual(baseline['image_id'], image_id)
+        for present in (False, True):
+            calls = []
+            def execute(args, **kwargs):
+                calls.append(args[:2])
+                return image_id.encode() + b'\n' if present else b''
+            host.run = execute
+            with patch.object(c, 'protected_sha256') as verified:
+                host.ensure_baseline_image(value, {'image_id': image_id})
+            self.assertEqual(calls, [['image', 'ls']] if present else [['image', 'ls'], ['image', 'load']])
+            self.assertEqual(verified.call_count, 0 if present else 1)
+
+    def test_archive_deploy_framing_preserves_the_entire_binary_stream(self):
+        data = b'archive\n\x00\xff'
+        value = archive_intent(data)
+        envelope = c.canonical({'intent': value, 'identity_token': 'fixture'})
+        with (patch.object(c, 'Host') as host,
+              patch.object(c, 'release', return_value={'result': 'API_IMAGE_RELEASE_VERIFIED'}),
+              patch.object(c.signal, 'signal'), contextlib.redirect_stdout(io.StringIO())):
+            with patch.object(c.sys, 'stdin', io.TextIOWrapper(io.BytesIO(envelope + b'\n' + data))):
+                self.assertEqual(c.main(['deploy-with-archive']), 0)
+                self.assertEqual(host.call_args.args[1].read(), data)
+            host.reset_mock()
+            with patch.object(c.sys, 'stdin', io.TextIOWrapper(io.BytesIO(envelope))):
+                self.assertEqual(c.main(['deploy-with-archive']), 1)
+                host.assert_not_called()
+
     def test_real_complete_sequence_requires_actual_runtime_and_second_database_check(self):
         host = FakeHost()
         report = c.release(intent(), host)

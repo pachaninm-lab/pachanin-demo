@@ -163,6 +163,17 @@ jobs:
           pattern=r'^  // API_ONLY_RELEASE_SOURCE_PINS_V1_BEGIN\n  const apiOnlySourcePins = (.+);\n  // API_ONLY_RELEASE_SOURCE_PINS_V1_END$'
           data=re.findall(pattern,guard,re.M);assert len(data)==1
           pins=json.loads(data[0]);assert [v['path'] for v in pins]==paths
+          scope=pathlib.Path('docs/platform-v7/autopilot/scopes/production-api-only-archive-rollback-20261112.json')
+          assert stat.S_ISREG(scope.lstat().st_mode)
+          amendment=json.loads(scope.read_text())
+          assert amendment['schemaVersion']=='platform-v7.concurrent-scope.v1' and amendment['status']=='active'
+          assert amendment['branch']=='ops/production-api-only-archive-rollback-20261112'
+          assert amendment['allowedPaths']==paths[2:] and amendment['productionInvocationAuthorized'] is False
+          assert amendment['productionMutationAuthorized'] is False and amendment['releaseAuthorized'] is False
+          assert amendment['masterCredit']==0
+          amended=amendment['sourcePins'];assert [v['path'] for v in amended]==paths[2:]
+          assert [v['beforeBlob'] for v in amended]==[v['afterBlob'] for v in pins[2:]]
+          pins=pins[:2]+amended
           for v in pins:
               f=pathlib.Path(v['path']);raw=f.read_bytes();info=f.lstat()
               assert stat.S_ISREG(info.st_mode) and v['mode']=='100644' and not info.st_mode&0o111
@@ -377,7 +388,68 @@ jobs:
           [[ "$(git rev-parse refs/remotes/origin/main)" == "$TARGET_SHA" ]]
           node scripts/release/verify-api-schema-source-parity.mjs "$baseline" "$TARGET_SHA" > "$RUNNER_TEMP/api-only-parity.json"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          python3 -B scripts/release/api-only-release-controller.py baseline-publication > "$RUNNER_TEMP/api-only-baseline-publication.json"
+          controller=scripts/release/api-only-release-controller.py
+          mode=$(python3 -B "$controller" baseline-proof-mode)
+          case "$mode" in
+            registry)
+              python3 -B "$controller" baseline-publication > "$RUNNER_TEMP/api-only-baseline-publication.json"
+              ;;
+            archive)
+              [[ "$RUNNER_ENVIRONMENT" == github-hosted ]]
+              work=$(mktemp -d "$RUNNER_TEMP/api-only-archive.XXXXXXXX")
+              archive="$RUNNER_TEMP/api-only-baseline.tar"
+              daemon_job=''
+              clean_archive() {
+                if [[ -f "$work/docker.pid" ]]; then
+                  pid=$(sudo -n cat "$work/docker.pid")
+                  if [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]]; then sudo -n kill -TERM "$pid" || true; fi
+                fi
+                if [[ -n "$daemon_job" ]]; then sudo -n kill -TERM "$daemon_job" 2>/dev/null || true; fi
+                sudo -n rm -rf -- "$work"
+                rm -f -- "$archive"
+              }
+              trap clean_archive EXIT
+              available=$(df -PB1 "$work" | awk 'NR == 2 {print $4}')
+              [[ "$available" =~ ^[0-9]+$ && "$available" -ge 6442450944 ]]
+              probe=scripts/production-legacy-boot-evidence.py
+              python3 -I -S -B "$probe" --build-api-baseline-payload "$TARGET_SHA" > "$work/export.py"
+              store=$(timeout --kill-after=5s 210s ssh -F /dev/null -T -o ClearAllForwardings=yes \
+                "${ssh_args[@]}" "root@$HOST" '/usr/bin/python3 -I -S -B - --export-running-api-archive' \
+                < "$work/export.py" 2>/dev/null |
+                python3 -I -S -B "$probe" --capture-api-image-archive "$archive")
+              [[ "$store" == CONTAINERD ]]
+              printf '%s\n' '{"features":{"containerd-snapshotter":true}}' > "$work/docker.json"
+              sudo -n /usr/bin/timeout --kill-after=5s 220s /usr/bin/dockerd \
+                --config-file "$work/docker.json" --data-root "$work/data" --exec-root "$work/exec" \
+                --pidfile "$work/docker.pid" --host "unix://$work/docker.sock" --bridge none \
+                --iptables=false --ip6tables=false --ip-forward=false --ip-masq=false >/dev/null 2>&1 &
+              daemon_job=$!
+              docker_test=(sudo -n /usr/bin/docker --host "unix://$work/docker.sock")
+              runner_store=''
+              for attempt in {1..15}; do
+                if runner_store=$(timeout 5s "${docker_test[@]}" info --format '{{json .DriverStatus}}' 2>/dev/null |
+                    python3 -I -S -B "$probe" --classify-image-store 2>/dev/null); then break; fi
+                sleep 1
+              done
+              [[ "$runner_store" == "$store" ]]
+              images=$("${docker_test[@]}" image ls --all --quiet --no-trunc)
+              [[ -z "$images" ]]
+              timeout --kill-after=5s 120s "${docker_test[@]}" image load --input "$archive" >/dev/null
+              image_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image_id"])' "$RUNNER_TEMP/api-only-baseline.json")
+              [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+              [[ "$("${docker_test[@]}" image ls --all --quiet --no-trunc | sort -u)" == "$image_id" ]]
+              format=$'{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
+              restored=$("${docker_test[@]}" image inspect --format "$format" "$image_id" |
+                python3 -I -S -B "$probe" --verify-restored-api-image "$TARGET_SHA")
+              [[ "$restored" == EXACT_BASELINE_IMAGE_RESTORED ]]
+              tags=$("${docker_test[@]}" image inspect --format '{{json .RepoTags}}' "$image_id")
+              jq -n --arg result "$restored" --arg store "$store" --arg image_id "$image_id" --argjson repo_tags "$tags" \
+                '{result:$result,store:$store,image_id:$image_id,repo_tags:$repo_tags}' > "$RUNNER_TEMP/api-only-restored.json"
+              python3 -B "$controller" baseline-archive > "$RUNNER_TEMP/api-only-baseline-publication.json"
+              ;;
+            *) exit 1 ;;
+          esac
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           python3 -B scripts/release/api-only-release-controller.py build-intent > "$RUNNER_TEMP/api-only-intent.json"
           audience=$(python3 -B scripts/release/api-only-release-controller.py identity-audience)
           encoded=$(AUDIENCE="$audience" python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["AUDIENCE"],safe=""))')
@@ -393,7 +465,12 @@ jobs:
           PY
           tar -C "$RUNNER_TEMP/api-only-stage" -czf - scripts registry | ssh "${ssh_args[@]}" "root@$HOST" "umask 077; mkdir -- '$stage'; tar --no-same-owner --no-same-permissions -xzf - -C '$stage'"
           set +e
-          ssh "${ssh_args[@]}" "root@$HOST" "python3 -B '$stage/scripts/release/api-only-release-controller.py' deploy" < "$RUNNER_TEMP/api-only-envelope.json" > "$RUNNER_TEMP/api-only-result.json"
+          if [[ "$mode" == archive ]]; then
+            cat -- "$RUNNER_TEMP/api-only-envelope.json" "$archive" |
+              ssh "${ssh_args[@]}" "root@$HOST" "python3 -B '$stage/scripts/release/api-only-release-controller.py' deploy-with-archive" > "$RUNNER_TEMP/api-only-result.json"
+          else
+            ssh "${ssh_args[@]}" "root@$HOST" "python3 -B '$stage/scripts/release/api-only-release-controller.py' deploy" < "$RUNNER_TEMP/api-only-envelope.json" > "$RUNNER_TEMP/api-only-result.json"
+          fi
           remote_status=$?
           set -e
           mkdir -p artifacts/api-only-release
@@ -422,6 +499,7 @@ jobs:
             ssh -i "$HOME/.ssh/pc_api_only" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 "root@$HOST" "rm -rf -- '/run/pc-api-only-$GITHUB_RUN_ID'" >/dev/null 2>&1 || true
           fi
           rm -f "$HOME/.ssh/pc_api_only" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP"/api-only-*.json "$RUNNER_TEMP"/api-only-key*
+          rm -f -- "$RUNNER_TEMP/api-only-baseline.tar"
           rm -rf "$RUNNER_TEMP/api-only-stage"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
