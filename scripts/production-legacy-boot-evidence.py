@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiBaselineManifestEvidence'
+AUTHORITY_KEY = 'gektaApiBaselineRollbackRehearsal'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -99,7 +99,9 @@ def verify_source(base, head, verify_diff):
             raise ValueError('source blob differs from the manifest')
         if hashlib.sha256(git('cat-file', 'blob', blob)).hexdigest() != pin['sha256']:
             raise ValueError('source SHA-256 differs from the manifest')
-    return api_baseline_spec(records[BASELINE_RECORD]['baseline'])
+    baseline = records[BASELINE_RECORD]['baseline']
+    api_baseline_spec(baseline)
+    return baseline
 
 
 def api_baseline_spec(record):
@@ -113,10 +115,20 @@ def api_baseline_spec(record):
 
 
 def build_api_baseline_payload(ref):
-    spec = verify_source(ref, ref, verify_diff=False)
+    spec = api_baseline_spec(verify_source(ref, ref, verify_diff=False))
     source = git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8')
     print('API_BASELINE = ' + repr(spec))
     sys.stdout.write(source)
+
+
+def rollback_rehearsal_inputs(baseline):
+    spec = api_baseline_spec(baseline)
+    index, config = baseline['index'], baseline['config']
+    if any(type(value) is not str or re.fullmatch(r'sha256:[0-9a-f]{64}', value) is None
+           for value in (index, config)):
+        raise ValueError('invalid canonical rollback image')
+    return ('ghcr.io/pachaninm-lab/grainflow-api@' + index, config,
+            spec['observedImageId'], 'pc-crop-transfer/api:' + spec['revision'])
 
 
 def file_identity(info, label, maximum, exact=None):
@@ -257,6 +269,16 @@ def api_image_result(parts, baseline):
     return 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'
 
 
+def restored_api_result(parts, baseline):
+    if len(parts) != 5 or re.fullmatch(r'sha256:[0-9a-f]{64}', parts[0]) is None:
+        raise ValueError('invalid restored image metadata')
+    if parts[0] != baseline['observedImageId']:
+        return 'RESTORED_IMAGE_ID_DIFFERS'
+    if api_image_result(parts, baseline) != 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH':
+        return 'RESTORED_IMAGE_CONTENT_DIFFERS'
+    return 'EXACT_BASELINE_IMAGE_RESTORED'
+
+
 def observe_api_baseline(baseline):
     if os.getuid() != 0 or os.geteuid() != 0:
         return 'NOT_PROVEN'
@@ -372,6 +394,17 @@ def self_test():
         else:
             raise AssertionError('malformed API baseline was accepted')
     fixture = [image_id, 'linux', 'amd64', json.dumps(layers), json.dumps(config)]
+    index = 'sha256:' + '3' * 64
+    published_config = 'sha256:' + '4' * 64
+    assert rollback_rehearsal_inputs({**baseline, 'index': index, 'config': published_config}) == (
+        'ghcr.io/pachaninm-lab/grainflow-api@' + index, published_config,
+        image_id, 'pc-crop-transfer/api:' + revision)
+    try:
+        rollback_rehearsal_inputs({**baseline, 'index': 'latest', 'config': published_config})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('mutable rollback image was accepted')
     with patch.dict(globals(), {'API_ROOTFS_COUNT': 1}):
         assert api_image_result(fixture, baseline) == 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'
         assert api_image_result(fixture[:4], baseline) == 'BASELINE_CHANGED'
@@ -383,12 +416,15 @@ def self_test():
         assert api_image_result([*fixture[:4], json.dumps({**config, 'Labels': bad_source})], baseline) == 'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT'
         assert api_image_result([*fixture[:4], json.dumps({**config, 'StopTimeout': 0})], baseline) == 'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT'
         assert api_image_result([*fixture[:4], json.dumps({**config, 'ArgsEscaped': False})], baseline) == 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'
+        assert restored_api_result(fixture, baseline) == 'EXACT_BASELINE_IMAGE_RESTORED'
+        assert restored_api_result([published_config, *fixture[1:]], baseline) == 'RESTORED_IMAGE_ID_DIFFERS'
+        assert restored_api_result([*fixture[:3], '[]', fixture[4]], baseline) == 'RESTORED_IMAGE_CONTENT_DIFFERS'
     binding = ('1' * 64, image_id)
     with (patch('os.getuid', return_value=0), patch('os.geteuid', return_value=0),
           patch.dict(globals(), {'api_binding': iter((binding, ('2' * 64, image_id))).__next__,
                                  'docker_read': lambda *_: fixture})):
         assert observe_api_baseline(baseline) == 'BASELINE_UNSTABLE'
-    print('PASS: 36 local boot, identity and API content cases')
+    print('PASS: 41 local boot, identity, API content and image recovery cases')
 
 
 if __name__ == '__main__':
@@ -409,6 +445,17 @@ if __name__ == '__main__':
             print('LEGACY_BOOT_SOURCE_PINS_PASS')
         elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-baseline-payload':
             build_api_baseline_payload(sys.argv[2])
+        elif len(sys.argv) == 3 and sys.argv[1] == '--rollback-rehearsal-inputs':
+            ref = sys.argv[2]
+            print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
+        elif len(sys.argv) == 3 and sys.argv[1] == '--verify-restored-api-image':
+            ref = sys.argv[2]
+            limit = 64 * 1024
+            raw = sys.stdin.buffer.read(limit + 1)
+            if len(raw) > limit:
+                raise ValueError('restored image metadata is too large')
+            baseline = verify_source(ref, ref, verify_diff=False)
+            print(restored_api_result(raw.decode('utf-8').splitlines(), baseline))
         elif len(sys.argv) == 4 and sys.argv[1] == '--build-identity-payload':
             build_identity_payload(sys.argv[2], sys.argv[3])
         elif len(sys.argv) == 3 and sys.argv[1] == '--validate-identity':

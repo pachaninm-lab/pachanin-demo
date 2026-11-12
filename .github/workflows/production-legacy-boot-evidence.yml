@@ -35,6 +35,67 @@ jobs:
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-pr "$BASE_SHA" "$HEAD_SHA"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
 
+  rollback_rehearsal:
+    if: github.event_name == 'pull_request'
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Save and restore the pinned API image on the disposable runner
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +x
+          [[ "$GITHUB_EVENT_NAME" == pull_request && "$RUNNER_ENVIRONMENT" == github-hosted ]]
+          umask 077
+          work=$(mktemp -d "$RUNNER_TEMP/api-rollback.XXXXXXXX")
+          trap 'rm -rf -- "$work"' EXIT
+          script=scripts/production-legacy-boot-evidence.py
+          python3 -I -S -B "$script" --rollback-rehearsal-inputs "$HEAD_SHA" > "$work/inputs"
+          mapfile -t inputs < "$work/inputs"
+          [[ "${#inputs[@]}" == 4 ]]
+          registry=${inputs[0]}
+          config_id=${inputs[1]}
+          baseline_id=${inputs[2]}
+          transfer=${inputs[3]}
+          mkdir -m 0700 "$work/registry"
+          docker=(/usr/bin/docker --host unix:///var/run/docker.sock --config "$work/registry")
+          printf '%s' "$GH_TOKEN" | "${docker[@]}" login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GH_TOKEN
+          available=$(df -PB1 "$work" | awk 'NR == 2 { print $4 }')
+          [[ "$available" =~ ^[0-9]+$ && "$available" -ge 6442450944 ]]
+          timeout --kill-after=5s 300s "${docker[@]}" image pull --platform linux/amd64 "$registry" >/dev/null
+          [[ "$("${docker[@]}" image inspect --format '{{.Id}}' "$registry")" == "$config_id" ]]
+          "${docker[@]}" image tag "$registry" "$transfer"
+          timeout --kill-after=5s 120s "${docker[@]}" image save --output "$work/api.tar" "$transfer"
+          bytes=$(stat -c '%s' "$work/api.tar")
+          [[ "$bytes" =~ ^[0-9]+$ && "$bytes" -gt 0 && "$bytes" -le 2147483648 ]]
+          "${docker[@]}" image rm --no-prune "$transfer" "$registry" >/dev/null
+          for identity in "$config_id" "$baseline_id" "$transfer"; do
+            if "${docker[@]}" image inspect "$identity" >/dev/null 2>&1; then
+              exit 1
+            fi
+          done
+          timeout --kill-after=5s 120s "${docker[@]}" image load --input "$work/api.tar" >/dev/null
+          format=$'{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
+          result=$("${docker[@]}" image inspect --format "$format" "$transfer" |
+            python3 -I -S -B "$script" --verify-restored-api-image "$HEAD_SHA")
+          case "$result" in
+            EXACT_BASELINE_IMAGE_RESTORED|RESTORED_IMAGE_ID_DIFFERS|RESTORED_IMAGE_CONTENT_DIFFERS) ;;
+            *) exit 1 ;;
+          esac
+          printf 'ROLLBACK_IMAGE_REHEARSAL=%s\n' "$result" | tee -a "$GITHUB_STEP_SUMMARY"
+
   observe:
     if: >-
       github.event_name == 'issue_comment' &&
