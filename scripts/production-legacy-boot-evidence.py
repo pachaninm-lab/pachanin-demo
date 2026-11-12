@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposeFileShapeEvidence'
+AUTHORITY_KEY = 'gektaApiComposeSyntaxEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -36,6 +36,12 @@ IDENTITY_CODES = {'MATCH', 'PROCESS_UID', 'NOATIME_UNAVAILABLE', 'PRIVATE_PARENT
 API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
              'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
 API_ROOTFS_COUNT = 25
+COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
+COMPOSE_CONTROLLER_BLOB = '93d76cb49c53e7ddde7375ee1272487efe19b202'
+COMPOSE_PROFILE_CODES = (
+    'PROFILE_TAB_INDENT', 'PROFILE_ENCODED_INPUT', 'PROFILE_INDIRECT_KEY', 'PROFILE_DIRECTIVE',
+    'PROFILE_ANCHOR_OR_ALIAS', 'PROFILE_FLOW_COLLECTION', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
+)
 IMAGE_METADATA_FORMAT = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
 ARCHIVE_LIMIT = 2 * 1024**3
 STORE_MODES = (b'CLASSIC\n', b'CONTAINERD\n')
@@ -122,6 +128,34 @@ def build_api_baseline_payload(ref):
     source = git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8')
     print('API_BASELINE = ' + repr(spec))
     sys.stdout.write(source)
+
+
+def compose_profile_source(source):
+    selected_names = {'ReleaseError', 'demand', 'directory', 'file_read', 'compose_structural_view',
+                      'validate_compose_input_profile', 'declared_env_files'}
+    selected = [node for node in ast.parse(source).body if
+                isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in selected_names]
+    if len(selected) != len(selected_names):
+        raise ValueError('incomplete pinned profile source')
+    module = ast.Module(body=selected, type_ignores=[])
+    sites = sorted((node for node in ast.walk(module)
+                    if isinstance(node, ast.Constant) and node.value == 'COMPOSE_EXTERNAL_PROFILE'),
+                   key=lambda node: (node.lineno, node.col_offset))
+    if len(sites) != len(COMPOSE_PROFILE_CODES):
+        raise ValueError('unknown pinned profile layout')
+    for node, code in zip(sites, COMPOSE_PROFILE_CODES):
+        node.value = code
+    return ast.unparse(module)
+
+
+def build_api_compose_profile_payload(ref):
+    if regular_blob(ref, COMPOSE_CONTROLLER) != COMPOSE_CONTROLLER_BLOB:
+        raise ValueError('unexpected release controller')
+    baseline = api_baseline_spec(verify_source(ref, ref, verify_diff=False))
+    profile = compose_profile_source(git('cat-file', 'blob', COMPOSE_CONTROLLER_BLOB).decode('utf-8'))
+    print('API_BASELINE = ' + repr(baseline))
+    print('API_COMPOSE_PROFILE = ' + repr(profile))
+    sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
 
 
 def rollback_rehearsal_inputs(baseline):
@@ -330,6 +364,49 @@ def observe_api_compose_shape(baseline):
     return api_compose_shape(*(json.loads(part) for part in parts))
 
 
+def validate_api_compose_profile(value):
+    return value if value in (*COMPOSE_PROFILE_CODES, 'PROFILE_COMPATIBLE', 'PROFILE_OTHER_UNSUPPORTED') else 'NOT_PROVEN'
+
+
+def classify_api_compose_profile(working, files, profile):
+    shape = api_compose_shape(working, files)
+    if shape == 'NOT_PROVEN':
+        return shape
+    total, _, duplicates, empty, _ = map(int, shape.split('_')[1:])
+    if total > 128 or total - duplicates > 16 or empty:
+        return 'NOT_PROVEN'
+    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re}
+    exec(compile(profile, '<pinned-api-compose-profile>', 'exec'), namespace)
+    try:
+        for path in dict.fromkeys(str(Path(working) / value.strip()) for value in files.split(',')):
+            contents = namespace['file_read'](path)['bytes']
+            namespace['declared_env_files'](contents, working)
+    except namespace['ReleaseError'] as error:
+        reason = str(error)
+        if reason.startswith(('DIRECTORY_', 'PROTECTED_FILE_')):
+            return 'NOT_PROVEN'
+        return reason if reason in COMPOSE_PROFILE_CODES else 'PROFILE_OTHER_UNSUPPORTED'
+    except (OSError, UnicodeError):
+        return 'NOT_PROVEN'
+    return 'PROFILE_COMPATIBLE'
+
+
+def observe_api_compose_profile(baseline, profile):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'NOT_PROVEN'
+    before = api_binding()
+    if before[1] != baseline['observedImageId']:
+        return 'NOT_PROVEN'
+    format_string = ('{{json (index .Config.Labels "com.docker.compose.project.working_dir")}}\n'
+                     '{{json (index .Config.Labels "com.docker.compose.project.config_files")}}')
+    parts = docker_read('container', 'inspect', '--format', format_string, before[0])
+    if len(parts) != 2:
+        return 'NOT_PROVEN'
+    result = classify_api_compose_profile(*(json.loads(part) for part in parts), profile)
+    final_parts = docker_read('container', 'inspect', '--format', format_string, before[0])
+    return result if api_binding() == before and final_parts == parts else 'NOT_PROVEN'
+
+
 def image_store_mode(value):
     if value is None:
         return STORE_MODES[0]
@@ -449,6 +526,19 @@ def self_test():
     assert validate_api_compose_shape('COMPOSE_4_1_2_0_0') == 'COMPOSE_4_1_2_0_0'
     for invalid in ('COMPOSE_0_0_0_0_0', 'COMPOSE_4_2_1_0_0', 'COMPOSE_4_0_0_3_2', 'COMPOSE_PRIVATE_PATH'):
         assert validate_api_compose_shape(invalid) == 'NOT_PROVEN'
+    profile = compose_profile_source(git('cat-file', 'blob', COMPOSE_CONTROLLER_BLOB).decode('utf-8'))
+    for data, expected in (
+        (b'services:\n  api:\n    image: fixture\n', 'PROFILE_COMPATIBLE'),
+        (b'services:\n\tapi: fixture\n', 'PROFILE_TAB_INDENT'),
+        (b'include: private.yml\n', 'PROFILE_INDIRECT_KEY'),
+        (b'services:\n  api: &base\n', 'PROFILE_ANCHOR_OR_ALIAS'),
+        (b'services: {api: {image: fixture}}\n', 'PROFILE_FLOW_COLLECTION'),
+        (b'services:\n  api: !unrecognized fixture\n', 'PROFILE_TAG'),
+    ):
+        fixture = profile + '\ndef file_read(_path): return {"bytes": ' + repr(data) + '}\n'
+        assert classify_api_compose_profile('/srv/fixture', 'one.yml,one.yml', fixture) == expected
+        assert validate_api_compose_profile(expected) == expected
+    assert validate_api_compose_profile('/private/file.yml') == 'NOT_PROVEN'
 
     boot_id = 'a' * 32
     entry = {'_BOOT_ID': boot_id, '_TRANSPORT': 'kernel', 'SYSLOG_FACILITY': '0',
@@ -603,6 +693,8 @@ if __name__ == '__main__':
             print(observe_api_baseline(api_baseline_spec(globals()['API_BASELINE'])))
         elif sys.argv[1:] == ['--api-compose-shape']:
             print(observe_api_compose_shape(api_baseline_spec(globals()['API_BASELINE'])))
+        elif sys.argv[1:] == ['--api-compose-profile']:
+            print(observe_api_compose_profile(api_baseline_spec(globals()['API_BASELINE']), globals()['API_COMPOSE_PROFILE']))
         elif sys.argv[1:] == ['--export-running-api-archive']:
             export_api_archive(api_baseline_spec(globals()['API_BASELINE']))
         elif sys.argv[1:] == ['--self-test']:
@@ -615,6 +707,8 @@ if __name__ == '__main__':
             print('LEGACY_BOOT_SOURCE_PINS_PASS')
         elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-baseline-payload':
             build_api_baseline_payload(sys.argv[2])
+        elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-compose-profile-payload':
+            build_api_compose_profile_payload(sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--rollback-rehearsal-inputs':
             ref = sys.argv[2]
             print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
@@ -641,6 +735,8 @@ if __name__ == '__main__':
             print(sys.argv[2] if sys.argv[2] in API_CODES else 'NOT_PROVEN')
         elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-compose-shape':
             print(validate_api_compose_shape(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-compose-profile':
+            print(validate_api_compose_profile(sys.argv[2]))
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
