@@ -1598,12 +1598,12 @@ class Host:
         paths = [part.strip() for part in files.split(',')]
         demand(0 < len(paths) <= MAX_COMPOSE_FILE_ENTRIES and all(paths), 'COMPOSE_FILE_ENTRIES')
         paths = [p if p.startswith('/') else str(Path(working) / p) for p in paths]
-        demand(len(set(paths)) <= MAX_DISTINCT_COMPOSE_FILES, 'COMPOSE_DISTINCT_FILE_SET')
         override = str(Path(working) / OVERRIDE)
         if override in paths:
             demand(paths.count(override) == 1 and paths[-1] == override, 'COMPOSE_MANAGED_OVERRIDE_POSITION')
             paths.pop()
-        demand(paths, 'COMPOSE_FILE_ENTRIES')
+        demand(0 < len(paths) < MAX_COMPOSE_FILE_ENTRIES, 'COMPOSE_FILE_ENTRIES')
+        demand(len(set(paths)) <= MAX_DISTINCT_COMPOSE_FILES, 'COMPOSE_DISTINCT_FILE_SET')
         inputs = {}
         # Read each file once, but pass the full ordered list to Compose for model comparison.
         for path in dict.fromkeys(paths):

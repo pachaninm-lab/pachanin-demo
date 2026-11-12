@@ -204,7 +204,7 @@ class ControllerTests(unittest.TestCase):
         primary = working + '/compose.yml'
         secondary = working + '/overrides/api.yml'
         managed = working + '/' + c.OVERRIDE
-        paths = [primary, secondary] + [primary] * 16
+        paths = [primary, secondary] + [primary] * 125
         labels = {
             'com.docker.compose.project': 'fixture',
             'com.docker.compose.project.working_dir': working,
@@ -222,6 +222,7 @@ class ControllerTests(unittest.TestCase):
 
         for files, reason in (
             ([primary] * 129, 'COMPOSE_FILE_ENTRIES'),
+            ([primary] * 128, 'COMPOSE_FILE_ENTRIES'),
             ([primary, '', secondary], 'COMPOSE_FILE_ENTRIES'),
             ([working + f'/compose-{index}.yml' for index in range(17)], 'COMPOSE_DISTINCT_FILE_SET'),
             ([primary, managed, secondary], 'COMPOSE_MANAGED_OVERRIDE_POSITION'),
