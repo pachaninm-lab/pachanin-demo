@@ -787,6 +787,39 @@ class ControllerTests(unittest.TestCase):
             with self.subTest(code=code), self.assertRaisesRegex(c.ReleaseError, code):
                 c.declared_env_files(bad, '/protected')
 
+    def test_compose_inline_anchors_admit_bounded_value_interpolation(self):
+        raw = (b'x-image: &image ${API_IMAGE:-ghcr.io/example/app:stable}\n'
+               b'x-label: &label prefix-${OUTER:-${INNER:-fallback?}}\n'
+               b'x-items:\n  - value: &item ${MODE:+${OPTION?provide a value}} # note\n'
+               b'    active: true\n'
+               b'x-required: &required ${NAME?${FALLBACK}}\n'
+               b'services:\n  api:\n    image: *image\n    env_file: literal.env\n')
+        self.assertEqual(c.declared_env_files(raw, '/protected'), ['/protected/literal.env'])
+        self.assertEqual(c.compose_inline_scalar_anchor(b'  - value: &item ${MODE}'),
+                         (4, 'value', 'item'))
+        for bad, code in (
+            (b'x-value: &a ${VAR:-value: mapping}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${VAR:-[list]}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${VAR:-value # comment}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${VAR/foo/bar}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${${INNER}}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${PREFIX${INNER}}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${PREFIX${INNER}:-fallback}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a prefix-${PREFIX${INNER}}\n', 'COMPOSE_EXTERNAL_PROFILE'),
+            (b'x-value: &a ${VAR:-${MISSING}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a $${VAR}\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ' + b'${VAR:-' * 9 + b'x' + b'}' * 9 + b'\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a ${VAR}\n  continued\n', 'COMPOSE_INLINE_ANCHOR_CONTINUATION'),
+            (b'services:\n  api:\n    env_file: &a ${PRIVATE:-literal.env}\n',
+             'COMPOSE_REFERENCE_EXTERNAL_INPUT'),
+            (b'x-file: &a ${PRIVATE:-literal.env}\nservices:\n  api:\n    env_file: *a\n',
+             'COMPOSE_REFERENCE_EXTERNAL_INPUT'),
+            (b'x-value: &a ${VAR}\nother: *a trailing\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: ${OUTER:-${INNER}}\n', 'COMPOSE_EXTERNAL_PROFILE'),
+        ):
+            with self.subTest(code=code), self.assertRaisesRegex(c.ReleaseError, code):
+                c.declared_env_files(bad, '/protected')
+
 
     def test_actual_shell_resolver_requires_canonical_digest_revision_and_budget(self):
         import os,re
