@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "e323ea5976b49ad73c3ab6abd69b61a38edcfc2c",
-      "bytes": 118550,
-      "sha256": "005f01ef2aaca1e8fb0975c7d221d319515d2f6dd6e5dd92d5e38329dd95dfa7",
+      "afterBlob": "776691320964e21dc8ce7e76f68e1b4dde6db3df",
+      "bytes": 118628,
+      "sha256": "db5885a6cf052e477afd7ded041cef85a64f95750d4da6b3194db13be94f682b",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "058da070c347734784fe603f7eaeb8d68768bc71",
-      "bytes": 77321,
-      "sha256": "3e4b27395a00852882f433f059f6b07017b1792d3d64d7b441fcf9ccc35d3e35",
+      "afterBlob": "e4bd12c303f92dfb0a3bfd851d7566f40a29eddf",
+      "bytes": 77650,
+      "sha256": "420173efe7c90486de14ebe56992f0975805994d4de6c5405b099769c209433f",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {

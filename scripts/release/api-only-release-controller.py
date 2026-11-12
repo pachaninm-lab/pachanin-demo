@@ -819,7 +819,8 @@ def compose_inline_interpolation_view(line):
     end = comment.start() if comment else len(value)
     scalar = value[:end]
     for _ in range(8):
-        masked = COMPOSE_INLINE_INTERPOLATION.sub('VALUE', scalar)
+        # A dot stays valid in a plain value but cannot complete a variable name.
+        masked = COMPOSE_INLINE_INTERPOLATION.sub('.', scalar)
         if masked == scalar:
             break
         scalar = masked
