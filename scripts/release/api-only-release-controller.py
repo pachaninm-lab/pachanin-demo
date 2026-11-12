@@ -797,6 +797,22 @@ def compose_structural_view(raw):
     return ''.join(output)
 
 
+def compose_inline_scalar_anchor(raw_line):
+    key = r"""[A-Za-z_][A-Za-z0-9_.-]*|"[A-Za-z_][A-Za-z0-9_.-]*"|'[A-Za-z_][A-Za-z0-9_.-]*'"""
+    quoted = r""""(?:[^"\\\r\n]|\\.)*"|'(?:[^'\r\n]|'')*'"""
+    literal = r'[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=,\${} \t-]*'
+    match = re.fullmatch(r'(?P<indent> *)(?P<item>- +)?(?P<key>' + key + r'): +'
+                         r'&(?P<name>[A-Za-z0-9_-]{1,64}) +(?P<scalar>' + quoted + '|' + literal +
+                         r')(?: +\#.*)? *', raw_line.decode('utf-8').removesuffix('\r'))
+    if match is None:
+        return None
+    scalar = match['scalar'].rstrip()
+    if scalar[0] not in ('"', "'"):
+        if re.search(r':(?:[ \t]|$)', scalar) or re.match(r'-(?:[ \t]|$)', scalar):
+            return None
+    return len(match['indent']) + len(match['item'] or ''), match['key'].strip('"\'').lower(), match['name']
+
+
 def validate_compose_references(plain, raw):
     operator = re.compile(r'(?<![A-Za-z0-9_./-])[&*][A-Za-z0-9_-]+')
     if operator.search(plain) is None:
@@ -810,11 +826,15 @@ def validate_compose_references(plain, raw):
     anchor_indent = None
     anchor_size = 0
     anchor_has_content = False
+    inline_indent = None
     aliases = 0
     for line, raw_line in zip(lines, raw_lines):
         line = line.removesuffix('\r')
         indent = len(line) - len(line.lstrip(' '))
         significant = bool(line.strip())
+        if significant and inline_indent is not None:
+            demand(indent <= inline_indent, 'COMPOSE_INLINE_ANCHOR_CONTINUATION')
+            inline_indent = None
         if significant and anchor_indent is not None and indent <= anchor_indent:
             demand(anchor_has_content, 'COMPOSE_ANCHOR_BLOCK_REQUIRED')
             anchor_indent = None
@@ -825,14 +845,22 @@ def validate_compose_references(plain, raw):
                 demand(anchor_size <= 16 * 1024, 'COMPOSE_ANCHOR_BLOCK_BOUND')
             continue
         match = value.fullmatch(line)
-        demand(match is not None and anchor_indent is None, 'COMPOSE_REFERENCE_POSITION')
-        _, key, kind, name = match.groups()
+        inline = compose_inline_scalar_anchor(raw_line) if match is None else None
+        demand((match is not None or inline is not None) and anchor_indent is None,
+               'COMPOSE_REFERENCE_POSITION')
+        if inline is not None:
+            inline_indent, key, name = inline
+            kind = '&'
+            demand(len(raw_line) <= 16 * 1024, 'COMPOSE_ANCHOR_BLOCK_BOUND')
+        else:
+            _, key, kind, name = match.groups()
         demand(key.lower() not in ('env_file', 'include', 'extends', 'label_file', 'secrets',
                                    'configs', 'provider'), 'COMPOSE_REFERENCE_EXTERNAL_INPUT')
         if kind == '&':
             demand(name not in anchors and len(anchors) < 16, 'COMPOSE_ANCHOR_DEFINITION')
             anchors.add(name)
-            anchor_indent, anchor_size, anchor_has_content = indent, 0, False
+            if inline is None:
+                anchor_indent, anchor_size, anchor_has_content = indent, 0, False
         else:
             demand(name in anchors and aliases < 8, 'COMPOSE_ALIAS_BOUND')
             aliases += 1

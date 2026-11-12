@@ -766,6 +766,28 @@ class ControllerTests(unittest.TestCase):
                 c.declared_env_files(raw, '/protected')
 
 
+    def test_compose_inline_scalar_anchors_keep_external_inputs_closed(self):
+        raw = (b'x-image: &image ghcr.io/example/app:stable\n'
+               b'x-label: &label "event: name"\n'
+               b"x-title: &title 'owner''s name'\n"
+               b'x-items:\n  - value: &item "some value"\n    active: true\n'
+               b'services:\n  api:\n    image: *image\n    env_file: literal.env\n')
+        self.assertEqual(c.declared_env_files(raw, '/protected'), ['/protected/literal.env'])
+        for bad, code in (
+            (b'x-value: &a first\n  second line\n', 'COMPOSE_INLINE_ANCHOR_CONTINUATION'),
+            (b'x-value: &a extra: key\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a - item\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a [some, other]\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-value: &a !custom data\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'services:\n  api:\n    env_file: &a /tmp/private\n', 'COMPOSE_REFERENCE_EXTERNAL_INPUT'),
+            (b'services:\n  api:\n    "env_file": &a "/tmp/private"\n', 'COMPOSE_REFERENCE_EXTERNAL_INPUT'),
+            (b'x-value: &a "' + b'x' * (16 * 1024) + b'"\n', 'COMPOSE_ANCHOR_BLOCK_BOUND'),
+            (b'x-value: &a first\nother: *a trailing\n', 'COMPOSE_REFERENCE_POSITION'),
+        ):
+            with self.subTest(code=code), self.assertRaisesRegex(c.ReleaseError, code):
+                c.declared_env_files(bad, '/protected')
+
+
     def test_actual_shell_resolver_requires_canonical_digest_revision_and_budget(self):
         import os,re
         workflow=PATH.parents[2]/'.github/workflows/production-api-only-release.yml'

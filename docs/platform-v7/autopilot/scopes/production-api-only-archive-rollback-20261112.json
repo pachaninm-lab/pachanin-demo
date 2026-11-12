@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "fbc923086a5de62a968717ea219cdb97e5fa8c92",
-      "bytes": 115938,
-      "sha256": "c2f7d822f17a032a072b7b8320468d14c5ed840c6550bf2b7c9dbe9009e100a2",
+      "afterBlob": "9c2f8f6f171a0fcabf20a34fa479851e9c70054d",
+      "bytes": 117352,
+      "sha256": "aee7cfa8a0aaf80bd8d00b1fa356d8124afac929d80bdfd82789eae3a16129ed",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "6e575ce454ac2f5476f5f425165b7ec4cd5bb5a8",
-      "bytes": 73845,
-      "sha256": "d57b7387eb50614501b4cb4231c91a70023cc1d2f9f6f663ce83ec071a491cf8",
+      "afterBlob": "9ecef1e4735883a16fc36936c39dac4d843f04e4",
+      "bytes": 75307,
+      "sha256": "be87f61aedd2635448d90edc171a3c36d4abd1d4e4191165b618a7d602786638",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -60,5 +60,11 @@
     "evidenceResult": "PROFILE_ANCHOR_OR_ALIAS",
     "sourceBase": "70b0363f3788e5f4f90daa7bca6703310c09de2d",
     "purpose": "Admit only bounded block anchor definitions and whole mapping-value aliases. Keep YAML merge keys, indirect external files, nested references and other unsupported syntax closed."
+  },
+  "composeInlineAnchorEvidence": {
+    "evidenceRun": 43230075132,
+    "evidenceResult": "PROFILE_REF_INLINE_ANCHOR",
+    "sourceBase": "acb6174e61c2e55ecc949aec60def2dc71a850be",
+    "purpose": "Admit a bounded literal scalar after a mapping-value anchor on the same line. Continue rejecting external file aliases, malformed reference positions and multiline anchor scalars."
   }
 }
