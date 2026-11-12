@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "69c6296eb4ab1e52801b06dd21c62559bf74a58a",
-      "bytes": 112380,
-      "sha256": "6eabde85411c13752ea6e6d2a0736cd060c2753f68668b8c20dd80c245828943",
+      "afterBlob": "5abdaa50065ebc1bda41b69273878d96198b1cf3",
+      "bytes": 112728,
+      "sha256": "deb9185941658cdefd376516cecee0c19712bf02af4d8ff2aaef626a95660d56",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "ea8c12d393db06193aa94bfe11078eb17ef39609",
-      "bytes": 66626,
-      "sha256": "b1eff3ea937ac029819113cbd8646f3516b483916af1cc858914222685038e2d",
+      "afterBlob": "eb376f35ae3bd99dea8130c35a1dccb226663db2",
+      "bytes": 68165,
+      "sha256": "c0f8c8ac748d8cfc7817e5a23d2f2e3618767b3aa028308422bda2a88e553520",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -48,5 +48,11 @@
   "productionInvocationAuthorized": false,
   "productionMutationAuthorized": false,
   "releaseAuthorized": false,
-  "masterCredit": 0
+  "masterCredit": 0,
+  "migrationSourceCorrection": {
+    "evidenceRun": 43192499003,
+    "evidenceResult": "UNEXPECTED_MIGRATION_SOURCE",
+    "sourceBase": "dd45f0b7604a5122cfd3ec89633811c4abe78eff",
+    "purpose": "Exclude the existing non-executable operational rollback file from the applied Prisma migration checksums. The full source-parity check still binds the file and unknown migration-tree paths remain rejected."
+  }
 }
