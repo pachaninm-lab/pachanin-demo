@@ -742,6 +742,30 @@ class ControllerTests(unittest.TestCase):
             with self.subTest(raw=bad),self.assertRaises(c.ReleaseError):
                 c.declared_env_files(bad,'/protected')
 
+    def test_compose_block_anchors_are_bounded_and_cannot_supply_external_paths(self):
+        prefix = b'x-environment: &common\n  LEVEL: info\nservices:\n  api:\n'
+        self.assertEqual(c.declared_env_files(
+            prefix + b'    environment: *common\n    env_file: literal.env\n', '/protected'),
+            ['/protected/literal.env'])
+        for raw, code in (
+            (prefix + b'    env_file: *common\n', 'COMPOSE_REFERENCE_EXTERNAL_INPUT'),
+            (prefix + b'    *common: /tmp/private\n', 'COMPOSE_REFERENCE_POSITION'),
+            (prefix + b'    <<: *common\n', 'COMPOSE_EXTERNAL_PROFILE'),
+            (prefix + b'    include: *common\n', 'COMPOSE_EXTERNAL_PROFILE'),
+            (prefix + b'    environment: *missing\n', 'COMPOSE_ALIAS_BOUND'),
+            (b'x-environment: &common\n  LOOP: *common\n', 'COMPOSE_REFERENCE_POSITION'),
+            (b'x-environment: &common\nother: scalar\n', 'COMPOSE_ANCHOR_BLOCK_REQUIRED'),
+            (b'x-environment: &common\n  LEVEL: info\nother: &common\n  LEVEL: warn\n',
+             'COMPOSE_ANCHOR_DEFINITION'),
+            (b'x-environment: &common\n  LEVEL: "' + b'x' * (16 * 1024) + b'"\n',
+             'COMPOSE_ANCHOR_BLOCK_BOUND'),
+            (prefix + b''.join(f'    value{i}: *common\n'.encode() for i in range(9)),
+             'COMPOSE_ALIAS_BOUND'),
+        ):
+            with self.subTest(code=code), self.assertRaisesRegex(c.ReleaseError, code):
+                c.declared_env_files(raw, '/protected')
+
+
     def test_actual_shell_resolver_requires_canonical_digest_revision_and_budget(self):
         import os,re
         workflow=PATH.parents[2]/'.github/workflows/production-api-only-release.yml'
