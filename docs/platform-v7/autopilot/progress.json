@@ -303,5 +303,36 @@
     "productionHoldRun": 43212654930,
     "productionHoldReason": "COMPOSE_EXTERNAL_PROFILE",
     "controllerBlob": "93d76cb49c53e7ddde7375ee1272487efe19b202"
+  },
+  "gektaApiComposeReferencePositionEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "dcaef916df09410203e1382d62797c4b83040c7e",
+        "sha256": "cec5c83bbac9e5a042507073d56cc475a81370752ac9dc59b1d7c8995a587f42"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "dbd7016662b5ca02a54a7129a932b2cc438aa78e",
+        "sha256": "f520a373634bc09ff46761ccb28bcc89d362e21aaabb10099dec372611bb45a4"
+      }
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "productionHoldRun": 43225351589,
+    "productionHoldReason": "COMPOSE_REFERENCE_POSITION",
+    "controllerBlob": "fbc923086a5de62a968717ea219cdb97e5fa8c92"
   }
 }
