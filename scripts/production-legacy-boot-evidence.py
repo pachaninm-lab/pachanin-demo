@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiRunningImageStoreRehearsal'
+AUTHORITY_KEY = 'gektaApiComposeFileShapeEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -294,6 +294,42 @@ def observe_api_baseline(baseline):
     return api_image_result(parts, baseline)
 
 
+def api_compose_shape(working, files):
+    if (type(working) is not str or not working.startswith('/') or working == '/' or
+            type(files) is not str or not files or any(c in working + files for c in ('\0', '\r', '\n'))):
+        return 'NOT_PROVEN'
+    entries = [part.strip() for part in files.split(',')]
+    if not 1 <= len(entries) <= 256:
+        return 'NOT_PROVEN'
+    normalized = [str(Path(working) / part) if part else '' for part in entries]
+    managed = str(Path(working) / 'compose.production-api-only-image.override.yml')
+    return 'COMPOSE_' + '_'.join(str(n) for n in (len(entries), len(entries) - len(set(entries)),
+                       len(normalized) - len(set(normalized)), entries.count(''), normalized.count(managed)))
+
+
+def validate_api_compose_shape(value):
+    if re.fullmatch(r'COMPOSE_(?:[0-9]{1,3}_){4}[0-9]{1,3}', value):
+        count, raw_duplicates, duplicates, empty, managed = map(int, value.split('_')[1:])
+        if (1 <= count <= 256 and 0 <= raw_duplicates <= duplicates < count and
+                0 <= empty <= count and 0 <= managed <= count - empty):
+            return value
+    return 'NOT_PROVEN'
+
+
+def observe_api_compose_shape(baseline):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'NOT_PROVEN'
+    before = api_binding()
+    if before[1] != baseline['observedImageId']:
+        return 'NOT_PROVEN'
+    format_string = ('{{json (index .Config.Labels "com.docker.compose.project.working_dir")}}\n'
+                     '{{json (index .Config.Labels "com.docker.compose.project.config_files")}}')
+    parts = docker_read('container', 'inspect', '--format', format_string, before[0])
+    if len(parts) != 2 or api_binding() != before:
+        return 'NOT_PROVEN'
+    return api_compose_shape(*(json.loads(part) for part in parts))
+
+
 def image_store_mode(value):
     if value is None:
         return STORE_MODES[0]
@@ -405,6 +441,14 @@ def self_test():
     from tempfile import TemporaryDirectory
     from types import SimpleNamespace
     from unittest.mock import patch
+
+    assert api_compose_shape('/srv/fixture', 'one.yml,/srv/fixture/one.yml,two.yml,two.yml') == 'COMPOSE_4_1_2_0_0'
+    assert api_compose_shape('/srv/fixture', 'one.yml,,compose.production-api-only-image.override.yml') == 'COMPOSE_3_0_0_1_1'
+    assert api_compose_shape('/srv/fixture', ','.join(['one.yml'] * 257)) == 'NOT_PROVEN'
+    assert api_compose_shape('/srv/fixture', 'one.yml\ntwo.yml') == 'NOT_PROVEN'
+    assert validate_api_compose_shape('COMPOSE_4_1_2_0_0') == 'COMPOSE_4_1_2_0_0'
+    for invalid in ('COMPOSE_0_0_0_0_0', 'COMPOSE_4_2_1_0_0', 'COMPOSE_4_0_0_3_2', 'COMPOSE_PRIVATE_PATH'):
+        assert validate_api_compose_shape(invalid) == 'NOT_PROVEN'
 
     boot_id = 'a' * 32
     entry = {'_BOOT_ID': boot_id, '_TRANSPORT': 'kernel', 'SYSLOG_FACILITY': '0',
@@ -557,6 +601,8 @@ if __name__ == '__main__':
             print(observe_identity(*globals()['IDENTITY_SPEC']))
         elif sys.argv[1:] == ['--api-baseline']:
             print(observe_api_baseline(api_baseline_spec(globals()['API_BASELINE'])))
+        elif sys.argv[1:] == ['--api-compose-shape']:
+            print(observe_api_compose_shape(api_baseline_spec(globals()['API_BASELINE'])))
         elif sys.argv[1:] == ['--export-running-api-archive']:
             export_api_archive(api_baseline_spec(globals()['API_BASELINE']))
         elif sys.argv[1:] == ['--self-test']:
@@ -593,6 +639,8 @@ if __name__ == '__main__':
             print(sys.argv[2] if sys.argv[2] in IDENTITY_CODES else 'NOT_PROVEN')
         elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api':
             print(sys.argv[2] if sys.argv[2] in API_CODES else 'NOT_PROVEN')
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-compose-shape':
+            print(validate_api_compose_shape(sys.argv[2]))
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
