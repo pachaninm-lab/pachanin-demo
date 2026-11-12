@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "f029e592269803c2c21b9c17c97ee92280c8a62a",
-      "bytes": 112714,
-      "sha256": "8ce2729393ee7e70cf9af2bb310e50105de0f83b81013d0e4a7badde8ce6507e",
+      "afterBlob": "34a244397722c5eb849e3c90c9fb13d6ec16df50",
+      "bytes": 113179,
+      "sha256": "978cfdd8b87fb7549571010386795e4f453892335a81e28b586fff1d658b7a3c",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "bdfffb731c9d3acd48bbc41608b4539b2be28e27",
-      "bytes": 68540,
-      "sha256": "e6784ebce64d06ba69838cd0f4e083333edef5f6abfeb8515337b0dd0bd9be20",
+      "afterBlob": "f9470175776d405b652ea2a6fa9ab6491b29ca73",
+      "bytes": 70612,
+      "sha256": "e5ebdf4f5b3d05526c9f56f8630071c5c13208182875caf1f53461d874810ace",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -48,5 +48,11 @@
   "productionInvocationAuthorized": false,
   "productionMutationAuthorized": false,
   "releaseAuthorized": false,
-  "masterCredit": 0
+  "masterCredit": 0,
+  "composeInputEvidence": {
+    "evidenceRun": 43200359256,
+    "evidenceResult": "COMPOSE_FILE_SET",
+    "sourceBase": "886dbb3b603142b404826dfa58bf185a0a77f0d9",
+    "purpose": "Preserve the exact order of repeated ordinary Compose inputs and retain the original limit of sixteen distinct protected files. Keep managed override position and effective model checks."
+  }
 }

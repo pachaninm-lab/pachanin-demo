@@ -199,6 +199,44 @@ class FakeHost:
 
 
 class ControllerTests(unittest.TestCase):
+    def test_configure_preserves_ordered_repeated_compose_inputs(self):
+        working = '/fixture'
+        primary = working + '/compose.yml'
+        secondary = working + '/overrides/api.yml'
+        managed = working + '/' + c.OVERRIDE
+        paths = [primary, secondary] + [primary] * 125
+        labels = {
+            'com.docker.compose.project': 'fixture',
+            'com.docker.compose.project.working_dir': working,
+            'com.docker.compose.project.config_files': ','.join([*paths, managed]),
+        }
+        host = object.__new__(c.Host)
+        model = {'bytes': b'services:\n  api:\n    image: fixture\n'}
+        with (patch.object(c, 'directory', return_value=21),
+              patch.object(c.os, 'close'),
+              patch.object(c, 'file_read', side_effect=[model, model, None]) as read):
+            host.configure({'Config': {'Labels': labels}})
+        self.assertEqual(host.compose[5:][1::2], [*paths, managed])
+        self.assertEqual([call.args[0] for call in read.call_args_list],
+                         [primary, secondary, working + '/.env'])
+
+        for files, reason in (
+            ([primary] * 129, 'COMPOSE_FILE_ENTRIES'),
+            ([primary] * 128, 'COMPOSE_FILE_ENTRIES'),
+            ([primary, '', secondary], 'COMPOSE_FILE_ENTRIES'),
+            ([working + f'/compose-{index}.yml' for index in range(17)], 'COMPOSE_DISTINCT_FILE_SET'),
+            ([primary, managed, secondary], 'COMPOSE_MANAGED_OVERRIDE_POSITION'),
+            ([primary, managed, managed], 'COMPOSE_MANAGED_OVERRIDE_POSITION'),
+        ):
+            with self.subTest(reason=reason):
+                labels['com.docker.compose.project.config_files'] = ','.join(files)
+                with (patch.object(c, 'directory', return_value=21),
+                      patch.object(c.os, 'close'),
+                      patch.object(c, 'file_read') as read):
+                    with self.assertRaisesRegex(c.ReleaseError, reason):
+                        host.configure({'Config': {'Labels': labels}})
+                    read.assert_not_called()
+
     def test_source_migrations_excludes_only_the_pinned_manual_rollback(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
