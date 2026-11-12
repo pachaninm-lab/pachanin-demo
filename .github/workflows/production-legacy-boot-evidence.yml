@@ -102,16 +102,17 @@ jobs:
       github.event.issue.number == 4637 && github.event.issue.pull_request == null &&
       (github.event.comment.body == '/production observe-legacy-boot current-main' ||
        github.event.comment.body == '/production observe-original19-identity current-main' ||
-       github.event.comment.body == '/production observe-api-baseline-content current-main') &&
+       github.event.comment.body == '/production observe-api-baseline-content current-main' ||
+       github.event.comment.body == '/production rehearse-running-api-archive current-main') &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner && github.triggering_actor == github.repository_owner &&
       github.run_attempt == '1'
     concurrency:
-      group: production-docker-headroom-readonly-diagnostic
+      group: ${{ github.event.comment.body == '/production rehearse-running-api-archive current-main' && 'pc-crop-production-release-candidate' || 'production-docker-headroom-readonly-diagnostic' }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: ${{ github.event.comment.body == '/production rehearse-running-api-archive current-main' && 9 || 5 }}
     permissions:
       contents: read
       issues: write
@@ -144,11 +145,12 @@ jobs:
               if .body == "/production observe-legacy-boot current-main" then "boot"
               elif .body == "/production observe-original19-identity current-main" then "identity"
               elif .body == "/production observe-api-baseline-content current-main" then "api"
+              elif .body == "/production rehearse-running-api-archive current-main" then "api-archive"
               else empty end
             ')"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-main "$GITHUB_SHA"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
-          [[ "$operation" == boot || "$operation" == identity || "$operation" == api ]]
+          [[ "$operation" == boot || "$operation" == identity || "$operation" == api || "$operation" == api-archive ]]
           printf 'operation=%s\n' "$operation" >> "$GITHUB_OUTPUT"
 
       - name: Reuse the pinned production SSH resolver
@@ -183,6 +185,7 @@ jobs:
 
       - name: Collect one bounded host observation
         id: boot
+        if: steps.provenance.outputs.operation != 'api-archive'
         env:
           GH_TOKEN: ${{ github.token }}
           SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -233,6 +236,56 @@ jobs:
           [[ "$receipt" =~ ^[A-Z][A-Z0-9_]{0,63}$ ]]
           printf 'result=%s\n' "$receipt" >> "$GITHUB_OUTPUT"
 
+      - name: Restore the running API image archive on the disposable runner
+        id: rollback
+        if: steps.provenance.outputs.operation == 'api-archive'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +x
+          [[ "$RUNNER_ENVIRONMENT" == github-hosted ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
+          [[ "$PROD_HOST" == "$DEFAULT_HOST" && "$PROD_PORT" =~ ^[0-9]{1,5}$ ]]
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          umask 077
+          work=$(mktemp -d "$RUNNER_TEMP/running-api-archive.XXXXXXXX")
+          trap 'rm -rf -- "$work"' EXIT
+          available=$(df -PB1 "$work" | awk 'NR == 2 { print $4 }')
+          [[ "$available" =~ ^[0-9]+$ && "$available" -ge 6442450944 ]]
+          script=scripts/production-legacy-boot-evidence.py
+          python3 -I -S -B "$script" --build-api-baseline-payload "$GITHUB_SHA" > "$work/export.py"
+          python3 -I -S -B "$script" --rollback-rehearsal-inputs "$GITHUB_SHA" > "$work/inputs"
+          mapfile -t inputs < "$work/inputs"
+          [[ "${#inputs[@]}" == 4 ]]
+          baseline=${inputs[2]}
+          docker=(/usr/bin/docker --host unix:///var/run/docker.sock)
+          "${docker[@]}" image ls -q >/dev/null
+          if "${docker[@]}" image inspect "$baseline" >/dev/null 2>&1; then exit 1; fi
+          timeout --kill-after=5s 210s /usr/bin/ssh -F /dev/null -T \
+            -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ClearAllForwardings=yes -o ConnectTimeout=12 -o ServerAliveInterval=5 \
+            -o ServerAliveCountMax=1 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$SSH_USER_SECRET@$PROD_HOST" '/usr/bin/python3 -I -S -B - --export-running-api-archive' \
+            < "$work/export.py" 2>/dev/null |
+            python3 -I -S -B "$script" --capture-api-image-archive "$work/api.tar"
+          timeout --kill-after=5s 120s "${docker[@]}" image load --input "$work/api.tar" >/dev/null
+          format=$'{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
+          if "${docker[@]}" image inspect --format "$format" "$baseline" > "$work/restored" 2>/dev/null; then
+            result=$(python3 -I -S -B "$script" --verify-restored-api-image "$GITHUB_SHA" < "$work/restored")
+          else
+            "${docker[@]}" image ls -q >/dev/null
+            result=RESTORED_IMAGE_ID_UNAVAILABLE
+          fi
+          case "$result" in
+            EXACT_BASELINE_IMAGE_RESTORED|RESTORED_IMAGE_CONTENT_DIFFERS|RESTORED_IMAGE_ID_UNAVAILABLE) ;;
+            *) exit 1 ;;
+          esac
+          printf 'result=%s\n' "$result" >> "$GITHUB_OUTPUT"
+
       - name: Remove protected transport material
         if: always()
         shell: bash
@@ -245,7 +298,7 @@ jobs:
         if: always() && steps.provenance.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ steps.boot.outputs.result }}
+          RESULT: ${{ steps.rollback.outputs.result || steps.boot.outputs.result }}
           OPERATION: ${{ steps.provenance.outputs.operation }}
         shell: bash
         run: |
@@ -256,6 +309,12 @@ jobs:
           elif [[ "$OPERATION" == api ]]; then
             result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api "$RESULT")"
             body="$(printf '## Read-only running API image metadata comparison\n\n- Exact source: `%s`\n- Run: `%s`\n- Fixed content result: `%s`\n- Evidence scope: Docker-reported OCI layer IDs and selected image defaults.\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
+          elif [[ "$OPERATION" == api-archive ]]; then
+            case "$RESULT" in
+              EXACT_BASELINE_IMAGE_RESTORED|RESTORED_IMAGE_CONTENT_DIFFERS|RESTORED_IMAGE_ID_UNAVAILABLE) result="$RESULT" ;;
+              *) result=NOT_PROVEN ;;
+            esac
+            body="$(printf '## Isolated restoration of the running API image\n\n- Exact source: `%s`\n- Run: `%s`\n- Exact image result: `%s`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
           else
             result=NOT_PROVEN
             if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi
