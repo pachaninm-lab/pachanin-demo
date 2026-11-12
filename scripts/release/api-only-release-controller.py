@@ -47,6 +47,9 @@ PRESERVED = (
     ('cold-bindings-preservation-20261023', 'e1a618c49c2ba10498e17f8a139272412bd1055a28de0d42ee639a5187bc6e8c'),
 )
 MAX_OUTPUT = 4 * 1024 * 1024
+MAX_COMPOSE_FILE_ENTRIES = 128
+MAX_DISTINCT_COMPOSE_FILES = 16
+MAX_ORDERED_COMPOSE_BYTES = MAX_DISTINCT_COMPOSE_FILES * 1024 * 1024
 MAX_BASELINE_ARCHIVE = 2 * 1024**3
 BASELINE_ARCHIVE_SCHEMA = 'pc.api-only-baseline-archive.v1'
 BASELINE_ARCHIVE = 'baseline-image.tar'
@@ -1506,7 +1509,8 @@ class Host:
 
     def image(self, reference):
         demand(type(reference) is str and (IMAGE_ID.fullmatch(reference) or DIGEST.fullmatch(reference) or
-               re.fullmatch(r'ghcr\.io/pachaninm-lab/grainflow-api:sha-[0-9a-f]{7}', reference)), 'IMAGE_REFERENCE')
+               re.fullmatch(r'ghcr\.io/pachaninm-lab/grainflow-api:sha-[0-9a-f]{7}', reference) or
+               reference == getattr(self, 'legacy_baseline_ref', None)), 'IMAGE_REFERENCE')
         rows = closed_json(self.run(['image', 'inspect', reference]))
         demand(type(rows) is list and len(rows) == 1 and IMAGE_ID.fullmatch(rows[0].get('Id', '')),
                'IMAGE_IDENTITY')
@@ -1584,7 +1588,7 @@ class Host:
                                     k) for k in extra), 'UNEXPECTED_PRESERVATION_ADDITION')
         return digest(self.preserved_tokens)
 
-    def configure(self, api):
+    def configure(self, api, intent=None):
         labels = api['Config'].get('Labels') or {}
         project = labels.get('com.docker.compose.project', '')
         working = labels.get('com.docker.compose.project.working_dir', '')
@@ -1594,21 +1598,34 @@ class Host:
         check = directory(working)
         os.close(check)
         paths = [part.strip() for part in files.split(',')]
-        demand(0 < len(paths) <= 16 and len(paths) == len(set(paths)), 'COMPOSE_FILE_SET')
+        demand(0 < len(paths) <= MAX_COMPOSE_FILE_ENTRIES and all(paths), 'COMPOSE_FILE_ENTRIES')
         paths = [p if p.startswith('/') else str(Path(working) / p) for p in paths]
         override = str(Path(working) / OVERRIDE)
-        paths = [p for p in paths if p != override]
+        if override in paths:
+            demand(paths.count(override) == 1 and paths[-1] == override, 'COMPOSE_MANAGED_OVERRIDE_POSITION')
+            paths.pop()
+        demand(0 < len(paths) < MAX_COMPOSE_FILE_ENTRIES, 'COMPOSE_FILE_ENTRIES')
+        demand(len(set(paths)) <= MAX_DISTINCT_COMPOSE_FILES, 'COMPOSE_DISTINCT_FILE_SET')
         inputs = {}
-        for path in paths:
+        # Read each file once, but pass the full ordered list to Compose for model comparison.
+        for path in dict.fromkeys(paths):
             record = file_read(path)
             raw = record['bytes']
             validate_compose_input_profile(raw)
             inputs[path] = record
             for env_path in declared_env_files(raw, working):
                 inputs[env_path] = file_read(env_path)
+        demand(sum(len(inputs[path]['bytes']) for path in paths) <= MAX_ORDERED_COMPOSE_BYTES,
+               'COMPOSE_ORDERED_BYTES')
         default_env = str(Path(working) / '.env')
         inputs[default_env] = file_read(default_env, optional=True)
         self.project, self.working, self.override_path = project, working, override
+        self.legacy_baseline_ref = None
+        if (intent is not None and intent['baseline_publication']['schema'] == BASELINE_ARCHIVE_SCHEMA and
+                api.get('Image') == intent['baseline_image_id']):
+            original_reference = 'pc-crop-transfer/api:' + intent['baseline_sha']
+            if api['Config'].get('Image') == original_reference:
+                self.legacy_baseline_ref = original_reference
         self.compose = ['compose', '--project-directory', working, '--project-name', project]
         for path in paths:
             self.compose.extend(['-f', path])
@@ -1642,7 +1659,7 @@ class Host:
         demand(len(apis) == 1, 'CANONICAL_API_AMBIGUOUS')
         api = apis[0]
         if self.compose is None:
-            self.configure(api)
+            self.configure(api, intent)
             self.api_before = api
         labels = api['Config'].get('Labels') or {}
         demand(labels.get('com.docker.compose.project') == self.project, 'API_PROJECT_CHANGED')
