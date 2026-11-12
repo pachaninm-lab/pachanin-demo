@@ -188,5 +188,33 @@
     "productionMutationAuthorized": false,
     "releaseAuthorized": false,
     "masterCredit": 0
+  },
+  "gektaApiRunningImageArchiveRehearsal": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "db1969a424f2de104e0edaaa4211c4e83b62783b",
+        "sha256": "0645f47cef6896156f836d116653a282f0e120a817b9bc3d4320e8ddd95d030b"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "3cda6349a41c78c8df9780f099c18d3cd8ba29bc",
+        "sha256": "e836d03a8442eb44bf99a7ec9bd3222faa78c9925fe0cf9a31dc2f3bb973a69d"
+      }
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0
   }
 }
