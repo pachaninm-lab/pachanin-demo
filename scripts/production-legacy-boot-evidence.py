@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposePost6178Evidence'
+AUTHORITY_KEY = 'gektaApiComposeInlineScalarEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -134,11 +134,54 @@ REFERENCE_POSITION_CODES = (
     'PROFILE_REF_NESTED', 'PROFILE_REF_SEQUENCE_ALIAS', 'PROFILE_REF_SEQUENCE_ANCHOR',
     'PROFILE_REF_INLINE_ANCHOR', 'PROFILE_REF_INLINE_BLOCK_SCALAR', 'PROFILE_REF_INLINE_FLOW',
     'PROFILE_REF_INLINE_TAG', 'PROFILE_REF_KEY_OPERATOR', 'PROFILE_REF_KEY_FORMAT',
+    'PROFILE_INLINE_LINE_BOUND', 'PROFILE_INLINE_KEY_SPACE', 'PROFILE_INLINE_KEY_SHAPE',
+    'PROFILE_INLINE_NAME_BOUND', 'PROFILE_INLINE_QUOTED_FORM', 'PROFILE_INLINE_INTERPOLATION',
+    'PROFILE_INLINE_COMMENT_SPACE',
+    'PROFILE_INLINE_COLON_SEPARATOR', 'PROFILE_INLINE_INDICATOR', 'PROFILE_INLINE_CHARACTERS',
     'PROFILE_REF_EMBEDDED_OR_OTHER',
 )
 
 
-def reference_position_code(line, anchor_indent):
+def inline_scalar_rejection(raw_line, parse_anchor):
+    if len(raw_line) > 16 * 1024:
+        return 'PROFILE_INLINE_LINE_BOUND'
+    raw = raw_line.decode('utf-8').removesuffix('\r')
+    key_form = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+)"""
+    match = re.fullmatch(r'(?P<key> *(?:- +)?' + key_form +
+                         r'): +&(?P<name>[A-Za-z0-9_-]+) +(?P<value>\S.*)', raw)
+    if match is None:
+        return 'PROFILE_REF_INLINE_ANCHOR'
+    key, name, value = match['key'], match['name'], match['value']
+    if len(name) > 64:
+        return 'PROFILE_INLINE_NAME_BOUND'
+    prefix = f'{key}: &{name} '
+    if parse_anchor((prefix + 'x').encode()) is None:
+        if key != key.rstrip() and parse_anchor((f'{key.rstrip()}: &{name} x').encode()) is not None:
+            return 'PROFILE_INLINE_KEY_SPACE'
+        return 'PROFILE_INLINE_KEY_SHAPE'
+    if value.startswith(('"', "'")):
+        return 'PROFILE_INLINE_QUOTED_FORM'
+    comment = re.search(r'[ \t]+#', value)
+    if comment is not None:
+        value = value[:comment.start()].rstrip()
+        if parse_anchor((prefix + value).encode()) is not None:
+            return 'PROFILE_INLINE_COMMENT_SPACE'
+    substituted = value
+    for _ in range(8):
+        shortened = re.sub(r'\$\{[^{}\r\n]*\}', 'x', substituted)
+        if shortened == substituted:
+            break
+        substituted = shortened
+    if substituted != value and parse_anchor((prefix + substituted).encode()) is not None:
+        return 'PROFILE_INLINE_INTERPOLATION'
+    if re.search(r':(?:[ \t]|$)', value):
+        return 'PROFILE_INLINE_COLON_SEPARATOR'
+    if value.startswith(('@', '`', '%', '*', '&', '#', '?')) or re.match(r'-(?:[ \t]|$)', value):
+        return 'PROFILE_INLINE_INDICATOR'
+    return 'PROFILE_INLINE_CHARACTERS'
+
+
+def reference_position_code(line, anchor_indent, raw_line, parse_anchor):
     if anchor_indent is not None:
         return 'PROFILE_REF_NESTED'
     if re.match(r'^ *- +\*[A-Za-z0-9_-]+ *$', line):
@@ -154,7 +197,7 @@ def reference_position_code(line, anchor_indent):
             return 'PROFILE_REF_INLINE_FLOW'
         if value.startswith('!'):
             return 'PROFILE_REF_INLINE_TAG'
-        return 'PROFILE_REF_INLINE_ANCHOR'
+        return inline_scalar_rejection(raw_line, parse_anchor)
     if re.match(r'^ *[&*]', line):
         return 'PROFILE_REF_KEY_OPERATOR'
     if re.match(r'^ *[^:]+: +[&*][A-Za-z0-9_-]+ *$', line):
@@ -184,7 +227,12 @@ def compose_profile_source(source):
                 isinstance(node.args[1], ast.Constant) and node.args[1].value == 'COMPOSE_REFERENCE_POSITION']
     if len(position) != 1:
         raise ValueError('unknown pinned reference-position check')
-    position[0].args[1] = ast.parse('reference_position_code(line, anchor_indent)', mode='eval').body
+    check = position[0]
+    check.args[1] = ast.IfExp(
+        test=check.args[0], body=check.args[1],
+        orelse=ast.parse('reference_position_code(line, anchor_indent, raw_line, compose_inline_scalar_anchor)',
+                         mode='eval').body,
+    )
     return ast.unparse(module)
 
 
@@ -579,7 +627,19 @@ def self_test():
         (b'x-value: &base fixture\nother: *base\n', 'PROFILE_COMPATIBLE'),
         (b'x-value: &base "fixture"\nother: *base\n', 'PROFILE_COMPATIBLE'),
         (b'x-value: &base first\nother: *base trailing\n', 'PROFILE_REF_EMBEDDED_OR_OTHER'),
-        (b'x-value: &base first\nother: &next second: nested\n', 'PROFILE_REF_INLINE_ANCHOR'),
+        (b'x-value: &base first\nother: &next second: nested\n', 'PROFILE_INLINE_COLON_SEPARATOR'),
+        (b'x-value : &base fixture\n', 'PROFILE_INLINE_KEY_SPACE'),
+        (b'"key with space": &base fixture\n', 'PROFILE_INLINE_KEY_SHAPE'),
+        (b'"key: with colon": &base fixture\n', 'PROFILE_INLINE_KEY_SHAPE'),
+        (b'x-value: &' + b'a' * 65 + b' fixture\n', 'PROFILE_INLINE_NAME_BOUND'),
+        (b'x-value: &base "fixture" extra\n', 'PROFILE_INLINE_QUOTED_FORM'),
+        (b'x-value: &base ${FIXTURE:-safe}\n', 'PROFILE_INLINE_INTERPOLATION'),
+        (b'x-value: &base pre/${FIXTURE:-safe?}/post # private fixture\n', 'PROFILE_INLINE_INTERPOLATION'),
+        (b'x-value: &base ${OUTER:-${INNER:-safe}}\n', 'PROFILE_INLINE_INTERPOLATION'),
+        (b'x-value: &base fixture\t# private fixture\n', 'PROFILE_INLINE_COMMENT_SPACE'),
+        (b'x-value: &base - fixture\n', 'PROFILE_INLINE_INDICATOR'),
+        (b'x-value: &base name(value)\n', 'PROFILE_INLINE_CHARACTERS'),
+        (b'x-value: &base ?' + b'x' * (16 * 1024) + b'\n', 'PROFILE_INLINE_LINE_BOUND'),
         (b'x-value: &base |\n  fixture\n', 'PROFILE_REF_INLINE_BLOCK_SCALAR'),
         (b'x-value: &base [fixture]\n', 'PROFILE_REF_INLINE_FLOW'),
         (b'x-value: &base !custom fixture\n', 'PROFILE_REF_INLINE_TAG'),
