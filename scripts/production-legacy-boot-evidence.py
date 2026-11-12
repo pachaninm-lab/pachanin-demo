@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiRunningImageArchiveRehearsal'
+AUTHORITY_KEY = 'gektaApiRunningImageStoreRehearsal'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -38,6 +38,7 @@ API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
 API_ROOTFS_COUNT = 25
 IMAGE_METADATA_FORMAT = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
 ARCHIVE_LIMIT = 2 * 1024**3
+STORE_MODES = (b'CLASSIC\n', b'CONTAINERD\n')
 API_DEFAULT_FIELDS = (
     'User', 'ExposedPorts', 'Env', 'Entrypoint', 'Cmd', 'WorkingDir', 'ArgsEscaped',
     'Volumes', 'StopSignal', 'StopTimeout', 'Healthcheck', 'Shell', 'OnBuild',
@@ -293,6 +294,27 @@ def observe_api_baseline(baseline):
     return api_image_result(parts, baseline)
 
 
+def image_store_mode(value):
+    if value is None:
+        return STORE_MODES[0]
+    if (type(value) is not list or any(type(row) is not list or len(row) != 2 or
+                                       any(type(item) is not str for item in row) for row in value)):
+        raise ValueError('invalid Docker storage driver status')
+    driver_types = [v for k, v in value if k == 'driver-type']
+    if not driver_types:
+        return STORE_MODES[0]
+    if driver_types == ['io.containerd.snapshotter.v1']:
+        return STORE_MODES[1]
+    raise ValueError('unsupported Docker image store')
+
+
+def read_image_store_mode():
+    lines = docker_read('info', '--format', '{{json .DriverStatus}}')
+    if len(lines) != 1:
+        raise ValueError('invalid Docker storage profile')
+    return image_store_mode(json.loads(lines[0]))
+
+
 def export_api_archive(baseline):
     if os.getuid() != 0 or os.geteuid() != 0:
         raise ValueError('Docker image export requires the protected host identity')
@@ -302,11 +324,14 @@ def export_api_archive(baseline):
     parts = docker_read('image', 'inspect', '--format', IMAGE_METADATA_FORMAT, before[1])
     if api_image_result(parts, baseline) != 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH':
         raise ValueError('running API content differs from the accepted image')
+    store = read_image_store_mode()
+    sys.stdout.buffer.write(store)
+    sys.stdout.buffer.flush()
     subprocess.run(['/usr/bin/docker', '--config', '/proc/self/fd', '--host', 'unix:///var/run/docker.sock',
                     'image', 'save', before[1]], cwd='/', env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'},
                    stdin=subprocess.DEVNULL, stdout=sys.stdout.buffer, stderr=subprocess.DEVNULL,
                    timeout=180, check=True)
-    if api_binding() != before:
+    if api_binding() != before or read_image_store_mode() != store:
         raise ValueError('running API identity changed during export')
 
 
@@ -320,6 +345,14 @@ def capture_api_archive(stream, target, limit=ARCHIVE_LIMIT):
             archive.write(block)
     if total == 0:
         raise ValueError('empty image archive')
+
+
+def capture_store_archive(stream, target):
+    mode = stream.readline(max(map(len, STORE_MODES)) + 1)
+    if mode not in STORE_MODES:
+        raise ValueError('invalid Docker image store prefix')
+    capture_api_archive(stream, target)
+    return mode.decode('ascii').strip()
 
 
 def kernel_boot_entry(raw, boot_id):
@@ -467,6 +500,28 @@ def self_test():
                 pass
             else:
                 raise AssertionError('invalid archive input was accepted')
+        for mode in STORE_MODES:
+            target = Path(folder) / mode.decode('ascii').strip()
+            assert capture_store_archive(BytesIO(mode + b'image archive'), target) == target.name
+            assert target.read_bytes() == b'image archive'
+        for data in (b'UNKNOWN\narchive', b'CLASSIC', b'CONTAINERD\n'):
+            try:
+                capture_store_archive(BytesIO(data), Path(folder) / 'bad')
+            except ValueError:
+                pass
+            else:
+                raise AssertionError('invalid store archive was accepted')
+    assert image_store_mode(None) == b'CLASSIC\n'
+    assert image_store_mode([['Backing Filesystem', 'extfs']]) == b'CLASSIC\n'
+    containerd = [['driver-type', 'io.containerd.snapshotter.v1']]
+    assert image_store_mode(containerd) == b'CONTAINERD\n'
+    for status in ({}, [[]], [['driver-type', 'other']], containerd * 2):
+        try:
+            image_store_mode(status)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('unsupported image store was accepted')
     for uid, last_binding, content, expected_calls, should_fail in (
         (1000, binding, 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH', 0, True),
         (0, binding, 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH', 1, False),
@@ -476,7 +531,9 @@ def self_test():
         observations = iter((binding, last_binding))
         with (patch('os.getuid', return_value=uid), patch('os.geteuid', return_value=uid),
               patch('subprocess.run') as execute,
+              patch('sys.stdout', SimpleNamespace(buffer=BytesIO())),
               patch.dict(globals(), {'api_binding': observations.__next__, 'docker_read': lambda *_: [],
+                                     'read_image_store_mode': lambda: b'CLASSIC\n',
                                      'api_image_result': lambda *_: content})):
             try:
                 export_api_archive(baseline)
@@ -486,9 +543,10 @@ def self_test():
                 assert not should_fail
             assert execute.call_count == expected_calls
             if expected_calls:
+                assert sys.stdout.buffer.getvalue() == b'CLASSIC\n'
                 assert execute.call_args.args[0][-3:] == ['image', 'save', image_id]
                 assert execute.call_args.kwargs['timeout'] == 180
-    print('PASS: 49 local boot, identity, API content and image recovery cases')
+    print('PASS: local boot, identity, API content, image store and image recovery cases')
 
 
 if __name__ == '__main__':
@@ -515,7 +573,12 @@ if __name__ == '__main__':
             ref = sys.argv[2]
             print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
         elif len(sys.argv) == 3 and sys.argv[1] == '--capture-api-image-archive':
-            capture_api_archive(sys.stdin.buffer, sys.argv[2])
+            print(capture_store_archive(sys.stdin.buffer, sys.argv[2]))
+        elif sys.argv[1:] == ['--classify-image-store']:
+            raw = sys.stdin.buffer.read(64 * 1024 + 1)
+            if len(raw) > 64 * 1024:
+                raise ValueError('Docker storage status is too large')
+            print(image_store_mode(json.loads(raw)).decode('ascii').strip())
         elif len(sys.argv) == 3 and sys.argv[1] == '--verify-restored-api-image':
             ref = sys.argv[2]
             limit = 64 * 1024
