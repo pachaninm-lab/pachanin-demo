@@ -765,6 +765,47 @@ class ControllerTests(unittest.TestCase):
             with self.subTest(code=code), self.assertRaisesRegex(c.ReleaseError, code):
                 c.declared_env_files(raw, '/protected')
 
+    def test_compose_literal_lists_and_bracket_values_keep_external_inputs_closed(self):
+        raw = (b'x-bracket: fixture[digits]\n'
+               b'x-empty: !reset []\n'
+               b'x-map: !override {}\n'
+               b'x-list: [one, two]\n'
+               b'services:\n  api:\n'
+               b'    command: ["server", --listen, "0.0.0.0:3000"]\n'
+               b'    ports: ["127.0.0.1:3000:3000", 3001:3001]\n'
+               b'    profiles: [default, optional]\n'
+               b'    environment:\n      PATTERN: fixture[0-9]\n'
+               b'    env_file: literal.env\n')
+        self.assertEqual(c.declared_env_files(raw, '/protected'), ['/protected/literal.env'])
+        for bad in (
+            b'services:\n  api:\n    env_file: [private.env]\n',
+            b'services:\n  api:\n    env_file:\n      - private[1].env\n',
+            b'include: [private.yml]\n',
+            b'extends: [private.yml]\n',
+            b'services: [{api: {env_file: private.env}}]\n',
+            b'x-list: [[one], two]\n',
+            b'x-list: [one, x:]\n',
+            b'x-list: [one, env_file:]\n',
+            b'x-list: [one, x: []]\n',
+            b'x-list: [one, x: {}]\n',
+            b'x-list: [one{}]\n',
+            b'x-list: [one, [\n  ]two]\n',
+            b'x-list: [one, @reserved]\n',
+            b'x-list: [one, %reserved]\n',
+            b'x-list: [env_file: private.env]\n',
+            b'x-list: [one, !custom two]\n',
+            b'x-list: [one, *shared]\n',
+            b'x-list: [&shared one, two]\n',
+            b'x-list: [one,\n  two]\n',
+            b'x-list: [one,,two]\n',
+            b'x-list: [' + b'one,' * 128 + b'two]\n',
+            b'x-bracket: fixture[unclosed\n',
+            b'x-bracket: fixture[digits]:\n',
+            b'fixture[index]: value\n',
+        ):
+            with self.subTest(raw=bad), self.assertRaises(c.ReleaseError):
+                c.declared_env_files(bad, '/protected')
+
 
     def test_compose_inline_scalar_anchors_keep_external_inputs_closed(self):
         raw = (b'x-image: &image ghcr.io/example/app:stable\n'

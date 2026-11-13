@@ -898,8 +898,49 @@ def validate_compose_references(plain, raw):
     demand(anchor_indent is None or anchor_has_content, 'COMPOSE_ANCHOR_BLOCK_REQUIRED')
 
 
+COMPOSE_LITERAL_LIST_KEYS = frozenset({
+    'cap_add', 'cap_drop', 'command', 'depends_on', 'dns', 'dns_opt', 'dns_search',
+    'entrypoint', 'environment', 'expose', 'extra_hosts', 'labels', 'networks',
+    'ports', 'profiles', 'security_opt', 'test', 'tmpfs', 'volumes',
+})
+COMPOSE_BRACKET_LINE = re.compile(
+    r' *(?:- +)?(?:(?P<key>[A-Za-z_][A-Za-z0-9_.-]*): +)?(?P<value>\S.*?) *'
+)
+COMPOSE_EXTERNAL_KEYS = frozenset({'include', 'extends', 'env_file', 'label_file', 'secrets', 'configs', 'provider'})
+COMPOSE_EMPTY_COLLECTION = re.compile(
+    r' *(?:- +)?(?:(?:[A-Za-z_][A-Za-z0-9_.-]*|""): +)?'
+    r'(?:!(?:reset|override) +)?(?:\[ *\]|\{ *\}) *'
+)
+COMPOSE_LITERAL_LIST_ITEM = re.compile(r'(?:[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=-]*|"")')
+COMPOSE_BRACKET_SCALAR = re.compile(
+    r'[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=-]*'
+    r'(?:\[[A-Za-z0-9_.:+%-]+\][A-Za-z0-9_./:@%+=-]*)+'
+)
+
+
+def compose_literal_brackets_allowed(line):
+    if len(line) > 16 * 1024:
+        return False
+    match = COMPOSE_BRACKET_LINE.fullmatch(line)
+    if match is None:
+        return False
+    key, value = match['key'], match['value']
+    if key is not None and key.lower() in COMPOSE_EXTERNAL_KEYS:
+        return False
+    if value.startswith('[') and value.endswith(']'):
+        if key is None or (key not in COMPOSE_LITERAL_LIST_KEYS and not key.startswith('x-')):
+            return False
+        items = [item.strip(' ') for item in value[1:-1].split(',')]
+        return len(items) <= 128 and all(
+            item != '-' and not item.endswith(':') and COMPOSE_LITERAL_LIST_ITEM.fullmatch(item)
+            for item in items
+        )
+    return ((key is not None or line.lstrip(' ').startswith('- ')) and not value.endswith(':')
+            and COMPOSE_BRACKET_SCALAR.fullmatch(value) is not None)
+
+
 def validate_compose_input_profile(raw):
-    """Admit literal block YAML only; reject hidden transitive inputs before rendering."""
+    """Admit a closed YAML profile before the renderer sees the protected inputs."""
     demand(type(raw) is bytes and 0<len(raw)<=1024*1024,'COMPOSE_INPUT_BOUND')
     text=compose_structural_view(raw)
     demand('\0' not in text and '\ufeff' not in text and
@@ -916,9 +957,13 @@ def validate_compose_input_profile(raw):
     plain=re.sub(r'(?m)(?:^|[^\S\r\n])#.*$','',plain)
     plain=re.sub(r'\$\{[^{}\r\n]*\}','VALUE',plain)
     validate_compose_references(plain, raw)
-    # Empty reset/override collections contain no transitive input.
-    plain=re.sub(r'\[\s*\]|\{\s*\}','',plain)
-    demand(not any(v in plain for v in '{}[]'),'COMPOSE_EXTERNAL_PROFILE')
+    # Validate whole lines before any empty collection can hide nested syntax.
+    for line in plain.splitlines():
+        if COMPOSE_EMPTY_COLLECTION.fullmatch(line):
+            continue
+        demand('{' not in line and '}' not in line, 'COMPOSE_EXTERNAL_PROFILE')
+        if '[' in line or ']' in line:
+            demand(compose_literal_brackets_allowed(line), 'COMPOSE_EXTERNAL_PROFILE')
     demand(re.search(r'!(?!reset\b|override\b)',plain) is None,'COMPOSE_EXTERNAL_PROFILE')
 
 

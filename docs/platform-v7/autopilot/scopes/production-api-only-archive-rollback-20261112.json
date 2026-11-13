@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "776691320964e21dc8ce7e76f68e1b4dde6db3df",
-      "bytes": 118628,
-      "sha256": "db5885a6cf052e477afd7ded041cef85a64f95750d4da6b3194db13be94f682b",
+      "afterBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
+      "bytes": 120624,
+      "sha256": "10d371672d9360f2fb989be79e38fea581640f41d4bbf0507d06ca1e8d3a685b",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "e4bd12c303f92dfb0a3bfd851d7566f40a29eddf",
-      "bytes": 77650,
-      "sha256": "420173efe7c90486de14ebe56992f0975805994d4de6c5405b099769c209433f",
+      "afterBlob": "6c10ba532e612f96cf1fa47e8404a1c0c42172e5",
+      "bytes": 79589,
+      "sha256": "3c0f9f44e62979537facbf652e2c22035cb56c4feca31f0e65251b7f68f6be7c",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -72,5 +72,11 @@
     "evidenceResult": "PROFILE_INLINE_INTERPOLATION",
     "sourceBase": "8db6ab28de88f009f314baaeafc879d708b5e25b",
     "purpose": "Admit bounded Compose variable substitutions in an inline anchored plain scalar while preserving the external-input, renderer equality and rollback guards."
+  },
+  "composeSquareBracketEvidence": {
+    "evidenceRun": 43394126921,
+    "evidenceResult": "PROFILE_SQUARE_BRACKET",
+    "sourceBase": "533757f5ce6524999d59224aae33ce54205a7cd9",
+    "purpose": "Admit bounded literal bracketed values and single-line scalar lists while preserving the external-input, renderer equality and rollback guards."
   }
 }
