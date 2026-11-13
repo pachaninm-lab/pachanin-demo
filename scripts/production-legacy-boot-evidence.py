@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposeInlineScalarEvidence'
+AUTHORITY_KEY = 'gektaApiComposeAfter6183Evidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -37,10 +37,13 @@ API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
              'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
 API_ROOTFS_COUNT = 25
 COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
-COMPOSE_CONTROLLER_BLOB = '9c2f8f6f171a0fcabf20a34fa479851e9c70054d'
+COMPOSE_CONTROLLER_BLOB = '776691320964e21dc8ce7e76f68e1b4dde6db3df'
 COMPOSE_PROFILE_CODES = (
     'PROFILE_TAB_INDENT', 'PROFILE_ENCODED_INPUT', 'PROFILE_INDIRECT_KEY', 'PROFILE_DIRECTIVE',
     'PROFILE_FLOW_COLLECTION', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
+)
+COMPOSE_FLOW_CODES = (
+    'PROFILE_DOLLAR_BRACE', 'PROFILE_SQUARE_BRACKET', 'PROFILE_CURLY_BRACE',
 )
 IMAGE_METADATA_FORMAT = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
 ARCHIVE_LIMIT = 2 * 1024**3
@@ -205,15 +208,32 @@ def reference_position_code(line, anchor_indent, raw_line, parse_anchor):
     return 'PROFILE_REF_EMBEDDED_OR_OTHER'
 
 
+def compose_flow_code(plain):
+    first = re.search(r'[{}\[\]]', plain)
+    if first is None:
+        return 'PROFILE_FLOW_COLLECTION'
+    if first[0] == '{' and first.start() and plain[first.start() - 1] == '$':
+        return 'PROFILE_DOLLAR_BRACE'
+    if first[0] in '[]':
+        return 'PROFILE_SQUARE_BRACKET'
+    return 'PROFILE_CURLY_BRACE'
+
+
 def compose_profile_source(source):
     selected_names = {'ReleaseError', 'demand', 'directory', 'file_read', 'compose_structural_view',
-                      'compose_inline_scalar_anchor', 'validate_compose_references',
+                      'compose_inline_interpolation_view', 'compose_inline_scalar_anchor', 'validate_compose_references',
                       'validate_compose_input_profile', 'declared_env_files'}
-    selected = [node for node in ast.parse(source).body if
-                isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in selected_names]
-    if len(selected) != len(selected_names):
+    inline_constants = {'COMPOSE_INLINE_ANCHOR_KEY', 'COMPOSE_INLINE_ANCHOR_PREFIX', 'COMPOSE_INLINE_INTERPOLATION'}
+    selected = {}
+    for node in ast.parse(source).body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in selected_names:
+            selected[node.name] = node
+        elif (isinstance(node, ast.Assign) and len(node.targets) == 1 and
+              isinstance(node.targets[0], ast.Name) and node.targets[0].id in inline_constants):
+            selected[node.targets[0].id] = node
+    if selected.keys() != selected_names | inline_constants:
         raise ValueError('incomplete pinned profile source')
-    module = ast.Module(body=selected, type_ignores=[])
+    module = ast.Module(body=list(selected.values()), type_ignores=[])
     sites = sorted((node for node in ast.walk(module)
                     if isinstance(node, ast.Constant) and node.value == 'COMPOSE_EXTERNAL_PROFILE'),
                    key=lambda node: (node.lineno, node.col_offset))
@@ -221,6 +241,16 @@ def compose_profile_source(source):
         raise ValueError('unknown pinned profile layout')
     for node, code in zip(sites, COMPOSE_PROFILE_CODES):
         node.value = code
+    flow = [node for node in ast.walk(module)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'demand'
+            and len(node.args) == 2 and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value == 'PROFILE_FLOW_COLLECTION']
+    if len(flow) != 1:
+        raise ValueError('unknown pinned flow check')
+    flow[0].args[1] = ast.IfExp(
+        test=flow[0].args[0], body=flow[0].args[1],
+        orelse=ast.parse('compose_flow_code(plain)', mode='eval').body,
+    )
     position = [node for node in ast.walk(module) if
                 isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and
                 node.func.id == 'demand' and len(node.args) == 2 and
@@ -453,7 +483,8 @@ def observe_api_compose_shape(baseline):
 
 
 def validate_api_compose_profile(value):
-    return value if value in (*COMPOSE_PROFILE_CODES, *REFERENCE_POSITION_CODES, 'PROFILE_COMPATIBLE', 'PROFILE_OTHER_UNSUPPORTED') else 'NOT_PROVEN'
+    return value if value in (*COMPOSE_PROFILE_CODES, *COMPOSE_FLOW_CODES, *REFERENCE_POSITION_CODES,
+                              'PROFILE_COMPATIBLE', 'PROFILE_OTHER_UNSUPPORTED') else 'NOT_PROVEN'
 
 
 def classify_api_compose_profile(working, files, profile):
@@ -463,7 +494,7 @@ def classify_api_compose_profile(working, files, profile):
     total, _, duplicates, empty, _ = map(int, shape.split('_')[1:])
     if total > 128 or total - duplicates > 16 or empty:
         return 'NOT_PROVEN'
-    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re,
+    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re, 'compose_flow_code': compose_flow_code,
                  'reference_position_code': reference_position_code}
     exec(compile(profile, '<pinned-api-compose-profile>', 'exec'), namespace)
     try:
@@ -633,9 +664,10 @@ def self_test():
         (b'"key: with colon": &base fixture\n', 'PROFILE_INLINE_KEY_SHAPE'),
         (b'x-value: &' + b'a' * 65 + b' fixture\n', 'PROFILE_INLINE_NAME_BOUND'),
         (b'x-value: &base "fixture" extra\n', 'PROFILE_INLINE_QUOTED_FORM'),
-        (b'x-value: &base ${FIXTURE:-safe}\n', 'PROFILE_INLINE_INTERPOLATION'),
-        (b'x-value: &base pre/${FIXTURE:-safe?}/post # private fixture\n', 'PROFILE_INLINE_INTERPOLATION'),
-        (b'x-value: &base ${OUTER:-${INNER:-safe}}\n', 'PROFILE_INLINE_INTERPOLATION'),
+        (b'x-value: &base ${FIXTURE:-safe}\n', 'PROFILE_COMPATIBLE'),
+        (b'x-value: &base pre/${FIXTURE:-safe?}/post # private fixture\n', 'PROFILE_COMPATIBLE'),
+        (b'x-value: &base ${OUTER:-${INNER:-safe}}\n', 'PROFILE_COMPATIBLE'),
+        (b'x-value: &base ${FIXTURE:-value^}\n', 'PROFILE_INLINE_INTERPOLATION'),
         (b'x-value: &base fixture\t# private fixture\n', 'PROFILE_INLINE_COMMENT_SPACE'),
         (b'x-value: &base - fixture\n', 'PROFILE_INLINE_INDICATOR'),
         (b'x-value: &base name(value)\n', 'PROFILE_INLINE_CHARACTERS'),
@@ -646,7 +678,14 @@ def self_test():
         (b'*base: fixture\n', 'PROFILE_REF_KEY_OPERATOR'),
         (b'"quoted key": *base\n', 'PROFILE_REF_KEY_FORMAT'),
         (b'x-value: echo *fixture\n', 'PROFILE_REF_EMBEDDED_OR_OTHER'),
-        (b'services: {api: {image: fixture}}\n', 'PROFILE_FLOW_COLLECTION'),
+        (b'services: {api: {image: fixture}}\n', 'PROFILE_CURLY_BRACE'),
+        (b'x-values: [one, two]\n', 'PROFILE_SQUARE_BRACKET'),
+        (b'x-value: fixture[digits]\n', 'PROFILE_SQUARE_BRACKET'),
+        (b'x-value: prefix{suffix}\n', 'PROFILE_CURLY_BRACE'),
+        (b'x-value: ${OUTER:-${INNER:-safe}}\n', 'PROFILE_DOLLAR_BRACE'),
+        (b'x-value: fixture }\n', 'PROFILE_CURLY_BRACE'),
+        (b'x-value: "\\u0061"\n', 'PROFILE_ENCODED_INPUT'),
+        (b'x-value: fixture\n<<: fixture\n', 'PROFILE_DIRECTIVE'),
         (b'services:\n  api: !unrecognized fixture\n', 'PROFILE_TAG'),
     ):
         fixture = profile + '\ndef file_read(_path): return {"bytes": ' + repr(data) + '}\n'

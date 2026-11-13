@@ -375,7 +375,7 @@ jobs:
             body="$(printf '## Read-only running API Compose list classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Entries, raw duplicates, normalized duplicates, empty entries, API-only overrides: `%s`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
           elif [[ "$OPERATION" == api-compose-profile ]]; then
             result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api-compose-profile "$RESULT")"
-            body="$(printf '## Read-only API Compose inline scalar classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Pinned profile result: `%s`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$result")"
+            body="$(printf '## Read-only API Compose profile classification after #6183\n\n- Exact source: `%s`\n- Run: `%s`\n- Release controller blob: `%s`\n- Pinned profile result: `%s`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$(git rev-parse "$GITHUB_SHA:scripts/release/api-only-release-controller.py")" "$result")"
           else
             result=NOT_PROVEN
             if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi
