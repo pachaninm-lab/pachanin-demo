@@ -767,6 +767,8 @@ class ControllerTests(unittest.TestCase):
 
     def test_compose_literal_lists_and_bracket_values_keep_external_inputs_closed(self):
         raw = (b'x-bracket: fixture[digits]\n'
+               b'x-empty: !reset []\n'
+               b'x-map: !override {}\n'
                b'x-list: [one, two]\n'
                b'services:\n  api:\n'
                b'    command: ["server", --listen, "0.0.0.0:3000"]\n'
@@ -782,6 +784,14 @@ class ControllerTests(unittest.TestCase):
             b'extends: [private.yml]\n',
             b'services: [{api: {env_file: private.env}}]\n',
             b'x-list: [[one], two]\n',
+            b'x-list: [one, x:]\n',
+            b'x-list: [one, env_file:]\n',
+            b'x-list: [one, x: []]\n',
+            b'x-list: [one, x: {}]\n',
+            b'x-list: [one{}]\n',
+            b'x-list: [one, [\n  ]two]\n',
+            b'x-list: [one, @reserved]\n',
+            b'x-list: [one, %reserved]\n',
             b'x-list: [env_file: private.env]\n',
             b'x-list: [one, !custom two]\n',
             b'x-list: [one, *shared]\n',
@@ -790,6 +800,7 @@ class ControllerTests(unittest.TestCase):
             b'x-list: [one,,two]\n',
             b'x-list: [' + b'one,' * 128 + b'two]\n',
             b'x-bracket: fixture[unclosed\n',
+            b'x-bracket: fixture[digits]:\n',
             b'fixture[index]: value\n',
         ):
             with self.subTest(raw=bad), self.assertRaises(c.ReleaseError):

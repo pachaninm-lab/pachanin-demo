@@ -906,9 +906,14 @@ COMPOSE_LITERAL_LIST_KEYS = frozenset({
 COMPOSE_BRACKET_LINE = re.compile(
     r' *(?:- +)?(?:(?P<key>[A-Za-z_][A-Za-z0-9_.-]*): +)?(?P<value>\S.*?) *'
 )
-COMPOSE_LITERAL_LIST_ITEM = re.compile(r'(?:[A-Za-z0-9_./+@%-][A-Za-z0-9_./:@%+=-]*|"")')
+COMPOSE_EXTERNAL_KEYS = frozenset({'include', 'extends', 'env_file', 'label_file', 'secrets', 'configs', 'provider'})
+COMPOSE_EMPTY_COLLECTION = re.compile(
+    r' *(?:- +)?(?:(?:[A-Za-z_][A-Za-z0-9_.-]*|""): +)?'
+    r'(?:!(?:reset|override) +)?(?:\[ *\]|\{ *\}) *'
+)
+COMPOSE_LITERAL_LIST_ITEM = re.compile(r'(?:[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=-]*|"")')
 COMPOSE_BRACKET_SCALAR = re.compile(
-    r'[A-Za-z0-9_./+@%-][A-Za-z0-9_./:@%+=-]*'
+    r'[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=-]*'
     r'(?:\[[A-Za-z0-9_.:+%-]+\][A-Za-z0-9_./:@%+=-]*)+'
 )
 
@@ -920,10 +925,18 @@ def compose_literal_brackets_allowed(line):
     if match is None:
         return False
     key, value = match['key'], match['value']
-    if (key in COMPOSE_LITERAL_LIST_KEYS or (key is not None and key.startswith('x-'))) and value.startswith('[') and value.endswith(']'):
-        items = value[1:-1].split(',')
-        return len(items) <= 128 and all(COMPOSE_LITERAL_LIST_ITEM.fullmatch(item.strip(' ')) for item in items)
-    return (key is not None or line.lstrip(' ').startswith('- ')) and COMPOSE_BRACKET_SCALAR.fullmatch(value) is not None
+    if key is not None and key.lower() in COMPOSE_EXTERNAL_KEYS:
+        return False
+    if value.startswith('[') and value.endswith(']'):
+        if key is None or (key not in COMPOSE_LITERAL_LIST_KEYS and not key.startswith('x-')):
+            return False
+        items = [item.strip(' ') for item in value[1:-1].split(',')]
+        return len(items) <= 128 and all(
+            item != '-' and not item.endswith(':') and COMPOSE_LITERAL_LIST_ITEM.fullmatch(item)
+            for item in items
+        )
+    return ((key is not None or line.lstrip(' ').startswith('- ')) and not value.endswith(':')
+            and COMPOSE_BRACKET_SCALAR.fullmatch(value) is not None)
 
 
 def validate_compose_input_profile(raw):
@@ -944,10 +957,11 @@ def validate_compose_input_profile(raw):
     plain=re.sub(r'(?m)(?:^|[^\S\r\n])#.*$','',plain)
     plain=re.sub(r'\$\{[^{}\r\n]*\}','VALUE',plain)
     validate_compose_references(plain, raw)
-    # Empty collections and the closed literal list grammar contain no YAML mappings.
-    plain=re.sub(r'\[\s*\]|\{\s*\}','',plain)
-    demand('{' not in plain and '}' not in plain, 'COMPOSE_EXTERNAL_PROFILE')
+    # Validate whole lines before any empty collection can hide nested syntax.
     for line in plain.splitlines():
+        if COMPOSE_EMPTY_COLLECTION.fullmatch(line):
+            continue
+        demand('{' not in line and '}' not in line, 'COMPOSE_EXTERNAL_PROFILE')
         if '[' in line or ']' in line:
             demand(compose_literal_brackets_allowed(line), 'COMPOSE_EXTERNAL_PROFILE')
     demand(re.search(r'!(?!reset\b|override\b)',plain) is None,'COMPOSE_EXTERNAL_PROFILE')
