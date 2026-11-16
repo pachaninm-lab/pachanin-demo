@@ -497,5 +497,44 @@
     "snapshotControllerBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
     "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
     "originalVolumeEvidenceRun": 43856373074
+  },
+  "gektaApiBaselineStabilityInputOrderEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "5dbde1e7721a43b3d4ed99f2216c1a88548a0c76",
+        "sha256": "ad5be7bafff6883bb11b1dedef5ca3f5551151cee614e531560a61919e81ea69"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "bbc8ef08ca270fee9bc27d8115c28cb072f66aea",
+        "sha256": "ff48d8bfa1925f57b9f9d327f97cb857f5c87857f46ef45fcfd7c4d07f96e37c"
+      }
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "productionHoldRuns": [
+      43856302371,
+      43858051938
+    ],
+    "productionHoldReason": "BASELINE_CHANGED",
+    "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
+    "snapshotControllerBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
+    "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
+    "originalVolumeEvidenceRun": 43856373074,
+    "supersedes": "gektaApiBaselineStabilityAfter6189Evidence",
+    "rejectedObserverHead": "fd95145d1574269205b49fe72cac89362ff9f12a"
   }
 }

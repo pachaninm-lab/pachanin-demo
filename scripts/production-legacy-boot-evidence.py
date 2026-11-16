@@ -1,6 +1,7 @@
 """Bounded, read-only evidence for the guest boot after run 41730479605."""
 
 import ast
+from contextlib import ExitStack
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -20,7 +21,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiBaselineStabilityAfter6189Evidence'
+AUTHORITY_KEY = 'gektaApiBaselineStabilityInputOrderEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -48,7 +49,7 @@ SNAPSHOT_FIELDS = (
 SNAPSHOT_CODES = {
     'SNAPSHOT_STABLE_IN_SAMPLE', 'SNAPSHOT_INPUT_DRIFT', 'SNAPSHOT_INVENTORY_CHANGED',
     'SNAPSHOT_BASELINE_ID_CHANGED', 'SNAPSHOT_BASELINE_NOT_READY', 'SNAPSHOT_LOCK_BUSY',
-    'SNAPSHOT_DEADLINE',
+    'SNAPSHOT_DEADLINE', 'SNAPSHOT_OVERRIDE_DRIFT',
 }
 SNAPSHOT_HOST_METHODS = {
     '__init__', 'lock', 'inspect', 'image', 'containers', 'ready', 'preservation',
@@ -428,16 +429,20 @@ def sample_api_snapshot(host, scope, controller):
     if first['ready'] is not True:
         return 'SNAPSHOT_BASELINE_NOT_READY'
     for index in range(3):
-        if host.effective_api_image_id() != first['image_id']:
-            return 'SNAPSHOT_BASELINE_ID_CHANGED'
-        if any(controller['file_read'](path, optional=True) != record for path, record in host.inputs.items()):
+        if not snapshot_inputs_match(host, controller['file_read']):
             return 'SNAPSHOT_INPUT_DRIFT'
         result = api_snapshot_change(first, host.snapshot(intent))
         if result != 'SNAPSHOT_STABLE_IN_SAMPLE':
             return result
+        if host.effective_api_image_id() != first['image_id']:
+            return 'SNAPSHOT_BASELINE_ID_CHANGED'
         if index < 2:
             time.sleep(1)
     return 'SNAPSHOT_STABLE_IN_SAMPLE'
+
+
+def snapshot_inputs_match(host, read_file):
+    return all(read_file(path, optional=True) == record for path, record in host.inputs.items())
 
 
 def observe_api_snapshot(scope, source):
@@ -448,9 +453,23 @@ def observe_api_snapshot(scope, source):
     exec(compile(source, '<pinned-api-snapshot-controller>', 'exec'), controller)
 
     class ReadOnlyHost(controller['Host']):
+        def configure(self, api, intent=None):
+            super().configure(api, intent)
+            self.captured_override = controller['file_read'](self.override_path, optional=True)
+            if self.captured_override is not None and controller['declared_env_files'](
+                    self.captured_override['bytes'], self.working):
+                raise ValueError('unexpected managed override environment files')
+
         def run(self, args, **kwargs):
             if not api_snapshot_read_allowed(args, self.compose):
                 raise ValueError('outside snapshot Docker commands')
+            if args[0] == 'compose':
+                if not snapshot_inputs_match(self, controller['file_read']):
+                    raise controller['ReleaseError']('COMPOSE_INPUT_DRIFT')
+                override = controller['file_read'](self.override_path, optional=True)
+                includes_override = args == self.compose + ['config', '--format', 'json']
+                if override != self.captured_override or includes_override != (override is not None):
+                    raise controller['ReleaseError']('COMPOSE_OVERRIDE_DRIFT')
             return controller['bounded'](controller['DOCKER'] + ['--config', str(self.root / 'registry')] + args,
                                          **kwargs)
 
@@ -466,13 +485,18 @@ def observe_api_snapshot(scope, source):
     previous = signal.signal(signal.SIGALRM, expired)
     try:
         signal.setitimer(signal.ITIMER_REAL, 75)
-        with host.lock():
+        with ExitStack() as resources:
+            try:
+                resources.enter_context(host.lock())
+            except BlockingIOError:
+                return 'SNAPSHOT_LOCK_BUSY'
             return sample_api_snapshot(host, scope, controller)
     except SampleDeadline:
         return 'SNAPSHOT_DEADLINE'
-    except BlockingIOError:
-        return 'SNAPSHOT_LOCK_BUSY'
-    except (controller['ReleaseError'], OSError, ValueError, TypeError, KeyError):
+    except controller['ReleaseError'] as error:
+        return {'COMPOSE_INPUT_DRIFT': 'SNAPSHOT_INPUT_DRIFT',
+                'COMPOSE_OVERRIDE_DRIFT': 'SNAPSHOT_OVERRIDE_DRIFT'}.get(str(error), 'NOT_PROVEN')
+    except (OSError, ValueError, TypeError, KeyError):
         return 'NOT_PROVEN'
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
@@ -953,6 +977,12 @@ def self_test():
         assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_STABLE_IN_SAMPLE'
         assert sleep.call_count == 2
     fixture_host.inputs['/fixture'] = 'changed'
+    def unexpected_render():
+        raise AssertionError('Compose was reached after protected input drift')
+
+    fixture_host.effective_api_image_id = unexpected_render
+    after_drift = iter((first,))
+    fixture_host.snapshot = lambda _: next(after_drift)
     assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_INPUT_DRIFT'
     fixture_host.run = lambda _: b'fixture'
     assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_INVENTORY_CHANGED'
