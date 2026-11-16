@@ -659,5 +659,48 @@
       }
     ],
     "supersededObserverHead": "5272c2620f3a193c6a539b43c7a47a6b06717a0b"
+  },
+  "gektaApiCatalogUnorderedEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
+    "snapshotControllerBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
+    "ledgerControllerBlob": "7d64b9311c50d5dc4143c0b599c96ccf257020ee",
+    "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
+    "originalVolumeEvidenceRun": 43856373074,
+    "authorityBaseExactMain": "2bb471035275de3f30b8c775655fb9b7c7dc5a34",
+    "supersedes": "gektaApiCatalogSectionsContractEvidence",
+    "purpose": "Bind an additional read-only PostgreSQL catalog comparison with stable ordering for set-valued rows. Preserve the original exact comparison and distinguish changes in content and in catalog object identity.",
+    "catalogControllerBlob": "64eafa8337649537d2ca8381e3976266be3e63c2",
+    "catalogOracleRun": 43887479195,
+    "catalogOracleArtifact": 14236980008,
+    "productionHoldArtifact": 14234584173,
+    "productionHoldReason": "TARGET_CATALOG_MISMATCH",
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "5a22ed36e22085b45fe2cacb2f03d5414e2cce9d",
+        "sha256": "9a0cb6d351fde5ba2326a582afc162e29a7bf87c4910f11d2b74e3020c8fbbb9"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "18763e441c777d607b1db877e1c94798282e5baf",
+        "sha256": "71b8e44f866025b4827a24f0ad0c33e17f2c771d2a78a6ee83cfaf1743805627"
+      }
+    ],
+    "productionClassificationRun": 43935694950,
+    "productionClassificationComment": 6926235464
   }
 }

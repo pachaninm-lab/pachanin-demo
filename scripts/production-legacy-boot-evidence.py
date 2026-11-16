@@ -21,7 +21,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiCatalogSectionsContractEvidence'
+AUTHORITY_KEY = 'gektaApiCatalogUnorderedEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -56,12 +56,39 @@ CATALOG_ORACLE = {
     'status': 'VERIFIED', 'isolated_cleanup': 'VERIFIED',
 }
 CATALOG_POSTGRES = 'ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777'
-CATALOG_SECTIONS = ('schemas', 'extensions', 'columns', 'tables', 'constraints', 'indexes', 'enums',
-                    'domains', 'sequences', 'routines', 'policies', 'triggers', 'default_privileges')
+CATALOG_IDENTITIES = {
+    'schemas': ('schema',),
+    'extensions': ('name',),
+    'columns': ('schema', 'table_name', 'name'),
+    'tables': ('schema', 'name'),
+    'constraints': ('schema', 'table_name', 'name'),
+    'indexes': ('schema', 'table_name', 'name'),
+    'enums': ('schema', 'name', 'label'),
+    'domains': ('schema', 'name'),
+    'sequences': ('schema', 'name'),
+    'routines': ('schema', 'name', 'arguments'),
+    'policies': ('schema', 'table_name', 'name'),
+    'triggers': ('schema', 'table_name', 'name'),
+    'default_privileges': ('role', 'schema', 'kind'),
+}
+CATALOG_SECTIONS = tuple(CATALOG_IDENTITIES)
+CATALOG_ROW_SETS = {
+    'schemas': ('acl',),
+    'tables': ('acl',),
+    'domains': ('constraints',),
+    'sequences': ('acl',),
+    'routines': ('acl',),
+    'policies': ('roles',),
+    'default_privileges': ('acl',),
+}
+PRINCIPAL_SETS = ('memberships', 'schema_privileges', 'table_privileges', 'sequence_privileges',
+                  'routine_privileges')
 CATALOG_PROFILE = ('postgres_major', 'encoding', 'collation')
 CATALOG_FINDINGS = (*CATALOG_PROFILE, *CATALOG_SECTIONS, 'default_principal', 'registration_principal',
                     'registration_catalog_differs', 'registration_unavailable')
 CATALOG_CODES = {'CATALOG_MATCHES_ORACLE', 'CATALOG_BASELINE_CHANGED', 'CATALOG_LOCK_BUSY'}
+CATALOG_IDENTITY_MASK = ((1 << len(CATALOG_SECTIONS)) - 1) << len(CATALOG_PROFILE)
+CATALOG_RESULT = re.compile(r'CATALOG_DIFF_([0-9A-F]{5})_CONTENT_([0-9A-F]{5})_KEYS_([0-9A-F]{5})')
 LEDGER_INITIAL = '0001_postgresql_initial'
 LEDGER_INITIAL_MARKER = 'grainflow_v3_initial_postgresql'
 LEDGER_ARCHIVE_BLOBS = {
@@ -566,25 +593,58 @@ def catalog_oracle_inputs(ref):
     return baseline, (target, CATALOG_ORACLE['api_digest'], CATALOG_ORACLE['migration_digest'], CATALOG_POSTGRES)
 
 
-def api_catalog_section_hashes(catalog, digest):
+def sort_catalog_set(values, canonical):
+    if values is None:
+        return None
+    if type(values) is not list:
+        raise ValueError('unexpected catalog set')
+    return sorted(values, key=canonical)
+
+
+def order_catalog_fields(record, fields, canonical):
+    if type(record) is not dict:
+        raise ValueError('unexpected catalog row')
+    return {key: sort_catalog_set(value, canonical) if key in fields else value
+            for key, value in record.items()}
+
+
+def api_catalog_hashes(catalog, digest, canonical):
     if type(catalog) is not dict or catalog.keys() != {'profile', *CATALOG_SECTIONS}:
         raise ValueError('unexpected catalog sections')
     profile = catalog['profile']
     if type(profile) is not dict or profile.keys() != set(CATALOG_PROFILE):
         raise ValueError('unexpected catalog profile')
-    return {name: digest(value) for name, value in {
-        **profile, **{name: catalog[name] for name in CATALOG_SECTIONS},
-    }.items()}
+    exact = {name: digest(value) for name, value in profile.items()}
+    content = dict(exact)
+    identities = {}
+    for section, keys in CATALOG_IDENTITIES.items():
+        rows = catalog[section]
+        exact[section] = digest(rows)
+        if rows is None:
+            content[section] = exact[section]
+            identities[section] = exact[section]
+            continue
+        if type(rows) is not list:
+            raise ValueError('unexpected catalog section')
+        values = [order_catalog_fields(row, CATALOG_ROW_SETS.get(section, ()), canonical) for row in rows]
+        content[section] = digest(sort_catalog_set(values, canonical))
+        # Keep multiplicity. The catalog identities are never published.
+        identities[section] = digest(sort_catalog_set([tuple(row[key] for key in keys) for row in rows], canonical))
+    return {'exact': exact, 'content': content, 'identities': identities}
 
 
 def replay_catalog_oracle(controller, inputs):
     original = controller['digest']
-    captured = {}
+    canonical = controller['canonical']
+    captured = {'principals': {}}
 
     def observed_digest(value):
         result = original(value)
         if result == CATALOG_ORACLE['catalog_sha256']:
-            captured.update(api_catalog_section_hashes(value, original))
+            captured['catalog'] = api_catalog_hashes(value, original, canonical)
+        for client, expected in CATALOG_ORACLE['principal_sha256'].items():
+            if result == expected:
+                captured['principals'][client] = original(order_catalog_fields(value, PRINCIPAL_SETS, canonical))
         return result
 
     controller['digest'] = observed_digest
@@ -593,7 +653,7 @@ def replay_catalog_oracle(controller, inputs):
     finally:
         controller['digest'] = original
     if (any(receipt.get(name) != expected for name, expected in CATALOG_ORACLE.items()) or
-            captured.keys() != {*CATALOG_PROFILE, *CATALOG_SECTIONS}):
+            'catalog' not in captured or captured['principals'].keys() != CATALOG_ORACLE['principal_sha256'].keys()):
         raise ValueError('isolated catalog oracle did not reproduce')
     return captured
 
@@ -616,40 +676,63 @@ def build_api_catalog_payload(ref, checkout):
     sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
 
 
-def classify_api_catalog(records, expected, digest):
+def classify_api_catalog(records, expected, digest, canonical):
     record_keys = {'ledger', 'catalog', 'principal'}
     default = records['default']
     if type(default) is not dict or default.keys() != record_keys:
         return 'NOT_PROVEN'
-    actual = api_catalog_section_hashes(default['catalog'], digest)
-    differences = {name for name, value in actual.items() if expected[name] != value}
-    if digest(default['principal']) != CATALOG_ORACLE['principal_sha256']['default']:
-        differences.add('default_principal')
+    actual = api_catalog_hashes(default['catalog'], digest, canonical)
+    differences = {kind: {name for name, value in hashes.items() if expected['catalog'][kind][name] != value}
+                   for kind, hashes in actual.items()}
     registration = records.get('registration')
     if type(registration) is not dict or registration.keys() != record_keys:
-        differences.add('registration_unavailable')
+        differences['exact'].add('registration_unavailable')
+        differences['content'].add('registration_unavailable')
     else:
-        if digest(registration['catalog']) != digest(default['catalog']):
-            differences.add('registration_catalog_differs')
-        if digest(registration['principal']) != CATALOG_ORACLE['principal_sha256']['registration']:
-            differences.add('registration_principal')
-    mask = sum(1 << index for index, name in enumerate(CATALOG_FINDINGS) if name in differences)
-    return f'CATALOG_DIFF_{mask:05X}' if mask else 'CATALOG_MATCHES_ORACLE'
+        other = api_catalog_hashes(registration['catalog'], digest, canonical)
+        for kind in ('exact', 'content'):
+            if other[kind] != actual[kind]:
+                differences[kind].add('registration_catalog_differs')
+    for client, record in (('default', default), ('registration', registration)):
+        if type(record) is not dict or record.keys() != record_keys:
+            continue
+        principal = record['principal']
+        if digest(principal) != CATALOG_ORACLE['principal_sha256'][client]:
+            differences['exact'].add(client + '_principal')
+        if digest(order_catalog_fields(principal, PRINCIPAL_SETS, canonical)) != expected['principals'][client]:
+            differences['content'].add(client + '_principal')
+    masks = {kind: sum(1 << index for index, name in enumerate(CATALOG_FINDINGS) if name in names)
+             for kind, names in differences.items()}
+    exact, content, identities = masks['exact'], masks['content'], masks['identities']
+    if not exact:
+        return 'NOT_PROVEN' if (content or identities) else 'CATALOG_MATCHES_ORACLE'
+    return validate_api_catalog(f'CATALOG_DIFF_{exact:05X}_CONTENT_{content:05X}_KEYS_{identities:05X}')
 
 
 def validate_api_catalog(value):
-    mask = re.fullmatch(r'CATALOG_DIFF_([0-9A-F]{5})', value)
-    if value in CATALOG_CODES or (mask is not None and 0 < int(mask[1], 16) < 1 << len(CATALOG_FINDINGS)):
+    if value in CATALOG_CODES:
         return value
+    result = CATALOG_RESULT.fullmatch(value)
+    if result is not None:
+        exact, content, identities = (int(part, 16) for part in result.groups())
+        if (0 < exact < 1 << len(CATALOG_FINDINGS) and not (content & ~exact)
+                and not (identities & ~(content & CATALOG_IDENTITY_MASK))):
+            return value
     return 'NOT_PROVEN'
 
 
 def api_catalog_details(value):
     value = validate_api_catalog(value)
-    if not value.startswith('CATALOG_DIFF_'):
-        return value
-    mask = int(value.rsplit('_', 1)[1], 16)
-    return ', '.join(name for index, name in enumerate(CATALOG_FINDINGS) if mask & 1 << index)
+    result = CATALOG_RESULT.fullmatch(value)
+    if result is None:
+        return '- Classification — `' + value + '`'
+    lines = []
+    labels = ('Exact comparison', 'Content comparison', 'Default catalog object identities')
+    for label, part in zip(labels, result.groups()):
+        mask = int(part, 16)
+        names = ', '.join(name for index, name in enumerate(CATALOG_FINDINGS) if mask & 1 << index)
+        lines.append(f'- {label} — `{names or "MATCH"}`')
+    return '\n'.join(lines)
 
 
 def observe_api_catalog(scope, source, programs, expected):
@@ -678,7 +761,7 @@ def observe_api_catalog(scope, source, programs, expected):
                         raise
                 if api_binding() != binding:
                     return 'CATALOG_BASELINE_CHANGED'
-            return classify_api_catalog(records, expected, controller['digest'])
+            return classify_api_catalog(records, expected, controller['digest'], controller['canonical'])
     except (controller['ReleaseError'], OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
         return 'NOT_PROVEN'
 
@@ -1281,16 +1364,24 @@ def self_test():
     assert ledger_program.index('SET TRANSACTION READ ONLY') < ledger_program.index('FROM public._prisma_migrations')
     assert 'LIMIT 5001' in ledger_program
     digest = ledger['digest']
+    canonical = ledger['canonical']
     catalog = {**dict.fromkeys(CATALOG_SECTIONS, []),
-               'profile': {'postgres_major': 16, 'encoding': 'UTF8', 'collation': {'provider': 'c'}}}
-    default_principal, registration_principal = {'role': 'default'}, {'role': 'registration'}
+               'profile': {'postgres_major': 16, 'encoding': 'UTF8', 'collation': {'provider': 'c'}},
+               'schemas': [{'schema': 'public', 'acl': [{'grantee': 'one'}, {'grantee': 'two'}]}],
+               'tables': [{'schema': 'public', 'name': 'first', 'forced': True},
+                          {'schema': 'public', 'name': 'second', 'forced': True}]}
+    default_principal = {'role': 'default',
+                         'table_privileges': [{'select_allowed': True}, {'select_allowed': False}]}
+    registration_principal = {'role': 'registration'}
     catalog_ref = {**CATALOG_ORACLE, 'catalog_sha256': digest(catalog), 'principal_sha256': {
         'default': digest(default_principal), 'registration': digest(registration_principal),
     }}
-    fixture_controller = {'digest': digest}
+    fixture_controller = {'digest': digest, 'canonical': canonical}
 
     def fixture_oracle(*_args):
         fixture_controller['digest'](catalog)
+        fixture_controller['digest'](default_principal)
+        fixture_controller['digest'](registration_principal)
         return catalog_ref
 
     fixture_controller['generate_oracle'] = fixture_oracle
@@ -1300,14 +1391,52 @@ def self_test():
         first = {'ledger': [], 'catalog': catalog, 'principal': default_principal}
         second = {'ledger': None, 'catalog': catalog, 'principal': registration_principal}
         records = {'default': first, 'registration': second}
-        assert classify_api_catalog(records, expected_catalog, digest) == 'CATALOG_MATCHES_ORACLE'
-        changed = {**catalog, 'tables': [{'private': 'must not be emitted'}]}
+        assert classify_api_catalog(records, expected_catalog, digest, canonical) == 'CATALOG_MATCHES_ORACLE'
+        reordered = {**catalog, 'tables': catalog['tables'][::-1],
+                     'schemas': [{**catalog['schemas'][0], 'acl': catalog['schemas'][0]['acl'][::-1]}]}
+        reordered_principal = {**default_principal, 'table_privileges': default_principal['table_privileges'][::-1]}
+        outcome = classify_api_catalog({'default': {**first, 'catalog': reordered, 'principal': reordered_principal},
+                                        'registration': {**second, 'catalog': reordered}},
+                                       expected_catalog, digest, canonical)
+        assert api_catalog_details(outcome).splitlines() == [
+            '- Exact comparison — `schemas, tables, default_principal`',
+            '- Content comparison — `MATCH`',
+            '- Default catalog object identities — `MATCH`',
+        ]
+        changed = {**catalog, 'tables': [{'schema': 'public', 'name': 'private value must not be emitted'}]}
         changed_default = {**first, 'catalog': changed}
-        outcome = classify_api_catalog({'default': changed_default}, expected_catalog, digest)
-        assert api_catalog_details(outcome) == 'tables, registration_unavailable'
+        outcome = classify_api_catalog({'default': changed_default}, expected_catalog, digest, canonical)
+        assert api_catalog_details(outcome).splitlines() == [
+            '- Exact comparison — `tables, registration_unavailable`',
+            '- Content comparison — `tables, registration_unavailable`',
+            '- Default catalog object identities — `tables`',
+        ]
         changed_auth = {**second, 'catalog': changed, 'principal': {}}
-        outcome = classify_api_catalog({'default': first, 'registration': changed_auth}, expected_catalog, digest)
-        assert api_catalog_details(outcome) == 'registration_principal, registration_catalog_differs'
+        outcome = classify_api_catalog({'default': first, 'registration': changed_auth},
+                                       expected_catalog, digest, canonical)
+        assert api_catalog_details(outcome).splitlines() == [
+            '- Exact comparison — `registration_principal, registration_catalog_differs`',
+            '- Content comparison — `registration_principal, registration_catalog_differs`',
+            '- Default catalog object identities — `MATCH`',
+        ]
+        weakened_acl = {**catalog['schemas'][0], 'acl': [{'grantee': 'one'}]}
+        changed = {**catalog, 'profile': {**catalog['profile'], 'collation': {'provider': 'i'}},
+                   'schemas': [weakened_acl],
+                   'tables': [{**catalog['tables'][0], 'forced': False}, catalog['tables'][1]]}
+        changed_principal = {**default_principal, 'bypass': True}
+        outcome = classify_api_catalog({'default': {**first, 'catalog': changed, 'principal': changed_principal},
+                                        'registration': {**second, 'catalog': changed}},
+                                       expected_catalog, digest, canonical)
+        assert api_catalog_details(outcome).splitlines() == [
+            '- Exact comparison — `collation, schemas, tables, default_principal`',
+            '- Content comparison — `collation, schemas, tables, default_principal`',
+            '- Default catalog object identities — `MATCH`',
+        ]
+        duplicated = {**catalog, 'tables': [*catalog['tables'], catalog['tables'][0]]}
+        outcome = classify_api_catalog({'default': {**first, 'catalog': duplicated},
+                                        'registration': {**second, 'catalog': duplicated}},
+                                       expected_catalog, digest, canonical)
+        assert api_catalog_details(outcome).splitlines()[-1] == '- Default catalog object identities — `tables`'
         fixture_controller['generate_oracle'] = lambda *_: {**fixture_oracle(), 'isolated_cleanup': 'FAILED'}
         try:
             replay_catalog_oracle(fixture_controller, ('a', 'b', 'c', 'd'))
@@ -1315,7 +1444,9 @@ def self_test():
             assert fixture_controller['digest'] is digest
         else:
             raise AssertionError('unverified oracle reference was accepted')
-    for invalid in ('CATALOG_DIFF_00000', 'CATALOG_DIFF_FFFFFF', 'CATALOG_TABLE_PRIVATE'):
+    for invalid in ('CATALOG_DIFF_00000', 'CATALOG_DIFF_FFFFFF', 'CATALOG_TABLE_PRIVATE',
+                    'CATALOG_DIFF_00001_CONTENT_00002_KEYS_00000',
+                    'CATALOG_DIFF_00001_CONTENT_00001_KEYS_00001'):
         assert validate_api_catalog(invalid) == 'NOT_PROVEN'
     snapshot_controller = {'__name__': 'test_snapshot_controller'}
     exec(compile(snapshot_source, '<snapshot-source-test>', 'exec'), snapshot_controller)
