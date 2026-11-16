@@ -21,7 +21,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiBaselineStabilityInputOrderEvidence'
+AUTHORITY_KEY = 'gektaApiMigrationLedgerEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -41,6 +41,20 @@ API_ROOTFS_COUNT = 25
 COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
 COMPOSE_CONTROLLER_BLOB = 'b6de12ba9dd084e173637047cfebc6bdc1dda70a'
 SNAPSHOT_CONTROLLER_BLOB = '449e7a9e51c73fa10815564481a3a3dc59f019fe'
+LEDGER_CONTROLLER_BLOB = '7d64b9311c50d5dc4143c0b599c96ccf257020ee'
+LEDGER_INITIAL = '0001_postgresql_initial'
+LEDGER_INITIAL_MARKER = 'grainflow_v3_initial_postgresql'
+LEDGER_ARCHIVE_BLOBS = {
+    '20260716130000_market_open_lots_showcase': '8a9e82b2bc3b8df1896afe27632b54c21d56de98',
+    '20260716150000_auction_cross_tenant_participation': '8cb67de1a9eabeab7de8ffe31ca18d6dd7db9f33',
+    '20260716160000_auction_participant_workspace': '5eee985e4db2317bbfdbe748201d22a4924eebba',
+    '20260717170000_deal_cross_tenant_participation': 'a69d3bff7d22313280edccab25673dce3af9f001',
+}
+LEDGER_FINDINGS = (
+    'legacy_initial_marker_only', 'unknown_name', 'duplicate_name', 'checksum_mismatch',
+    'unfinished', 'rolled_back', 'invalid_steps', 'missing_source_entry', 'exact_archived_migrations',
+)
+LEDGER_CODES = {'LEDGER_MATCHES_SOURCE', 'LEDGER_BASELINE_CHANGED', 'LEDGER_LOCK_BUSY', 'LEDGER_ROW_SHAPE'}
 SNAPSHOT_VOLUME_DIGEST = 'b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea'
 SNAPSHOT_FIELDS = (
     'api_id', 'image_id', 'revision', 'ready', 'started_at', 'restart_count',
@@ -120,6 +134,7 @@ def verify_source(base, head, verify_diff):
             manifest['productionMutationAuthorized'] is not False or manifest['releaseAuthorized'] is not False or
             manifest['baselineEvidence'] != BASELINE_RECORD or manifest['controllerBlob'] != COMPOSE_CONTROLLER_BLOB or
             manifest['snapshotControllerBlob'] != SNAPSHOT_CONTROLLER_BLOB or
+            manifest['ledgerControllerBlob'] != LEDGER_CONTROLLER_BLOB or
             manifest['originalVolumeInventorySHA256'] != SNAPSHOT_VOLUME_DIGEST or
             sorted(manifest['allowedPaths']) != sorted(SOURCE_PATHS)):
         raise ValueError('invalid source manifest')
@@ -336,12 +351,12 @@ def api_snapshot_controller_source(source):
         'compose_inline_interpolation_view', 'compose_inline_scalar_anchor', 'env_file_literal',
         'compose_inline_env_files', 'validate_compose_references', 'compose_literal_brackets_allowed',
         'validate_compose_input_profile', 'declared_env_files', 'assert_effective_api_model',
-        'runtime_fingerprint', 'canonical_web_api_origin', 'sibling_identity',
+        'runtime_fingerprint', 'canonical_web_api_origin', 'sibling_identity', 'verify_oracle_ledger',
     }
     constants = {
         'SHA', 'HASH', 'IMAGE_ID', 'DIGEST', 'DOCKER', 'ENV', 'BACKUPS', 'OVERRIDE', 'PRESERVED',
         'MAX_OUTPUT', 'MAX_COMPOSE_FILE_ENTRIES', 'MAX_DISTINCT_COMPOSE_FILES',
-        'MAX_ORDERED_COMPOSE_BYTES', 'BASELINE_ARCHIVE_SCHEMA',
+        'MAX_ORDERED_COMPOSE_BYTES', 'BASELINE_ARCHIVE_SCHEMA', 'LEDGER_SQL',
     }
     selected = {}
     module = ast.parse(source)
@@ -363,6 +378,16 @@ def api_snapshot_controller_source(source):
     return ast.unparse(ast.Module(body=imports + list(selected.values()), type_ignores=[]))
 
 
+def api_ledger_archived_checksums(ref):
+    archived = {}
+    for name, pinned_blob in LEDGER_ARCHIVE_BLOBS.items():
+        path = f'scripts/fixtures/pc-crop-w1-lineage/{name}.sql'
+        if regular_blob(ref, path) != pinned_blob:
+            raise ValueError('unexpected accepted ledger archive')
+        archived[name] = hashlib.sha256(git('cat-file', 'blob', pinned_blob)).hexdigest()
+    return archived
+
+
 def build_api_snapshot_payload(ref):
     if regular_blob(ref, COMPOSE_CONTROLLER) != SNAPSHOT_CONTROLLER_BLOB:
         raise ValueError('unexpected snapshot controller')
@@ -371,6 +396,144 @@ def build_api_snapshot_payload(ref):
     print('API_BASELINE = ' + repr(baseline))
     print('API_SNAPSHOT_CONTROLLER = ' + repr(controller))
     sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
+
+
+def build_api_ledger_payload(ref):
+    baseline = api_baseline_spec(verify_source(ref, ref, verify_diff=False))
+    if regular_blob(ref, COMPOSE_CONTROLLER) != LEDGER_CONTROLLER_BLOB:
+        raise ValueError('unexpected ledger controller')
+    source = git('cat-file', 'blob', LEDGER_CONTROLLER_BLOB).decode('utf-8')
+    controller = {'__name__': 'api_ledger_source', '__file__': str(Path(COMPOSE_CONTROLLER).resolve())}
+    exec(compile(source, '<pinned-api-ledger-source>', 'exec'), controller)
+    expected = controller['source_migrations'](ref)
+    archived = api_ledger_archived_checksums(ref)
+    if expected.keys() & archived.keys():
+        raise ValueError('archived ledger names overlap current migrations')
+    print('API_BASELINE = ' + repr(baseline))
+    print('API_LEDGER_EXPECTED = ' + repr(expected))
+    print('API_LEDGER_ARCHIVED = ' + repr(archived))
+    print('API_LEDGER_CONTROLLER = ' + repr(api_snapshot_controller_source(source)))
+    sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
+
+
+def api_ledger_program(sql):
+    return r"""
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient({log: []});
+const timer = setTimeout(() => process.exit(1), 14000);
+async function readLedger() {
+  try {
+    const rows = await prisma.$transaction(async tx => {
+      await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '5s'");
+      const mode = await tx.$queryRawUnsafe("SELECT current_setting('transaction_read_only') AS value");
+      if (mode.length !== 1 || mode[0].value !== 'on') throw Error('READ_ONLY_REQUIRED');
+      const ledger = await tx.$queryRawUnsafe(__LEDGER_SQL__);
+      if (ledger.length > 5000) throw Error('LEDGER_LIMIT');
+      return ledger;
+    }, {maxWait: 2000, timeout: 10000, isolationLevel: 'RepeatableRead'});
+    process.stdout.write(JSON.stringify(rows) + '\n');
+  } catch (_) {
+    process.exitCode = 1;
+  } finally {
+    await prisma.$disconnect();
+    clearTimeout(timer);
+  }
+}
+readLedger().catch(() => process.exit(1));
+""".replace('__LEDGER_SQL__', json.dumps(sql), 1)
+
+
+def classify_api_ledger(rows, expected, archived, controller):
+    try:
+        controller['verify_oracle_ledger'](rows, expected)
+        return 'LEDGER_MATCHES_SOURCE'
+    except controller['ReleaseError']:
+        pass
+    if type(rows) is not list or not 0 < len(rows) <= 5000:
+        return 'LEDGER_ROW_SHAPE'
+    findings, seen = set(), set()
+    unknown = []
+    markers = 0
+    for row in rows:
+        if (type(row) is not dict or set(row) != {'migration_name', 'checksum', 'finished', 'rolled_back', 'steps'} or
+                type(row['migration_name']) is not str or type(row['checksum']) is not str or
+                type(row['finished']) is not bool or type(row['rolled_back']) is not bool):
+            return 'LEDGER_ROW_SHAPE'
+        name, checksum = row['migration_name'], row['checksum']
+        if name == LEDGER_INITIAL and checksum == LEDGER_INITIAL_MARKER:
+            markers += 1
+        else:
+            if name in seen:
+                findings.add('duplicate_name')
+            seen.add(name)
+            if name not in expected:
+                unknown.append(row)
+            elif expected[name] != checksum:
+                findings.add('checksum_mismatch')
+        if not row['finished']:
+            findings.add('unfinished')
+        if row['rolled_back']:
+            findings.add('rolled_back')
+        if type(row['steps']) is not int or row['steps'] < 0:
+            findings.add('invalid_steps')
+    if markers > 1:
+        findings.add('duplicate_name')
+    missing = expected.keys() - seen
+    if markers and LEDGER_INITIAL in missing:
+        findings.add('legacy_initial_marker_only')
+        missing.remove(LEDGER_INITIAL)
+    if missing:
+        findings.add('missing_source_entry')
+    if unknown:
+        exact_archive = (len(unknown) == len(archived) and {row['migration_name'] for row in unknown} == archived.keys()
+                         and all(archived[row['migration_name']] == row['checksum'] and row['finished']
+                                 and not row['rolled_back'] and type(row['steps']) is int and row['steps'] >= 0
+                                 for row in unknown))
+        findings.add('exact_archived_migrations' if exact_archive else 'unknown_name')
+    mask = sum(1 << index for index, name in enumerate(LEDGER_FINDINGS) if name in findings)
+    return f'LEDGER_DIFF_{mask:03X}' if mask else 'NOT_PROVEN'
+
+
+def validate_api_ledger(value):
+    mask = re.fullmatch(r'LEDGER_DIFF_([0-9A-F]{3})', value)
+    if value in LEDGER_CODES or (mask is not None and 0 < int(mask[1], 16) < 1 << len(LEDGER_FINDINGS)):
+        return value
+    return 'NOT_PROVEN'
+
+
+def api_ledger_details(value):
+    value = validate_api_ledger(value)
+    if not value.startswith('LEDGER_DIFF_'):
+        return value
+    mask = int(value.rsplit('_', 1)[1], 16)
+    return ', '.join(name for index, name in enumerate(LEDGER_FINDINGS) if mask & 1 << index)
+
+
+def observe_api_ledger(scope, source, expected, archived):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'NOT_PROVEN'
+    controller = {'__name__': 'api_ledger_controller',
+                  '__file__': '/run/pc-api-only-ledger-observer/scripts/release/api-only-release-controller.py'}
+    exec(compile(source, '<pinned-api-ledger-controller>', 'exec'), controller)
+    try:
+        with ExitStack() as resources:
+            try:
+                resources.enter_context(controller['Host']().lock())
+            except BlockingIOError:
+                return 'LEDGER_LOCK_BUSY'
+            binding = api_binding()
+            if binding[1] != scope['observedImageId']:
+                return 'LEDGER_BASELINE_CHANGED'
+            program = api_ledger_program(controller['LEDGER_SQL'])
+            raw = controller['bounded'](controller['DOCKER'] + [
+                '--config', '/proc/self/fd', 'exec', binding[0], '/nodejs/bin/node', '-e', program,
+            ], timeout=17)
+            if api_binding() != binding:
+                return 'LEDGER_BASELINE_CHANGED'
+            return classify_api_ledger(controller['closed_json'](raw), expected, archived, controller)
+    except (controller['ReleaseError'], OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        return 'NOT_PROVEN'
 
 
 def api_snapshot_change(before, after):
@@ -936,6 +1099,40 @@ def self_test():
     assert validate_api_compose_profile('/private/file.yml') == 'NOT_PROVEN'
 
     snapshot_source = api_snapshot_controller_source(git('cat-file', 'blob', SNAPSHOT_CONTROLLER_BLOB).decode('utf-8'))
+    ledger = {}
+    ledger_source = api_snapshot_controller_source(git('cat-file', 'blob', LEDGER_CONTROLLER_BLOB).decode('utf-8'))
+    exec(compile(ledger_source, '<api-ledger-test>', 'exec'), ledger)
+    initial_sha = '2d3708fa99e4ee855c7b9fe69dc4e4506a317ffed34330e3955f5e995d35ffdd'
+    latest = '20261116000000_fixture'
+    expected_ledger = {LEDGER_INITIAL: initial_sha, latest: '1' * 64}
+    initial_row = {'migration_name': LEDGER_INITIAL, 'checksum': initial_sha,
+                   'finished': True, 'rolled_back': False, 'steps': 1}
+    latest_row = {**initial_row, 'migration_name': latest, 'checksum': '1' * 64}
+    marker = {**initial_row, 'checksum': LEDGER_INITIAL_MARKER}
+    archived = api_ledger_archived_checksums(git('rev-parse', 'HEAD').decode('ascii').strip())
+    archive_rows = [{**initial_row, 'migration_name': name, 'checksum': checksum}
+                    for name, checksum in archived.items()]
+    for rows, expected_result in (
+        ([initial_row, latest_row], 'LEDGER_MATCHES_SOURCE'),
+        ([initial_row, marker, latest_row], 'LEDGER_MATCHES_SOURCE'),
+        ([marker, latest_row], 'legacy_initial_marker_only'),
+        ([marker, marker, latest_row], 'legacy_initial_marker_only, duplicate_name'),
+        ([initial_row, {**latest_row, 'checksum': '2' * 64}], 'checksum_mismatch'),
+        ([initial_row, {**latest_row, 'migration_name': 'UNTRUSTED_VALUE'}], 'unknown_name, missing_source_entry'),
+        ([initial_row, {**latest_row, 'finished': False, 'rolled_back': True, 'steps': True}],
+         'unfinished, rolled_back, invalid_steps'),
+        ([initial_row, marker, latest_row, *archive_rows], 'exact_archived_migrations'),
+        ([initial_row, marker, latest_row, *archive_rows[:-1]], 'unknown_name'),
+        ([initial_row, latest_row, *archive_rows[:-1], {**archive_rows[-1], 'checksum': '0' * 64}], 'unknown_name'),
+        ([initial_row, latest_row, *archive_rows, archive_rows[0]], 'unknown_name, duplicate_name'),
+        ([{'private_value': 'must not escape'}], 'LEDGER_ROW_SHAPE'),
+    ):
+        assert api_ledger_details(classify_api_ledger(rows, expected_ledger, archived, ledger)) == expected_result
+    for invalid in ('LEDGER_DIFF_000', 'LEDGER_DIFF_FFF', 'LEDGER_DIFF_1z', 'UNTRUSTED_VALUE'):
+        assert validate_api_ledger(invalid) == 'NOT_PROVEN'
+    ledger_program = api_ledger_program(ledger['LEDGER_SQL'])
+    assert ledger_program.index('SET TRANSACTION READ ONLY') < ledger_program.index('FROM public._prisma_migrations')
+    assert 'LIMIT 5001' in ledger_program
     snapshot_controller = {'__name__': 'test_snapshot_controller'}
     exec(compile(snapshot_source, '<snapshot-source-test>', 'exec'), snapshot_controller)
     snapshot_host = snapshot_controller['Host']
@@ -1144,6 +1341,10 @@ if __name__ == '__main__':
             print(observe_api_compose_profile(api_baseline_spec(globals()['API_BASELINE']), globals()['API_COMPOSE_PROFILE']))
         elif sys.argv[1:] == ['--api-snapshot']:
             print(observe_api_snapshot(api_baseline_spec(globals()['API_BASELINE']), globals()['API_SNAPSHOT_CONTROLLER']))
+        elif sys.argv[1:] == ['--api-ledger']:
+            print(observe_api_ledger(api_baseline_spec(globals()['API_BASELINE']),
+                                     globals()['API_LEDGER_CONTROLLER'], globals()['API_LEDGER_EXPECTED'],
+                                     globals()['API_LEDGER_ARCHIVED']))
         elif sys.argv[1:] == ['--export-running-api-archive']:
             export_api_archive(api_baseline_spec(globals()['API_BASELINE']))
         elif sys.argv[1:] == ['--self-test']:
@@ -1160,6 +1361,8 @@ if __name__ == '__main__':
             build_api_compose_profile_payload(sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-snapshot-payload':
             build_api_snapshot_payload(sys.argv[2])
+        elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-ledger-payload':
+            build_api_ledger_payload(sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--rollback-rehearsal-inputs':
             ref = sys.argv[2]
             print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
@@ -1192,6 +1395,10 @@ if __name__ == '__main__':
             print(validate_api_snapshot(sys.argv[2]))
         elif len(sys.argv) == 3 and sys.argv[1] == '--api-snapshot-details':
             print(api_snapshot_details(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-ledger':
+            print(validate_api_ledger(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--api-ledger-details':
+            print(api_ledger_details(sys.argv[2]))
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
