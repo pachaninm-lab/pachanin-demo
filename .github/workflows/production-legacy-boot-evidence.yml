@@ -34,8 +34,6 @@ jobs:
           [[ "$SOURCE_REPO" == "$GITHUB_REPOSITORY" && "$SOURCE_REF" == 'ops/gekta-legacy-boot-evidence-20261111' ]]
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-pr "$BASE_SHA" "$HEAD_SHA"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
-          python3 -I -S -B scripts/production-legacy-boot-evidence.py --build-api-ledger-payload "$HEAD_SHA" |
-            python3 -I -S -B -c 'import sys; compile(sys.stdin.read(), "<ledger-payload>", "exec")'
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --catalog-oracle-inputs "$HEAD_SHA" > /dev/null
 
   rollback_rehearsal:

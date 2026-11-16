@@ -617,5 +617,47 @@
         "sha256": "1820ec7d88d6865f64ff39a8dc02873f8c345eb9fa49e091e3f44c5d8e0e7a2f"
       }
     ]
+  },
+  "gektaApiCatalogSectionsContractEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
+    "snapshotControllerBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
+    "ledgerControllerBlob": "7d64b9311c50d5dc4143c0b599c96ccf257020ee",
+    "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
+    "originalVolumeEvidenceRun": 43856373074,
+    "authorityBaseExactMain": "796311808c9a383ca07987cac8295036d5647e62",
+    "supersedes": "gektaApiCatalogSectionsEvidence",
+    "purpose": "Bind the current catalog oracle contract without requiring the superseded historical ledger controller at this PR head. Preserve the exact historical ledger runtime guard and both pinned self-tests.",
+    "catalogControllerBlob": "64eafa8337649537d2ca8381e3976266be3e63c2",
+    "catalogOracleRun": 43887479195,
+    "catalogOracleArtifact": 14236980008,
+    "productionHoldArtifact": 14234584173,
+    "productionHoldReason": "TARGET_CATALOG_MISMATCH",
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "be23ea8066a4910df4232d173a43da64590d4ad4",
+        "sha256": "545aa76ee66cfa3776941be6f117ff37efaf5efcebd511d4dc693b9b5e15e672"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "6af6a2585bd0cf34f2b925376843328bf6f7ee2f",
+        "sha256": "d1c00b37dcb50cd5ced95f1245fddf212aebffe1682e5120a6b47463bf9d5859"
+      }
+    ],
+    "supersededObserverHead": "5272c2620f3a193c6a539b43c7a47a6b06717a0b"
   }
 }
