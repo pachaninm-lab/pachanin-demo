@@ -430,35 +430,35 @@
     "productionHoldReason": "COMPOSE_EXTERNAL_PROFILE",
     "controllerBlob": "776691320964e21dc8ce7e76f68e1b4dde6db3df"
   },
-    "gektaApiComposeAfter6186Evidence": {
-      "schemaVersion": "platform-v7.concurrent-scope.v1",
-      "status": "active",
-      "branch": "ops/gekta-legacy-boot-evidence-20261111",
-      "allowedPaths": [
-        ".github/workflows/production-legacy-boot-evidence.yml",
-        "scripts/production-legacy-boot-evidence.py"
-      ],
-      "sourcePins": [
-        {
-          "path": ".github/workflows/production-legacy-boot-evidence.yml",
-          "mode": "100644",
-          "blob": "49de5adeae33180ecf616a6b71a17656a5103bed",
-          "sha256": "145df6e8706d4dc1ba77bb89aeea035bcbc9ba68519c880a677f06fd7bcab5ae"
-        },
-        {
-          "path": "scripts/production-legacy-boot-evidence.py",
-          "mode": "100644",
-          "blob": "1a4146bd7c54f536ed223b9bd84c2d923865fc07",
-          "sha256": "b3f810a7c931e18d38c484120c4fcffe0cc4632f1fd4e2f814bbad41379dd913"
-        }
-      ],
-      "baselineEvidence": "gektaApiBaselineContentEvidence",
-      "productionInvocationAuthorized": false,
-      "productionMutationAuthorized": false,
-      "releaseAuthorized": false,
-      "masterCredit": 0,
-      "productionHoldRun": 43401097887,
-      "productionHoldReason": "COMPOSE_EXTERNAL_PROFILE",
-      "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a"
-    }
+  "gektaApiComposeAfter6186Evidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "49de5adeae33180ecf616a6b71a17656a5103bed",
+        "sha256": "145df6e8706d4dc1ba77bb89aeea035bcbc9ba68519c880a677f06fd7bcab5ae"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "f9d3b2f34a4aa6ae1dad338b859ac9afd7219de8",
+        "sha256": "683490dcfeeec1870d7142eca2cf6064c6d35b0bdb9e1a93255e5bbdf6791451"
+      }
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "productionHoldRun": 43401097887,
+    "productionHoldReason": "COMPOSE_EXTERNAL_PROFILE",
+    "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a"
+  }
 }
