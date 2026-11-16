@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import selectors
+import signal
 import stat
 import subprocess
 import sys
@@ -19,7 +20,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposeAfter6186Evidence'
+AUTHORITY_KEY = 'gektaApiBaselineStabilityAfter6189Evidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -38,6 +39,23 @@ API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
 API_ROOTFS_COUNT = 25
 COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
 COMPOSE_CONTROLLER_BLOB = 'b6de12ba9dd084e173637047cfebc6bdc1dda70a'
+SNAPSHOT_CONTROLLER_BLOB = '449e7a9e51c73fa10815564481a3a3dc59f019fe'
+SNAPSHOT_VOLUME_DIGEST = 'b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea'
+SNAPSHOT_FIELDS = (
+    'api_id', 'image_id', 'revision', 'ready', 'started_at', 'restart_count',
+    'runtime_fingerprint', 'siblings', 'volumes', 'preservation', 'override',
+)
+SNAPSHOT_CODES = {
+    'SNAPSHOT_STABLE_IN_SAMPLE', 'SNAPSHOT_INPUT_DRIFT', 'SNAPSHOT_INVENTORY_CHANGED',
+    'SNAPSHOT_BASELINE_ID_CHANGED', 'SNAPSHOT_BASELINE_NOT_READY', 'SNAPSHOT_LOCK_BUSY',
+    'SNAPSHOT_DEADLINE',
+}
+SNAPSHOT_HOST_METHODS = {
+    '__init__', 'lock', 'inspect', 'image', 'containers', 'ready', 'preservation',
+    'configure', 'model', 'effective_api_image_id', 'snapshot',
+}
+SNAPSHOT_READY_PROBE = ("fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)})"
+                        ".then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))")
 COMPOSE_PROFILE_CODES = (
     'PROFILE_TAB_INDENT', 'PROFILE_ENCODED_INPUT', 'PROFILE_INDIRECT_KEY', 'PROFILE_DIRECTIVE',
     'PROFILE_CURLY_BRACE', 'PROFILE_SQUARE_BRACKET', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
@@ -100,6 +118,8 @@ def verify_source(base, head, verify_diff):
             manifest['productionInvocationAuthorized'] is not False or
             manifest['productionMutationAuthorized'] is not False or manifest['releaseAuthorized'] is not False or
             manifest['baselineEvidence'] != BASELINE_RECORD or manifest['controllerBlob'] != COMPOSE_CONTROLLER_BLOB or
+            manifest['snapshotControllerBlob'] != SNAPSHOT_CONTROLLER_BLOB or
+            manifest['originalVolumeInventorySHA256'] != SNAPSHOT_VOLUME_DIGEST or
             sorted(manifest['allowedPaths']) != sorted(SOURCE_PATHS)):
         raise ValueError('invalid source manifest')
     if verify_diff:
@@ -306,6 +326,157 @@ def build_api_compose_profile_payload(ref):
     print('API_BASELINE = ' + repr(baseline))
     print('API_COMPOSE_PROFILE = ' + repr(profile))
     sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
+
+
+def api_snapshot_controller_source(source):
+    definitions = {
+        'ReleaseError', 'Host', 'demand', 'canonical', 'digest', 'closed_json', 'bounded',
+        'directory', 'file_read', 'protected_sha256', 'env_map', 'compose_structural_view',
+        'compose_inline_interpolation_view', 'compose_inline_scalar_anchor', 'env_file_literal',
+        'compose_inline_env_files', 'validate_compose_references', 'compose_literal_brackets_allowed',
+        'validate_compose_input_profile', 'declared_env_files', 'assert_effective_api_model',
+        'runtime_fingerprint', 'canonical_web_api_origin', 'sibling_identity',
+    }
+    constants = {
+        'SHA', 'HASH', 'IMAGE_ID', 'DIGEST', 'DOCKER', 'ENV', 'BACKUPS', 'OVERRIDE', 'PRESERVED',
+        'MAX_OUTPUT', 'MAX_COMPOSE_FILE_ENTRIES', 'MAX_DISTINCT_COMPOSE_FILES',
+        'MAX_ORDERED_COMPOSE_BYTES', 'BASELINE_ARCHIVE_SCHEMA',
+    }
+    selected = {}
+    module = ast.parse(source)
+    imports = [node for node in module.body if isinstance(node, (ast.Import, ast.ImportFrom))]
+    for node in module.body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in definitions:
+            selected[node.name] = node
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            name = node.targets[0].id
+            if name in constants or name.startswith('COMPOSE_'):
+                selected[name] = node
+    if not definitions | constants <= selected.keys():
+        raise ValueError('incomplete pinned snapshot source')
+    host = selected['Host']
+    host.body = [node for node in host.body if isinstance(node, ast.FunctionDef)
+                 and node.name in SNAPSHOT_HOST_METHODS]
+    if {node.name for node in host.body} != SNAPSHOT_HOST_METHODS:
+        raise ValueError('incomplete read-only snapshot methods')
+    return ast.unparse(ast.Module(body=imports + list(selected.values()), type_ignores=[]))
+
+
+def build_api_snapshot_payload(ref):
+    if regular_blob(ref, COMPOSE_CONTROLLER) != SNAPSHOT_CONTROLLER_BLOB:
+        raise ValueError('unexpected snapshot controller')
+    baseline = api_baseline_spec(verify_source(ref, ref, verify_diff=False))
+    controller = api_snapshot_controller_source(git('cat-file', 'blob', SNAPSHOT_CONTROLLER_BLOB).decode('utf-8'))
+    print('API_BASELINE = ' + repr(baseline))
+    print('API_SNAPSHOT_CONTROLLER = ' + repr(controller))
+    sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
+
+
+def api_snapshot_change(before, after):
+    if before.keys() != set(SNAPSHOT_FIELDS) or after.keys() != before.keys():
+        return 'NOT_PROVEN'
+    bits = sum(1 << index for index, field in enumerate(SNAPSHOT_FIELDS) if before[field] != after[field])
+    return f'SNAPSHOT_DIFF_{bits:03X}' if bits else 'SNAPSHOT_STABLE_IN_SAMPLE'
+
+
+def validate_api_snapshot(value):
+    mask = re.fullmatch(r'SNAPSHOT_DIFF_([0-9A-F]{3})', value)
+    if value in SNAPSHOT_CODES or (mask is not None and 0 < int(mask[1], 16) < 1 << len(SNAPSHOT_FIELDS)):
+        return value
+    return 'NOT_PROVEN'
+
+
+def api_snapshot_details(value):
+    value = validate_api_snapshot(value)
+    if not value.startswith('SNAPSHOT_DIFF_'):
+        return value
+    bits = int(value.rsplit('_', 1)[1], 16)
+    return ', '.join(field for index, field in enumerate(SNAPSHOT_FIELDS) if bits & 1 << index)
+
+
+def api_snapshot_read_allowed(args, compose):
+    if args in (['ps', '-aq', '--no-trunc'], ['volume', 'ls', '-q']):
+        return True
+    if len(args) == 3 and args[:2] == ['container', 'inspect']:
+        return re.fullmatch(r'[0-9a-f]{64}', args[2]) is not None
+    if len(args) == 3 and args[:2] == ['image', 'inspect']:
+        # The pinned Host.image validates the local identity or immutable reference.
+        return not args[2].startswith('-')
+    if len(args) == 21 and args[:2] == ['volume', 'inspect']:
+        return all(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,254}', name) for name in args[2:])
+    if len(args) == 5 and args[0] == 'exec':
+        return re.fullmatch(r'[0-9a-f]{64}', args[1]) is not None and args[2:] == [
+            '/nodejs/bin/node', '-e', SNAPSHOT_READY_PROBE,
+        ]
+    return compose is not None and args in (
+        compose + ['config', '--format', 'json'], compose[:-2] + ['config', '--format', 'json'],
+    )
+
+
+def sample_api_snapshot(host, scope, controller):
+    names = sorted(host.run(['volume', 'ls', '-q']).decode('ascii').splitlines())
+    if len(names) != len(set(names)) or len(names) != 19 or controller['digest'](names) != SNAPSHOT_VOLUME_DIGEST:
+        return 'SNAPSHOT_INVENTORY_CHANGED'
+    intent = {
+        'baseline_sha': scope['revision'], 'baseline_image_id': scope['observedImageId'],
+        'baseline_publication': {'schema': controller['BASELINE_ARCHIVE_SCHEMA']},
+        'original_volumes': names,
+    }
+    first = host.snapshot(intent)
+    if first['revision'] != intent['baseline_sha'] or first['image_id'] != intent['baseline_image_id']:
+        return 'SNAPSHOT_BASELINE_ID_CHANGED'
+    if first['ready'] is not True:
+        return 'SNAPSHOT_BASELINE_NOT_READY'
+    for index in range(3):
+        if host.effective_api_image_id() != first['image_id']:
+            return 'SNAPSHOT_BASELINE_ID_CHANGED'
+        if any(controller['file_read'](path, optional=True) != record for path, record in host.inputs.items()):
+            return 'SNAPSHOT_INPUT_DRIFT'
+        result = api_snapshot_change(first, host.snapshot(intent))
+        if result != 'SNAPSHOT_STABLE_IN_SAMPLE':
+            return result
+        if index < 2:
+            time.sleep(1)
+    return 'SNAPSHOT_STABLE_IN_SAMPLE'
+
+
+def observe_api_snapshot(scope, source):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'NOT_PROVEN'
+    fake_file = '/run/pc-api-only-snapshot-observer/scripts/release/api-only-release-controller.py'
+    controller = {'__name__': 'api_snapshot_controller', '__file__': fake_file}
+    exec(compile(source, '<pinned-api-snapshot-controller>', 'exec'), controller)
+
+    class ReadOnlyHost(controller['Host']):
+        def run(self, args, **kwargs):
+            if not api_snapshot_read_allowed(args, self.compose):
+                raise ValueError('outside snapshot Docker commands')
+            return controller['bounded'](controller['DOCKER'] + ['--config', str(self.root / 'registry')] + args,
+                                         **kwargs)
+
+    class SampleDeadline(Exception):
+        pass
+
+    def expired(_signal, _frame):
+        raise SampleDeadline()
+
+    host = ReadOnlyHost()
+    if host.root.exists():
+        return 'NOT_PROVEN'
+    previous = signal.signal(signal.SIGALRM, expired)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, 75)
+        with host.lock():
+            return sample_api_snapshot(host, scope, controller)
+    except SampleDeadline:
+        return 'SNAPSHOT_DEADLINE'
+    except BlockingIOError:
+        return 'SNAPSHOT_LOCK_BUSY'
+    except (controller['ReleaseError'], OSError, ValueError, TypeError, KeyError):
+        return 'NOT_PROVEN'
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
 
 
 def rollback_rehearsal_inputs(baseline):
@@ -740,6 +911,52 @@ def self_test():
         assert validate_api_compose_profile(expected) == expected
     assert validate_api_compose_profile('/private/file.yml') == 'NOT_PROVEN'
 
+    snapshot_source = api_snapshot_controller_source(git('cat-file', 'blob', SNAPSHOT_CONTROLLER_BLOB).decode('utf-8'))
+    snapshot_controller = {'__name__': 'test_snapshot_controller'}
+    exec(compile(snapshot_source, '<snapshot-source-test>', 'exec'), snapshot_controller)
+    snapshot_host = snapshot_controller['Host']
+    assert {name for name in vars(snapshot_host) if callable(getattr(snapshot_host, name))} == SNAPSHOT_HOST_METHODS
+    fixture_id = 'f' * 64
+    docker_calls = []
+    ready_host = SimpleNamespace(inspect=lambda _: {'State': {'Running': True}},
+                                 run=lambda args, **_: docker_calls.append(args))
+    assert snapshot_host.ready(ready_host, fixture_id) is True
+    assert len(docker_calls) == 1 and api_snapshot_read_allowed(docker_calls[0], None)
+    for rejected in (
+        ['exec', fixture_id, '/nodejs/bin/node', '-e', 'process.exit(0)'],
+        ['exec', fixture_id, '/bin/sh', '-c', 'printf fixture'],
+        ['image', 'inspect', '--format=fixture'],
+        ['volume', 'rm', 'fixture'],
+        ['compose', 'up', '-d'],
+    ):
+        assert not api_snapshot_read_allowed(rejected, None)
+
+    scope = {'revision': 'a' * 40, 'observedImageId': 'sha256:' + 'b' * 64}
+    first = dict.fromkeys(SNAPSHOT_FIELDS)
+    first.update(revision=scope['revision'], image_id=scope['observedImageId'], ready=True)
+    second = {**first, 'ready': False, 'siblings': 'fixture'}
+    assert api_snapshot_change(first, second) == 'SNAPSHOT_DIFF_088'
+    assert api_snapshot_details('SNAPSHOT_DIFF_088') == 'ready, siblings'
+    assert api_snapshot_change(first, {**first, 'extra': True}) == 'NOT_PROVEN'
+    for invalid in ('SNAPSHOT_DIFF_000', 'SNAPSHOT_DIFF_800', 'SNAPSHOT_DIFF_00a', '/private/file'):
+        assert validate_api_snapshot(invalid) == 'NOT_PROVEN'
+    controller_fixture = {'digest': lambda _: SNAPSHOT_VOLUME_DIGEST, 'BASELINE_ARCHIVE_SCHEMA': 'fixture',
+                          'file_read': lambda path, **_: path}
+    volumes_fixture = '\n'.join(f'fixture{i}' for i in range(19)).encode()
+    observations = iter((first, second))
+    fixture_host = SimpleNamespace(run=lambda _: volumes_fixture, snapshot=lambda _: next(observations),
+                                   effective_api_image_id=lambda: scope['observedImageId'],
+                                   inputs={'/fixture': '/fixture'})
+    assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_DIFF_088'
+    fixture_host.snapshot = lambda _: first
+    with patch('time.sleep') as sleep:
+        assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_STABLE_IN_SAMPLE'
+        assert sleep.call_count == 2
+    fixture_host.inputs['/fixture'] = 'changed'
+    assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_INPUT_DRIFT'
+    fixture_host.run = lambda _: b'fixture'
+    assert sample_api_snapshot(fixture_host, scope, controller_fixture) == 'SNAPSHOT_INVENTORY_CHANGED'
+
     boot_id = 'a' * 32
     entry = {'_BOOT_ID': boot_id, '_TRANSPORT': 'kernel', 'SYSLOG_FACILITY': '0',
              'SYSLOG_IDENTIFIER': 'kernel', 'MESSAGE': 'Linux version 6.18',
@@ -895,6 +1112,8 @@ if __name__ == '__main__':
             print(observe_api_compose_shape(api_baseline_spec(globals()['API_BASELINE'])))
         elif sys.argv[1:] == ['--api-compose-profile']:
             print(observe_api_compose_profile(api_baseline_spec(globals()['API_BASELINE']), globals()['API_COMPOSE_PROFILE']))
+        elif sys.argv[1:] == ['--api-snapshot']:
+            print(observe_api_snapshot(api_baseline_spec(globals()['API_BASELINE']), globals()['API_SNAPSHOT_CONTROLLER']))
         elif sys.argv[1:] == ['--export-running-api-archive']:
             export_api_archive(api_baseline_spec(globals()['API_BASELINE']))
         elif sys.argv[1:] == ['--self-test']:
@@ -909,6 +1128,8 @@ if __name__ == '__main__':
             build_api_baseline_payload(sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-compose-profile-payload':
             build_api_compose_profile_payload(sys.argv[2])
+        elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-snapshot-payload':
+            build_api_snapshot_payload(sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--rollback-rehearsal-inputs':
             ref = sys.argv[2]
             print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
@@ -937,6 +1158,10 @@ if __name__ == '__main__':
             print(validate_api_compose_shape(sys.argv[2]))
         elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-compose-profile':
             print(validate_api_compose_profile(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-snapshot':
+            print(validate_api_snapshot(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--api-snapshot-details':
+            print(api_snapshot_details(sys.argv[2]))
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
