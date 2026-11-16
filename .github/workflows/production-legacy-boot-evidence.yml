@@ -36,6 +36,7 @@ jobs:
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --build-api-ledger-payload "$HEAD_SHA" |
             python3 -I -S -B -c 'import sys; compile(sys.stdin.read(), "<ledger-payload>", "exec")'
+          python3 -I -S -B scripts/production-legacy-boot-evidence.py --catalog-oracle-inputs "$HEAD_SHA" > /dev/null
 
   rollback_rehearsal:
     if: github.event_name == 'pull_request'
@@ -109,19 +110,21 @@ jobs:
        github.event.comment.body == '/production observe-api-compose-profile current-main' ||
        github.event.comment.body == '/production observe-api-snapshot current-main' ||
        github.event.comment.body == '/production observe-api-ledger current-main' ||
+       github.event.comment.body == '/production observe-api-catalog current-main' ||
        github.event.comment.body == '/production rehearse-running-api-store current-main') &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner && github.triggering_actor == github.repository_owner &&
       github.run_attempt == '1'
     concurrency:
-      group: ${{ (github.event.comment.body == '/production rehearse-running-api-store current-main' || github.event.comment.body == '/production observe-api-snapshot current-main' || github.event.comment.body == '/production observe-api-ledger current-main') && 'pc-crop-production-release-candidate' || 'production-docker-headroom-readonly-diagnostic' }}
+      group: ${{ (github.event.comment.body == '/production rehearse-running-api-store current-main' || github.event.comment.body == '/production observe-api-snapshot current-main' || github.event.comment.body == '/production observe-api-ledger current-main' || github.event.comment.body == '/production observe-api-catalog current-main') && 'pc-crop-production-release-candidate' || 'production-docker-headroom-readonly-diagnostic' }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ github.event.comment.body == '/production rehearse-running-api-store current-main' && 10 || 5 }}
+    timeout-minutes: ${{ github.event.comment.body == '/production observe-api-catalog current-main' && 12 || github.event.comment.body == '/production rehearse-running-api-store current-main' && 10 || 5 }}
     permissions:
       contents: read
       issues: write
+      packages: read
     env:
       LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
       DEFAULT_HOST: 195.19.12.120
@@ -155,12 +158,13 @@ jobs:
               elif .body == "/production observe-api-compose-profile current-main" then "api-compose-profile"
               elif .body == "/production observe-api-snapshot current-main" then "api-snapshot"
               elif .body == "/production observe-api-ledger current-main" then "api-ledger"
+              elif .body == "/production observe-api-catalog current-main" then "api-catalog"
               elif .body == "/production rehearse-running-api-store current-main" then "api-archive"
               else empty end
             ')"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --verify-main "$GITHUB_SHA"
           python3 -I -S -B scripts/production-legacy-boot-evidence.py --self-test
-          [[ "$operation" == boot || "$operation" == identity || "$operation" == api || "$operation" == api-compose || "$operation" == api-compose-profile || "$operation" == api-snapshot || "$operation" == api-ledger || "$operation" == api-archive ]]
+          [[ "$operation" == boot || "$operation" == identity || "$operation" == api || "$operation" == api-compose || "$operation" == api-compose-profile || "$operation" == api-snapshot || "$operation" == api-ledger || "$operation" == api-catalog || "$operation" == api-archive ]]
           if [[ "$operation" == api-snapshot ]]; then
             umask 077
             python3 -I -S -B scripts/production-legacy-boot-evidence.py --build-api-snapshot-payload "$GITHUB_SHA" > "$RUNNER_TEMP/api-snapshot-payload.py"
@@ -169,6 +173,35 @@ jobs:
             python3 -I -S -B scripts/production-legacy-boot-evidence.py --build-api-ledger-payload "$GITHUB_SHA" > "$RUNNER_TEMP/api-ledger-payload.py"
           fi
           printf 'operation=%s\n' "$operation" >> "$GITHUB_OUTPUT"
+
+      - name: Reproduce the exact isolated catalog oracle
+        if: steps.provenance.outputs.operation == 'api-catalog'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +x
+          [[ "$RUNNER_ENVIRONMENT" == github-hosted ]]
+          umask 077
+          work=$(mktemp -d "$RUNNER_TEMP/api-catalog-oracle.XXXXXXXX")
+          cleanup() {
+            docker logout ghcr.io >/dev/null 2>&1 || true
+            git worktree remove --force "$work/target" >/dev/null 2>&1 || true
+            rm -rf -- "$work"
+          }
+          trap cleanup EXIT
+          script=scripts/production-legacy-boot-evidence.py
+          python3 -I -S -B "$script" --catalog-oracle-inputs "$GITHUB_SHA" > "$work/inputs"
+          mapfile -t inputs < "$work/inputs"
+          [[ "${#inputs[@]}" == 4 && "${inputs[0]}" =~ ^[a-f0-9]{40}$ ]]
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          for image in "${inputs[@]:1}"; do
+            [[ "$image" =~ ^ghcr\.io/pachaninm-lab/(grainflow-api|grainflow-migration|ci-postgres)@sha256:[a-f0-9]{64}$ ]]
+            timeout --kill-after=3s 90s docker pull "$image" >/dev/null
+          done
+          git worktree add --detach "$work/target" "${inputs[0]}" >/dev/null 2>&1
+          python3 -I -S -B "$script" --build-api-catalog-payload "$GITHUB_SHA" "$work/target" > "$RUNNER_TEMP/api-catalog-payload.py"
 
       - name: Reuse the pinned production SSH resolver
         env:
@@ -233,6 +266,10 @@ jobs:
             payload="$RUNNER_TEMP/api-ledger-payload.py"
             remote='/usr/bin/python3 -I -S -B - --api-ledger'
             observer_seconds=55
+          elif [[ "$OPERATION" == api-catalog ]]; then
+            payload="$RUNNER_TEMP/api-catalog-payload.py"
+            remote='/usr/bin/python3 -I -S -B - --api-catalog'
+            observer_seconds=115
           elif [[ "$OPERATION" == api || "$OPERATION" == api-compose || "$OPERATION" == api-compose-profile ]]; then
             umask 077
             payload="$RUNNER_TEMP/api-baseline-content-payload.py"
@@ -268,6 +305,8 @@ jobs:
                 receipt="$(python3 -I -S -B "$script" --validate-api-snapshot "$response")"
               elif [[ "$OPERATION" == api-ledger ]]; then
                 receipt="$(python3 -I -S -B "$script" --validate-api-ledger "$response")"
+              elif [[ "$OPERATION" == api-catalog ]]; then
+                receipt="$(python3 -I -S -B "$script" --validate-api-catalog "$response")"
               else
                 receipt="$(python3 -I -S -B "$script" --reconcile "$response" "$before" "$(date +%s%3N)")"
               fi
@@ -371,7 +410,7 @@ jobs:
           rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/legacy-boot-ssh-resolver.sh"
           "$RUNNER_TEMP/original19-identity-reference.py" "$RUNNER_TEMP/original19-identity-payload.py"
           "$RUNNER_TEMP/api-baseline-content-payload.py" "$RUNNER_TEMP/api-snapshot-payload.py"
-          "$RUNNER_TEMP/api-ledger-payload.py"
+          "$RUNNER_TEMP/api-ledger-payload.py" "$RUNNER_TEMP/api-catalog-payload.py"
 
       - name: Publish closed evidence
         if: always() && steps.provenance.outcome == 'success'
@@ -411,6 +450,10 @@ jobs:
             result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api-ledger "$RESULT")"
             details="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --api-ledger-details "$result")"
             body="$(printf '## Read-only API migration ledger classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Classification: `%s`\n- Migration rows and checksums: `NOT_PUBLISHED`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$details")"
+          elif [[ "$OPERATION" == api-catalog ]]; then
+            result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api-catalog "$RESULT")"
+            details="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --api-catalog-details "$result")"
+            body="$(printf '## Read-only API catalog classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Classification: `%s`\n- Oracle reference run: `43887479195`\n- Raw catalog and principal records: `NOT_PUBLISHED`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$details")"
           else
             result=NOT_PROVEN
             if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi

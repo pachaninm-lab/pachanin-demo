@@ -21,7 +21,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiMigrationLedgerEvidence'
+AUTHORITY_KEY = 'gektaApiCatalogSectionsEvidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -42,6 +42,26 @@ COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
 COMPOSE_CONTROLLER_BLOB = 'b6de12ba9dd084e173637047cfebc6bdc1dda70a'
 SNAPSHOT_CONTROLLER_BLOB = '449e7a9e51c73fa10815564481a3a3dc59f019fe'
 LEDGER_CONTROLLER_BLOB = '7d64b9311c50d5dc4143c0b599c96ccf257020ee'
+CATALOG_CONTROLLER_BLOB = '64eafa8337649537d2ca8381e3976266be3e63c2'
+CATALOG_ORACLE = {
+    'target_sha': '88a033486262acd4fb11929c5545277174ad99f4',
+    'api_digest': 'ghcr.io/pachaninm-lab/grainflow-api@sha256:139540c71f52e45babfea7194e4d20de7c609ff8ceb89a8121fb8d0074ede4b8',
+    'migration_digest': 'ghcr.io/pachaninm-lab/grainflow-migration@sha256:9b64f2c1a5c1aaf71e9a3d51e121f5261a19a911205ecdabc1e61e75c18ed981',
+    'catalog_sha256': '1a60dd5a455568be2509f694b4991a594bf5323a0b1cf1728ad22742ada32b48',
+    'query_sha256': '29bc9ef6cffbd1994d99b5008e21ff614d6362284374cc169cd89c266420895f',
+    'principal_sha256': {
+        'default': 'ec72bb2ab745e46ce8fd28de7cd659ce036666f7a9c378f8aff1a3683738f2c6',
+        'registration': '387dc9ca4a28ce3a9be8c0b1a4605496cdc3c5b5517874506d88568526ad8d88',
+    },
+    'status': 'VERIFIED', 'isolated_cleanup': 'VERIFIED',
+}
+CATALOG_POSTGRES = 'ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777'
+CATALOG_SECTIONS = ('schemas', 'extensions', 'columns', 'tables', 'constraints', 'indexes', 'enums',
+                    'domains', 'sequences', 'routines', 'policies', 'triggers', 'default_privileges')
+CATALOG_PROFILE = ('postgres_major', 'encoding', 'collation')
+CATALOG_FINDINGS = (*CATALOG_PROFILE, *CATALOG_SECTIONS, 'default_principal', 'registration_principal',
+                    'registration_catalog_differs', 'registration_unavailable')
+CATALOG_CODES = {'CATALOG_MATCHES_ORACLE', 'CATALOG_BASELINE_CHANGED', 'CATALOG_LOCK_BUSY'}
 LEDGER_INITIAL = '0001_postgresql_initial'
 LEDGER_INITIAL_MARKER = 'grainflow_v3_initial_postgresql'
 LEDGER_ARCHIVE_BLOBS = {
@@ -135,6 +155,7 @@ def verify_source(base, head, verify_diff):
             manifest['baselineEvidence'] != BASELINE_RECORD or manifest['controllerBlob'] != COMPOSE_CONTROLLER_BLOB or
             manifest['snapshotControllerBlob'] != SNAPSHOT_CONTROLLER_BLOB or
             manifest['ledgerControllerBlob'] != LEDGER_CONTROLLER_BLOB or
+            manifest['catalogControllerBlob'] != CATALOG_CONTROLLER_BLOB or manifest['catalogOracleRun'] != 43887479195 or
             manifest['originalVolumeInventorySHA256'] != SNAPSHOT_VOLUME_DIGEST or
             sorted(manifest['allowedPaths']) != sorted(SOURCE_PATHS)):
         raise ValueError('invalid source manifest')
@@ -532,6 +553,132 @@ def observe_api_ledger(scope, source, expected, archived):
             if api_binding() != binding:
                 return 'LEDGER_BASELINE_CHANGED'
             return classify_api_ledger(controller['closed_json'](raw), expected, archived, controller)
+    except (controller['ReleaseError'], OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        return 'NOT_PROVEN'
+
+
+def catalog_oracle_inputs(ref):
+    baseline = verify_source(ref, ref, verify_diff=False)
+    target = CATALOG_ORACLE['target_sha']
+    if any(regular_blob(commit, COMPOSE_CONTROLLER) != CATALOG_CONTROLLER_BLOB for commit in (target, ref)):
+        raise ValueError('unexpected catalog controller')
+    git('merge-base', '--is-ancestor', target, ref)
+    return baseline, (target, CATALOG_ORACLE['api_digest'], CATALOG_ORACLE['migration_digest'], CATALOG_POSTGRES)
+
+
+def api_catalog_section_hashes(catalog, digest):
+    if type(catalog) is not dict or catalog.keys() != {'profile', *CATALOG_SECTIONS}:
+        raise ValueError('unexpected catalog sections')
+    profile = catalog['profile']
+    if type(profile) is not dict or profile.keys() != set(CATALOG_PROFILE):
+        raise ValueError('unexpected catalog profile')
+    return {name: digest(value) for name, value in {
+        **profile, **{name: catalog[name] for name in CATALOG_SECTIONS},
+    }.items()}
+
+
+def replay_catalog_oracle(controller, inputs):
+    original = controller['digest']
+    captured = {}
+
+    def observed_digest(value):
+        result = original(value)
+        if result == CATALOG_ORACLE['catalog_sha256']:
+            captured.update(api_catalog_section_hashes(value, original))
+        return result
+
+    controller['digest'] = observed_digest
+    try:
+        receipt = controller['generate_oracle'](*inputs[:3])
+    finally:
+        controller['digest'] = original
+    if (any(receipt.get(name) != expected for name, expected in CATALOG_ORACLE.items()) or
+            captured.keys() != {*CATALOG_PROFILE, *CATALOG_SECTIONS}):
+        raise ValueError('isolated catalog oracle did not reproduce')
+    return captured
+
+
+def build_api_catalog_payload(ref, checkout):
+    baseline, inputs = catalog_oracle_inputs(ref)
+    controller_path = Path(checkout).resolve() / COMPOSE_CONTROLLER
+    pinned = git('cat-file', 'blob', CATALOG_CONTROLLER_BLOB)
+    if controller_path.read_bytes() != pinned:
+        raise ValueError('catalog checkout controller differs')
+    controller = {'__name__': 'api_catalog_source', '__file__': str(controller_path)}
+    exec(compile(pinned, '<pinned-catalog-source>', 'exec'), controller)
+    expected = replay_catalog_oracle(controller, inputs)
+    source = api_snapshot_controller_source(git('cat-file', 'blob', LEDGER_CONTROLLER_BLOB).decode('utf-8'))
+    print('API_BASELINE = ' + repr(api_baseline_spec(baseline)))
+    print('API_CATALOG_EXPECTED = ' + repr(expected))
+    print('API_CATALOG_CONTROLLER = ' + repr(source))
+    print('API_CATALOG_PROGRAMS = ' + repr({client: controller['database_program'](client)
+                                            for client in ('default', 'registration')}))
+    sys.stdout.write(git('cat-file', 'blob', regular_blob(ref, PROBE_PATH)).decode('utf-8'))
+
+
+def classify_api_catalog(records, expected, digest):
+    record_keys = {'ledger', 'catalog', 'principal'}
+    default = records['default']
+    if type(default) is not dict or default.keys() != record_keys:
+        return 'NOT_PROVEN'
+    actual = api_catalog_section_hashes(default['catalog'], digest)
+    differences = {name for name, value in actual.items() if expected[name] != value}
+    if digest(default['principal']) != CATALOG_ORACLE['principal_sha256']['default']:
+        differences.add('default_principal')
+    registration = records.get('registration')
+    if type(registration) is not dict or registration.keys() != record_keys:
+        differences.add('registration_unavailable')
+    else:
+        if digest(registration['catalog']) != digest(default['catalog']):
+            differences.add('registration_catalog_differs')
+        if digest(registration['principal']) != CATALOG_ORACLE['principal_sha256']['registration']:
+            differences.add('registration_principal')
+    mask = sum(1 << index for index, name in enumerate(CATALOG_FINDINGS) if name in differences)
+    return f'CATALOG_DIFF_{mask:05X}' if mask else 'CATALOG_MATCHES_ORACLE'
+
+
+def validate_api_catalog(value):
+    mask = re.fullmatch(r'CATALOG_DIFF_([0-9A-F]{5})', value)
+    if value in CATALOG_CODES or (mask is not None and 0 < int(mask[1], 16) < 1 << len(CATALOG_FINDINGS)):
+        return value
+    return 'NOT_PROVEN'
+
+
+def api_catalog_details(value):
+    value = validate_api_catalog(value)
+    if not value.startswith('CATALOG_DIFF_'):
+        return value
+    mask = int(value.rsplit('_', 1)[1], 16)
+    return ', '.join(name for index, name in enumerate(CATALOG_FINDINGS) if mask & 1 << index)
+
+
+def observe_api_catalog(scope, source, programs, expected):
+    if os.getuid() != 0 or os.geteuid() != 0:
+        return 'NOT_PROVEN'
+    controller = {'__name__': 'api_catalog_controller',
+                  '__file__': '/run/pc-api-only-catalog-observer/scripts/release/api-only-release-controller.py'}
+    exec(compile(source, '<pinned-api-catalog-controller>', 'exec'), controller)
+    try:
+        with ExitStack() as resources:
+            try:
+                resources.enter_context(controller['Host']().lock())
+            except BlockingIOError:
+                return 'CATALOG_LOCK_BUSY'
+            binding = api_binding()
+            if binding[1] != scope['observedImageId']:
+                return 'CATALOG_BASELINE_CHANGED'
+            commands = controller['DOCKER'] + ['--config', '/proc/self/fd', 'exec', binding[0], '/nodejs/bin/node', '-e']
+            records = {}
+            for client in ('default', 'registration'):
+                try:
+                    raw = controller['bounded'](commands + [programs[client]], timeout=40)
+                    records[client] = controller['closed_json'](raw)
+                except (controller['ReleaseError'], OSError, subprocess.SubprocessError):
+                    if client == 'default':
+                        raise
+                if api_binding() != binding:
+                    return 'CATALOG_BASELINE_CHANGED'
+            return classify_api_catalog(records, expected, controller['digest'])
     except (controller['ReleaseError'], OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
         return 'NOT_PROVEN'
 
@@ -1133,6 +1280,43 @@ def self_test():
     ledger_program = api_ledger_program(ledger['LEDGER_SQL'])
     assert ledger_program.index('SET TRANSACTION READ ONLY') < ledger_program.index('FROM public._prisma_migrations')
     assert 'LIMIT 5001' in ledger_program
+    digest = ledger['digest']
+    catalog = {**dict.fromkeys(CATALOG_SECTIONS, []),
+               'profile': {'postgres_major': 16, 'encoding': 'UTF8', 'collation': {'provider': 'c'}}}
+    default_principal, registration_principal = {'role': 'default'}, {'role': 'registration'}
+    catalog_ref = {**CATALOG_ORACLE, 'catalog_sha256': digest(catalog), 'principal_sha256': {
+        'default': digest(default_principal), 'registration': digest(registration_principal),
+    }}
+    fixture_controller = {'digest': digest}
+
+    def fixture_oracle(*_args):
+        fixture_controller['digest'](catalog)
+        return catalog_ref
+
+    fixture_controller['generate_oracle'] = fixture_oracle
+    with patch.dict(globals(), {'CATALOG_ORACLE': catalog_ref}):
+        expected_catalog = replay_catalog_oracle(fixture_controller, ('a', 'b', 'c', 'd'))
+        assert fixture_controller['digest'] is digest
+        first = {'ledger': [], 'catalog': catalog, 'principal': default_principal}
+        second = {'ledger': None, 'catalog': catalog, 'principal': registration_principal}
+        records = {'default': first, 'registration': second}
+        assert classify_api_catalog(records, expected_catalog, digest) == 'CATALOG_MATCHES_ORACLE'
+        changed = {**catalog, 'tables': [{'private': 'must not be emitted'}]}
+        changed_default = {**first, 'catalog': changed}
+        outcome = classify_api_catalog({'default': changed_default}, expected_catalog, digest)
+        assert api_catalog_details(outcome) == 'tables, registration_unavailable'
+        changed_auth = {**second, 'catalog': changed, 'principal': {}}
+        outcome = classify_api_catalog({'default': first, 'registration': changed_auth}, expected_catalog, digest)
+        assert api_catalog_details(outcome) == 'registration_principal, registration_catalog_differs'
+        fixture_controller['generate_oracle'] = lambda *_: {**fixture_oracle(), 'isolated_cleanup': 'FAILED'}
+        try:
+            replay_catalog_oracle(fixture_controller, ('a', 'b', 'c', 'd'))
+        except ValueError:
+            assert fixture_controller['digest'] is digest
+        else:
+            raise AssertionError('unverified oracle reference was accepted')
+    for invalid in ('CATALOG_DIFF_00000', 'CATALOG_DIFF_FFFFFF', 'CATALOG_TABLE_PRIVATE'):
+        assert validate_api_catalog(invalid) == 'NOT_PROVEN'
     snapshot_controller = {'__name__': 'test_snapshot_controller'}
     exec(compile(snapshot_source, '<snapshot-source-test>', 'exec'), snapshot_controller)
     snapshot_host = snapshot_controller['Host']
@@ -1345,6 +1529,10 @@ if __name__ == '__main__':
             print(observe_api_ledger(api_baseline_spec(globals()['API_BASELINE']),
                                      globals()['API_LEDGER_CONTROLLER'], globals()['API_LEDGER_EXPECTED'],
                                      globals()['API_LEDGER_ARCHIVED']))
+        elif sys.argv[1:] == ['--api-catalog']:
+            print(observe_api_catalog(api_baseline_spec(globals()['API_BASELINE']),
+                                       globals()['API_CATALOG_CONTROLLER'], globals()['API_CATALOG_PROGRAMS'],
+                                       globals()['API_CATALOG_EXPECTED']))
         elif sys.argv[1:] == ['--export-running-api-archive']:
             export_api_archive(api_baseline_spec(globals()['API_BASELINE']))
         elif sys.argv[1:] == ['--self-test']:
@@ -1363,6 +1551,10 @@ if __name__ == '__main__':
             build_api_snapshot_payload(sys.argv[2])
         elif len(sys.argv) == 3 and sys.argv[1] == '--build-api-ledger-payload':
             build_api_ledger_payload(sys.argv[2])
+        elif len(sys.argv) == 3 and sys.argv[1] == '--catalog-oracle-inputs':
+            print(*catalog_oracle_inputs(sys.argv[2])[1], sep='\n')
+        elif len(sys.argv) == 4 and sys.argv[1] == '--build-api-catalog-payload':
+            build_api_catalog_payload(sys.argv[2], sys.argv[3])
         elif len(sys.argv) == 3 and sys.argv[1] == '--rollback-rehearsal-inputs':
             ref = sys.argv[2]
             print(*rollback_rehearsal_inputs(verify_source(ref, ref, verify_diff=False)), sep='\n')
@@ -1399,6 +1591,10 @@ if __name__ == '__main__':
             print(validate_api_ledger(sys.argv[2]))
         elif len(sys.argv) == 3 and sys.argv[1] == '--api-ledger-details':
             print(api_ledger_details(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--validate-api-catalog':
+            print(validate_api_catalog(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == '--api-catalog-details':
+            print(api_catalog_details(sys.argv[2]))
         elif len(sys.argv) == 5 and sys.argv[1] == '--reconcile':
             print('BOOT_AFTER_LEGACY_CUTOFF' if reconcile(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
                   else 'NOT_PROVEN')
