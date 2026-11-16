@@ -916,6 +916,45 @@ COMPOSE_BRACKET_SCALAR = re.compile(
     r'[A-Za-z0-9_./+-][A-Za-z0-9_./:@%+=-]*'
     r'(?:\[[A-Za-z0-9_.:+%-]+\][A-Za-z0-9_./:@%+=-]*)+'
 )
+COMPOSE_INLINE_ENV_LIST = re.compile(
+    r''' *(?:env_file|"env_file"|'env_file') *: +\[(?P<items>[A-Za-z0-9_./,'" -]*)\]'''
+    r'(?: +#[^\x00-\x1f\x85\u2028\u2029]*| *)'
+)
+COMPOSE_PLAIN_ENV_NAME = re.compile(r'\.?[A-Za-z_][A-Za-z0-9_.-]*')
+COMPOSE_TYPED_ENV_NAMES = frozenset({'y', 'n', 'yes', 'no', 'on', 'off', 'true', 'false', 'null', '.inf', '.nan'})
+
+
+def env_file_literal(value):
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        value = value[1:-1]
+    demand(re.fullmatch(r'[A-Za-z0-9_./-]{1,4096}', value) and
+           all(part not in ('.', '..', '') for part in value.lstrip('/').split('/')), 'ENV_FILE_PROFILE')
+    return value
+
+
+def compose_inline_env_files(line):
+    if '[' not in line or len(line) > 16 * 1024:
+        return None
+    match = COMPOSE_INLINE_ENV_LIST.fullmatch(line.removesuffix('\r'))
+    if match is None:
+        return None
+    items = match['items'].split(',')
+    if len(items) > 1 and not items[-1].strip(' '):
+        items.pop()
+    demand(1 <= len(items) <= 128, 'ENV_FILE_PROFILE')
+    paths = []
+    for item in items:
+        literal = item.strip(' ')
+        path = env_file_literal(literal)
+        # A bare name must resolve to a string in YAML. Quoted filenames
+        # have an exact byte representation under the restricted grammar.
+        demand(not path.startswith('//') and (
+            path != literal or '/' in path or (COMPOSE_PLAIN_ENV_NAME.fullmatch(path) is not None
+                                              and path.lower() not in COMPOSE_TYPED_ENV_NAMES)
+        ), 'ENV_FILE_PROFILE')
+        paths.append(path)
+    return paths
 
 
 def compose_literal_brackets_allowed(line):
@@ -952,7 +991,16 @@ def validate_compose_input_profile(raw):
     # Strip quoted scalars and comments before looking for YAML operators.
     # Values use captured explicit/default env files; env_file interpolation
     # itself is rejected by the separate literal parser.
-    reference_view = '\n'.join(compose_inline_interpolation_view(line) for line in text.split('\n'))
+    reference_lines = []
+    for line in text.split('\n'):
+        if compose_inline_env_files(line) is not None:
+            # The complete raw list is validated above and captured by
+            # declared_env_files before the original bytes reach Compose.
+            indent = len(line) - len(line.lstrip(' '))
+            reference_lines.append(' ' * indent + 'env_file: literal')
+        else:
+            reference_lines.append(compose_inline_interpolation_view(line))
+    reference_view = '\n'.join(reference_lines)
     plain=re.sub(r'"(?:[^"\\\r\n]|\\.)*"|\'(?:[^\'\r\n]|\'\')*\'','""',reference_view)
     plain=re.sub(r'(?m)(?:^|[^\S\r\n])#.*$','',plain)
     plain=re.sub(r'\$\{[^{}\r\n]*\}','VALUE',plain)
@@ -974,19 +1022,19 @@ def declared_env_files(raw, parent):
     demand(not any(x in text for x in ('\\\\u','\\\\x','\\\\\n','\\\\\r\n')),'COMPOSE_EXTERNAL_PROFILE')
     rows=text.splitlines()
     result=[]
-    def admit(value):
-        value=value.strip()
-        if len(value)>=2 and value[0]==value[-1] and value[0] in "'\"":
-            value=value[1:-1]
-        demand(re.fullmatch(r'[A-Za-z0-9_./-]{1,4096}',value) and
-               all(p not in ('.','..','') for p in value.lstrip('/').split('/')),'ENV_FILE_PROFILE')
+    def capture(value):
         result.append(value if value.startswith('/') else str(Path(parent)/value))
     for index,line in enumerate(rows):
+        inline = compose_inline_env_files(line)
+        if inline is not None:
+            for path in inline:
+                capture(path)
+            continue
         match=re.fullmatch(r"(\s*)(?:env_file|\"env_file\"|'env_file')\s*:\s*(.*?)\s*",line)
         if not match:
             continue
         if match[2]:
-            admit(match[2])
+            capture(env_file_literal(match[2]))
         else:
             count=0
             for row in rows[index+1:]:
@@ -996,7 +1044,7 @@ def declared_env_files(raw, parent):
                     break
                 item=re.fullmatch(r'\s*-\s+(.+?)\s*',row)
                 demand(item is not None,'ENV_FILE_PROFILE')
-                admit(item[1]);count+=1
+                capture(env_file_literal(item[1]));count+=1
             demand(count>0,'ENV_FILE_PROFILE')
     return result
 
