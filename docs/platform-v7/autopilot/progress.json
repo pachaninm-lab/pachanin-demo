@@ -576,5 +576,46 @@
       }
     ],
     "historicalArchiveEvidenceComment": 5600883938
+  },
+  "gektaApiCatalogSectionsEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
+    "snapshotControllerBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
+    "ledgerControllerBlob": "7d64b9311c50d5dc4143c0b599c96ccf257020ee",
+    "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
+    "originalVolumeEvidenceRun": 43856373074,
+    "authorityBaseExactMain": "88a033486262acd4fb11929c5545277174ad99f4",
+    "supersedes": "gektaApiMigrationLedgerEvidence",
+    "purpose": "Reproduce the verified target catalog oracle on disposable PostgreSQL. Compare its section digests with fixed read-only observations from the running API. Publish only bounded schema and principal categories.",
+    "catalogControllerBlob": "64eafa8337649537d2ca8381e3976266be3e63c2",
+    "catalogOracleRun": 43887479195,
+    "catalogOracleArtifact": 14236980008,
+    "productionHoldArtifact": 14234584173,
+    "productionHoldReason": "TARGET_CATALOG_MISMATCH",
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "9ca82f30b40d87e4dff1a6445d198ed9b842abcb",
+        "sha256": "8ec49b0b7f2b80405864d9fa065c3747dcb5f65a1ea7be3d629e96da2543a971"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "4af67752fd77fab058614c6688b69508ebd07e45",
+        "sha256": "1820ec7d88d6865f64ff39a8dc02873f8c345eb9fa49e091e3f44c5d8e0e7a2f"
+      }
+    ]
   }
 }
