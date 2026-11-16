@@ -1318,6 +1318,16 @@ PRINCIPAL_SQL = (PRINCIPAL_SQL.replace('ROLE_SELF',role_label('r.oid'))
 LEDGER_SQL = """SELECT migration_name,checksum,finished_at IS NOT NULL AS finished,
  rolled_back_at IS NOT NULL AS rolled_back,applied_steps_count AS steps
  FROM public._prisma_migrations ORDER BY migration_name,id LIMIT 5001"""
+W1_ARCHIVED_LEDGER = {
+    '20260716130000_market_open_lots_showcase': '7fd0342e097c57a7a2832a7099ae973e875a5ccbddeb4cf6722d15aac983e08c',
+    '20260716150000_auction_cross_tenant_participation': 'bc8ac2be7aad0d45e742d5669a5ae2fed4938caba0c2e11abc5962974c5c775b',
+    '20260716160000_auction_participant_workspace': 'cf9d849fd6504443aac60fa7bffa0eb06b69f45b0aaf02524530f99092b1abd4',
+    '20260717170000_deal_cross_tenant_participation': 'e78fc2adb8332da2b242c1335d7082416f9fe4f901fbb872c186926969892598',
+}
+W1_LEDGER_RECONCILIATION = (
+    '20260909120000_reconcile_historical_auction_authority',
+    'f3ed347bbc85d56a697d4aeafdb43ab5f351ff5c5da6a78671b88310f432c0bc',
+)
 
 
 def database_program(client):
@@ -1368,8 +1378,8 @@ def oracle_query_sha256():
       sort_keys=True,separators=(',',':'),ensure_ascii=True).encode()).hexdigest()
 
 
-def verify_oracle_ledger(rows,expected):
-    """Exact fresh-chain ledger, including the accepted redundant source marker."""
+def verify_oracle_ledger(rows, expected, *, allow_reconciled_archive=False):
+    """Verify the complete current chain and optionally the exact reconciled W1 history."""
     demand(type(rows) is list and 0<len(rows)<=5000,'ORACLE_LEDGER_BOUND')
     initial='0001_postgresql_initial';initial_sha='2d3708fa99e4ee855c7b9fe69dc4e4506a317ffed34330e3955f5e995d35ffdd'
     initial_rows=[r for r in rows if type(r) is dict and r.get('migration_name')==initial]
@@ -1379,16 +1389,27 @@ def verify_oracle_ledger(rows,expected):
         old=[r for r in initial_rows if r.get('checksum')=='grainflow_v3_initial_postgresql']
         if len(good)==len(old)==1 and all(r.get('finished') is True and r.get('rolled_back') is False for r in initial_rows):
             marker=old[0]
-    actual={}
+    actual, archived = {}, {}
     for row in rows:
         demand(type(row) is dict and set(row)=={'migration_name','checksum','finished','rolled_back','steps'},'ORACLE_LEDGER_ROW')
         if row is marker:continue
-        name=row['migration_name']
-        demand(type(name) is str and name in expected and name not in actual and
-          row['checksum']==expected[name] and row['finished'] is True and row['rolled_back'] is False and
-          type(row['steps']) is int and row['steps']>=0,'ORACLE_LEDGER_MISMATCH')
-        actual[name]=row['checksum']
+        name = row['migration_name']
+        demand(type(name) is str and row['finished'] is True and row['rolled_back'] is False and
+               type(row['steps']) is int and row['steps'] >= 0, 'ORACLE_LEDGER_MISMATCH')
+        if allow_reconciled_archive and name not in expected and name in W1_ARCHIVED_LEDGER:
+            demand(name not in archived and row['checksum'] == W1_ARCHIVED_LEDGER[name],
+                   'ORACLE_ARCHIVED_LEDGER_MISMATCH')
+            archived[name] = row['checksum']
+        else:
+            demand(name in expected and name not in actual and row['checksum'] == expected[name],
+                   'ORACLE_LEDGER_MISMATCH')
+            actual[name] = row['checksum']
     demand(actual==expected,'ORACLE_LEDGER_SET')
+    if archived:
+        correction, checksum = W1_LEDGER_RECONCILIATION
+        demand(archived == W1_ARCHIVED_LEDGER and actual.get(correction) == checksum,
+               'ORACLE_ARCHIVED_LEDGER_NOT_RECONCILED')
+    return bool(archived)
 
 
 def generate_oracle(target,api_digest,migration_digest):
@@ -1541,8 +1562,9 @@ def generate_oracle(target,api_digest,migration_digest):
 
 def compare_database(value, intent, client):
     demand(type(value) is dict and set(value) == {'ledger', 'catalog', 'principal'}, 'DATABASE_RECORD')
+    has_archived_history = False
     if client=='default':
-        verify_oracle_ledger(value['ledger'],intent['migrations'])
+        has_archived_history = verify_oracle_ledger(value['ledger'], intent['migrations'], allow_reconciled_archive=True)
     else:
         demand(value['ledger'] is None,'AUTH_LEDGER_ACCESS_NOT_ADMITTED')
     principal = value['principal']
@@ -1558,6 +1580,7 @@ def compare_database(value, intent, client):
            settings.get('session_replication_role')=='origin','INITIAL_DATABASE_SETTINGS_NOT_ADMITTED')
     demand(digest(value['catalog']) == intent['catalog_sha256'], 'TARGET_CATALOG_MISMATCH')
     demand(digest(principal) == intent['principal_sha256'][client], 'TARGET_PRINCIPAL_MISMATCH')
+    return has_archived_history
 
 
 def unbase64(value):
@@ -1975,14 +1998,18 @@ class Host:
         module = types.ModuleType('pc_api_binding')
         module.__file__ = '<accepted-binding>'
         exec(compile(binding_raw, '<accepted-binding>', 'exec'), module.__dict__)
+        archived_ledger_history = False
         for client in ('default', 'registration'):
             module.bind(intent['target_sha'], baseline['api_id'], self.pg_id, self.project, module.Runtime(), client=client)
             value = closed_json(self.run(['exec', baseline['api_id'], '/nodejs/bin/node', '-e', database_program(client)],
                                         timeout=40))
-            compare_database(value, intent, client)
+            has_archived_history = compare_database(value, intent, client)
+            if client == 'default':
+                archived_ledger_history = has_archived_history
         demand(self.inspect(baseline['api_id'])['Image'] == baseline['image_id'], 'DATABASE_API_IMAGE_CHANGED')
         return {'database_compatibility': 'VERIFIED_TARGET_CONTRACT', 'catalog_match': True,
-                'principals_match': True, 'migration_match': True, 'both_clients_bound': True}
+                'principals_match': True, 'migration_match': True, 'both_clients_bound': True,
+                'archived_ledger_history': archived_ledger_history}
 
     def journal_begin(self, intent, baseline):
         root_fd = directory(BACKUPS)

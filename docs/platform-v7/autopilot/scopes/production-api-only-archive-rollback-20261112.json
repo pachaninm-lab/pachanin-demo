@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "7d64b9311c50d5dc4143c0b599c96ccf257020ee",
-      "bytes": 122790,
-      "sha256": "b549e505ac0ff01ef2e1198dfac3c1b7a4261507e19818cafabcf836a1431b4e",
+      "afterBlob": "64eafa8337649537d2ca8381e3976266be3e63c2",
+      "bytes": 124477,
+      "sha256": "39650338f881bc232bcdff30d2c036ac3a0a2cef998692ff51ea2d34d561e8d0",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "bf2e36ae75f4f58d2f29207a507b166ebbf5476d",
-      "bytes": 82673,
-      "sha256": "8f3ef6bad362e926dfc100e9b049cd921f913ff71e9dd2a44e2a2200b76c3a9c",
+      "afterBlob": "3648fc7d2afc2bbd341a4bf1caed32c762775ed6",
+      "bytes": 86351,
+      "sha256": "7138bf4a09bfe4cd411c7cec46c216d2ace7296fca4768cfe06d74b0473d330e",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -90,5 +90,13 @@
     "evidenceResult": "SNAPSHOT_DIFF_SIBLINGS",
     "sourceBase": "182218a026cd856850caefac874bdf5f85be21ec",
     "purpose": "Canonicalize the inspection order of complete sibling mount records. Every mount value and multiplicity still participates in the comparison."
+  },
+  "reconciledLedgerHistoryEvidence": {
+    "evidenceRun": 43880169912,
+    "evidenceResult": "exact_archived_migrations",
+    "sourceBase": "c3a59d0a7b34b82fff6aca41523fdf63e5378b60",
+    "productionHoldRun": 43873233340,
+    "historicalArchiveEvidenceComment": 5600883938,
+    "purpose": "Recognize the exact four reconciled W1 ledger rows on an existing database with the canonical corrective migration. Keep fresh-ledger, catalog, privilege, and before/after history comparisons."
   }
 }

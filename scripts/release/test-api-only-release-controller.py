@@ -509,6 +509,19 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(report['rollback'], 'VERIFIED')
         self.assertEqual(report['business_data_rollback'], 'NOT_PERFORMED')
 
+    def test_live_history_profile_change_triggers_api_rollback(self):
+        host = FakeHost()
+        observe_database = host.database
+
+        def database(value, state):
+            result = observe_database(value, state)
+            return {**result, 'archived_ledger_history': state['revision'] == value['baseline_sha']}
+
+        host.database = database
+        report = c.release(intent(), host)
+        self.assertEqual(report['reason'], 'TARGET_DATABASE_CONTRACT_CHANGED')
+        self.assertEqual(report['rollback'], 'VERIFIED')
+
     def test_before_api_gates_never_recreate(self):
         for failure in ('capacity', 'public:baseline', 'db_unproved', 'reserve', 'backup', 'pull', 'pull_result_bad', 'busy'):
             with self.subTest(failure=failure):
@@ -614,6 +627,7 @@ class ControllerTests(unittest.TestCase):
         c.compare_database(record, value, 'registration')
         record['ledger']=[{'migration_name':'0001_postgresql_initial','checksum':'f'*64,'finished':True,'rolled_back':False,'steps':0}]
         value['principal_sha256']['default']=c.digest(principal)
+        self.assertFalse(c.compare_database(record, value, 'default'))
         for modify in (
             lambda r: r['ledger'].append(copy.deepcopy(r['ledger'][0])),
             lambda r: r['ledger'][0].update(checksum='0' * 64),
@@ -626,6 +640,16 @@ class ControllerTests(unittest.TestCase):
             wrong = copy.deepcopy(record); modify(wrong)
             with self.assertRaises(c.ReleaseError):
                 c.compare_database(wrong, value, 'default')
+        name, checksum = c.W1_LEDGER_RECONCILIATION
+        value['migrations'][name] = checksum
+        record['ledger'].extend({'migration_name': migration, 'checksum': digest, 'finished': True,
+                                 'rolled_back': False, 'steps': 1}
+                                for migration, digest in {name: checksum, **c.W1_ARCHIVED_LEDGER}.items())
+        self.assertTrue(c.compare_database(record, value, 'default'))
+        with self.assertRaisesRegex(c.ReleaseError, 'TARGET_CATALOG_MISMATCH'):
+            c.compare_database({**record, 'catalog': {'changed': True}}, value, 'default')
+        with self.assertRaisesRegex(c.ReleaseError, 'TARGET_PRINCIPAL_MISMATCH'):
+            c.compare_database({**record, 'principal': {**principal, 'role': 'other'}}, value, 'default')
 
     def test_database_node_program_is_closed_and_readonly_for_both_actual_constructors(self):
         for client in ('default', 'registration'):
@@ -1255,6 +1279,39 @@ class OracleLedger(unittest.TestCase):
         with self.assertRaises(c.ReleaseError):c.verify_oracle_ledger([self.row(),self.row(checksum='grainflow_v3_initial_postgresql',rolled_back=True)],self.manifest())
     def test_wrong_initial_source_rejected(self):
         with self.assertRaises(c.ReleaseError):c.verify_oracle_ledger([self.row(),self.row(checksum='grainflow_v3_initial_postgresql')],{'0001_postgresql_initial':'a'*64})
+
+    def test_live_ledger_recognizes_only_complete_reconciled_history(self):
+        root = PATH.resolve().parents[2]
+        fixtures = sorted((root / 'scripts/fixtures/pc-crop-w1-lineage').glob('*.sql'))
+        self.assertEqual(len(fixtures), 4)
+        archived = [self.row(path.stem, hashlib.sha256(path.read_bytes()).hexdigest()) for path in fixtures]
+        correction = '20260909120000_reconcile_historical_auction_authority'
+        correction_path = root / 'apps/api/prisma/migrations' / correction / 'migration.sql'
+        correction_sha = hashlib.sha256(correction_path.read_bytes()).hexdigest()
+        manifest = {**self.manifest(), correction: correction_sha}
+        current = [self.row(), self.row(correction, correction_sha)]
+
+        self.assertTrue(c.verify_oracle_ledger(current + list(reversed(archived)), manifest,
+                                              allow_reconciled_archive=True))
+        self.assertFalse(c.verify_oracle_ledger(current, manifest, allow_reconciled_archive=True))
+        with self.assertRaises(c.ReleaseError):
+            c.verify_oracle_ledger(current + archived, manifest)
+
+        for case, rows, expected in (
+            ('partial', current + archived[:-1], manifest),
+            ('duplicate', current + archived + [archived[0]], manifest),
+            ('checksum', current + archived[1:] + [{**archived[0], 'checksum': '0' * 64}], manifest),
+            ('unfinished', current + archived[1:] + [{**archived[0], 'finished': False}], manifest),
+            ('rollback', current + archived[1:] + [{**archived[0], 'rolled_back': True}], manifest),
+            ('steps', current + archived[1:] + [{**archived[0], 'steps': -1}], manifest),
+            ('unknown', current + archived + [self.row('unrecognized', '1' * 64)], manifest),
+            ('missing correction', [self.row()] + archived, manifest),
+            ('unpinned correction', [self.row(), self.row(correction, '0' * 64)] + archived,
+             {**manifest, correction: '0' * 64}),
+            ('missing correction in source', [self.row()] + archived, self.manifest()),
+        ):
+            with self.subTest(case=case), self.assertRaises(c.ReleaseError):
+                c.verify_oracle_ledger(rows, expected, allow_reconciled_archive=True)
 
 
 class OracleSQLShape(unittest.TestCase):
