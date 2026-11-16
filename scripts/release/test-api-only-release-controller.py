@@ -525,6 +525,24 @@ class ControllerTests(unittest.TestCase):
                 self.assertEqual(result['result'], 'RECONCILIATION_REQUIRED')
                 self.assertEqual(result['rollback'], 'NOT_PROVEN')
 
+    def test_sibling_mount_inspection_order_is_not_configuration_drift(self):
+        bind = {'Type': 'bind', 'Source': '/fixture/config', 'Destination': '/etc/fixture', 'RW': False}
+        volume = {'Type': 'volume', 'Name': 'fixture', 'Destination': '/data', 'RW': True}
+        row = {
+            'Id': 'a' * 64, 'Image': 'sha256:' + 'b' * 64, 'Config': {},
+            'HostConfig': {}, 'NetworkSettings': {'Networks': {}},
+            'State': {'Running': True, 'StartedAt': '2026-11-16T00:00:00Z'},
+            'RestartCount': 0, 'Mounts': [bind, volume],
+        }
+        original = c.sibling_identity(row)
+        reordered = {**row, 'Mounts': [volume, bind]}
+        self.assertEqual(c.sibling_identity(reordered), original)
+        self.assertEqual(reordered['Mounts'], [volume, bind])
+        self.assertNotEqual(c.sibling_identity({**row, 'Mounts': [volume]}), original)
+        self.assertNotEqual(c.sibling_identity({**row, 'Mounts': [volume, bind, bind]}), original)
+        self.assertNotEqual(c.sibling_identity({**row, 'Mounts': [volume, {**bind, 'RW': True}]}), original)
+        self.assertNotEqual(c.sibling_identity({**row, 'RestartCount': 1}), original)
+
     def test_wrong_target_image_triggers_immutable_baseline_rollback(self):
         self.assertEqual(c.release(intent(), FakeHost('wrong_image'))['rollback'], 'VERIFIED')
 
