@@ -19,7 +19,7 @@ JOURNAL_MAX_BYTES = 16 * 1024
 EARLY_BOOT_US = 120 * 1_000_000
 CLOCK_TOLERANCE_MS = 120_000
 AUTHORITY = 'docs/platform-v7/autopilot/progress.json'
-AUTHORITY_KEY = 'gektaApiComposeAfter6183Evidence'
+AUTHORITY_KEY = 'gektaApiComposeAfter6186Evidence'
 BASELINE_RECORD = 'gektaApiBaselineContentEvidence'
 STATE = 'docs/platform-v7/autopilot/autopilot-state.json'
 SOURCE_BRANCH = 'ops/gekta-legacy-boot-evidence-20261111'
@@ -37,13 +37,17 @@ API_CODES = {'BASELINE_CHANGED', 'BASELINE_UNSTABLE', 'ROOTFS_DIFFERENT',
              'ROOTFS_MATCH_PROJECTED_DEFAULTS_DIFFERENT', 'ROOTFS_AND_PROJECTED_DEFAULTS_MATCH'}
 API_ROOTFS_COUNT = 25
 COMPOSE_CONTROLLER = 'scripts/release/api-only-release-controller.py'
-COMPOSE_CONTROLLER_BLOB = '776691320964e21dc8ce7e76f68e1b4dde6db3df'
+COMPOSE_CONTROLLER_BLOB = 'b6de12ba9dd084e173637047cfebc6bdc1dda70a'
 COMPOSE_PROFILE_CODES = (
     'PROFILE_TAB_INDENT', 'PROFILE_ENCODED_INPUT', 'PROFILE_INDIRECT_KEY', 'PROFILE_DIRECTIVE',
-    'PROFILE_FLOW_COLLECTION', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
+    'PROFILE_CURLY_BRACE', 'PROFILE_SQUARE_BRACKET', 'PROFILE_TAG', 'PROFILE_ENV_FILE_ESCAPE',
 )
 COMPOSE_FLOW_CODES = (
-    'PROFILE_DOLLAR_BRACE', 'PROFILE_SQUARE_BRACKET', 'PROFILE_CURLY_BRACE',
+    'PROFILE_DOLLAR_BRACE', 'PROFILE_FLOW_MAPPING', 'PROFILE_BRACKET_LINE_BOUND',
+    'PROFILE_BRACKET_LINE_SHAPE', 'PROFILE_BRACKET_EXTERNAL_KEY', 'PROFILE_BRACKET_LIST_KEY',
+    'PROFILE_BRACKET_LIST_NESTED', 'PROFILE_BRACKET_LIST_BOUND', 'PROFILE_BRACKET_LIST_EMPTY_ITEM',
+    'PROFILE_BRACKET_LIST_MAPPING_ITEM', 'PROFILE_BRACKET_LIST_ITEM', 'PROFILE_BRACKET_SCALAR',
+    'PROFILE_BRACKET_UNCLOSED_OR_CONTINUATION',
 )
 IMAGE_METADATA_FORMAT = '{{.Id}}\n{{.Os}}\n{{.Architecture}}\n{{json .RootFS.Layers}}\n{{json .Config}}'
 ARCHIVE_LIMIT = 2 * 1024**3
@@ -95,7 +99,7 @@ def verify_source(base, head, verify_diff):
             manifest['status'] != 'active' or manifest['branch'] != SOURCE_BRANCH or
             manifest['productionInvocationAuthorized'] is not False or
             manifest['productionMutationAuthorized'] is not False or manifest['releaseAuthorized'] is not False or
-            manifest['baselineEvidence'] != BASELINE_RECORD or
+            manifest['baselineEvidence'] != BASELINE_RECORD or manifest['controllerBlob'] != COMPOSE_CONTROLLER_BLOB or
             sorted(manifest['allowedPaths']) != sorted(SOURCE_PATHS)):
         raise ValueError('invalid source manifest')
     if verify_diff:
@@ -208,30 +212,63 @@ def reference_position_code(line, anchor_indent, raw_line, parse_anchor):
     return 'PROFILE_REF_EMBEDDED_OR_OTHER'
 
 
-def compose_flow_code(plain):
-    first = re.search(r'[{}\[\]]', plain)
-    if first is None:
-        return 'PROFILE_FLOW_COLLECTION'
-    if first[0] == '{' and first.start() and plain[first.start() - 1] == '$':
+def compose_brace_code(line):
+    value = line.lstrip(' ')
+    if value.startswith('- '):
+        value = value[2:].lstrip(' ')
+    key = re.match(r'(?:[A-Za-z_][A-Za-z0-9_.-]*|""): +', value)
+    if key is not None:
+        value = value[key.end():]
+    if value.startswith('{'):
+        return 'PROFILE_FLOW_MAPPING'
+    if '${' in value:
         return 'PROFILE_DOLLAR_BRACE'
-    if first[0] in '[]':
-        return 'PROFILE_SQUARE_BRACKET'
     return 'PROFILE_CURLY_BRACE'
+
+
+def compose_bracket_code(line, bracket_line, list_keys, external_keys):
+    if len(line) > 16 * 1024:
+        return 'PROFILE_BRACKET_LINE_BOUND'
+    match = bracket_line.fullmatch(line)
+    if match is None:
+        return 'PROFILE_BRACKET_LINE_SHAPE'
+    key, value = match['key'], match['value']
+    if key is not None and key.lower() in external_keys:
+        return 'PROFILE_BRACKET_EXTERNAL_KEY'
+    if not value.startswith('['):
+        return 'PROFILE_BRACKET_SCALAR'
+    if not value.endswith(']'):
+        return 'PROFILE_BRACKET_UNCLOSED_OR_CONTINUATION'
+    if key is None or (key not in list_keys and not key.startswith('x-')):
+        return 'PROFILE_BRACKET_LIST_KEY'
+    body = value[1:-1]
+    if '[' in body or ']' in body:
+        return 'PROFILE_BRACKET_LIST_NESTED'
+    items = [item.strip(' ') for item in body.split(',')]
+    if len(items) > 128:
+        return 'PROFILE_BRACKET_LIST_BOUND'
+    if any(not item for item in items):
+        return 'PROFILE_BRACKET_LIST_EMPTY_ITEM'
+    if any(re.search(r':(?:[ \t]|$)|^-(?:[ \t]|$)', item) for item in items):
+        return 'PROFILE_BRACKET_LIST_MAPPING_ITEM'
+    return 'PROFILE_BRACKET_LIST_ITEM'
 
 
 def compose_profile_source(source):
     selected_names = {'ReleaseError', 'demand', 'directory', 'file_read', 'compose_structural_view',
                       'compose_inline_interpolation_view', 'compose_inline_scalar_anchor', 'validate_compose_references',
-                      'validate_compose_input_profile', 'declared_env_files'}
-    inline_constants = {'COMPOSE_INLINE_ANCHOR_KEY', 'COMPOSE_INLINE_ANCHOR_PREFIX', 'COMPOSE_INLINE_INTERPOLATION'}
+                      'compose_literal_brackets_allowed', 'validate_compose_input_profile', 'declared_env_files'}
+    constants = {'COMPOSE_INLINE_ANCHOR_KEY', 'COMPOSE_INLINE_ANCHOR_PREFIX', 'COMPOSE_INLINE_INTERPOLATION',
+                 'COMPOSE_LITERAL_LIST_KEYS', 'COMPOSE_BRACKET_LINE', 'COMPOSE_EXTERNAL_KEYS',
+                 'COMPOSE_EMPTY_COLLECTION', 'COMPOSE_LITERAL_LIST_ITEM', 'COMPOSE_BRACKET_SCALAR'}
     selected = {}
     for node in ast.parse(source).body:
         if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in selected_names:
             selected[node.name] = node
         elif (isinstance(node, ast.Assign) and len(node.targets) == 1 and
-              isinstance(node.targets[0], ast.Name) and node.targets[0].id in inline_constants):
+              isinstance(node.targets[0], ast.Name) and node.targets[0].id in constants):
             selected[node.targets[0].id] = node
-    if selected.keys() != selected_names | inline_constants:
+    if selected.keys() != selected_names | constants:
         raise ValueError('incomplete pinned profile source')
     module = ast.Module(body=list(selected.values()), type_ignores=[])
     sites = sorted((node for node in ast.walk(module)
@@ -241,28 +278,23 @@ def compose_profile_source(source):
         raise ValueError('unknown pinned profile layout')
     for node, code in zip(sites, COMPOSE_PROFILE_CODES):
         node.value = code
-    flow = [node for node in ast.walk(module)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'demand'
-            and len(node.args) == 2 and isinstance(node.args[1], ast.Constant)
-            and node.args[1].value == 'PROFILE_FLOW_COLLECTION']
-    if len(flow) != 1:
-        raise ValueError('unknown pinned flow check')
-    flow[0].args[1] = ast.IfExp(
-        test=flow[0].args[0], body=flow[0].args[1],
-        orelse=ast.parse('compose_flow_code(plain)', mode='eval').body,
-    )
-    position = [node for node in ast.walk(module) if
-                isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and
-                node.func.id == 'demand' and len(node.args) == 2 and
-                isinstance(node.args[1], ast.Constant) and node.args[1].value == 'COMPOSE_REFERENCE_POSITION']
-    if len(position) != 1:
-        raise ValueError('unknown pinned reference-position check')
-    check = position[0]
-    check.args[1] = ast.IfExp(
-        test=check.args[0], body=check.args[1],
-        orelse=ast.parse('reference_position_code(line, anchor_indent, raw_line, compose_inline_scalar_anchor)',
-                         mode='eval').body,
-    )
+    refinements = {
+        'PROFILE_CURLY_BRACE': 'compose_brace_code(line)',
+        'PROFILE_SQUARE_BRACKET': ('compose_bracket_code(line, COMPOSE_BRACKET_LINE, '
+                                   'COMPOSE_LITERAL_LIST_KEYS, COMPOSE_EXTERNAL_KEYS)'),
+        'COMPOSE_REFERENCE_POSITION': ('reference_position_code(line, anchor_indent, raw_line, '
+                                       'compose_inline_scalar_anchor)'),
+    }
+    for code, expression in refinements.items():
+        checks = [node for node in ast.walk(module)
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'demand'
+                  and len(node.args) == 2 and isinstance(node.args[1], ast.Constant) and node.args[1].value == code]
+        if len(checks) != 1:
+            raise ValueError('unknown pinned diagnostic check')
+        check = checks[0]
+        check.args[1] = ast.IfExp(
+            test=check.args[0], body=check.args[1], orelse=ast.parse(expression, mode='eval').body,
+        )
     return ast.unparse(module)
 
 
@@ -494,7 +526,8 @@ def classify_api_compose_profile(working, files, profile):
     total, _, duplicates, empty, _ = map(int, shape.split('_')[1:])
     if total > 128 or total - duplicates > 16 or empty:
         return 'NOT_PROVEN'
-    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re, 'compose_flow_code': compose_flow_code,
+    namespace = {'os': os, 'stat': stat, 'Path': Path, 're': re, 'compose_brace_code': compose_brace_code,
+                 'compose_bracket_code': compose_bracket_code,
                  'reference_position_code': reference_position_code}
     exec(compile(profile, '<pinned-api-compose-profile>', 'exec'), namespace)
     try:
@@ -678,9 +711,23 @@ def self_test():
         (b'*base: fixture\n', 'PROFILE_REF_KEY_OPERATOR'),
         (b'"quoted key": *base\n', 'PROFILE_REF_KEY_FORMAT'),
         (b'x-value: echo *fixture\n', 'PROFILE_REF_EMBEDDED_OR_OTHER'),
-        (b'services: {api: {image: fixture}}\n', 'PROFILE_CURLY_BRACE'),
-        (b'x-values: [one, two]\n', 'PROFILE_SQUARE_BRACKET'),
-        (b'x-value: fixture[digits]\n', 'PROFILE_SQUARE_BRACKET'),
+        (b'services: {api: {image: fixture}}\n', 'PROFILE_FLOW_MAPPING'),
+        (b'x-values: {item: ${OUTER:-${INNER:-fixture}}}\n', 'PROFILE_FLOW_MAPPING'),
+        (b'x-value: first' + b' ' * (512 * 1024) + b'{tail}\n', 'PROFILE_CURLY_BRACE'),
+        (b'x-values: [one, two]\n', 'PROFILE_COMPATIBLE'),
+        (b'x-value: fixture[digits]\n', 'PROFILE_COMPATIBLE'),
+        (b'x-values: [one, two]\nx-other: prefix{suffix}\n', 'PROFILE_CURLY_BRACE'),
+        (b'x-values: [one,\n  two]\n', 'PROFILE_BRACKET_UNCLOSED_OR_CONTINUATION'),
+        (b'x-values: [one, [two]]\n', 'PROFILE_BRACKET_LIST_NESTED'),
+        (b'x-values: [one, two: value]\n', 'PROFILE_BRACKET_LIST_MAPPING_ITEM'),
+        (b'x-values: [one, -]\n', 'PROFILE_BRACKET_LIST_MAPPING_ITEM'),
+        (b'x-values: [one, , two]\n', 'PROFILE_BRACKET_LIST_EMPTY_ITEM'),
+        (b'x-values: [one, two!bad]\n', 'PROFILE_BRACKET_LIST_ITEM'),
+        (b'x-values: [' + b'a,' * 128 + b'a]\n', 'PROFILE_BRACKET_LIST_BOUND'),
+        (b'x-values: [' + b'a' * (16 * 1024) + b']\n', 'PROFILE_BRACKET_LINE_BOUND'),
+        (b'custom: [one, two]\n', 'PROFILE_BRACKET_LIST_KEY'),
+        (b'env_file: [local.env]\n', 'PROFILE_BRACKET_EXTERNAL_KEY'),
+        (b'x-value: fixture[digits] trailing\n', 'PROFILE_BRACKET_SCALAR'),
         (b'x-value: prefix{suffix}\n', 'PROFILE_CURLY_BRACE'),
         (b'x-value: ${OUTER:-${INNER:-safe}}\n', 'PROFILE_DOLLAR_BRACE'),
         (b'x-value: fixture }\n', 'PROFILE_CURLY_BRACE'),
