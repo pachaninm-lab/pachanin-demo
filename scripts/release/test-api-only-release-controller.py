@@ -778,7 +778,6 @@ class ControllerTests(unittest.TestCase):
                b'    env_file: literal.env\n')
         self.assertEqual(c.declared_env_files(raw, '/protected'), ['/protected/literal.env'])
         for bad in (
-            b'services:\n  api:\n    env_file: [private.env]\n',
             b'services:\n  api:\n    env_file:\n      - private[1].env\n',
             b'include: [private.yml]\n',
             b'extends: [private.yml]\n',
@@ -805,6 +804,38 @@ class ControllerTests(unittest.TestCase):
         ):
             with self.subTest(raw=bad), self.assertRaises(c.ReleaseError):
                 c.declared_env_files(bad, '/protected')
+
+
+    def test_inline_env_file_lists_capture_every_literal_in_order(self):
+        raw = (b'services:\r\n  api:\r\n'
+               b'    "env_file": [.env, "/protected/override.env", \'true\', base.env, base.env,] # note\r\n'
+               b'  web:\r\n    env_file: defaults/env\r\n')
+        self.assertEqual(c.declared_env_files(raw, '/protected'), [
+            '/protected/.env', '/protected/override.env', '/protected/true',
+            '/protected/base.env', '/protected/base.env', '/protected/defaults/env',
+        ])
+        for value in (
+            b'[]', b'[,]', b'[a.env,,b.env]', b'[.env, ../private.env]', b'[a/../private.env]',
+            b'[a//private.env]', b'[//protected/private.env]', b'["a,b.env"]', b'[" a.env"]',
+            b'["a\\x2fprivate.env"]', b'[${FILE}]', b'[a.env, {path: private.env}]',
+            b'[a.env, [private.env]]', b'[&a private.env]', b'[*a]', b'[!override private.env]',
+            b'[true]', b'[2026-11-16]', b'[null]', b'[.NaN]', b'[1e5]', b'[1.env]',
+            b'[a.env,\n     b.env]', b'[a.env] trailing', b'[a.env]#joined',
+            b'[a.env] # note\r    label_file: private.env',
+            b'[a.env] # note\xc2\x85    label_file: private.env',
+            b'[a.env] # note\xe2\x80\xa8    label_file: private.env',
+            b'[' + b'a.env,' * 128 + b'b.env]', b'[' + b'a' * (16 * 1024) + b']',
+        ):
+            raw = b'services:\n  api:\n    env_file: ' + value + b'\n'
+            with self.subTest(value=value[:80]), self.assertRaises(c.ReleaseError):
+                c.declared_env_files(raw, '/protected')
+        for raw in (
+            b'x-values:\n  - env_file: [private.env]\n',
+            b'label_file: [private.env]\n', b'configs: [private.env]\n',
+            b'x-plain: env_file: [private.env]\n', b'x-values: [env_file: private.env]\n',
+        ):
+            with self.subTest(raw=raw), self.assertRaises(c.ReleaseError):
+                c.declared_env_files(raw, '/protected')
 
 
     def test_compose_inline_scalar_anchors_keep_external_inputs_closed(self):

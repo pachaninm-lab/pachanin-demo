@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
-      "bytes": 120624,
-      "sha256": "10d371672d9360f2fb989be79e38fea581640f41d4bbf0507d06ca1e8d3a685b",
+      "afterBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
+      "bytes": 122614,
+      "sha256": "7f501dcd643e915807fd5e30e5baeca1f0cb47f34b045b43df1e926728a09c37",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "6c10ba532e612f96cf1fa47e8404a1c0c42172e5",
-      "bytes": 79589,
-      "sha256": "3c0f9f44e62979537facbf652e2c22035cb56c4feca31f0e65251b7f68f6be7c",
+      "afterBlob": "2916d44520b4ebe84601fd293beb6d1ca31d8ceb",
+      "bytes": 81492,
+      "sha256": "6ffc69fd2635754957f634cf41c31339186bc3724b22c5124e616d8260066223",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -78,5 +78,11 @@
     "evidenceResult": "PROFILE_SQUARE_BRACKET",
     "sourceBase": "533757f5ce6524999d59224aae33ce54205a7cd9",
     "purpose": "Admit bounded literal bracketed values and single-line scalar lists while preserving the external-input, renderer equality and rollback guards."
+  },
+  "composeInlineEnvFileEvidence": {
+    "evidenceRun": 43849925170,
+    "evidenceResult": "PROFILE_BRACKET_EXTERNAL_KEY",
+    "sourceBase": "e03b65a1da42edd3eb7c4aa86eb2f68c3d4cd2f1",
+    "purpose": "Admit a closed single-line list of literal env_file paths and capture every listed file before rendering, with existing protected path, model equality and rollback checks."
   }
 }
