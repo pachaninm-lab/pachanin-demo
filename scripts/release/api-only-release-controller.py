@@ -1133,8 +1133,12 @@ def canonical_web_api_origin(environment):
 
 
 def sibling_identity(row):
+    # Docker may report the same mounted files in a different inspection order.
+    mounts = row.get('Mounts', [])
+    if type(mounts) is list:
+        mounts = sorted(mounts, key=canonical)
     return {'id': row['Id'], 'image': row['Image'], 'config': digest(row['Config']),
-            'host': digest(row['HostConfig']), 'mounts': digest(row.get('Mounts', [])),
+            'host': digest(row['HostConfig']), 'mounts': digest(mounts),
             'networks': digest(row['NetworkSettings'].get('Networks') or {}),
             'running': row['State']['Running'], 'started': row['State']['StartedAt'],
             'restart_count': row['RestartCount']}

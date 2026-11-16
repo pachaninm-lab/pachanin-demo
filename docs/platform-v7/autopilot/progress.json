@@ -536,5 +536,45 @@
     "originalVolumeEvidenceRun": 43856373074,
     "supersedes": "gektaApiBaselineStabilityAfter6189Evidence",
     "rejectedObserverHead": "fd95145d1574269205b49fe72cac89362ff9f12a"
+  },
+  "gektaApiMigrationLedgerEvidence": {
+    "schemaVersion": "platform-v7.concurrent-scope.v1",
+    "status": "active",
+    "branch": "ops/gekta-legacy-boot-evidence-20261111",
+    "allowedPaths": [
+      ".github/workflows/production-legacy-boot-evidence.yml",
+      "scripts/production-legacy-boot-evidence.py"
+    ],
+    "baselineEvidence": "gektaApiBaselineContentEvidence",
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0,
+    "controllerBlob": "b6de12ba9dd084e173637047cfebc6bdc1dda70a",
+    "snapshotControllerBlob": "449e7a9e51c73fa10815564481a3a3dc59f019fe",
+    "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
+    "originalVolumeEvidenceRun": 43856373074,
+    "authorityBaseExactMain": "66de1d28616b202141ac043ec8f6ff9a7f07733b",
+    "purpose": "Classify the current API migration ledger with the exact release query, source checksums and fixed historical fixtures in one bounded read-only transaction. Publish only closed categories.",
+    "supersedes": "gektaApiBaselineStabilityInputOrderEvidence",
+    "productionHoldRun": 43873233340,
+    "productionHoldReason": "ORACLE_LEDGER_MISMATCH",
+    "historicalMarkerEvidenceArtifact": 14219724765,
+    "ledgerControllerBlob": "7d64b9311c50d5dc4143c0b599c96ccf257020ee",
+    "sourcePins": [
+      {
+        "path": ".github/workflows/production-legacy-boot-evidence.yml",
+        "mode": "100644",
+        "blob": "a576edb82523692a343527ee1a576c2f33cb5d7a",
+        "sha256": "7f40cedc903c3825c2dd7b03c6e244fbf2e969a10e257c8ba285a577761950a2"
+      },
+      {
+        "path": "scripts/production-legacy-boot-evidence.py",
+        "mode": "100644",
+        "blob": "c63773979000143f6b9a781e2076b4253cc339af",
+        "sha256": "0d1a018de7d946cb1d0e4cf3bfe00179248a62c7031b0ebf742630b480fc85ee"
+      }
+    ],
+    "historicalArchiveEvidenceComment": 5600883938
   }
 }
