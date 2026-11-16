@@ -555,7 +555,7 @@
     "originalVolumeInventorySHA256": "b534fb880d7ba07caff60b5475e44a4340e64d4446571b639b64971bcc6044ea",
     "originalVolumeEvidenceRun": 43856373074,
     "authorityBaseExactMain": "66de1d28616b202141ac043ec8f6ff9a7f07733b",
-    "purpose": "Classify the current API migration ledger failure using the exact release query and verifier in a bounded read-only transaction. Publish closed categories without rows or checksums.",
+    "purpose": "Classify the current API migration ledger with the exact release query, source checksums and fixed historical fixtures in one bounded read-only transaction. Publish only closed categories.",
     "supersedes": "gektaApiBaselineStabilityInputOrderEvidence",
     "productionHoldRun": 43873233340,
     "productionHoldReason": "ORACLE_LEDGER_MISMATCH",
@@ -571,9 +571,10 @@
       {
         "path": "scripts/production-legacy-boot-evidence.py",
         "mode": "100644",
-        "blob": "18feafb04e27e680deeb67f776dd9cd66cde89a2",
-        "sha256": "03faf1cff0110d721a996d30eda79872c9173cba9d68e437e1dd10f42ed50bd7"
+        "blob": "c63773979000143f6b9a781e2076b4253cc339af",
+        "sha256": "0d1a018de7d946cb1d0e4cf3bfe00179248a62c7031b0ebf742630b480fc85ee"
       }
-    ]
+    ],
+    "historicalArchiveEvidenceComment": 5600883938
   }
 }
