@@ -451,7 +451,7 @@ jobs:
           elif [[ "$OPERATION" == api-catalog ]]; then
             result="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --validate-api-catalog "$RESULT")"
             details="$(python3 -I -S -B scripts/production-legacy-boot-evidence.py --api-catalog-details "$result")"
-            body="$(printf '## Read-only API catalog classification\n\n- Exact source: `%s`\n- Run: `%s`\n- Classification: `%s`\n- Oracle reference run: `43887479195`\n- Raw catalog and principal records: `NOT_PUBLISHED`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$details")"
+            body="$(printf '## Read-only API catalog classification\n\n- Exact source: `%s`\n- Run: `%s`\n%s\n- Oracle reference run: `43887479195`\n- Raw catalog and principal records: `NOT_PUBLISHED`\n- Production mutation: `NONE`\n- Release authorization: `NOT_ATTESTED`\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$details")"
           else
             result=NOT_PROVEN
             if [[ "$RESULT" == BOOT_AFTER_LEGACY_CUTOFF ]]; then result="$RESULT"; fi
