@@ -122,7 +122,7 @@ jobs:
 
   one-deal-e2e:
     name: "12 roles · 19 commands · PostgreSQL RLS · DR restore"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     services:
       postgres:
@@ -171,10 +171,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install PostgreSQL client
+      - name: Install PostgreSQL 16 client tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends postgresql-client
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          printf '%s\n' /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
