@@ -42,6 +42,48 @@ jobs:
           python3 -m py_compile scripts/gekta-speed2-model-diagnose.py
           node --check scripts/gekta-speed2-real-canary.mjs
 
+      - name: Prove timing comes from each bounded model response
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import runpy
+          from unittest.mock import patch
+
+          diagnostic = runpy.run_path('scripts/gekta-speed2-model-diagnose.py')
+          post_chat = diagnostic['post_chat']
+          parse_timings = diagnostic['parse_response_timings']
+          timing = {'prompt_ms': 341.7296, 'predicted_ms': 23.4, 'prompt_n': 12,
+                    'predicted_n': 1, 'cache_n': 278, 'unknown': 'discarded'}
+          expected = {'prompt_eval_ms': 341.730, 'generation_ms': 23.4, 'new_prompt_tokens': 12,
+                      'generated_tokens': 1, 'cached_prompt_tokens': 278}
+          response = {'usage': {'prompt_tokens': 290, 'prompt_tokens_details': {'cached_tokens': 278}},
+                      'timings': timing, 'id': 'unpublished', 'choices': [{'message': {'content': 'unpublished'}}]}
+
+          def response_for(payload, status=200):
+              return status, json.dumps(payload).encode('utf-8')
+
+          with patch.dict(post_chat.__globals__, {'http_request': lambda *args, **kwargs: response_for(response)}):
+              status, elapsed, prompt, cached, timings = post_chat('fixture', 18080, '', 'fixture', 'test', 'test')
+              assert (status, prompt, cached, timings) == (200, 290, 278, expected)
+              assert elapsed >= 0
+
+          for field, invalid in [('prompt_ms', float('nan')), ('prompt_ms', float('inf')),
+                                 ('predicted_ms', -1), ('prompt_ms', True), ('predicted_ms', '2.0'),
+                                 ('prompt_n', False), ('predicted_n', 1.5), ('cache_n', 8193)]:
+              assert parse_timings(dict(timing, **{field: invalid})) is None, field
+          assert parse_timings({'prompt_ms': 0}) is None
+          assert parse_timings(None) is None
+          assert parse_timings(dict(timing, prompt_ms=0, prompt_n=0))['prompt_eval_ms'] == 0
+
+          without_timings = {key: value for key, value in response.items() if key != 'timings'}
+          for fixture, status, expected_tokens in [(without_timings, 200, (290, 278)), (response, 503, (None, None))]:
+              with patch.dict(post_chat.__globals__, {'http_request': lambda *args, **kwargs: response_for(fixture, status)}):
+                  observed = post_chat('fixture', 18080, '', 'fixture', 'test', 'test')
+                  assert observed[0] == status and observed[2:] == (*expected_tokens, None)
+          print('SPEED2_RESPONSE_TIMINGS_CONTRACT=PASS')
+          PY
+
       - name: Validate controller contract and branch scope
         shell: bash
         env:
@@ -145,9 +187,12 @@ jobs:
           allowed = set(scope.get('allowedPaths', []))
           required_allowed = {
               '.github/workflows/gekta-p0-speed2-controller.yml',
-              'scripts/gekta-speed2-real-canary.mjs',
               str(scope_path),
           }
+          if scope_path.name == 'gekta-p0-speed2-s2-0-controller-4251.json':
+              required_allowed.add('scripts/gekta-speed2-model-diagnose.py')
+          else:
+              required_allowed.add('scripts/gekta-speed2-real-canary.mjs')
           if not required_allowed.issubset(allowed):
               fail('SCOPE_PATHS', ' | '.join(sorted(required_allowed - allowed)))
           PY
