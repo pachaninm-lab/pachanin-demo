@@ -11,7 +11,7 @@ import socket
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, TypedDict
 
 
 class DiagError(RuntimeError):
@@ -348,6 +348,37 @@ def get_json(host: str, port: int, bearer: str, path: str) -> dict[str, Any]:
     return obj
 
 
+class ResponseTimings(TypedDict):
+    prompt_eval_ms: float
+    generation_ms: float
+    new_prompt_tokens: int
+    generated_tokens: int
+    cached_prompt_tokens: int
+
+
+def parse_response_timings(value: object) -> ResponseTimings | None:
+    if not isinstance(value, dict):
+        return None
+
+    prompt_eval_ms = value.get("prompt_ms")
+    generation_ms = value.get("predicted_ms")
+    new_prompt_tokens = value.get("prompt_n")
+    generated_tokens = value.get("predicted_n")
+    cached_prompt_tokens = value.get("cache_n")
+    if any(type(ms) not in (float, int) or not 0 <= ms <= 120_000 for ms in (prompt_eval_ms, generation_ms)):
+        return None
+    if any(type(n) is not int or not 0 <= n <= 8192 for n in (new_prompt_tokens, generated_tokens, cached_prompt_tokens)):
+        return None
+
+    return {
+        "prompt_eval_ms": round(float(prompt_eval_ms), 3),
+        "generation_ms": round(float(generation_ms), 3),
+        "new_prompt_tokens": new_prompt_tokens,
+        "generated_tokens": generated_tokens,
+        "cached_prompt_tokens": cached_prompt_tokens,
+    }
+
+
 def post_chat(
     host: str,
     port: int,
@@ -355,7 +386,7 @@ def post_chat(
     model: str,
     system_text: str,
     suffix: str,
-) -> tuple[int, float, int | None, int | None]:
+) -> tuple[int, float, int | None, int | None, ResponseTimings | None]:
     payload = {
         "model": model,
         "messages": [
@@ -372,19 +403,22 @@ def post_chat(
     status, raw = http_request(host, port, bearer, "POST", "/v1/chat/completions", payload, timeout=20.0)
     elapsed_ms = (time.perf_counter() - started) * 1000.0
     if status != 200:
-        return status, elapsed_ms, None, None
+        return status, elapsed_ms, None, None, None
     try:
         obj = json.loads(raw.decode("utf-8"))
-        usage = obj.get("usage") if isinstance(obj, dict) else None
+        row = obj if isinstance(obj, dict) else {}
+        usage = row.get("usage")
         prompt = usage.get("prompt_tokens") if isinstance(usage, dict) else None
         details = usage.get("prompt_tokens_details") if isinstance(usage, dict) else None
         cached = details.get("cached_tokens") if isinstance(details, dict) else None
         prompt_tokens = int(prompt) if isinstance(prompt, int) and prompt >= 0 else None
         cached_tokens = int(cached) if isinstance(cached, int) and cached >= 0 else None
+        timings = parse_response_timings(row.get("timings"))
     except Exception:
         prompt_tokens = None
         cached_tokens = None
-    return status, elapsed_ms, prompt_tokens, cached_tokens
+        timings = None
+    return status, elapsed_ms, prompt_tokens, cached_tokens, timings
 
 
 def model_id_from_endpoint(host: str, port: int, bearer: str) -> str:
@@ -613,7 +647,7 @@ def main() -> int:
             suffix: str,
             before: dict[str, float],
         ) -> tuple[dict[str, Any], dict[str, float]]:
-            status_code, wall_ms, usage_prompt, usage_cached = post_chat(
+            status_code, wall_ms, usage_prompt, usage_cached, response_timings = post_chat(
                 host, port, bearer, model_id, system_text, suffix
             )
             metrics_status, metrics_raw = http_request(host, port, bearer, "GET", "/metrics", timeout=4.0)
@@ -635,6 +669,7 @@ def main() -> int:
                 "label": label,
                 "http_status": status_code,
                 "wall_ms": round(wall_ms, 3),
+                "response_timings": response_timings,
                 "usage_prompt_tokens": usage_prompt,
                 "usage_cached_tokens": usage_cached,
                 "usage_cache_ratio": (
