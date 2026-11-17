@@ -18,7 +18,7 @@ env:
 jobs:
   auction-atomic:
     name: PostgreSQL race, restart and rollback acceptance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     services:
       postgres:
@@ -57,6 +57,11 @@ jobs:
           cache: pnpm
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install PostgreSQL 16 client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          printf '%s\n' /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - name: Create restricted application principal
         run: |
           psql postgresql://postgres:postgres@localhost:5432/grainflow -X --set ON_ERROR_STOP=1 <<'SQL'
