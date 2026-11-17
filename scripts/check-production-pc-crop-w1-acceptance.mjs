@@ -535,6 +535,15 @@ function runtimeValueEqual(left, right) {
 function runtimeOneoff(item) {
   return String(item?.config?.Labels?.['com.docker.compose.oneoff'] ?? '').trim().toLowerCase() === 'true';
 }
+function runtimeMountInventory(mounts) {
+  // Moby GetMountPoints iterates a Go map: inspect order is not mount identity.
+  // Preserve every field, duplicate and nested array order. Object key order
+  // must not affect either the sort key or the serialized mount identity.
+  // https://github.com/moby/moby/blob/v28.3.0/container/container_unix.go#L422
+  if (!Array.isArray(mounts)) return mounts;
+  return mounts.map(stableRuntimeValue).map(mount => ({ mount, key: JSON.stringify(mount) }))
+    .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map(item => item.mount);
+}
 function runtimeInventory(containers, excludedApi) {
   if (!Array.isArray(containers) || !containers.length) blocked('RUNTIME_CONTAINER_INVENTORY_EMPTY');
   return containers.filter(item => item.Id !== excludedApi).map(item => {
@@ -545,7 +554,7 @@ function runtimeInventory(containers, excludedApi) {
       if (env.ROLE_ELIGIBILITY_SHADOW_MODE !== 'true' || String(env.ROLE_ELIGIBILITY_ENFORCEMENT ?? '').trim().toLowerCase() === 'true') blocked('ELIGIBILITY_WORKER_NOT_SHADOW');
     }
     return { id: item.Id, image: item.Image, state: { running: item.State.Running, startedAt: item.State.StartedAt },
-      config: item.Config, host: item.HostConfig, mounts: item.Mounts,
+      config: item.Config, host: item.HostConfig, mounts: runtimeMountInventory(item.Mounts),
       networks: Object.fromEntries(Object.entries(item.NetworkSettings?.Networks ?? {}).map(([name, network]) => [name, {
         NetworkID: network.NetworkID, EndpointID: network.EndpointID, IPAddress: network.IPAddress,
       }]).sort(([a],[b]) => a.localeCompare(b))) };
