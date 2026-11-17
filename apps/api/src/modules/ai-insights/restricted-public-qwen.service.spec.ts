@@ -1031,18 +1031,65 @@ describe('RestrictedPublicQwenService', () => {
       return { body, system, prompt: String(body.messages.at(-1).content) };
     }
 
-    function expectedGeneralPrompt(originalQuestion: string, question: string, locale: 'ru' | 'en' | 'zh' = 'ru') {
+    function expectedGeneralPrompt(originalQuestion: string, normalizedQuestion?: string, locale: 'ru' | 'en' | 'zh' = 'ru') {
       return [
         'ANSWER_MODE: general_agro',
         'CURRENT_DATA_REQUIRED: no',
         'ORIGINAL_PUBLIC_USER_QUESTION:', originalQuestion, '',
-        'PUBLIC_USER_QUESTION:', question, '',
+        ...(normalizedQuestion === undefined ? [] : ['PUBLIC_USER_QUESTION:', normalizedQuestion, '']),
         'MINIMUM_ANSWER_QUALITY:', minimumQuality,
         'SUBJECT_AND_EVIDENCE_REMINDER:', subjectEvidenceReminders[locale],
       ].join('\n');
     }
 
     describe.each(['generate', 'generateStream'] as const)('%s', (method) => {
+      it('sends one question when the caller omits the original question', async () => {
+        const { originalQuestion, ...request } = GENERAL_AGRO_REQUEST;
+        const { prompt } = await captureWire(method, request, 256);
+        expect(prompt).toBe(expectedGeneralPrompt(originalQuestion));
+      });
+
+      it.each([
+        {
+          locale: 'ru',
+          originalQuestion: 'Если пожелтение идёт очагами, что проверить первым шагом?',
+          question: 'если пожелтение идет очагами что проверить первым шагом',
+        },
+        {
+          locale: 'en',
+          originalQuestion: 'No, check bin ZX-14 at -2.5 today?',
+          question: 'no check bin zx-14 at -2.5 today',
+        },
+        {
+          locale: 'zh',
+          originalQuestion: '冬小麦春季叶片为何发黄？田间先检查什么？',
+          question: '冬小麦春季叶片为何发黄 田间先检查什么',
+        },
+      ] as const)('sends the original $locale question once when only its formatting differs', async ({ locale, originalQuestion, question }) => {
+        const { prompt } = await captureWire(method, {
+          ...GENERAL_AGRO_REQUEST, locale, originalQuestion, question,
+        }, 256);
+        expect(prompt).toBe(expectedGeneralPrompt(originalQuestion, undefined, locale));
+      });
+
+      it.each([
+        { locale: 'ru', originalQuestion: 'Влажность 12,5%?', question: 'влажность 12 5%' },
+        { locale: 'en', originalQuestion: 'Why do winter wheat leaves turn yellow?', question: 'why do winner wheat leaves turn yellow' },
+      ] as const)('preserves both $locale questions when formatting alone does not account for the change', async ({ locale, originalQuestion, question }) => {
+        const { prompt } = await captureWire(method, {
+          ...GENERAL_AGRO_REQUEST, locale, originalQuestion, question,
+        }, 256);
+        expect(prompt).toBe(expectedGeneralPrompt(originalQuestion, question, locale));
+      });
+
+      it('preserves both question fields in the verified platform prompt', async () => {
+        const { prompt } = await captureWire(method, VALID_REQUEST, 500, 'verified_platform', VALID_REQUEST.grounding.answer);
+        expect(prompt.split('\n')).toEqual(expect.arrayContaining([
+          'ORIGINAL_PUBLIC_USER_QUESTION:',
+          'PUBLIC_USER_QUESTION:',
+        ]));
+      });
+
       it.each([
         {
           locale: 'ru',
@@ -1063,7 +1110,7 @@ describe('RestrictedPublicQwenService', () => {
         const { body, system, prompt } = await captureWire(method, {
           ...GENERAL_AGRO_REQUEST, locale, originalQuestion: question, question,
         }, 256, 'general_agro', reply);
-        expect(prompt).toBe(expectedGeneralPrompt(question, question, locale));
+        expect(prompt).toBe(expectedGeneralPrompt(question, undefined, locale));
         expect(system).toContain('Locate each distinguishing observation on the correct object, part and position');
         expect(system).toContain('describe the observable finding without guessing the term');
         expect(system).toContain('Compare plausible alternatives against the stated conditions');
@@ -1086,7 +1133,7 @@ describe('RestrictedPublicQwenService', () => {
         expect(system).toContain('Use one compact sentence per conditional cause, combining its mechanism and distinguishing check; finish that sentence before starting another point');
         expect(system).toContain('For a requested range use its lowest supportable count');
         expect(system).toContain('Omit optional examples and closing offers before required observations or safety caveats');
-        expect(prompt).toBe(expectedGeneralPrompt(question, question, locale));
+        expect(prompt).toBe(expectedGeneralPrompt(question, undefined, locale));
         expect(body.messages.slice(1, -1)).toEqual(history.map(({ role, text }) => ({ role, content: text })));
         expect(system).not.toContain(question);
         expect(system).not.toMatch(/рис|пшениц|strawberr|玉米|AB-1200-X/iu);
@@ -1189,7 +1236,7 @@ describe('RestrictedPublicQwenService', () => {
           ...GENERAL_AGRO_REQUEST, originalQuestion: question, question,
         }, 256, 'general_agro', reply);
         expect(body.messages).toHaveLength(2);
-        expect(prompt).toBe(expectedGeneralPrompt(question, question));
+        expect(prompt).toBe(expectedGeneralPrompt(question));
         expect(system).toContain(policy);
         expect(prompt).not.toContain('PUBLIC_PLATFORM_CONTEXT_JSON:');
       });
@@ -1271,7 +1318,7 @@ describe('RestrictedPublicQwenService', () => {
         const expectedHistory = history.slice(-6).map(({ role, text }) => ({ role, content: text.slice(0, 2_000) }));
         expect(body.messages.slice(1, -1)).toEqual(expectedHistory);
         expect(expectedHistory.reduce((total, turn) => total + turn.content.length, 0)).toBe(12_000);
-        expect(prompt).toBe(expectedGeneralPrompt(question, question));
+        expect(prompt).toBe(expectedGeneralPrompt(question));
       });
     });
   });
@@ -1330,7 +1377,7 @@ describe('RestrictedPublicQwenService', () => {
         expect(systemPrompt).not.toMatch(/пшениц|пшиница|жолтеет|песнянк/iu);
 
         expect(userPrompt).toContain(`ORIGINAL_PUBLIC_USER_QUESTION:\n${question}\n`);
-        expect(userPrompt).toContain(`PUBLIC_USER_QUESTION:\n${question}\n`);
+        expect(userPrompt.split('\n')).not.toContain('PUBLIC_USER_QUESTION:');
         expect(body.messages.slice(1, -1)).toEqual(history.map((turn) => ({
           role: turn.role,
           content: turn.text,
