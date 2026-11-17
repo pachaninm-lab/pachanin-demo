@@ -1050,32 +1050,9 @@ describe('RestrictedPublicQwenService', () => {
       });
 
       it.each([
-        {
-          locale: 'ru',
-          originalQuestion: 'Если пожелтение идёт очагами, что проверить первым шагом?',
-          question: 'если пожелтение идет очагами что проверить первым шагом',
-        },
-        {
-          locale: 'en',
-          originalQuestion: 'No, check bin ZX-14 at -2.5 today?',
-          question: 'no check bin zx-14 at -2.5 today',
-        },
-        {
-          locale: 'zh',
-          originalQuestion: '冬小麦春季叶片为何发黄？田间先检查什么？',
-          question: '冬小麦春季叶片为何发黄 田间先检查什么',
-        },
-      ] as const)('sends the original $locale question once when only its formatting differs', async ({ locale, originalQuestion, question }) => {
-        const { prompt } = await captureWire(method, {
-          ...GENERAL_AGRO_REQUEST, locale, originalQuestion, question,
-        }, 256);
-        expect(prompt).toBe(expectedGeneralPrompt(originalQuestion, undefined, locale));
-      });
-
-      it.each([
         { locale: 'ru', originalQuestion: 'Влажность 12,5%?', question: 'влажность 12 5%' },
-        { locale: 'en', originalQuestion: 'Why do winter wheat leaves turn yellow?', question: 'why do winner wheat leaves turn yellow' },
-      ] as const)('preserves both $locale questions when formatting alone does not account for the change', async ({ locale, originalQuestion, question }) => {
+        { locale: 'en', originalQuestion: 'No, check bin ZX-14 at -2.5?', question: 'no check bin zx-14 at -2.5' },
+      ] as const)('preserves both $locale questions when the supplied versions differ', async ({ locale, originalQuestion, question }) => {
         const { prompt } = await captureWire(method, {
           ...GENERAL_AGRO_REQUEST, locale, originalQuestion, question,
         }, 256);

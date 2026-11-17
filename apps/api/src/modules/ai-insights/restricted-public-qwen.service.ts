@@ -1015,16 +1015,8 @@ function generalAgroResponseBudgetRule(
 
 function buildGroundedPrompt(request: NormalizedRequest): string {
   const soilMoistureGuidance = soilMoistureMeasurementGuidance(request);
-  // Compare the normalized question to formatting changes we can reproduce
-  // from the original, preserving punctuation next to numbers.
-  const formattedOriginalQuestion = request.originalQuestion
-    .toLocaleLowerCase('ru-RU')
-    .replace(/ё/gu, 'е')
-    .replace(/(?<!\p{N})[!?！？,，、](?!\p{N})/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .trim();
   const includeNormalizedQuestion = request.answerMode === 'verified_platform'
-    || (request.question !== request.originalQuestion && request.question !== formattedOriginalQuestion);
+    || request.question !== request.originalQuestion;
   const verifiedPlatformContext = request.answerMode === 'verified_platform'
     ? [
       'PUBLIC_PLATFORM_CONTEXT_JSON:',
