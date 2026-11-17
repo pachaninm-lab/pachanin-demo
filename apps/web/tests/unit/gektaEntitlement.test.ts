@@ -149,6 +149,29 @@ describe('Gekta anonymous entitlement', () => {
     expect(parseAnonymousSession(cookieFrom(response))).not.toBeNull();
   });
 
+  it('does not overwrite a newer consent when an earlier access check finishes late', async () => {
+    const initial = await GET(request('GET'));
+    const initialCookie = cookieFrom(initial);
+    const { legalPresentation } = await initial.json();
+    const pendingAccessCheck = GET(request('GET', initialCookie));
+
+    const consent = await POST(request('POST', initialCookie, {
+      action: 'consent',
+      noticeSnapshot: legalPresentation.snapshot,
+      locale: legalPresentation.locale,
+    }));
+    const confirmedCookie = cookieFrom(consent);
+    await expect(consent.json()).resolves.toMatchObject({ consentCurrent: true });
+
+    const lateAccessCheck = await pendingAccessCheck;
+    await expect(lateAccessCheck.json()).resolves.toMatchObject({ consentCurrent: false });
+    const browserCookie = cookieFrom(lateAccessCheck) || confirmedCookie;
+
+    const reserved = await POST(request('POST', browserCookie, { action: 'reserve', locale: 'ru' }));
+    await expect(reserved.json()).resolves.toMatchObject({ allowed: true, ticket: expect.any(String) });
+    expect(lateAccessCheck.headers.get('set-cookie')).toBeNull();
+  });
+
   it('admits only the exact anonymous entitlement route before the generic API session gate', async () => {
     const middleware = read('middleware.ts');
     const start = middleware.indexOf('const PUBLIC_API_EXACT = new Set([');
