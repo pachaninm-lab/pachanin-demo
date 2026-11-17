@@ -41,21 +41,25 @@ function cookieOptions() {
   };
 }
 
-function respond(session: GektaAnonymousSession, body: Record<string, unknown>, now: Date, status = 200) {
+function respond(sessionToWrite: GektaAnonymousSession | null, body: Record<string, unknown>, now: Date, status = 200) {
   const response = NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
-  response.cookies.set(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(session), cookieOptions());
+  if (sessionToWrite) {
+    response.cookies.set(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(sessionToWrite), cookieOptions());
+  }
   void now;
   return response;
 }
 
-function readSession(request: NextRequest, now: Date): GektaAnonymousSession {
-  return parseAnonymousSession(request.cookies.get(GEKTA_ANONYMOUS_COOKIE)?.value, now) ?? createAnonymousSession(now);
+function readSession(request: NextRequest, now: Date): GektaAnonymousSession | null {
+  return parseAnonymousSession(request.cookies.get(GEKTA_ANONYMOUS_COOKIE)?.value, now);
 }
 
 export async function GET(request: NextRequest) {
   const now = new Date();
-  const session = readSession(request, now);
-  return respond(session, {
+  const current = readSession(request, now);
+  const session = current ?? createAnonymousSession(now);
+  // A delayed access check can finish after consent or reservation has updated the cookie.
+  return respond(current ? null : session, {
     entitlement: resolveAnonymousEntitlement({ used: session.used }, now),
     consent: session.consent ?? null,
     legalVersion: GEKTA_LEGAL_VERSION,
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'unsupported_action' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
 
-  const current = readSession(request, now);
+  const current = readSession(request, now) ?? createAnonymousSession(now);
 
   if (action === 'consent') {
     const locale = noticeLocale(payload.locale);
