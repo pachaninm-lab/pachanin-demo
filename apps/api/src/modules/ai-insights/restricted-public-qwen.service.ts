@@ -905,7 +905,9 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
         request.answerMode,
         request.currentDataRequired,
         request.responseBudgetProfile,
-      ) + (request.economicComparison
+      ) + (request.documents.length
+        ? '\nWhen answering about an attachment, preserve every quoted figure and unit exactly. Bind each material assertion to the supplied file and its actual page, section, row or cell when visible. If a locator is missing, name the file and use a short exact excerpt. Distinguish proposed edits, signed terms, shipment, buyer acceptance and receipt of money. Report any missing evidence explicitly. The user’s explicit correction takes precedence over older user text, and prior assistant guesses cannot verify document facts. An excerpt alone cannot establish what was omitted.'
+        : '') + (request.economicComparison
         ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported deterministic arithmetic from explicit user inputs, including storage-only and payment-timing calculations. Do not repeat, replace or extend that arithmetic. Use plain text, no LaTeX.'
         : '') + (request.suppliedHypotheticalCalculation
         ? '\nThe final request includes a separate hypothetical arithmetic exercise with its own supplied figures and units. The application supplies its checked arithmetic separately. Explain only relevant qualitative context; do not repeat or extend the numerical result. The supplied figures are not verified current market evidence. Do not apply these exercise figures to actual farming outcomes, forecasts or profitability decisions. Do not invent missing operands, costs, rates or periods.'
