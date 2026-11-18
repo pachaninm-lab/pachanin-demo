@@ -184,6 +184,57 @@ describe('agro policy at the actual public streaming boundary', () => {
     return {response,text,assessment:assessment?JSON.parse(assessment.summary):null,events};
   }
 
+  it.each([
+    ['ru', 'Поле M01-401, культура ячмень. Средняя урожайность 21,3 ц/га, уборочная площадь 34 га. Вычисли массу в тоннах до сотых и покажи переход единиц.', 'metric_yield', ['1 ц = 100 кг = 0,1 т', '72,42 т']],
+    ['ru', 'Урожайность 0,01 ц/га, площадь 0,01 га. Сколько тонн?', 'metric_yield', ['0,00001 т']],
+    ['en', 'Fields M02-407 (maize) need 134 kg/ha of seed over 52.5 ha. How many tonnes before buffer? Round to three decimals.', 'seed_mass', ['1 t = 1000 kg', '7.035 t']],
+    ['zh', '田块M02-401播种玉米，每公顷用种116千克，面积34公顷。无备用时需要订购多少吨？保留三位小数。', 'seed_mass', ['3.944 吨']],
+    ['en', 'Lot M04-401, 116 t of peas. EXW is 11370 RUB/t, CPT is 11840 RUB/t. CPT-only seller costs per tonne: freight 522, loading 58, lab 39. Timing, quality and VAT match. Which offer pays more after costs and by how much for the lot?', 'offer_netback', ['11221 RUB/t', 'EXW yields 149 RUB/t more', '17284 RUB']],
+    ['ru', 'У партии M04-472 (овёс, 329 т) две оферты: 14707 ₽/т EXW и 15674 ₽/т CPT. Дополнительные расходы продавца только для CPT: транспорт 735, погрузка 67, анализ 47 ₽/т. Дата оплаты, качество и НДС совпадают. Какая оферта выгоднее и на сколько рублей по всей партии?', 'offer_netback', ['14825 ₽/т', 'CPT даёт больше на 118 ₽/т', '38822 ₽']],
+    ['en', 'Lot 128, 10 t of wheat. EXW is 1000 RUB/t, CPT is 1110 RUB/t. CPT-only seller costs per tonne: freight 100, loading 10, lab 0. Timing, quality and VAT match. Which offer pays more after costs and by how much for the lot?', 'offer_netback', ['1000 RUB/t', 'the same proceeds']],
+  ] as const)('answers a supplied %s calculation without model inference: %s', async (locale, question, operation, expected) => {
+    const result = await arithmeticResult(question, locale);
+    expect(result.assessment).toMatchObject({ source: 'deterministic_calculator', calculator: { operation }, modelIdentity: null });
+    for (const fragment of expected) expect(result.text).toContain(fragment);
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'Урожайность 1,234 ц/га, площадь 45 га. Сколько тонн?',
+    'Урожайность 32 ц/га, площадь 45 га. Сколько тонн? Вычти 10% потерь.',
+    'Расход семян 115 кг/га при площади 20 га. Сколько тонн нужно заказать с запасом? Округли до тысячных.',
+    'Lot A1, 10 t of peas. EXW is 1000 RUB/t, CPT is 1200 RUB/t. CPT-only seller costs per tonne: freight 100, loading 10, lab 0. Timing, quality and VAT differ. Which offer pays more after costs and by how much for the lot?',
+  ])('keeps ambiguous or qualified data out of the new calculations: %s', async question => {
+    boundary.knowledge.mockResolvedValue(NextResponse.json({ resolution: 'redirected', sources: [], facts: [], answer: '', topic: 'agriculture' }));
+    const result = await arithmeticResult(question);
+    expect(result.assessment?.source).not.toBe('deterministic_calculator');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['ru', 'В полученной версии договора D04-Q318 укажи прежнюю цифру и предлагаемую. Какая цена согласована по представленному пакету?', 'Цена (горох), п. 4.2. [удалено, правка не принята: 12170 ₽/т] [вставлено, правка не принята: 12380 ₽/т]. Документ без подписей. Принятый договор не приложен.', ['12170 ₽/т', '12380 ₽/т', 'согласованная цена не подтверждена']],
+    ['zh', '在合同草案D04-Q326中指出旧价格和新建议价格。材料能证明已约定哪个价格吗？', '小麦价格第4.2款：[未接受删除：每吨12450卢布] [未接受插入：每吨12668卢布]。这份草案没有签字，未附已签版本。', ['每吨12450卢布', '每吨12668卢布', '不能证明价格已约定']],
+    ['en', 'Report the old and proposed price in the tracked changes. Is the price agreed?', 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nЦена: [Удалено (правка)]16\u202f450 ₽/т[Конец правки][Вставлено (правка)]16\u202f550 ₽/т[Конец правки].', ['16\u202f450 ₽/т', '16\u202f550 ₽/т', 'do not establish an agreed price']],
+  ] as const)('preserves exact quoted rates for a %s contract revision', async (locale, question, text, expected) => {
+    const documents = [{ name: 'Условия.docx', text, truncated: false }];
+    const result = await arithmeticResult(question, locale, { documents });
+    expect(result.assessment).toMatchObject({ source: 'document_evidence', modelIdentity: null });
+    expect(result.text).toContain('Условия.docx');
+    for (const fragment of expected) expect(result.text).toContain(fragment);
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each(['truncated', 'second_file', 'extra_terms'] as const)('does not infer agreement status from %s revision evidence', async kind => {
+    const content = 'Цена (горох), п. 4.2. [удалено, правка не принята: 12170 ₽/т] [вставлено, правка не принята: 12380 ₽/т]. Документ без подписей. Принятый договор не приложен.';
+    const text = kind === 'extra_terms' ? `${content}\nПодписанное дополнение: 12500 ₽/т.` : content;
+    const documents = [{ name: 'Условия.docx', text, truncated: kind === 'truncated' }];
+    if (kind === 'second_file') documents.push({ name: 'Подписанное дополнение.txt', text: 'Подтверждено 12500 ₽/т.', truncated: false });
+    boundary.knowledge.mockResolvedValue(NextResponse.json({ resolution: 'redirected', sources: [], facts: [], answer: '', topic: 'agriculture' }));
+    const result = await arithmeticResult('Укажи прежнюю и предлагаемую цену в правках. Подтверждено ли согласование?', 'ru', { documents });
+    expect(result.assessment?.source).not.toBe('document_evidence');
+    expect(boundary.model.mock.calls[0][1].documents).toEqual(documents);
+  });
+
   // The frozen matrix includes separate domain/accounting context. Preserving
   // that complete question takes precedence over a numeric shortcut. This is
   // context-boundary coverage, not120 mocked numeric-correctness verdicts.

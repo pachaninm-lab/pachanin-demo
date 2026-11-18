@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { readBoundedBody } from '@/lib/uploads/bounded-body';
 import { DocumentContextError, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
+import { answerTrackedPriceRevision } from '@/lib/gekta/tracked-price-revision';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
@@ -96,7 +97,7 @@ type PublicEnvelope = Readonly<{
 
 type ArithmeticFact = Readonly<{ value: bigint; start: number; end: number }>;
 type SuppliedArithmetic = Readonly<{
-  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even';
+  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'offer_netback';
   answer: string;
 }>;
 const ARITHMETIC_SCALE = BigInt(1000);
@@ -111,19 +112,104 @@ function arithmeticFacts(question: string, units: string): readonly ArithmeticFa
     if (/(?:\bnegative|\bminus|минус|отрицательн[\p{L}]*|负|負)\s*$/iu.test(question.slice(Math.max(0, match.index! - 40), match.index!))) return null;
     // A three-digit suffix with a nonzero integer could be a thousands
     // separator in another locale. Leading-zero fractions are unambiguous.
-    if (/[.,][0-9]{3}$/u.test(match[1]) && !/^0[.,]/u.test(match[1])) return null;
-    const [whole, fraction = ''] = match[1].replace(',', '.').split('.');
-    facts.push({ value: BigInt(whole) * ARITHMETIC_SCALE + BigInt(fraction.padEnd(3, '0')), start: match.index!, end: match.index! + match[0].length });
+    const value = parseSuppliedNumber(match[1]);
+    if (value === null) return null;
+    facts.push({ value, start: match.index!, end: match.index! + match[0].length });
   }
   return facts;
 }
 
-function arithmeticDecimal(numerator: bigint, denominator: bigint, locale: PublicLocale): string {
-  const precision = ARITHMETIC_PRECISION;
-  const rounded = (numerator * precision * BigInt(2) + denominator) / (denominator * BigInt(2));
+function arithmeticDecimal(numerator: bigint, denominator: bigint, locale: PublicLocale, decimals?: number): string {
+  const precision = decimals === undefined ? ARITHMETIC_PRECISION : BigInt(10) ** BigInt(decimals);
+  const magnitude = numerator < BigInt(0) ? -numerator : numerator;
+  const rounded = (magnitude * precision * BigInt(2) + denominator) / (denominator * BigInt(2));
   const whole = rounded / precision;
-  const fraction = String(rounded % precision).padStart(12, '0').replace(/0+$/u, '');
-  return `${whole}${fraction ? `${locale === 'ru' ? ',' : '.'}${fraction}` : ''}`;
+  const padded = String(rounded % precision).padStart(decimals ?? 12, '0');
+  const fraction = decimals === undefined ? padded.replace(/0+$/u, '') : padded;
+  const sign = numerator < BigInt(0) && rounded !== BigInt(0) ? '−' : '';
+  return `${sign}${whole}${fraction ? `${locale === 'ru' ? ',' : '.'}${fraction}` : ''}`;
+}
+
+const arithmeticInput = (name: string) => `(?<${name}>${ARITHMETIC_NUMBER})`;
+const FIELD_REF = '[\\p{L}\\d][\\p{L}\\d-]{0,30}';
+const CROP_NAME = '[\\p{L}]+(?:[ -][\\p{L}]+){0,3}';
+const SUPPLIED_MASS_FORMS = ([
+  [`(?:Поле ${FIELD_REF}, культура ${CROP_NAME}\\. )?(?:Средняя )?урожайность ${arithmeticInput('rate')} ц/га, (?:уборочная )?площадь ${arithmeticInput('area')} га\\. Вычисли массу в тоннах до сотых и покажи переход единиц\\.`, 'metric_yield', 2],
+  [`(?:Средняя )?урожайность ${arithmeticInput('rate')} ц/га, площадь ${arithmeticInput('area')} га\\. Сколько тонн\\?`, 'metric_yield', undefined],
+  [`Field ${FIELD_REF} \\(${CROP_NAME}\\): ${arithmeticInput('rate')} metric quintals?/ha over ${arithmeticInput('area')} ha\\. Convert and calculate (?:gross )?metric tonnes to (?:two|2) decimals\\.`, 'metric_yield', 2],
+  [`田块${FIELD_REF}种植${CROP_NAME}，平均产量每公顷${arithmeticInput('rate')}公担，收获面积${arithmeticInput('area')}公顷。换算公担并计算总吨数，四舍五入到两位。`, 'metric_yield', 2],
+  [`(?:На полях ${FIELD_REF} под ${CROP_NAME} )?расход семян ${arithmeticInput('rate')} кг/га (?:при площади|на площади) ${arithmeticInput('area')} га\\. Сколько тонн нужно заказать без запаса\\? Округли до тысячных\\.`, 'seed_mass', 3],
+  [`Fields? ${FIELD_REF} \\(${CROP_NAME}\\) needs? ${arithmeticInput('rate')} kg/ha of seed over ${arithmeticInput('area')} ha\\. How many tonnes before buffer\\? Round to (?:three|3) decimals\\.`, 'seed_mass', 3],
+  [`田块${FIELD_REF}播种${CROP_NAME}，每公顷用种${arithmeticInput('rate')}千克，面积${arithmeticInput('area')}公顷。无备用时需要订购多少吨？保留三位小数。`, 'seed_mass', 3],
+] as const).map(([form, operation, decimals]) => ({
+  pattern: new RegExp(`^${form}$`, 'iu'),
+  operation,
+  decimals,
+}));
+
+const SUPPLIED_OFFER_FORMS = [
+  `У партии ${FIELD_REF} \\(${CROP_NAME}, ${arithmeticInput('mass')} т\\) две оферты: ${arithmeticInput('exw')} ₽/т EXW и ${arithmeticInput('cpt')} ₽/т CPT\\. Дополнительные расходы продавца только для CPT: транспорт ${arithmeticInput('freight')}, погрузка ${arithmeticInput('loading')}, анализ ${arithmeticInput('lab')} ₽/т\\. Дата оплаты, качество и НДС совпадают\\. Какая оферта выгоднее и на сколько рублей по всей партии\\?`,
+  `Lot ${FIELD_REF}, ${arithmeticInput('mass')} t of ${CROP_NAME}\\. EXW is ${arithmeticInput('exw')} RUB/t, CPT is ${arithmeticInput('cpt')} RUB/t\\. CPT-only seller costs per tonne: freight ${arithmeticInput('freight')}, loading ${arithmeticInput('loading')}, lab ${arithmeticInput('lab')}\\. Timing, quality and VAT match\\. Which offer pays more after costs and by how much for the lot\\?`,
+  `${FIELD_REF}批次${CROP_NAME}共${arithmeticInput('mass')}吨。EXW报价每吨${arithmeticInput('exw')}卢布，CPT报价每吨${arithmeticInput('cpt')}卢布。只有CPT在卖方每吨产生运费${arithmeticInput('freight')}、装货${arithmeticInput('loading')}、检测${arithmeticInput('lab')}。账期、质量和增值税一致。哪个报价到手更多？整批差多少卢布？`,
+].map(form => new RegExp(`^${form}$`, 'iu'));
+
+function parseSuppliedNumber(value: string): bigint | null {
+  // A three-digit suffix could be a grouping separator. The exact path
+  // leaves ambiguous inputs to inference rather than choosing a magnitude.
+  if (/[.,][0-9]{3}$/u.test(value) && !/^0[.,]/u.test(value)) return null;
+  const [whole, fraction = ''] = value.replace(',', '.').split('.');
+  return BigInt(whole) * ARITHMETIC_SCALE + BigInt(fraction.padEnd(3, '0'));
+}
+
+function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedArithmetic | null {
+  const normalized = question.trim().replace(/\s+/gu, ' ');
+  const display = (value: bigint) => arithmeticDecimal(value, ARITHMETIC_SCALE, locale);
+  const pick = (ru: string, en: string, zh: string) => locale === 'en' ? en : locale === 'zh' ? zh : ru;
+  for (const { pattern, operation, decimals } of SUPPLIED_MASS_FORMS) {
+    const groups = pattern.exec(normalized)?.groups;
+    if (!groups) continue;
+    const rate = parseSuppliedNumber(groups.rate);
+    const area = parseSuppliedNumber(groups.area);
+    if (rate === null || area === null) return null;
+    const divisor = operation === 'metric_yield' ? 10 : 1000;
+    const numerator = rate * area;
+    const denominator = ARITHMETIC_SCALE ** BigInt(2) * BigInt(divisor);
+    const total = arithmeticDecimal(numerator, denominator, locale, decimals);
+    const exact = decimals === undefined || (numerator * BigInt(10) ** BigInt(decimals)) % denominator === BigInt(0);
+    const rateUnit = operation === 'metric_yield'
+      ? pick('ц/га', 'metric quintals/ha', '公担/公顷')
+      : pick('кг/га', 'kg/ha', '千克/公顷');
+    const conversion = operation === 'metric_yield'
+      ? pick('1 ц = 100 кг = 0,1 т.', '1 metric quintal = 100 kg = 0.1 t.', '1 公担 = 100 千克 = 0.1 吨。')
+      : pick('1 т = 1000 кг.', '1 t = 1000 kg.', '1 吨 = 1000 千克。');
+    return { operation, answer: `${conversion}\n${display(rate)} ${rateUnit} × ${display(area)} ${pick('га', 'ha', '公顷')} ÷ ${divisor} ${exact ? '=' : '≈'} ${total} ${pick('т', 't', '吨')}.` };
+  }
+
+  for (const pattern of SUPPLIED_OFFER_FORMS) {
+    const groups = pattern.exec(normalized)?.groups;
+    if (!groups) continue;
+    const mass = parseSuppliedNumber(groups.mass);
+    const exw = parseSuppliedNumber(groups.exw);
+    const cpt = parseSuppliedNumber(groups.cpt);
+    const freight = parseSuppliedNumber(groups.freight);
+    const loading = parseSuppliedNumber(groups.loading);
+    const lab = parseSuppliedNumber(groups.lab);
+    if (mass === null || mass === BigInt(0) || exw === null || cpt === null || freight === null || loading === null || lab === null) return null;
+    const netCpt = cpt - freight - loading - lab;
+    const delta = netCpt - exw;
+    const winner = delta > BigInt(0) ? 'CPT' : 'EXW';
+    const difference = delta < BigInt(0) ? -delta : delta;
+    const lotDelta = arithmeticDecimal(difference * mass, ARITHMETIC_SCALE ** BigInt(2), locale);
+    const unit = pick('₽/т', 'RUB/t', '卢布/吨');
+    const net = `CPT: ${display(cpt)} − ${display(freight)} − ${display(loading)} − ${display(lab)} = ${display(netCpt)} ${unit}. EXW: ${display(exw)} ${unit}.`;
+    const conclusion = delta === BigInt(0) ? pick('По этим данным оферты равны.', 'The offers yield the same proceeds on these inputs.', '按给定数据，两种报价的净收入相同。') : pick(
+      `${winner} даёт больше на ${display(difference)} ${unit}. По всей партии: ${display(difference)} × ${display(mass)} = ${lotDelta} ₽.`,
+      `${winner} yields ${display(difference)} ${unit} more. For the lot: ${display(difference)} × ${display(mass)} = ${lotDelta} RUB.`,
+      `${winner} 每吨多 ${display(difference)} 卢布。整批相差 ${display(difference)} × ${display(mass)} = ${lotDelta} 卢布。`,
+    );
+    return { operation: 'offer_netback', answer: `${net}\n${conclusion}` };
+  }
+  return null;
 }
 
 /**
@@ -179,6 +265,8 @@ function suppliedArithmetic(envelope: PublicEnvelope, answerMode: PublicAnswerMo
   // actual platform question must retain its verified knowledge boundary.
   if (EXPLICIT_PLATFORM_PATTERNS.some(pattern => pattern.test(question))
     || (answerMode !== 'general_agro' && !/(?:учебн|условн|hypothetic|supplied\s+figures|假设|题目提供)/iu.test(question))) return null;
+  const supplied = suppliedMassOrOffer(question, envelope.locale);
+  if (supplied) return supplied;
   if (!admittedArithmeticForm(question)) return null;
   if (!/(?:рассчита|посчита|перевед|сколько|calculate|convert|how\s+many|what\s+is|计算|换算|多少)/iu.test(question)) return null;
   if (/[+−-]\s*\d/gu.test(question)
@@ -423,6 +511,20 @@ export async function POST(request: NextRequest) {
       modelIdentity: null,
       truncated: false,
       calculator: { version: 'supplied-input-v1', operation: arithmetic.operation },
+      safetyFlags: [],
+    }));
+  }
+
+  const trackedPriceAnswer = !envelope.questionTruncated && !envelope.history.length
+    ? answerTrackedPriceRevision(envelope.question, envelope.documents, locale)
+    : null;
+  if (trackedPriceAnswer) {
+    return admitted(streamDirectAnswer(trackedPriceAnswer, {
+      source: 'document_evidence',
+      answerMode: 'general_agro',
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
       safetyFlags: [],
     }));
   }
