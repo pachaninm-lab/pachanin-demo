@@ -207,6 +207,27 @@ while True:
                 self.assertEqual([check['exit_code'] for check in report['checks']], [0, 0])
                 self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
 
+    def test_gekta_answer_copy_uses_owned_budget_only_with_exact_repo_and_ref(self):
+        branch = 'fix/gekta-answer-copy-20260927'
+        repository = 'fixture/repository'
+        cases = [
+            (branch, repository, repository, 300),
+            (branch, 'fork/repository', repository, 180),
+            (branch, '', '', 180),
+            (branch + '-extra', repository, repository, 180),
+        ]
+        for ref, head_repo, repo, budget in cases:
+            with self.subTest(ref=ref, head_repository=head_repo, repository=repo):
+                report, calls, _ = self.execute_collector(
+                    head_ref=ref, guard_seconds=budget,
+                    head_repository=head_repo, repository=repo,
+                )
+                self.assertEqual(report['result'], 'PASS')
+                self.assertEqual(report['stage'], 'complete')
+                self.assertEqual([check['exit_code'] for check in report['checks']], [0, 0])
+                self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
+                self.assertEqual([call['outer_timeout'] for call in calls], [budget + 15, 195])
+
     def test_other_and_empty_refs_keep_guard_180_outer_195(self):
         for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'codex/gekta-security-review-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra', 'test/bank-acceptance-contract-6085-extra', 'fix/bank-acceptance-preflight-budget-6089-extra', 'fix/password-only-cabinet-login-20261005-extra']:
             with self.subTest(ref=ref):

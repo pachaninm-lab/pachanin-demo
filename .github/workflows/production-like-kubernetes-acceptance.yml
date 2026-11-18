@@ -158,6 +158,7 @@ jobs:
                       'fix/gekta-freshness-word-boundaries-20261101',
                       'fix/gekta-document-text-fidelity-20261101',
                       'fix/gekta-first-prompt-consent-20261101',
+                      'fix/gekta-answer-copy-20260927',
                       'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997',
                       'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089',
                       'fix/password-only-cabinet-login-20261005',
