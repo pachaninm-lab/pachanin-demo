@@ -121,6 +121,95 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     global.fetch = ORIGINAL_FETCH;
   });
 
+  for (const method of ['buffered', 'streaming'] as const) {
+    it.each([
+      {
+        locale: 'ru',
+        question: 'Учёт затрат M03-443, овёс. Всего 689940 ₽, уборочная площадь 160,5 га, валовой сбор 497 т. Найди затраты на тонну и гектар с округлением до копеек.',
+        expected: ['1388,21 ₽/т', '4298,69 ₽/га'],
+      },
+      {
+        locale: 'ru',
+        question: 'По учётной ведомости M07-443 первого лота ячмень — 242 т по 13344 ₽/т, второго — 101 т по 13915 ₽/т. Базис и оплата совпадают. Дай совокупную стоимость и цену, взвешенную по тоннам (до 0,01 ₽/т).',
+        expected: ['4634663,00 ₽', '13512,14 ₽/т'],
+      },
+      {
+        locale: 'ru',
+        question: 'В условном инвойсе M16-444 (рожь) цена 262 USD за тонну. В задаче использовать курс 82,504 ₽ за доллар. Дай цену в рублях за тонну и за 245 т до копеек.',
+        expected: ['21616,05 ₽/т', '5295931,76 ₽'],
+      },
+      {
+        locale: 'en',
+        question: 'Two lots: 0.001 t at 10.01 RUB/t and 0.002 t at 10.02 RUB/t, same terms. Calculate the combined value and volume-weighted RUB/t.',
+        expected: ['0.03 RUB', '0.03005 ÷ (0.001 + 0.002)', '10.02 RUB/t'],
+      },
+      {
+        locale: 'zh',
+        question: '练习发票IN-409：小麦报价192美元/吨，题设汇率每美元77.359卢布。求卢布每吨和140吨总值，保留两位。',
+        expected: ['14852.93 卢布/吨', '2079409.92 卢布'],
+      },
+      {
+        locale: 'ru',
+        question: 'Себестоимость: общие затраты 1 000 ₽, площадь 5 га, сбор 0 т. Посчитай себестоимость на тонну и гектар.',
+        expected: ['Оба значения должны быть больше нуля'],
+      },
+    ])(`checks supplied trade operands in $locale (${method})`, async ({ locale, question, expected }) => {
+      const badArithmetic = 'Общая сумма 777777 RUB. The combined value is two hundred dollars.';
+      const probe = method === 'streaming' ? installRuntime({ deltas: [badArithmetic], gapMs: 0 }) : null;
+      const bufferedProvider = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+        choices: [{ message: { content: badArithmetic }, finish_reason: 'stop' }],
+      })));
+      if (!probe) global.fetch = bufferedProvider;
+      const raw = request({ question, originalQuestion: question, locale });
+      let answer: string;
+      if (method === 'streaming') {
+        const stream = service.generateStream(raw);
+        expect((await stream.next()).value).toMatchObject({ type: 'meta' });
+        const first = (await stream.next()).value as PublicStreamEvent;
+        expect(first.type).toBe('delta');
+        answer = first.type === 'delta' ? first.text : '';
+        for (const expectedValue of expected) expect(answer).toContain(expectedValue);
+        expect(probe?.requests).toHaveLength(0);
+        const events: PublicStreamEvent[] = [];
+        for await (const event of stream) events.push(event);
+        expect(events.at(-1)?.type).toBe('done');
+        answer += events.flatMap(event => event.type === 'delta' ? [event.text] : []).join('');
+      } else {
+        answer = (await service.generate(raw)).answer;
+      }
+      for (const expectedValue of expected) expect(answer).toContain(expectedValue);
+      expect(answer).not.toContain('777777');
+      expect(answer).not.toContain('two hundred dollars');
+      expect(probe?.requests ?? bufferedProvider.mock.calls).toHaveLength(1);
+    });
+
+    it.each([
+      { ending: ' Also tell me the current market rate.' },
+      { ending: '', documents: [{ name: 'cost.txt', text: 'Separate cost evidence.', truncated: false }] },
+      { ending: '', history: [{ role: 'user', text: 'Use the revised weight from the ledger.' }] },
+      { ending: '', replaceRate: '8².50' },
+      { ending: '', replaceRate: '1,200' },
+    ])(`does not apply the supplied calculation to mixed or ambiguous inputs (${method})`, async item => {
+      const question = `Given price: 50 USD/t at the supplied rate ${item.replaceRate ?? '82.5'} RUB per USD. Calculate RUB/t and total RUB for 10 t.${item.ending}`;
+      const answer = 'The supplied terms need another check.';
+      const probe = method === 'streaming' ? installRuntime({ deltas: [answer], gapMs: 0 }) : null;
+      const bufferedProvider = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+        choices: [{ message: { content: answer }, finish_reason: 'stop' }],
+      })));
+      if (!probe) global.fetch = bufferedProvider;
+      const raw = request({ locale: 'en', question, originalQuestion: question,
+        documents: item.documents, history: item.history ?? [] });
+      if (method === 'streaming') {
+        const events: PublicStreamEvent[] = [];
+        for await (const event of service.generateStream(raw)) events.push(event);
+        expect(events.flatMap(event => event.type === 'delta' ? [event.text] : []).join('')).not.toContain('At the supplied exchange rate');
+      } else {
+        expect((await service.generate(raw)).answer).not.toContain('At the supplied exchange rate');
+      }
+      expect(probe?.requests ?? bufferedProvider.mock.calls).toHaveLength(1);
+    });
+  }
+
   it.each(['stream', 'buffered'].flatMap((mode) => [false, true].flatMap((currentDataRequired) => ([
     ['ru', 'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб.', true, 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.', 'Укажите в одном вопросе'],
     ['ru', 'Сколько выручки?', false, 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.', 'Укажите в одном вопросе'],
