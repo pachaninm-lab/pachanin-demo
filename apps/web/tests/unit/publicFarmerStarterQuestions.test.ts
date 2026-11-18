@@ -162,6 +162,22 @@ describe('actual fast starter and contextual model route', () => {
   });
 
   it.each([
+    ['Проверь правки по контракту D04-Q355. Какая цена была предложена?', 'Для сверки цены по договору D04-Q355'],
+    ['Что предложили по цене в правках к соглашению D04-Q355?', 'укажи номер договора и пункт'],
+    ['Проверь правки по договорам D04-Q354 и D04-Q355. Какая цена была предложена?', 'укажи номер договора и пункт'],
+  ])('does not quote Word prices for unsupported or ambiguous contract references: %s', async (question, expected) => {
+    const attachment = { ...draft,
+      text: 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nДоговор № D04-Q354\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].',
+    };
+    const result = await askModel(question, [], 'ru', [attachment]);
+    expect(result).toContain('document_evidence');
+    expect(result).toContain(expected);
+    expect(result).not.toContain('13430 ₽/т');
+    expect(result).not.toContain('13676 ₽/т');
+    expect(captured).toHaveLength(0);
+  });
+
+  it.each([
     ['Договор поставки № D04-Q354', 'D04-Q354'],
     ['Договор:\u00a0D04-Q354/2026', 'D04-Q354/2026'],
   ])('uses a Word contract identifier in the document itself: %s', async (heading, ref) => {
