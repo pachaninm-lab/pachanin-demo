@@ -215,11 +215,16 @@ function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedAr
 }
 
 const GEKTA_WORD_REVISION_NOTICE = 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.';
-const CONTRACT_REF = '[\\p{L}\\d][\\p{L}\\d-]{0,40}';
-const NUMBERED_CONTRACT = '(?=[a-zа-яё0-9-]*[0-9])[a-zа-яё0-9][a-zа-яё0-9-]{0,40}(?![a-zа-яё0-9-])';
-const CONTRACT_LABEL = '(?:договор[ауе]?(?:[ \\t]+поставки)?|contract(?:[ \\t]+draft)?|合同(?:草案)?)[ \\t]*(?:№|#|No\\.)?[ \\t]*';
-const MENTIONED_CONTRACT = new RegExp(`${CONTRACT_LABEL}(?<ref>${NUMBERED_CONTRACT})`, 'iu');
-const DECLARED_CONTRACT = new RegExp(`(?:^|\\n)[ \\t]*${CONTRACT_LABEL}(?<ref>${NUMBERED_CONTRACT})`, 'giu');
+const CONTRACT_REF = '[\\p{L}\\d][\\p{L}\\d._/-]{0,40}';
+const NUMBERED_CONTRACT = '(?=[a-zа-яё0-9._/-]*[0-9])[a-zа-яё0-9]+(?:[._/-][a-zа-яё0-9]+)*(?![a-zа-яё0-9_/-]|\\.[a-zа-яё0-9])';
+const HORIZONTAL_SPACE = '[\\t\\p{Zs}]';
+const CONTRACT_LABEL = `(?:договор[ауе]?(?:${HORIZONTAL_SPACE}+поставки)?|contract(?:${HORIZONTAL_SPACE}+draft)?|合同(?:草案)?)`;
+const CONTRACT_SEPARATOR = `${HORIZONTAL_SPACE}*[:：]?${HORIZONTAL_SPACE}*(?:(?:№|#|No\\.|No(?=${HORIZONTAL_SPACE}|[:：]))${HORIZONTAL_SPACE}*[:：]?${HORIZONTAL_SPACE}*)?`;
+const MENTIONED_CONTRACT = new RegExp(`${CONTRACT_LABEL}${CONTRACT_SEPARATOR}(?<ref>${NUMBERED_CONTRACT})`, 'giu');
+const DECLARED_CONTRACT = new RegExp(
+  `(?:^|\\n)${HORIZONTAL_SPACE}*${CONTRACT_LABEL}${CONTRACT_SEPARATOR}(?<ref>${NUMBERED_CONTRACT})` +
+  `(?=${HORIZONTAL_SPACE}*(?:\\r?\\n|$)|[.,]?${HORIZONTAL_SPACE}+(?:от|dated)${HORIZONTAL_SPACE}+\\d)`, 'giu',
+);
 const AMOUNT = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3}){1,2}|\\d{1,9})(?:[.,]\\d{1,2})?';
 const RATE = `(?:${AMOUNT}\\s*(?:₽|RUB)\\s*/\\s*(?:т|t)|每吨${AMOUNT}卢布)`;
 
@@ -249,10 +254,11 @@ function revisionQuestion(question: string): boolean {
     && /согласова|предлож|прежн|старо|agreed|agreement|proposed|建议|约定/iu.test(question);
 }
 
-function matchesRequestedContract(reference: string, fileName: string, documentText: string): boolean {
+function matchesRequestedContract(reference: string, fileName: string, documentText: string, explicitDraftRecord: boolean): boolean {
   const wanted = reference.toUpperCase();
-  const declared = [...documentText.matchAll(DECLARED_CONTRACT)].map(match => match.groups!.ref.toUpperCase());
+  const declared = [...documentText.matchAll(DECLARED_CONTRACT)].map(match => match.groups!.ref.normalize('NFKC').toUpperCase());
   if (declared.length > 0) return declared.every(ref => ref === wanted);
+  if (!explicitDraftRecord) return false;
   const stem = fileName.replace(/\.docx$/iu, '');
   return stem.toUpperCase() === wanted
     || stem.replace(/[-_ ](?:redline|tracked|draft|правки|черновик)$/iu, '').toUpperCase() === wanted;
@@ -274,9 +280,11 @@ function answerTrackedPriceRevision(
   const wordPairs = !exactPair && (exactQuestion || revisionQuestion(question)) && text.startsWith(GEKTA_WORD_REVISION_NOTICE)
     ? [...text.matchAll(WORD_PRICE_PAIR)].map(match => match.groups!) : [];
   if (!exactPair && !wordPairs.length) return null;
-  const reference = exactQuestion?.groups?.ref ?? MENTIONED_CONTRACT.exec(question)?.groups?.ref;
+  const exactRef = exactQuestion?.groups?.ref;
+  const references = exactRef ? [exactRef] : [...question.matchAll(MENTIONED_CONTRACT)].map(match => match.groups!.ref);
   const name = document.name.replace(/[\p{C}\s]+/gu, ' ').trim();
-  if (reference && !matchesRequestedContract(reference, name, text)) {
+  const reference = references.find(ref => !matchesRequestedContract(ref.normalize('NFKC'), name, text, Boolean(exactPair)));
+  if (reference) {
     if (locale === 'en') return `Please attach the version of contract ${reference} with tracked changes. “${name}” cannot be matched to that contract.`;
     if (locale === 'zh') return `请附上合同 ${reference} 的修订版本。现有文件《${name}》无法与该合同匹配。`;
     return `Для сверки цены по договору ${reference} прикрепи его версию с правками. Файл «${name}» не подтверждает этот номер.`;

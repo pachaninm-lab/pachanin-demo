@@ -150,11 +150,25 @@ describe('actual fast starter and contextual model route', () => {
     expect(captured).toHaveLength(0);
   });
 
-  it('uses a Word contract identifier in the document itself', async () => {
-    const attachment = { ...draft, name: 'Цена.docx',
-      text: 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nДоговор поставки № D04-Q354\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].',
+  it.each(['Договор: D04-Q355', 'Договор №\u00a0D04-Q355', 'Договор № D04-Q354/2026', 'Правки к условию об оплате'])('requires the Word text to establish a named contract despite a matching filename: %s', async heading => {
+    const attachment = { ...draft,
+      text: `Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\n${heading}\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].`,
     };
     const result = await askModel(revision, [], 'ru', [attachment]);
+    expect(result).toContain('Для сверки цены по договору D04-Q354 прикрепи его версию с правками');
+    expect(result).not.toContain('13430 ₽/т');
+    expect(result).not.toContain('13676 ₽/т');
+    expect(captured).toHaveLength(0);
+  });
+
+  it.each([
+    ['Договор поставки № D04-Q354', 'D04-Q354'],
+    ['Договор:\u00a0D04-Q354/2026', 'D04-Q354/2026'],
+  ])('uses a Word contract identifier in the document itself: %s', async (heading, ref) => {
+    const attachment = { ...draft, name: 'Цена.docx',
+      text: `Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\n${heading}\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].`,
+    };
+    const result = await askModel(revision.replace('D04-Q354', ref), [], 'ru', [attachment]);
     expect(result).toContain('13676 ₽/т');
     expect(result).toContain('согласованная цена не подтверждена');
     expect(captured).toHaveLength(0);
