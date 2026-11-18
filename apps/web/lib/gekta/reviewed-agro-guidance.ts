@@ -95,19 +95,19 @@ const forms = (Object.keys(questions) as GuidanceTopic[]).flatMap(topic =>
 
 const guidance: Readonly<Record<Exclude<GuidanceTopic, 'unverified_quote'>, Readonly<Record<GektaLocale, string>>>> = {
   field_yellowing: {
-    ru: 'Наблюдение — после дождя пожелтели растения в ложбинах, а на повышениях они зелёные. Возможны переувлажнение и нарушение питания через корни. Проверь две пары точек. Сравни влажность и застой воды на одинаковой глубине. Затем сравни состояние корней и нижних листьев у растений одной стадии.',
-    en: 'Yellowing after rain was observed in low areas, while plants on raised ground stayed green. Waterlogging and impaired root uptake are hypotheses. In matched sites, compare soil moisture and standing water at the same depth, then compare roots and lower leaves of plants at the same stage.',
-    zh: '观察到雨后低洼处黄化，而高处仍绿。积水及根系吸收受阻是待查假设。做两项配对检查：同深度土壤水分和积水情况，以及同生育期植株的根系与下部叶片。',
+    ru: 'После дождя пшеница пожелтела в ложбинах, а на повышениях осталась зелёной. Возможны переувлажнение, уплотнение почвы и затруднённое поглощение азота. Первое сравнение — отметь застой воды и проверь влажность и структуру почвы на одинаковой глубине в обеих зонах. Второе — сравни цвет и запах корней и состояние нижних листьев у растений одной стадии. Сверь с журналом внесения азота. Одной окраски листьев для диагноза мало.',
+    en: 'After rain, wheat yellowed in low areas and stayed green on raised ground. Waterlogging, compaction and impaired nitrogen uptake are hypotheses. First, compare ponding and check soil moisture and structure at matched depths in both areas. Second, compare root colour and smell and the condition of lower leaves on plants at the same stage. Check nitrogen application records. Leaf colour alone cannot establish the cause.',
+    zh: '雨后低洼处小麦发黄，高处仍绿。积水、土壤压实和氮吸收受阻都是待查假设。先对照两区地表积水，并在同一深度检查土壤水分和结构。再对比同生育期植株的根色、气味及下部叶片状况。核对氮肥施用记录。仅凭叶色无法确定原因。',
   },
   emergence_pattern: {
-    ru: 'Повторение через одинаковое число рядов — повод проверить сеялку, но по рисунку причина ещё не установлена. Наложи слабые ряды на карту проходов и секций, сверив партии семян. На равных отрезках слабых и нормальных рядов посчитай всходы, сравни глубину заделки, корку и влажность. Отдельно сравни всхожесть сохранённых проб семян.',
-    en: 'Map weak rows against planter passes, row units and seed-lot changes. On equal lengths of weak and healthy rows, compare emergence counts, planting depth, soil crust and moisture. Compare retained seed-lot germination separately. Treat periodicity as a lead to investigate.',
-    zh: '把弱苗行与播种机行单元、行驶路线和种子批次位置对照。在弱苗行与正常行选相同长度，比较苗数、播深、土壤结皮和水分。单独对照留样的发芽率。周期性只提供排查线索。',
+    ru: 'Повторение через одинаковое число рядов — повод проверить сеялку. Наложи слабые ряды на карту проходов и секций, сверив партии семян. На равных отрезках слабых и нормальных рядов посчитай всходы. Раскопай парные отрезки, сравни число и состояние семян и проростков, глубину заделки, корку и влажность. Отдельно сравни всхожесть сохранённых проб семян. По рисунку рядов причина пока не установлена.',
+    en: 'Map weak rows against planter passes, row units and seed-lot changes. Count emerged plants on equal lengths of weak and healthy rows. Dig paired sections to compare the number and condition of seeds and seedlings, planting depth, soil crust and moisture. Compare retained seed-lot germination separately. Treat periodicity as a lead to investigate.',
+    zh: '把弱苗行与播种机行单元、行驶路线和种子批次位置对照。在弱苗行与正常行选相同长度，先数出苗数，再挖查配对样段，比较种子及幼苗的数量和状况、播深、土壤结皮和水分。单独对照留样的发芽率。周期性只提供排查线索。',
   },
   weed_survey: {
-    ru: 'Нанеси очаги на карту и заложи одинаковые учётные рамки по кромке и внутри поля. В каждой посчитай растения на м², запиши виды и стадии сорняков и культуры. Перед выбором меры уточни историю обработок, погоду и близкие чувствительные участки. Фото неизвестных видов доведи до идентификации.',
-    en: 'Map the edge patches and sample equal-sized quadrats on the edge and in the field interior. Record plants per square metre, species and growth stages of crop and weeds. Verify treatment records, conditions and nearby sensitive sites before choosing a measure, and identify unknown species first.',
-    zh: '绘出田边斑块，在边缘与田内对照点用同样大小的样方记录每平方米株数、杂草种类及杂草和作物生育阶段。确定措施前核对既往处理、天气和邻近敏感区域，先鉴定不明种类。',
+    ru: 'Нанеси очаги на карту и заложи одинаковые учётные рамки по кромке и внутри поля. В каждой посчитай растения на м², запиши виды и стадии сорняков и культуры. Перед выбором меры определи неизвестные виды, уточни историю обработок, погоду и близкие чувствительные участки, сверь применимые инструкции.',
+    en: 'Map the edge patches and sample equal-sized quadrats on the edge and in the field interior. Record plants per square metre, species and growth stages of crop and weeds. Identify unknown species and check treatment records, weather, nearby sensitive sites and applicable instructions before choosing a measure.',
+    zh: '绘出田边斑块，在边缘与田内对照点用同样大小的样方记录每平方米株数、杂草种类及杂草和作物生育阶段。确定措施前先鉴定不明种类，再核对既往处理、天气、邻近敏感区域和适用说明。',
   },
   leaf_spots: {
     ru: 'Нанеси пятна на карту и сравни пары похожих растений вдоль прохода и вне него. Зафиксируй стадию, ярус, форму и границы пятен, погоду и даты обработок. Сделай серию фотографий и возьми здоровые и поражённые образцы для агронома или лаборатории. Одного фото для выбора обработки мало.',
@@ -125,14 +125,14 @@ const guidance: Readonly<Record<Exclude<GuidanceTopic, 'unverified_quote'>, Read
     zh: '停止喂料并安全停车。按收割机手册拉停车制动、脱开传动、熄火并取下钥匙，等待运动部件完全停止。外部检查报警代码、喂入量与作物湿度，以及外部可见堆积。内部作业由获准人员按隔离流程处理。',
   },
   silo_alarm: {
-    ru: 'Передай сигнал ответственному за хранение и оставайся снаружи силоса. Сверь график этого датчика, соседние точки и время замера. Проверь журнал вентиляции и состояние датчика доступным снаружи штатным способом. Один тренд пока показывает отклонение, а причину устанавливает проверка по процедуре объекта.',
-    en: 'Escalate to the storage supervisor and stay outside the bin. Compare the sensor’s trend, adjacent readings and timestamps, then check aeration logs and the sensor by the approved external procedure. Treat the trend as an anomaly and follow the site procedure to verify the cause.',
-    zh: '立即报告储粮负责人并留在仓外。核对该测点的趋势、邻近测点和时间记录，检查通风日志，并按场站程序从外部核查传感器。先按异常处理，原因仍需查证。',
+    ru: 'Передай сигнал ответственному за хранение и оставайся снаружи силоса. Сверь график датчика, соседние точки и время замера. По штатной процедуре снаружи проверь журнал вентиляции, привязку датчика к точке и доступные данные о его состоянии. Ответственный определит по процедуре объекта, нужен ли вызов сервиса или контроль качества партии.',
+    en: 'Escalate to the storage supervisor and stay outside the bin. Compare the sensor’s trend, adjacent readings and timestamps. Check aeration logs and verify the sensor’s location, settings and available health information using the approved external procedure. The supervisor can refer the issue for servicing or lot quality checks under the site procedure.',
+    zh: '立即报告储粮负责人并留在仓外。对照该测点趋势、邻近测点和时间记录。按场站程序从外部核对通风日志、传感器对应位置、设置和可查的运行状态。由负责人按规程判断是否需要检修或检查批次质量。',
   },
   irrigation_diagnosis: {
-    ru: 'Сопоставь границы пожелтения с зонами и журналом полива. Сравни давление или фактическую подачу воды в больной и здоровой зонах. В парных точках на одинаковой глубине проверь влагу до корней, структуру почвы и состояние корней. Так можно отделить неравномерную подачу воды от различий в её удержании почвой.',
-    en: 'Match the yellow areas to irrigation zones and run logs. Compare pressure or actual delivery between affected and healthy areas. At matched soil depths compare moisture down to the roots, soil structure and root condition. This separates delivery from differences in how the soil holds water.',
-    zh: '将黄化边界与灌溉分区和运行日志对照。比较受害区与正常区的压力或实际供水量，再配对测同深度的根层水分、土壤结构和根况，以区分供水分布与土壤持水差异。',
+    ru: 'Сопоставь границы пожелтения с зонами и журналом полива. Сравни давление или фактическую подачу воды в пострадавшей и здоровой зонах при одном режиме. В парных точках на одинаковой глубине проверь влагу до корней, структуру почвы и состояние корней, отметь рельеф. Корректируй полив после того, как замеры покажут причину.',
+    en: 'Match the yellow areas to irrigation zones and run logs. Compare pressure or actual delivery between affected and healthy areas under the same operating conditions. At matched soil depths compare moisture down to the roots, soil structure and root condition, and record local topography. Adjust irrigation once the measurements support a cause.',
+    zh: '将黄化边界与灌溉分区和运行日志对照。在相同运行条件下比较受害区与正常区的压力或实际供水量，再配对测同深度的根层水分、土壤结构和根况，并记录地形。测量支持具体原因后再调整灌溉。',
   },
   condensation_check: {
     ru: 'Пока держи партию отдельно и сохрани её идентификатор. Запиши место и время появления конденсата, температуру и влажность в этой и соседней зонах в динамике, а также работу вентиляции. Проверь качество партии по представительному отбору проб по процедуре склада. Объединяй после подтверждения качества.',
@@ -140,9 +140,9 @@ const guidance: Readonly<Record<Exclude<GuidanceTopic, 'unverified_quote'>, Read
     zh: '保持批次标识，先分开存放。记下冷凝位置和时间、该处与对照区的温湿度走势及通风情况。按仓库程序取代表样确认质量后再合并。',
   },
   milk_yield_observations: {
-    ru: 'Сравни записи по удою и состав групп до и после смены партии с группами на прежнем рационе. Проверь фактическую выдачу и остатки корма, влажность сенажа и потребление сухого вещества. Сверь доступность воды, условия в помещении, журнал доения и наблюдения за животными. Совпадение по времени задаёт гипотезу для проверки.',
-    en: 'Compare yield records and group composition before and after the forage switch with the unchanged group. Check feed offered and refusals, forage moisture and actual dry-matter intake. Compare water access, barn conditions, milking records and animal observations. The timing gives a hypothesis to investigate.',
-    zh: '比较更换前后的产奶记录和群组构成，并用未改日粮的群组对照。检查饲喂量、余料、青贮水分和实际干物质采食量，同时核对饮水、舍内条件、挤奶记录与牛群观察。时间上的联系仍需验证。',
+    ru: 'Сверь дату смены партии и сравни удои до и после с группами на прежнем рационе. Учти перемещения животных, стадии лактации и стельность. Проверь выдачу и остатки корма, влажность и результаты контроля качества сенажа, фактическое потребление сухого вещества. Сопоставь доступность воды, температуру и вентиляцию в помещении, журнал доения и симптомы у животных. Совпадение по времени задаёт гипотезу для проверки.',
+    en: 'Check the date of the forage switch and compare yield before and after with groups on the unchanged ration. Account for cows moving between groups, lactation stage and pregnancy status. Compare feed offered and refusals, forage moisture and quality records, and actual dry-matter intake. Check water access, barn temperature and ventilation, milking records and animal symptoms. The timing gives a hypothesis to investigate.',
+    zh: '核对更换青贮批次的日期，把更换前后的产奶量与未改日粮的对照群比较。考虑转群、泌乳阶段及妊娠状态。检查饲喂量、余料、青贮水分与质量记录、实际干物质采食量，并对照饮水、舍内温度与通风、挤奶记录及牛群症状。时间上的联系仍需验证。',
   },
   rotation_records: {
     ru: 'Собери историю культур за несколько сезонов, карты сорняков и болезней, применённые средства защиты и ограничения последействия по их инструкциям. Добавь замеры влаги, дренаж и анализ почвы. Затем сравни несколько вариантов по окну работ, доступной технике и возможностям сбыта.',
@@ -155,26 +155,26 @@ const guidance: Readonly<Record<Exclude<GuidanceTopic, 'unverified_quote'>, Read
     zh: '低洼区根发暗且有霉味，应先排查积水和根系受损。在配对点比较积水、同深度含水量和结构、根系活性。吸收受阻可能是继发问题，原因需现场检查或样品检测确认。',
   },
   unidentified_patch: {
-    ru: 'Уточни культуру, сорт если известен, фазу, поле и регион, когда и где появилось пятно и как оно меняется. Пока сделай фото целого растения, корней, границы пятна и здоровой контрольной зоны. Запиши недавнюю погоду, полив и обработки. Эти сведения нужны до диагноза и выбора меры.',
-    en: 'Ask for crop and cultivar if known, growth stage, field and region, onset, location and how the patch is changing. Photograph whole plants, roots, the patch edge and a healthy comparison area. Record recent weather, irrigation and treatments before diagnosing or selecting a measure.',
-    zh: '先询问作物、已知品种、生育期、田块和地区、出现时间及斑块变化。可先拍全株、根、斑块边缘和健康区对照，记录近期天气、灌溉和处理，再据此诊断和选措施。',
+    ru: 'Уточни культуру, сорт если известен, фазу, поле и регион. Зафиксируй размер, форму и положение пятна, когда оно появилось и как меняется. Сделай фото целого растения, корней, границы пятна и здоровой контрольной зоны. Запиши недавнюю погоду, полив и обработки. Эти сведения нужны до диагноза и выбора меры.',
+    en: 'Ask for crop and cultivar if known, growth stage, field and region. Record the patch’s size, shape and location, when it appeared and how it is changing. Photograph whole plants, roots, the patch edge and a healthy comparison area. Record recent weather, irrigation and treatments before diagnosing or selecting a measure.',
+    zh: '先询问作物、已知品种、生育期、田块和地区。记录斑块的大小、形状、位置、出现时间及变化。可先拍全株、根、斑块边缘和健康区作对照，记录近期天气、灌溉和处理，再据此诊断和选措施。',
   },
   market_average_comparison: {
-    ru: 'Разница между месячным средним и разовой офертой не доказывает занижение. Сверь дату и место, культуру, класс и качество, объём, базис, НДС, сроки и надёжность оплаты. Возьми независимые датированные оферты на сопоставимую партию и пересчитай их на общие условия. Среднее за месяц пригодится как фон.',
-    en: 'The gap between the monthly average and one offer does not establish underpricing. Match date and location, grade and quality, volume, delivery basis, tax and payment terms. Compare independent dated offers for the same kind of lot on a common basis. Use the monthly average as background.',
-    zh: '月均价和单笔报价之间的差异不能证明压价。核对日期、地点、作物等级和质量、数量、交付基准、税费和付款条件。找同日独立的可比报价并换算到同一条件，月均价作为背景。',
+    ru: 'Разница между месячным средним и разовой офертой не доказывает занижение. Сверь дату и место, культуру, класс и качество, объём, базис, НДС, сроки и надёжность оплаты. Возьми независимые оферты на сопоставимую партию на ту же дату и пересчитай их на общие условия. Среднее за месяц пригодится как фон.',
+    en: 'The gap between the monthly average and one offer does not establish underpricing. Match date, region and delivery point, crop, grade and quality, volume, delivery basis, tax basis, and payment timing and risk. Compare independent offers from the same date for a comparable lot on a common basis. Use the monthly average as background.',
+    zh: '月均价和单笔报价之间的差异不能证明压价。核对日期、地区与交付地点、作物品种、等级和质量、数量、交付基准、税费口径、付款期限和风险。找同日独立的可比报价并换算到同一条件，月均价作为背景。',
   },
   incomparable_offers: {
     ru: 'Сравнить чистую выручку можно после уточнений. Для обоих предложений нужны цена и НДС, точное место и базис, расходы продавца на доставку, погрузку и анализ, оплачиваемая масса и допуски качества, срок и надёжность оплаты. Приведи цены к одному налоговому базису. Сумма = сопоставимая цена за тонну × оплачиваемая масса − все расходы продавца. При разной отсрочке приведи суммы к одной дате по согласованной ставке.',
     en: 'Confirm price and tax treatment, named place and basis, seller freight, loading and lab costs, payable mass and quality tolerances, and timing and payment risk for both offers. On one tax basis, net receipts = comparable price per tonne × payable mass minus all seller costs. Bring deferred payments to the same date using an agreed rate before ranking the offers.',
-    zh: '先确认双方价格及税费口径、交付基准和具名地点、卖方运费装卸检测成本、计价质量与质量容差、账期和收款风险。按同一税费口径，净到账 = 可比每吨价格 × 计价质量 − 卖方全部成本。账期不同还需用约定费率折到同一天。',
+    zh: '先确认双方价格及税费口径、交付基准和具名地点、卖方承担的运费装卸检测成本、结算重量（吨）与质量容差、账期和收款风险。按同一税费口径，净回款 = 可比每吨价格 × 结算重量（吨）− 卖方全部成本。账期不同还需用约定费率折到同一天。',
   },
 };
 
 function unverifiedQuote(price: string, locale: GektaLocale): string {
   if (locale === 'en') return `The screenshot contains an unverified indication of ${price} RUB/t. It does not establish a current quote. Ask for date and time, location, crop grade and quality, volume, delivery basis, tax and payment terms, and a source you can contact or verify. Compare dated offers on matching terms.`;
-  if (locale === 'zh') return `截图只记录未核实的参考价每吨${price}卢布。要核实可比报价，需补齐日期时间、地点、等级质量、吨数、交付基准、税费和付款条件，并向可核实的来源确认。`;
-  return `На скриншоте указан неподтверждённый ориентир ${price} ₽/т. Для рыночного сравнения запроси дату и время, регион и точку поставки, класс и качество, объём, базис, НДС и оплату. Затем подтверди условия у идентифицируемого источника или по датированным сопоставимым офертам.`;
+  if (locale === 'zh') return `截图只记录未核实的参考价每吨${price}卢布。当前可成交价格和交易条件尚未确认。要核实可比报价，需补齐日期时间、地点、等级质量、吨数、交付基准、税费和付款条件，并向可核实的来源确认，或与同日的可比报价对照。`;
+  return `Руководителю можно передать из скриншота неподтверждённый ориентир ${price} ₽/т. Для рыночного сравнения запроси дату и время, регион и точку поставки, класс и качество, объём, базис, НДС и оплату. Затем подтверди условия у идентифицируемого источника или по сопоставимым офертам на ту же дату.`;
 }
 
 function fieldCheckTopic(question: string): 'emergence_pattern' | 'irrigation_diagnosis' | null {

@@ -200,7 +200,7 @@ describe('agro policy at the actual public streaming boundary', () => {
 
   it.each([
     ['Для 90 т сравни EXW 12100 ₽/т и CPT 12800 ₽/т. При EXW продавец оплачивает анализ 75 ₽/т. При CPT продавец платит за перевозку 800 ₽/т.',
-      ['EXW 12025 ₽/т', 'CPT 12000 ₽/т', 'выше у EXW', '2250 ₽'], []],
+      ['EXW 12025 ₽/т', 'CPT 12000 ₽/т', 'выше у EXW', 'Разница 25 ₽/т', '2250 ₽'], []],
     ['Сравни EXW 13000 ₽/т и CPT 14000 ₽/т для 50 т. За CPT перевозка продавца 950 ₽/т. Неясно, уже учтена ли она в цене.',
       ['из какой цены уже вычтены расходы'], ['выше у EXW', 'выше у CPT']],
     ['Сравни EXW 13000 ₽/т и CPT 14000 ₽/т для 50 т. При CPT перевозка продавца 950 ₽/т, но покупатель оплачивает перевозку.',
@@ -337,6 +337,20 @@ describe('agro policy at the actual public streaming boundary', () => {
     expect(result.assessment).toMatchObject({ source: 'reviewed_guidance', guidance: { topic: 'silo_alarm' } });
     expect(result.text).toContain('оставайся снаружи силоса');
     expect(result.text).toContain('ответственному за хранение');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ru', 'На яровой пшенице W-10 после 38 мм дождя пожелтели растения в ложбинах, на повышениях зелёные. Отдели факты от причин. Какие два сравнения сделать между зонами?',
+      ['структуру почвы на одинаковой глубине', 'цвет и запах корней', 'журналом внесения азота']],
+    ['en', 'Dairy group D-10 fell 8% in milk yield 2 days after a forage batch change. The adjacent group is unchanged. What records and control checks separate feed association from other causes?',
+      ['lactation stage and pregnancy status', 'quality records', 'barn temperature and ventilation']],
+    ['zh', '记录仅写“斑块W-10”。作物、品种、面积、生育期未知。最少要问哪些信息？现在可收集哪些观察？',
+      ['大小、形状、位置', '健康区作对照', '记录近期天气']],
+  ] as const)('keeps the observations needed for a preliminary assessment in %s', async (locale, question, required) => {
+    const result = await arithmeticResult(question, locale);
+    expect(result.assessment).toMatchObject({ source: 'reviewed_guidance' });
+    for (const phrase of required) expect(result.text).toContain(phrase);
     expect(boundary.model).not.toHaveBeenCalled();
   });
 

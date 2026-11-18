@@ -210,7 +210,9 @@ function offerNetback(text: string, locale: GektaLocale): Calculation | null {
   };
   const rub = translate(locale,'₽','RUB','卢布'), t = translate(locale,'т','t','吨');
   const winner = delta > zero ? 'CPT' : 'EXW';
-  const difference = arithmeticDecimal(delta < zero ? -delta : delta, scale2, locale);
+  const absoluteDelta = delta < zero ? -delta : delta;
+  const difference = arithmeticDecimal(absoluteDelta, scale2, locale);
+  const perTonneDifference = perTonne(absoluteDelta);
   const basis = translate(locale,'Расчёт учитывает указанные расходы продавца и предполагает одинаковые НДС, качество и сроки оплаты.',
     'The calculation uses the stated seller costs and assumes identical VAT, quality and payment terms.','计算以所列卖方费用及相同的税费、质量和付款条件为准。');
   const netPrices = `EXW ${perTonne(netExw)} ${rub}/${t}, CPT ${perTonne(netCpt)} ${rub}/${t}`;
@@ -218,9 +220,9 @@ function offerNetback(text: string, locale: GektaLocale): Calculation | null {
   const lotTotal = translate(locale,`Чистые суммы за ${show(mass)} ${t} — ${totalPrices}.`,
     `For the ${show(mass)} ${t} lot, net proceeds are ${totalPrices}.`, `${show(mass)} ${t} 整批净收入为 ${totalPrices}。`);
   const result = delta === zero ? translate(locale,'Чистые суммы равны.','The net proceeds are equal.','净收入相同。')
-    : translate(locale,`Чистая сумма выше у ${winner}. Разница за партию ${difference} ${rub}.`,
-      `Net proceeds are higher for ${winner}. Difference for the lot ${difference} ${rub}.`,
-      `${winner} 净收入更高。整批差额 ${difference} ${rub}。`);
+    : translate(locale,`Чистая сумма выше у ${winner}. Разница ${perTonneDifference} ${rub}/${t}. Разница за партию ${difference} ${rub}.`,
+      `Net proceeds are higher for ${winner}. Difference ${perTonneDifference} ${rub}/${t}. Difference for the lot ${difference} ${rub}.`,
+      `${winner} 净收入更高。吨价差 ${perTonneDifference} ${rub}/${t}。整批差额 ${difference} ${rub}。`);
   return { operation, answer: `${basis} ${netPrices}. ${result} ${lotTotal}` };
 }
 
