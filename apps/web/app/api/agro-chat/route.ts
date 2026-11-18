@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readBoundedBody } from '@/lib/uploads/bounded-body';
 import { DocumentContextError, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import { answerTrackedPriceRevision } from '@/lib/gekta/tracked-price-revision';
+import { ARITHMETIC_NUMBER, ARITHMETIC_PRECISION, ARITHMETIC_SCALE, arithmeticDecimal, parseSuppliedNumber } from '@/lib/gekta/supplied-decimal';
+import { checkedAgroArithmetic, type CheckedAgroOperation } from '@/lib/gekta/checked-agro-arithmetic';
+import { checkedDocumentEvidence } from '@/lib/gekta/checked-document-evidence';
+import { reviewedAgroGuidance } from '@/lib/gekta/reviewed-agro-guidance';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
@@ -97,12 +101,9 @@ type PublicEnvelope = Readonly<{
 
 type ArithmeticFact = Readonly<{ value: bigint; start: number; end: number }>;
 type SuppliedArithmetic = Readonly<{
-  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'offer_netback';
+  operation: CheckedAgroOperation | 'cost_per_hectare' | 'metric_yield' | 'break_even' | 'seed_mass' | 'offer_netback';
   answer: string;
 }>;
-const ARITHMETIC_SCALE = BigInt(1000);
-const ARITHMETIC_PRECISION = BigInt(1_000_000_000_000);
-const ARITHMETIC_NUMBER = '(\\d{1,9}(?:[.,]\\d{1,3})?)';
 const ARITHMETIC_UNIT_END = '(?![0-9_A-Za-zА-Яа-яЁё])';
 
 function arithmeticFacts(question: string, units: string): readonly ArithmeticFact[] | null {
@@ -110,24 +111,11 @@ function arithmeticFacts(question: string, units: string): readonly ArithmeticFa
   const facts: ArithmeticFact[] = [];
   for (const match of question.matchAll(pattern)) {
     if (/(?:\bnegative|\bminus|минус|отрицательн[\p{L}]*|负|負)\s*$/iu.test(question.slice(Math.max(0, match.index! - 40), match.index!))) return null;
-    // A three-digit suffix with a nonzero integer could be a thousands
-    // separator in another locale. Leading-zero fractions are unambiguous.
     const value = parseSuppliedNumber(match[1]);
     if (value === null) return null;
     facts.push({ value, start: match.index!, end: match.index! + match[0].length });
   }
   return facts;
-}
-
-function arithmeticDecimal(numerator: bigint, denominator: bigint, locale: PublicLocale, decimals?: number): string {
-  const precision = decimals === undefined ? ARITHMETIC_PRECISION : BigInt(10) ** BigInt(decimals);
-  const magnitude = numerator < BigInt(0) ? -numerator : numerator;
-  const rounded = (magnitude * precision * BigInt(2) + denominator) / (denominator * BigInt(2));
-  const whole = rounded / precision;
-  const padded = String(rounded % precision).padStart(decimals ?? 12, '0');
-  const fraction = decimals === undefined ? padded.replace(/0+$/u, '') : padded;
-  const sign = numerator < BigInt(0) && rounded !== BigInt(0) ? '−' : '';
-  return `${sign}${whole}${fraction ? `${locale === 'ru' ? ',' : '.'}${fraction}` : ''}`;
 }
 
 const arithmeticInput = (name: string) => `(?<${name}>${ARITHMETIC_NUMBER})`;
@@ -137,6 +125,7 @@ const SUPPLIED_MASS_FORMS = ([
   [`(?:Поле ${FIELD_REF}, культура ${CROP_NAME}\\. )?(?:Средняя )?урожайность ${arithmeticInput('rate')} ц/га, (?:уборочная )?площадь ${arithmeticInput('area')} га\\. Вычисли массу в тоннах до сотых и покажи переход единиц\\.`, 'metric_yield', 2],
   [`(?:Средняя )?урожайность ${arithmeticInput('rate')} ц/га, площадь ${arithmeticInput('area')} га\\. Сколько тонн\\?`, 'metric_yield', undefined],
   [`Field ${FIELD_REF} \\(${CROP_NAME}\\): ${arithmeticInput('rate')} metric quintals?/ha over ${arithmeticInput('area')} ha\\. Convert and calculate (?:gross )?metric tonnes to (?:two|2) decimals\\.`, 'metric_yield', 2],
+  [`A ${CROP_NAME} field averages ${arithmeticInput('rate')} metric quintals per hectare\\. The harvested area is ${arithmeticInput('area')} hectares and a metric quintal is 100 kilograms\\. Calculate gross metric tonnes to two decimals\\.`, 'metric_yield', 2],
   [`田块${FIELD_REF}种植${CROP_NAME}，平均产量每公顷${arithmeticInput('rate')}公担，收获面积${arithmeticInput('area')}公顷。换算公担并计算总吨数，四舍五入到两位。`, 'metric_yield', 2],
   [`(?:На полях ${FIELD_REF} под ${CROP_NAME} )?расход семян ${arithmeticInput('rate')} кг/га (?:при площади|на площади) ${arithmeticInput('area')} га\\. Сколько тонн нужно заказать без запаса\\? Округли до тысячных\\.`, 'seed_mass', 3],
   [`Fields? ${FIELD_REF} \\(${CROP_NAME}\\) needs? ${arithmeticInput('rate')} kg/ha of seed over ${arithmeticInput('area')} ha\\. How many tonnes before buffer\\? Round to (?:three|3) decimals\\.`, 'seed_mass', 3],
@@ -151,15 +140,8 @@ const SUPPLIED_OFFER_FORMS = [
   `У партии ${FIELD_REF} \\(${CROP_NAME}, ${arithmeticInput('mass')} т\\) две оферты: ${arithmeticInput('exw')} ₽/т EXW и ${arithmeticInput('cpt')} ₽/т CPT\\. Дополнительные расходы продавца только для CPT: транспорт ${arithmeticInput('freight')}, погрузка ${arithmeticInput('loading')}, анализ ${arithmeticInput('lab')} ₽/т\\. Дата оплаты, качество и НДС совпадают\\. Какая оферта выгоднее и на сколько рублей по всей партии\\?`,
   `Lot ${FIELD_REF}, ${arithmeticInput('mass')} t of ${CROP_NAME}\\. EXW is ${arithmeticInput('exw')} RUB/t, CPT is ${arithmeticInput('cpt')} RUB/t\\. CPT-only seller costs per tonne: freight ${arithmeticInput('freight')}, loading ${arithmeticInput('loading')}, lab ${arithmeticInput('lab')}\\. Timing, quality and VAT match\\. Which offer pays more after costs and by how much for the lot\\?`,
   `${FIELD_REF}批次${CROP_NAME}共${arithmeticInput('mass')}吨。EXW报价每吨${arithmeticInput('exw')}卢布，CPT报价每吨${arithmeticInput('cpt')}卢布。只有CPT在卖方每吨产生运费${arithmeticInput('freight')}、装货${arithmeticInput('loading')}、检测${arithmeticInput('lab')}。账期、质量和增值税一致。哪个报价到手更多？整批差多少卢布？`,
+  `Партия ${CROP_NAME} ${arithmeticInput('mass')} т\\. Покупатель A предлагает ${arithmeticInput('exw')} ₽/т EXW\\. Покупатель B — ${arithmeticInput('cpt')} ₽/т CPT\\. Продавец при CPT платит перевозку ${arithmeticInput('freight')} ₽/т, погрузку ${arithmeticInput('loading')} ₽/т и анализ ${arithmeticInput('lab')} ₽/т\\. НДС и дата оплаты одинаковы\\. Какая оферта выгоднее в рублях на тонну и всю партию\\?`,
 ].map(form => new RegExp(`^${form}$`, 'iu'));
-
-function parseSuppliedNumber(value: string): bigint | null {
-  // A three-digit suffix could be a grouping separator. The exact path
-  // leaves ambiguous inputs to inference rather than choosing a magnitude.
-  if (/[.,][0-9]{3}$/u.test(value) && !/^0[.,]/u.test(value)) return null;
-  const [whole, fraction = ''] = value.replace(',', '.').split('.');
-  return BigInt(whole) * ARITHMETIC_SCALE + BigInt(fraction.padEnd(3, '0'));
-}
 
 function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedArithmetic | null {
   const normalized = question.trim().replace(/\s+/gu, ' ');
@@ -260,11 +242,13 @@ function admittedArithmeticForm(question: string): boolean {
 function suppliedArithmetic(envelope: PublicEnvelope, answerMode: PublicAnswerMode): SuppliedArithmetic | null {
   const question = envelope.question;
   if (envelope.questionTruncated || envelope.documents.length || envelope.history.length) return null;
+  if (EXPLICIT_PLATFORM_PATTERNS.some(pattern => pattern.test(question))) return null;
+  const checked = checkedAgroArithmetic(question, envelope.locale);
+  if (checked) return checked;
   // Incidental logistics vocabulary can select platform grounding. An explicitly
   // hypothetical calculation may still use only its supplied numbers, but an
   // actual platform question must retain its verified knowledge boundary.
-  if (EXPLICIT_PLATFORM_PATTERNS.some(pattern => pattern.test(question))
-    || (answerMode !== 'general_agro' && !/(?:учебн|условн|hypothetic|supplied\s+figures|假设|题目提供)/iu.test(question))) return null;
+  if (answerMode !== 'general_agro' && !/(?:учебн|условн|hypothetic|supplied\s+figures|假设|题目提供)/iu.test(question)) return null;
   const supplied = suppliedMassOrOffer(question, envelope.locale);
   if (supplied) return supplied;
   if (!admittedArithmeticForm(question)) return null;
@@ -515,16 +499,35 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  const trackedPriceAnswer = !envelope.questionTruncated && !envelope.history.length
-    ? answerTrackedPriceRevision(envelope.question, envelope.documents, locale)
+  const evidence = !envelope.questionTruncated
+    ? checkedDocumentEvidence(envelope.question, envelope.documents, envelope.history, locale)
     : null;
-  if (trackedPriceAnswer) {
-    return admitted(streamDirectAnswer(trackedPriceAnswer, {
+  const documentAnswer = evidence?.answer ?? (!envelope.questionTruncated && !envelope.history.length
+    ? answerTrackedPriceRevision(envelope.question, envelope.documents, locale)
+    : null);
+  if (documentAnswer) {
+    return admitted(streamDirectAnswer(documentAnswer, {
       source: 'document_evidence',
       answerMode: 'general_agro',
       currentDataRequired: false,
       modelIdentity: null,
       truncated: false,
+      evidence: { operation: evidence?.operation ?? 'tracked_price_revision' },
+      safetyFlags: [],
+    }));
+  }
+
+  const guidance = !envelope.questionTruncated && !envelope.documents.length
+    ? reviewedAgroGuidance(envelope.question, envelope.history, locale)
+    : null;
+  if (guidance) {
+    return admitted(streamDirectAnswer(guidance.answer, {
+      source: 'reviewed_guidance',
+      answerMode: 'general_agro',
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
+      guidance: { topic: guidance.topic },
       safetyFlags: [],
     }));
   }

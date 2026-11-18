@@ -185,6 +185,102 @@ describe('agro policy at the actual public streaming boundary', () => {
   }
 
   it.each([
+    ['ru', 'Расходы 100 000 ₽, площадь 20 га и урожай 50 т. Сколько рублей на тонну и на гектар?', 'cost_allocation', ['2000,00 ₽/т', '5000,00 ₽/га']],
+    ['en', 'Training lot W1, wheat: 10000 RUB/t now or 11000 RUB/t in 36.5 days. Simple annual discount rate 20%, 365-day year, all else equal. Compute today’s value of the delayed quote and the future break-even offer to two decimals.', 'payment_present_value', ['10784.31 RUB/t', '10200.00 RUB/t']],
+    ['ru', 'Было 120 т при влажности 20%. После сушки влажность 10%, сухое вещество неизменно. Сколько тонн останется?', 'drying_mass', ['106,67 т']],
+    ['zh', '有两批待售小麦。一批186吨，每吨14500卢布。另一批74吨，每吨15150卢布。付款与运输条件相同。计算总货值和以吨数加权的每吨平均价，平均价保留到两位小数。', 'weighted_price', ['3818100.00 卢布', '14685.00 卢布/吨']],
+    ['ru', 'При влажной массе 1 т влажность 12%, при влажной массе 3 т влажность 16%. Посчитай средневзвешенную влажность по массе.', 'weighted_moisture', ['15,00%']],
+    ['zh', 'W-42记录中豌豆初始质量为173吨，分选损耗为初始质量的2.8%。求损失吨数和剩余吨数，保留两位。', 'mass_loss', ['4.84 吨', '168.16 吨']],
+    ['en', 'Sale plan W1, wheat: 10000 RUB/t now. Waiting 20 days costs 3.5 RUB/t/day and an extra 150 RUB/t for unloading. Assume no financing or mass loss. What future price per tonne breaks even?', 'storage_break_even', ['10220 RUB/t']],
+    ['ru', 'Брутто 21123 кг, тара 8000 кг. Сколько тонн нетто?', 'net_weight', ['13,123 т']],
+    ['ru', 'По договору 400 т. Приняли 130 т и 80 т. Сколько осталось и какой процент выполнен?', 'shipment_fulfillment', ['190 т', '52,50%']],
+    ['en', 'Dryer W1, peas: 3600 kWh at 5.5 RUB/kWh, finished output 120 t. Total electricity cost and cost per tonne of output to two decimals?', 'electricity_cost', ['19800.00 RUB', '165.00 RUB/t']],
+    ['ru', 'Цена изменилась с 12000 до 11400 ₽/т на одинаковых условиях. Какова разница в рублях на тонну и процентах от первой цены?', 'price_change', ['−600 ₽/т', '−5,00%']],
+    ['ru', 'Календарь W1, овёс: закупаю 116 т по 11370 ₽/т с оплатой сегодня. Продажа по 11954 ₽/т, покупатель сегодня даёт 20% от всей суммы. Остаток позже. Других поступлений и платежей нет. Сколько рублей предоплата и сколько не хватает для оплаты закупки сегодня?', 'funding_gap', ['277332,80 ₽', '1041587,20 ₽']],
+    ['en', 'Fictional invoice W1, maize: 176 USD/t at the supplied rate 76.183 RUB per USD. Compute RUB/t and total RUB for 116 t to two decimals. Do not use an outside rate.', 'supplied_currency_rate', ['13408.21 RUB/t', '1555352.13 RUB']],
+    ['ru', 'Постоянные затраты 100000 ₽, вклад после переменных затрат 333 ₽/т. Сколько целых тонн нужно продать для безубыточности?', 'break_even_volume', ['301 т']],
+    ['zh', 'W-42在收割机后2平方米捡到豌豆11.81克，换算成公斤/公顷（两位小数）。若区分自然落粒和机器损失，还要测什么？', 'field_loss_sample', ['59.05 公斤/公顷', '割台损失']],
+    ['ru', 'Проба корма 21,5 кг, сухого вещества 32,2%. Сколько килограммов сухого вещества?', 'feed_dry_matter', ['6,92 кг сухого вещества']],
+    ['ru', 'Партия ячменя 260 т. Покупатель A предлагает 13 480 ₽/т EXW. Покупатель B — 14 240 ₽/т CPT. Продавец при CPT платит перевозку 580 ₽/т, погрузку 65 ₽/т и анализ 45 ₽/т. НДС и дата оплаты одинаковы. Какая оферта выгоднее в рублях на тонну и всю партию?', 'offer_netback', ['13550 ₽/т', 'CPT даёт больше', '18200 ₽']],
+  ] as const)('checks the supplied %s arithmetic for %s', async (locale, question, operation, expected) => {
+    const result = await arithmeticResult(question, locale);
+    expect(result.assessment).toMatchObject({ source: 'deterministic_calculator', calculator: { operation }, modelIdentity: null, currentDataRequired: false });
+    for (const fragment of expected) expect(result.text).toContain(fragment);
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('checks provided arithmetic and preserves uncertainty when a divisor is zero', async () => {
+    const result = await arithmeticResult('Расходы 100000 ₽, площадь 0 га и урожай 50 т. Сколько рублей на тонну и на гектар?');
+    expect(result.assessment?.source).toBe('deterministic_calculator');
+    expect(result.text).toContain('не определён');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  const correctedQuestion = 'Откорректируй итог по партии W-42: опирайся на приложенный исправленный талон. Сколько тонн и сколько рублей по прежней подтверждённой цене?';
+  const correctedFile = { name: 'W-42-corrected.txt', text: '2026-01-01. Исправленный талон заменяет прежний. Нетто 88,99 т.', truncated: false };
+  const confirmedPrice = { role: 'user', text: 'Партия W-42, овёс: исходный весовой талон 91,2 т. Цена подтверждена 12170 ₽/т.' };
+
+  it('computes from the corrected ticket and uses the user price ahead of assistant history', async () => {
+    const result = await arithmeticResult(correctedQuestion, 'ru', {
+      documents: [correctedFile], history: [confirmedPrice, { role: 'assistant', text: 'Помню 12500 ₽/т.' }],
+    });
+    expect(result.assessment).toMatchObject({ source: 'document_evidence', evidence: { operation: 'revised_ticket' } });
+    expect(result.text).toContain('88,99 т');
+    expect(result.text).toContain('1083008,30 ₽');
+    expect(result.text).not.toContain('12500');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { documents: [{ ...correctedFile, name: 'X-43-corrected.txt' }], history: [confirmedPrice] },
+    { documents: [{ ...correctedFile, truncated: true }], history: [confirmedPrice] },
+    { documents: [correctedFile], history: [{ ...confirmedPrice, role: 'assistant' }] },
+    { documents: [correctedFile], history: [confirmedPrice, { role: 'user', text: 'Цена ещё пересматривается.' }] },
+  ])('does not combine a corrected weight with unbound or retired price evidence', async input => {
+    boundary.knowledge.mockResolvedValue(NextResponse.json({ resolution: 'redirected', sources: [], facts: [], answer: '', topic: 'agriculture' }));
+    const result = await arithmeticResult(correctedQuestion, 'ru', input);
+    expect(result.assessment?.source).not.toBe('document_evidence');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it('cites attachment pages separately without treating the date as the payment trigger', async () => {
+    const documents = [{ name: 'W-42-contract.pdf', truncated: false,
+      text: '练习已签合同W-42，日期2026-05-05。第3页第2.1款：黑麦97.48吨，每吨12310卢布，FCA坦波夫。\n第8页第5.3款：验收单双方签字后7个银行工作日内付款。' }];
+    const result = await arithmeticResult('阅读合同W-42。列每吨价格、数量、交付基准和付款期限起算事件，并逐一给页码。', 'zh', { documents });
+    expect(result.assessment?.source).toBe('document_evidence');
+    expect(result.text).toMatch(/12310.+第 3页/u);
+    expect(result.text).toMatch(/双方签署验收单起算.+第 8页/u);
+    expect(result.text).not.toContain('2026-05-05');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('leaves the deadline unverified when only an unsigned draft is attached', async () => {
+    const documents = [{ name: 'draft_W42.txt', truncated: false,
+      text: 'Training: grain contract W-42, clause 7. Payment is due within six business days after the acceptance note is signed by both parties. Dispatch recorded 2026-10-14. Acceptance note included as an unsigned draft.' }];
+    const result = await arithmeticResult('For grain contract W-42, what actually triggers the payment clock, and do these records establish the deadline date?', 'en', { documents });
+    expect(result.assessment).toMatchObject({ source: 'document_evidence', evidence: { operation: 'payment_clock' } });
+    expect(result.text).toContain('both parties sign the acceptance note');
+    expect(result.text).toContain('exact due date is therefore unverified');
+  });
+
+  it('requires evidence of receipt separately from the amount of an agreed advance', async () => {
+    const documents = [{ name: 'W-42-spec.txt', truncated: false,
+      text: 'Спецификация пшеница: 91,2 т × 12170 ₽/т. Договорная предоплата 24% от общей стоимости. Сведений об оплате нет.' }];
+    const result = await arithmeticResult('По документам W-42 рассчитай указанную предоплату и скажи, подтверждено ли её получение.', 'ru', { documents });
+    expect(result.assessment?.source).toBe('document_evidence');
+    expect(result.text).toContain('266376,96 ₽');
+    expect(result.text).toContain('Поступление денег по этим материалам не подтверждено');
+  });
+
+  it('checks a silo alarm from outside and gives the reporting route', async () => {
+    const result = await arithmeticResult('В силосе W-42 с кукурузой один датчик за 2 дня поднялся с 20 до 24 °C. У соседних датчиков тренда нет. Какие первые проверки сделать снаружи и кому передать сигнал?');
+    expect(result.assessment).toMatchObject({ source: 'reviewed_guidance', guidance: { topic: 'silo_alarm' } });
+    expect(result.text).toContain('оставайся снаружи силоса');
+    expect(result.text).toContain('ответственному за хранение');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
     ['ru', 'Поле M01-401, культура ячмень. Средняя урожайность 21,3 ц/га, уборочная площадь 34 га. Вычисли массу в тоннах до сотых и покажи переход единиц.', 'metric_yield', ['1 ц = 100 кг = 0,1 т', '72,42 т']],
     ['ru', 'Урожайность 0,01 ц/га, площадь 0,01 га. Сколько тонн?', 'metric_yield', ['0,00001 т']],
     ['en', 'Fields M02-407 (maize) need 134 kg/ha of seed over 52.5 ha. How many tonnes before buffer? Round to three decimals.', 'seed_mass', ['1 t = 1000 kg', '7.035 t']],
