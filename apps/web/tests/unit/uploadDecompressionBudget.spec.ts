@@ -535,6 +535,21 @@ describe('public assistant real DOCX text fidelity', () => {
     expect(answer).toContain('Предлагаемое значение — 16\u202f550 ₽/т');
     expect(answer).toContain('согласованная цена не подтверждена');
   });
+  it('reads a price revision in a complete Word draft without confirming the sale price', async () => {
+    const { text, truncated } = await upload(
+      paragraph('Договор поставки. Товар: ячмень.') +
+      '<w:p><w:r><w:t xml:space="preserve">Пункт 3. Стоимость за тонну — </w:t></w:r>' +
+      '<w:del w:id="3"><w:r><w:delText>14 590 ₽/т</w:delText></w:r></w:del>' +
+      '<w:ins w:id="4"><w:r><w:t>14 890 ₽/т</w:t></w:r></w:ins></w:p>' +
+      paragraph('Оплата после поставки. Стороны обсуждают текст.'),
+    );
+    const documents = readDocumentContext([{ name: 'Договор-поставки.docx', text, truncated }]);
+    const answer = answerTrackedPriceRevision('Дай прежнюю цену из правок. Какую сумму уже согласовали?', documents, 'ru');
+    expect(answer).toContain('Договор-поставки.docx');
+    expect(answer).toContain('удаляемое значение — 14 590 ₽/т');
+    expect(answer).toContain('Предлагаемое значение — 14 890 ₽/т');
+    expect(answer).toContain('согласованная цена не подтверждена');
+  });
   it.each(['d', ''])('resolves tracked text through the namespace URI with prefix %s', async (prefix) => {
     const { text } = await upload(paragraph('Цена 18000') + '<w:del w:id="1"><w:r><w:delText>Цена 20000</w:delText></w:r></w:del>', prefix);
     expect(text).toContain('[Удалено (правка)]Цена 20000[Конец правки]');

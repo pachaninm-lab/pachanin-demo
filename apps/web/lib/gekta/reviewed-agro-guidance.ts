@@ -177,6 +177,19 @@ function unverifiedQuote(price: string, locale: GektaLocale): string {
   return `На скриншоте указан неподтверждённый ориентир ${price} ₽/т. Для рыночного сравнения запроси дату и время, регион и точку поставки, класс и качество, объём, базис, НДС и оплату. Затем подтверди условия у идентифицируемого источника или по датированным сопоставимым офертам.`;
 }
 
+function fieldCheckTopic(question: string): 'emergence_pattern' | 'irrigation_diagnosis' | null {
+  if (!/отлич|различ|отделя|отдели|виноват|проверить|по замер|distinguish|compare|区分/iu.test(question)
+    || /дозиров|рецепт|сколько\s+внести|изменить норму|how much to apply|混配|用量/iu.test(question)) return null;
+  const soil = /почв|грунт|soil|土壤/iu.test(question);
+  if (!soil) return null;
+  if (/всход|ряд[^.!?]{0,18}слаб|слаб[^.!?]{0,18}ряд|emergence|出苗|弱苗/iu.test(question)
+    && /ряд|\brows?\b|行/iu.test(question) && /сеялк|planter|播种机/iu.test(question)
+    && /сем[ея]|seed|种子/iu.test(question)) return 'emergence_pattern';
+  if (/желте|пожелт|yellow|黄化/iu.test(question) && /полив|орошен|irrigation|灌溉/iu.test(question)
+    && /подач|полив|water delivery|pressure|供水/iu.test(question)) return 'irrigation_diagnosis';
+  return null;
+}
+
 export function reviewedAgroGuidance(
   question: string,
   history: readonly { role: string; text: string }[],
@@ -193,5 +206,6 @@ export function reviewedAgroGuidance(
     }
     return { topic, answer: topic === 'unverified_quote' ? unverifiedQuote(match.price, locale) : guidance[topic][locale] };
   }
-  return null;
+  const topic = history.length ? null : fieldCheckTopic(normalized);
+  return topic ? { topic, answer: guidance[topic][locale] } : null;
 }

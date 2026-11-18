@@ -5,6 +5,7 @@ import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyRoutingContext } from '@/lib/platform-v7/assistant-relevance-router';
+import { gektaQualityAcceptanceCases } from '../fixtures/gekta-answer-quality-gate';
 
 const boundary = vi.hoisted(() => ({
   model: vi.fn(),
@@ -183,6 +184,65 @@ describe('agro policy at the actual public streaming boundary', () => {
     const assessment=events.find(event=>event.event==='assessment');
     return {response,text,assessment:assessment?JSON.parse(assessment.summary):null,events};
   }
+
+  it.each(gektaQualityAcceptanceCases)('Gekta quality acceptance $id', async entry => {
+    boundary.knowledge.mockResolvedValue(NextResponse.json({ resolution: 'redirected', sources: [], facts: [], answer: '', topic: 'agriculture' }));
+    const result = await arithmeticResult(entry.question, entry.locale, {
+      documents: entry.documents, history: entry.history,
+    });
+    expect(result.response.status).toBe(200);
+    expect(result.events.some(event => event.event === 'done' && event.complete === true)).toBe(true);
+    expect(result.assessment).toMatchObject({ source: entry.source, modelIdentity: null });
+    expect(boundary.model).not.toHaveBeenCalled();
+    for (const phrase of entry.required) expect(result.text).toContain(phrase);
+    for (const phrase of entry.forbidden ?? []) expect(result.text).not.toContain(phrase);
+  });
+
+  it.each([
+    ['Для 90 т сравни EXW 12100 ₽/т и CPT 12800 ₽/т. При EXW продавец оплачивает анализ 75 ₽/т. При CPT продавец платит за перевозку 800 ₽/т.',
+      ['EXW 12025 ₽/т', 'CPT 12000 ₽/т', 'выше у EXW', '2250 ₽'], []],
+    ['Сравни EXW 13000 ₽/т и CPT 14000 ₽/т для 50 т. За CPT перевозка продавца 950 ₽/т. Неясно, уже учтена ли она в цене.',
+      ['из какой цены уже вычтены расходы'], ['выше у EXW', 'выше у CPT']],
+    ['Сравни EXW 13000 ₽/т и CPT 14000 ₽/т для 50 т. При CPT перевозка продавца 950 ₽/т, но покупатель оплачивает перевозку.',
+      ['Уточни расходы продавца'], ['выше у EXW', 'выше у CPT']],
+    ['На 3 т EXW 14000 ₽/т, CPT 14001 ₽/т. При CPT расходы продавца 1 ₽ за всю партию. Сравни.',
+      ['CPT ≈ 14000,67 ₽/т', 'выше у CPT', 'Разница за партию 2 ₽'], []],
+  ] as const)('checks who pays and when fees have already been deducted: %s', async (question, required, forbidden) => {
+    const result = await arithmeticResult(question);
+    expect(result.assessment).toMatchObject({ source: 'deterministic_calculator', calculator: { operation: 'offer_netback' } });
+    expect(boundary.model).not.toHaveBeenCalled();
+    for (const phrase of required) expect(result.text).toContain(phrase);
+    for (const phrase of forbidden) expect(result.text).not.toContain(phrase);
+  });
+
+  it.each([
+    ['Q-11', 'Вес нетто 56,4 т.', 'По партии Q-11 прежде согласовали цену 14500 ₽/т, но она отменена.', 'Уточни подтверждённую цену'],
+    ['Q-110', 'Вес нетто 56,4 т.', 'По партии Q-11 согласовали цену 14500 ₽/т.', 'не подтверждает вес партии Q-11'],
+    ['Q-11', 'Старое нетто 54,6 т. Новое нетто 56,4 т.', 'По партии Q-11 согласовали цену 14500 ₽/т.', 'нет однозначного значения нетто'],
+    ['Q-11', 'Нетто 56,4 т/га.', 'По партии Q-11 согласовали цену 14500 ₽/т.', 'нет однозначного значения нетто'],
+  ] as const)('does not price a consignment with a revoked price or unreliable net weight: %s', async (lot, reading, price, expected) => {
+    const result = await arithmeticResult('Пересчитай сумму партии Q-11 по исправленному талону и прежней цене.', 'ru', {
+      documents: [{ name: 'scale.txt', text: `Исправленный весовой талон. Партия ${lot}.\n${reading}`, truncated: false }],
+      history: [{ role: 'user', text: price }],
+    });
+    expect(result.assessment).toMatchObject({ source: 'document_evidence', evidence: { operation: 'revised_ticket' } });
+    expect(result.text).toContain(expected);
+    expect(result.text).not.toContain('итог составляет');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('does not infer payment from a reversed bank entry tied to the lot', async () => {
+    const result = await arithmeticResult('Подтверждена оплата по акту и выписке?', 'ru', {
+      documents: [
+        { name: 'акт.txt', text: 'Акт приёмки. Партия K-420. Принято 44,15 т.', truncated: false },
+        { name: 'выписка.txt', text: 'Выписка банка. Партия K-420. Зачислено 620000 ₽. Зачисление сторнировано.', truncated: false },
+      ],
+    });
+    expect(result.assessment).toMatchObject({ source: 'document_evidence', evidence: { operation: 'intake_payment_status' } });
+    expect(result.text).toContain('принято 44,15 т');
+    expect(result.text).not.toContain('Зачисление 620000 ₽');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
 
   it.each([
     ['ru', 'Расходы 100 000 ₽, площадь 20 га и урожай 50 т. Сколько рублей на тонну и на гектар?', 'cost_allocation', ['2000,00 ₽/т', '5000,00 ₽/га']],

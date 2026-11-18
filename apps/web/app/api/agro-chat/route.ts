@@ -6,6 +6,8 @@ import { answerTrackedPriceRevision } from '@/lib/gekta/tracked-price-revision';
 import { ARITHMETIC_NUMBER, ARITHMETIC_PRECISION, ARITHMETIC_SCALE, arithmeticDecimal, parseSuppliedNumber } from '@/lib/gekta/supplied-decimal';
 import { checkedAgroArithmetic, type CheckedAgroOperation } from '@/lib/gekta/checked-agro-arithmetic';
 import { checkedDocumentEvidence } from '@/lib/gekta/checked-document-evidence';
+import { calculateFromAgroInputs } from '@/lib/gekta/intent-calculations';
+import { verifyAgroAttachments } from '@/lib/gekta/situational-document-evidence';
 import { reviewedAgroGuidance } from '@/lib/gekta/reviewed-agro-guidance';
 import {
   GatewayStreamWriter,
@@ -486,7 +488,12 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  const arithmetic = suppliedArithmetic(envelope, answerMode);
+  const arithmetic = suppliedArithmetic(envelope, answerMode) ?? (
+    !envelope.questionTruncated && !envelope.documents.length && !envelope.history.length
+    && !EXPLICIT_PLATFORM_PATTERNS.some(pattern => pattern.test(envelope.question))
+      ? calculateFromAgroInputs(envelope.question, locale)
+      : null
+  );
   if (arithmetic) {
     return admitted(streamDirectAnswer(arithmetic.answer, {
       source: 'deterministic_calculator',
@@ -501,6 +508,7 @@ export async function POST(request: NextRequest) {
 
   const evidence = !envelope.questionTruncated
     ? checkedDocumentEvidence(envelope.question, envelope.documents, envelope.history, locale)
+      ?? verifyAgroAttachments(envelope.question, envelope.documents, envelope.history, locale)
     : null;
   const documentAnswer = evidence?.answer ?? (!envelope.questionTruncated && !envelope.history.length
     ? answerTrackedPriceRevision(envelope.question, envelope.documents, locale)

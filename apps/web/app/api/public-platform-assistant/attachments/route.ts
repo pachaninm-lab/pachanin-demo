@@ -25,7 +25,7 @@ import {
   readArchiveEntry,
 } from '../../../../lib/uploads/decompression-budget';
 import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
-import { GEKTA_DOCUMENT_BUDGET_FIELD, GEKTA_DOCUMENT_TEXT_LIMIT, GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT } from '../../../../lib/gekta/document-context';
+import { GEKTA_DOCUMENT_BUDGET_FIELD, GEKTA_DOCUMENT_TEXT_LIMIT, GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT, GEKTA_WORD_REVISION_NOTICE } from '../../../../lib/gekta/document-context';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -199,9 +199,7 @@ function extractDocx(bytes: Buffer, budget: InflateBudget): { text: string; trun
     else stack.push(element);
   }
   if (offset !== xml.length || stack.length || roots !== 1) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
-  const notice = hasRevisions
-    ? 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\n'
-    : '';
+  const notice = hasRevisions ? `${GEKTA_WORD_REVISION_NOTICE}\n` : '';
   return cleanText(notice + chunks.join(''));
 }
 

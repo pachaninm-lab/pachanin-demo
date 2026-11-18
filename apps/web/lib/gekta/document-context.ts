@@ -3,6 +3,7 @@ export type GektaDocumentContext = Readonly<{ name: string; text: string; trunca
 export const GEKTA_DOCUMENT_TEXT_LIMIT = 12_000;
 export const GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT = 32_000;
 export const GEKTA_DOCUMENT_BUDGET_FIELD = 'gektaDocumentBudget';
+export const GEKTA_WORD_REVISION_NOTICE = 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.';
 
 export class DocumentContextError extends Error {
   constructor(readonly status: 400 | 413 = 400) { super('Invalid or oversized document context.'); }
