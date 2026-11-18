@@ -134,6 +134,32 @@ describe('actual fast starter and contextual model route', () => {
     expect(captured.at(-1)?.documents).toEqual([draft, second]);
   });
 
+  it.each([
+    [revision.replace('D04-Q354', 'D04-Q355'), draft, 'D04-Q355'],
+    [revision, { ...draft, name: 'D04-Q3540-redline.docx' }, 'D04-Q354'],
+    ['Проверь правки по договору D04-Q354. Какая цена была предложена?', {
+      ...draft,
+      text: 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nДоговор № D04-Q355\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].',
+    }, 'D04-Q354'],
+  ] as const)('withholds prices when the requested contract cannot be matched: %s', async (question, attachment, ref) => {
+    const result = await askModel(question, [], 'ru', [attachment]);
+    expect(result).toContain('document_evidence');
+    expect(result).toContain(`Для сверки цены по договору ${ref} прикрепи его версию с правками`);
+    expect(result).not.toContain('13430 ₽/т');
+    expect(result).not.toContain('13676 ₽/т');
+    expect(captured).toHaveLength(0);
+  });
+
+  it('uses a Word contract identifier in the document itself', async () => {
+    const attachment = { ...draft, name: 'Цена.docx',
+      text: 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nДоговор поставки № D04-Q354\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].',
+    };
+    const result = await askModel(revision, [], 'ru', [attachment]);
+    expect(result).toContain('13676 ₽/т');
+    expect(result).toContain('согласованная цена не подтверждена');
+    expect(captured).toHaveLength(0);
+  });
+
   publicAssistantCatalog('ru').starterPrompts.forEach((question, index) => {
     it(`answers starter ${index + 1} directly and sends its follow-up to inference`, async () => {
       const direct = await askModel(question);

@@ -216,15 +216,19 @@ function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedAr
 
 const GEKTA_WORD_REVISION_NOTICE = 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.';
 const CONTRACT_REF = '[\\p{L}\\d][\\p{L}\\d-]{0,40}';
+const NUMBERED_CONTRACT = '(?=[a-zа-яё0-9-]*[0-9])[a-zа-яё0-9][a-zа-яё0-9-]{0,40}(?![a-zа-яё0-9-])';
+const CONTRACT_LABEL = '(?:договор[ауе]?(?:[ \\t]+поставки)?|contract(?:[ \\t]+draft)?|合同(?:草案)?)[ \\t]*(?:№|#|No\\.)?[ \\t]*';
+const MENTIONED_CONTRACT = new RegExp(`${CONTRACT_LABEL}(?<ref>${NUMBERED_CONTRACT})`, 'iu');
+const DECLARED_CONTRACT = new RegExp(`(?:^|\\n)[ \\t]*${CONTRACT_LABEL}(?<ref>${NUMBERED_CONTRACT})`, 'giu');
 const AMOUNT = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3}){1,2}|\\d{1,9})(?:[.,]\\d{1,2})?';
 const RATE = `(?:${AMOUNT}\\s*(?:₽|RUB)\\s*/\\s*(?:т|t)|每吨${AMOUNT}卢布)`;
 
 const PRICE_QUESTIONS = [
-  `В полученной версии договора ${CONTRACT_REF} укажи прежнюю цифру и предлагаемую\\. Какая цена согласована по представленному пакету\\?`,
+  `В полученной версии договора (?<ref>${CONTRACT_REF}) укажи прежнюю цифру и предлагаемую\\. Какая цена согласована по представленному пакету\\?`,
   'Укажи прежнюю и предлагаемую цену в правках\\. Подтверждено ли согласование\\?',
-  `For contract draft ${CONTRACT_REF}, report the old and proposed price\\. Does the supplied packet establish an agreed amount\\?`,
+  `For contract draft (?<ref>${CONTRACT_REF}), report the old and proposed price\\. Does the supplied packet establish an agreed amount\\?`,
   'Report the old and proposed price in the tracked changes\\. Is the price agreed\\?',
-  `在合同草案${CONTRACT_REF}中指出旧价格和新建议价格。材料能证明已约定哪个价格吗？`,
+  `在合同草案(?<ref>${CONTRACT_REF})中指出旧价格和新建议价格。材料能证明已约定哪个价格吗？`,
 ].map(form => new RegExp(`^${form}$`, 'iu'));
 
 const PENDING_PRICE_PAIRS = [
@@ -245,6 +249,15 @@ function revisionQuestion(question: string): boolean {
     && /согласова|предлож|прежн|старо|agreed|agreement|proposed|建议|约定/iu.test(question);
 }
 
+function matchesRequestedContract(reference: string, fileName: string, documentText: string): boolean {
+  const wanted = reference.toUpperCase();
+  const declared = [...documentText.matchAll(DECLARED_CONTRACT)].map(match => match.groups!.ref.toUpperCase());
+  if (declared.length > 0) return declared.every(ref => ref === wanted);
+  const stem = fileName.replace(/\.docx$/iu, '');
+  return stem.toUpperCase() === wanted
+    || stem.replace(/[-_ ](?:redline|tracked|draft|правки|черновик)$/iu, '').toUpperCase() === wanted;
+}
+
 /** Cite a price revision without treating the Word markup as evidence of agreement. */
 function answerTrackedPriceRevision(
   question: string,
@@ -255,19 +268,25 @@ function answerTrackedPriceRevision(
   const document = documents[0];
   if (!/\.docx$/iu.test(document.name)) return null;
   const text = document.text.trim();
-  const exactQuestion = PRICE_QUESTIONS.some(pattern => pattern.test(question.trim()));
+  const exactQuestion = PRICE_QUESTIONS.map(pattern => pattern.exec(question.trim())).find(Boolean);
   const exactPair = exactQuestion && !document.truncated
     ? PENDING_PRICE_PAIRS.map(pattern => pattern.exec(text)?.groups).find(Boolean) : undefined;
   const wordPairs = !exactPair && (exactQuestion || revisionQuestion(question)) && text.startsWith(GEKTA_WORD_REVISION_NOTICE)
     ? [...text.matchAll(WORD_PRICE_PAIR)].map(match => match.groups!) : [];
   if (!exactPair && !wordPairs.length) return null;
+  const reference = exactQuestion?.groups?.ref ?? MENTIONED_CONTRACT.exec(question)?.groups?.ref;
+  const name = document.name.replace(/[\p{C}\s]+/gu, ' ').trim();
+  if (reference && !matchesRequestedContract(reference, name, text)) {
+    if (locale === 'en') return `Please attach the version of contract ${reference} with tracked changes. “${name}” cannot be matched to that contract.`;
+    if (locale === 'zh') return `请附上合同 ${reference} 的修订版本。现有文件《${name}》无法与该合同匹配。`;
+    return `Для сверки цены по договору ${reference} прикрепи его версию с правками. Файл «${name}» не подтверждает этот номер.`;
+  }
   if (wordPairs.length > 1) {
     if (locale === 'en') return 'The file contains several tracked price changes. Specify the clause or lot to review.';
     if (locale === 'zh') return '文件中有多处价格修订，请确认要核对的条款或批次。';
     return 'В файле несколько правок цены. Чтобы выбрать нужную, уточни пункт договора или партию.';
   }
   const { prior, proposed } = exactPair ?? wordPairs[0];
-  const name = document.name.replace(/[\p{C}\s]+/gu, ' ').trim();
   if (locale === 'en') {
     return `In “${name}”, the deleted value is ${prior}. The proposed value is ${proposed}. ${document.truncated ? 'The extract is incomplete. ' : ''}The tracked changes do not establish an agreed price.`;
   }
