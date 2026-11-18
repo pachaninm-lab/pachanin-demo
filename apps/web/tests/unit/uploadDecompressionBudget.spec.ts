@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateRawSync, deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { GEKTA_DOCUMENT_BUDGET_FIELD, readDocumentContext } from '../../lib/gekta/document-context';
+import { answerTrackedPriceRevision } from '../../lib/gekta/tracked-price-revision';
 import {
   DecompressionBudgetError,
   MAX_ARCHIVE_ENTRIES,
@@ -456,6 +458,37 @@ describe('public assistant CSV encoding fidelity', () => {
   });
 });
 
+describe('Gekta upload and chat use the same text budget', () => {
+  async function uploadDocuments(texts: string[], budget: string) {
+    const form = new FormData();
+    form.set(GEKTA_DOCUMENT_BUDGET_FIELD, budget);
+    texts.forEach((text, index) => form.append('files', new File([text], `document-${index}.txt`, { type: 'text/plain' })));
+    return POST(new NextRequest('http://localhost/api/public-platform-assistant/attachments', { method: 'POST', body: form }));
+  }
+
+  it('returns usable extracts for several large files while explicitly marking omitted text', async () => {
+    const response = await uploadDocuments(['а'.repeat(18_010), 'b'.repeat(12_000), 'c'.repeat(9_000), 'd'.repeat(128)], '32000');
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const accepted = readDocumentContext(body.documents);
+    expect(accepted.map(document => [document.text.length, document.truncated])).toEqual([[12_000, true], [12_000, false], [8_000, true]]);
+    expect(body.rejected).toEqual([{ name: 'document-3.txt', code: 'DOCUMENT_CONTEXT_BUDGET_EXHAUSTED' }]);
+  });
+
+  it('uses the remaining budget after prior uploads without splitting an astral character', async () => {
+    const response = await uploadDocuments(['abc🌾more'], '4');
+    expect(response.status).toBe(200);
+    const { documents } = await response.json();
+    expect(readDocumentContext(documents)).toEqual([{ name: 'document-0.txt', text: 'abc', truncated: true }]);
+  });
+
+  it.each(['0', '32001', '1e3'])('rejects the invalid remaining budget %s', async budget => {
+    const response = await uploadDocuments(['plain text'], budget);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'INVALID_DOCUMENT_CONTEXT_BUDGET' });
+  });
+});
+
 describe('public assistant real DOCX text fidelity', () => {
   it('preserves literal comparison signs without treating text as markup', async () => {
     const { text } = await upload(paragraph('Сумма &lt; 5000 и &gt; 1000. A &lt; B и C &gt; D.'));
@@ -488,6 +521,19 @@ describe('public assistant real DOCX text fidelity', () => {
   it('does not turn a self-closing revision property into a text wrapper', async () => {
     const { text } = await upload('<w:p><w:pPr><w:rPr><w:del w:id="2"/></w:rPr></w:pPr><w:r><w:t>Цена 18000</w:t></w:r></w:p>');
     expect(text).toBe('Цена 18000');
+  });
+
+  it('preserves the two original prices when answering from an extracted Word revision', async () => {
+    const { text, truncated } = await upload(
+      '<w:p><w:r><w:t xml:space="preserve">Цена: </w:t></w:r>' +
+      '<w:del w:id="1"><w:r><w:delText>16\u202f450 ₽/т</w:delText></w:r></w:del>' +
+      '<w:ins w:id="2"><w:r><w:t>16\u202f550 ₽/т</w:t></w:r></w:ins></w:p>',
+    );
+    const documents = readDocumentContext([{ name: 'Правки.docx', text, truncated }]);
+    const answer = answerTrackedPriceRevision('Укажи прежнюю и предлагаемую цену в правках. Подтверждено ли согласование?', documents, 'ru');
+    expect(answer).toContain('удаляемое значение — 16\u202f450 ₽/т');
+    expect(answer).toContain('Предлагаемое значение — 16\u202f550 ₽/т');
+    expect(answer).toContain('согласованная цена не подтверждена');
   });
   it.each(['d', ''])('resolves tracked text through the namespace URI with prefix %s', async (prefix) => {
     const { text } = await upload(paragraph('Цена 18000') + '<w:del w:id="1"><w:r><w:delText>Цена 20000</w:delText></w:r></w:del>', prefix);

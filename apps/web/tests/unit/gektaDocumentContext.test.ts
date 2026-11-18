@@ -175,6 +175,8 @@ async function firstDocumentAnswer(server:ReturnType<typeof install>){
  const input=document.querySelector<HTMLInputElement>('input[type=file]')!;
  fireEvent.change(input,{target:{files:[new File(['fixture'],'grain.txt',{type:'text/plain'})]}});
  await screen.findByText('grain.txt');
+ const upload=server.spy.mock.calls.find(([url])=>url==='/api/public-platform-assistant/attachments');
+ expect((upload?.[1]?.body as FormData).get('gektaDocumentBudget')).toBe('32000');
  fireEvent.input(screen.getByRole('textbox'),{target:{value:'Разбери условия зернового договора.'}});
  fireEvent.click(screen.getByRole('button',{name:'Отправить'}));
  await screen.findByRole('button',{name:'Повторить'});

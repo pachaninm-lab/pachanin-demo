@@ -1,5 +1,8 @@
 /** Extracted text stays separate from the short question and is never silently sliced. */
 export type GektaDocumentContext = Readonly<{ name: string; text: string; truncated: boolean }>;
+export const GEKTA_DOCUMENT_TEXT_LIMIT = 12_000;
+export const GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT = 32_000;
+export const GEKTA_DOCUMENT_BUDGET_FIELD = 'gektaDocumentBudget';
 
 export class DocumentContextError extends Error {
   constructor(readonly status: 400 | 413 = 400) { super('Invalid or oversized document context.'); }
@@ -16,7 +19,7 @@ export function readDocumentContext(value: unknown): readonly GektaDocumentConte
     if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 255
       || typeof row.text !== 'string' || !row.text.trim() || typeof row.truncated !== 'boolean') throw new DocumentContextError();
     total += row.text.length;
-    if (row.text.length > 12_000 || total > 32_000) throw new DocumentContextError(413);
+    if (row.text.length > GEKTA_DOCUMENT_TEXT_LIMIT || total > GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT) throw new DocumentContextError(413);
     // Only non-printing controls are removed; comparisons, indentation and line breaks survive.
     return Object.freeze({ name: row.name, text: row.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' '), truncated: row.truncated });
   }));

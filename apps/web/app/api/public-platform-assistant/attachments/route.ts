@@ -25,6 +25,7 @@ import {
   readArchiveEntry,
 } from '../../../../lib/uploads/decompression-budget';
 import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
+import { GEKTA_DOCUMENT_BUDGET_FIELD, GEKTA_DOCUMENT_TEXT_LIMIT, GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT } from '../../../../lib/gekta/document-context';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -466,13 +467,32 @@ export async function POST(request: NextRequest) {
     return json({ error: 'UPLOAD_TOO_LARGE', maxFileBytes: MAX_FILE_BYTES, maxTotalBytes: MAX_TOTAL_BYTES }, 413);
   }
 
+  const contextBudget = form.get(GEKTA_DOCUMENT_BUDGET_FIELD);
+  let remaining = GEKTA_TOTAL_DOCUMENT_TEXT_LIMIT;
+  if (contextBudget !== null) {
+    if (typeof contextBudget !== 'string' || !/^[1-9]\d{0,4}$/u.test(contextBudget) || Number(contextBudget) > remaining) {
+      return json({ error: 'INVALID_DOCUMENT_CONTEXT_BUDGET' }, 400);
+    }
+    remaining = Number(contextBudget);
+  }
+
   const documents: ExtractedDocument[] = [];
   const rejected: Array<{ name: string; code: string }> = [];
   const budget = createPixelBudget();
   const inflateBudget = createInflateBudget();
   for (const file of files) {
     try {
-      documents.push(await extract(file, budget, inflateBudget));
+      if (contextBudget !== null && remaining === 0) throw new Error('DOCUMENT_CONTEXT_BUDGET_EXHAUSTED');
+      const document = await extract(file, budget, inflateBudget);
+      if (contextBudget === null) {
+        documents.push(document);
+        continue;
+      }
+      const limit = Math.min(remaining, GEKTA_DOCUMENT_TEXT_LIMIT);
+      const text = document.text.length <= limit ? document.text : document.text.slice(0, limit).replace(/[\uD800-\uDBFF]$/u, '');
+      if (!text.trim()) throw new Error('DOCUMENT_CONTEXT_BUDGET_EXHAUSTED');
+      documents.push({ ...document, text, truncated: document.truncated || text.length < document.text.length });
+      remaining -= text.length;
     } catch (error) {
       const code = error instanceof Error ? error.message : 'DOCUMENT_EXTRACTION_FAILED';
       rejected.push({ name: file.name.slice(0, 180), code });
