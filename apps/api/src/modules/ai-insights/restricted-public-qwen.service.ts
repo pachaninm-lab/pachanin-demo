@@ -681,7 +681,6 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   const locale: PublicLocale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
   const answerMode: PublicAnswerMode = row.answerMode === 'general_agro' ? 'general_agro' : 'verified_platform';
   const responseBudgetProfile = normalizeResponseBudgetProfile(row.responseBudget, answerMode);
-  const currentDataRequired = row.currentDataRequired === true;
   const history = normalizeHistory(row.history);
   // The bounded exercise supplies its own operands. Its checked copy never
   // authorizes publishing unchecked provider numbers or economic advice.
@@ -695,9 +694,11 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   const suppliedHypotheticalCalculation = calculationQuestion
     ? suppliedHypotheticalCalculationFor(calculationQuestion, locale)
     : null;
-  const suppliedTradeCalculation = calculationQuestion
-    ? suppliedTradeCalculationFor(calculationQuestion, locale)
-    : null;
+  const trade = calculationQuestion ? matchSuppliedTrade(calculationQuestion) : null;
+  const suppliedTradeCalculation = trade ? formatSuppliedTrade(trade.operands, locale) : null;
+  // The gateway also marks the word “курс” as current evidence. Only the
+  // complete fixed-rate lot forms below establish that every term was supplied.
+  const currentDataRequired = row.currentDataRequired === true && !trade?.fixedRateLot;
   const conversationState = cleanMultilineText(row.conversationState, MAX_CONVERSATION_STATE_CHARS);
   if (SECRET_PATTERN.test(conversationState)) {
     throw new BadRequestException('Secret-like conversation state is forbidden in the public model contour.');
@@ -744,6 +745,11 @@ const TRADE_REFERENCE = '[A-Z0-9][A-Z0-9/-]{0,23}';
 const TRADE_CROP = '[\\p{L}]+(?:[ -][\\p{L}]+){0,3}';
 const TRADE_RUB = '(?:₽|руб(?:лей|ля|ль|\\.)?)';
 const TRADE_TONNES = '(?:т|тонн(?:ы|у|а)?)';
+const FX_LOT_CROPS = {
+  ru: '(?:ржи|пшеницы|ячменя|кукурузы|овса|гороха|гречихи|проса|сорго|сои|рапса|подсолнечника)',
+  en: '(?:rye|wheat|barley|corn|maize|oats|peas|buckwheat|millet|sorghum|soybeans?|rapeseed|sunflower seeds)',
+  zh: '(?:黑麦|小麦|大麦|玉米|燕麦|豌豆|荞麦|小米|高粱|大豆|油菜籽|葵花籽)',
+} as const;
 
 function tradeOperand(name: string, decimal: ',' | '.', places = 3): string {
   const separator = decimal === '.' ? '\\.' : ',';
@@ -767,6 +773,26 @@ const TRADE_FORMS = (['ru', 'en', 'zh'] as const).flatMap(language => {
   const crop = TRADE_CROP;
   const rub = TRADE_RUB;
   const ton = TRADE_TONNES;
+  // Keep the whole request bounded to the supplied price, rate and weight.
+  // An extra term after a crop name may change the calculation.
+  const ruMass = `${mass} *${ton}`;
+  const ruLot = `${ruMass}(?: ${FX_LOT_CROPS.ru})?`;
+  const ruUsdPerTonne = `${price} *(?:USD *(?:/ *т|(?:за|на) тонну)|доллар(?:а|ов)? (?:США )?за тонну)`;
+  const ruRubPerUsd = `${rate} *${rub} *(?:за (?:1 )?доллар(?: США)?|/ *USD)`;
+  const ruRate = `(?:(?:возьми|используй|прими) )?(?:заданный |договорный )?курс ${ruRubPerUsd}`;
+  const ruFxQuestion = [
+    'во сколько (?:это|партия) обойд[её]тся(?: в рублях)? за тонну и за (?:всю )?партию',
+    '(?:сколько|какая цена) (?:в рублях )?за тонну и за (?:всю )?партию',
+    '(?:дай|рассчитай|посчитай) цену (?:в рублях )?за тонну и (?:общую стоимость|стоимость (?:всей )?партии)(?: в рублях)?',
+  ].join('|');
+  const ruFxEnd = `(?:[.,;] | и )(?:${ruFxQuestion})(?: до копеек)?[.!?]?`;
+  const enLot = `${mass} *(?:t|tonnes?|metric tons?)(?: of ${FX_LOT_CROPS.en})?`;
+  const enUsdPerTonne = `${price} *(?:USD */ *(?:t|tonne)|(?:USD|US dollars?) per (?:tonne|metric ton))`;
+  const enRubPerUsd = `${rate} *(?:RUB */ *USD|(?:RUB|rubles) per (?:USD|US dollar))`;
+  const enFxQuestion = [
+    'how much (?:is that|will it cost) in (?:RUB|rubles) per tonne and (?:in total|for the (?:whole )?lot)',
+    '(?:calculate|give) (?:the )?(?:price|cost) per tonne and (?:the )?total (?:cost|value) in (?:RUB|rubles)',
+  ].join('|');
   const patterns = {
     ru: [
       `(?:Уч[её]т затрат(?: ${ref}, ${crop})?\\. Всего|Себестоимость: (?:общие )?затраты) ${cost} ${rub}, (?:уборочная )?площадь ${area} га, (?:валовой )?сбор ${mass} ${ton}\\. (?:Найди|Рассчитай|Посчитай) (?:затраты|себестоимость) на тонну и гектар(?: с округлением до копеек)?[.!?]?`,
@@ -784,15 +810,37 @@ const TRADE_FORMS = (['ru', 'en', 'zh'] as const).flatMap(language => {
       `(?:练习发票${ref}：${crop}报价|给定单价：)${price}美元/吨，题设汇率每美元${rate}卢布。求卢布每吨和${mass}吨总值(?:，保留两位)?。?`,
     ],
   };
-  return patterns[language].map(pattern => new RegExp('^' + pattern.normalize('NFKC') + '$', 'iu'));
+  const fixedRateLots = {
+    ru: [
+      `(?:Есть|Купили|Закупили|Партия(?: из)?) ${ruLot} по(?: цене)? ${ruUsdPerTonne}[.,;] ${ruRate}${ruFxEnd}`,
+      `Цена(?: ${FX_LOT_CROPS.ru})?:? ${ruUsdPerTonne}[.,;] (?:партия(?: из)?|масса партии) ${ruMass}[.,;] ${ruRate}${ruFxEnd}`,
+    ],
+    en: [
+      `(?:(?:I|we) (?:have|bought)|lot:) ${enLot} (?:at|for) ${enUsdPerTonne}[.,;] (?:use (?:the )?(?:exchange )?rate(?: of)?|(?:the )?(?:exchange )?rate is) ${enRubPerUsd}[.,;] (?:${enFxQuestion})(?: to two decimals)?[.!?]?`,
+    ],
+    zh: [
+      `(?:(?:我|我们)(?:有|买了)|这批)${mass}吨(?:${FX_LOT_CROPS.zh})?，每吨${price}美元，(?:按|用)(?:每(?:1)?美元|1美元)(?:兑|等于)${rate}卢布(?:计算|换算)?[。；](?:请问)?每吨和(?:整批|全批|总共)(?:分别)?(?:是)?多少卢布(?:，保留两位)?[？。]?`,
+    ],
+  };
+  const compile = (form: string, fixedRateLot: boolean) => ({
+    pattern: new RegExp('^' + form.normalize('NFKC') + '$', 'iu'), fixedRateLot,
+  });
+  return [
+    ...patterns[language].map(form => compile(form, false)),
+    ...fixedRateLots[language].map(form => compile(form, true)),
+  ];
 });
 
-/** Use only complete questions with explicit sources for every operand. */
-function suppliedTradeCalculationFor(text: string, locale: PublicLocale): string | null {
-  const match = TRADE_FORMS.map(form => form.exec(text)).find(Boolean);
-  const values = match?.groups;
-  if (!values) return null;
+/** Match the entire request before using any of its operands. */
+function matchSuppliedTrade(text: string) {
+  for (const { pattern, fixedRateLot } of TRADE_FORMS) {
+    const operands = pattern.exec(text)?.groups;
+    if (operands) return { operands, fixedRateLot };
+  }
+  return null;
+}
 
+function formatSuppliedTrade(values: Record<string, string>, locale: PublicLocale): string {
   const read = (name: string) => {
     const [whole, fraction = ''] = values[name].replaceAll(' ', '').replace(',', '.').split('.');
     return BigInt(whole) * TRADE_QUANTITY_SCALE + BigInt(fraction.padEnd(3, '0'));
