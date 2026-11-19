@@ -69,6 +69,7 @@
     "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
     "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
     "apps/web/tests/e2e/gekta-workspace-appearance-acceptance.spec.ts",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
     "apps/web/tests/unit/gektaDocumentContext.test.ts",
     "apps/web/tests/unit/gektaEntitlement.test.ts",
@@ -92,25 +93,25 @@
   ],
   "sourceEvidence": {
     "artifact": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "7e70b9b066fb3bddad6fb4e77f08bf4ea2d17491474e2fd2c0032f4d34a783b0",
+    "patchSha256": "2ee0f07335742e347537d163ec8377eb9221c3317eb35040b5e2e3e81ed7db7a",
     "patchBaseCommit": "31fac640a0171aebd926ba12742fd38c20430f4f",
-    "patchResultTree": "ae1f0b4b8933abcd005cfb2e3cfb314771a45498",
-    "baselineResultTree": "ae1f0b4b8933abcd005cfb2e3cfb314771a45498",
-    "sourceDiffSha256": "89de8ea7de4b296076a90c1bd7fe0d0c51c73e02fa2081d8f7a59cb6984bdf94",
+    "patchResultTree": "9c8de74fb770b7114a99c14c5f8a56057ff99b1c",
+    "baselineResultTree": "9c8de74fb770b7114a99c14c5f8a56057ff99b1c",
+    "sourceDiffSha256": "a14317aac480d003f8dfad87d4d670f5e531ba2e5f97741d2d3bc81df092d5b4",
     "diffCommand": "git diff --binary --full-index --no-renames <source-base> <source-head>",
-    "changedPathCount": 76
+    "changedPathCount": 77
   },
   "acceptance": [
-    "Verify the 76 product files against sourceEvidence, the five release companions against their separate digest, and the combined 81-file diff against releaseCompanions.",
+    "Verify the 77 product and acceptance files against sourceEvidence, five release companions against their separate digest, and the combined 82-file diff against releaseCompanions.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
-    "Verify new-chat input before hydration, draft migration, uninterrupted typing at marker expiry, recovery and rejection, account switches with visible history and outstanding requests, delayed consent, attachments, project deletion and keyboard focus.",
+    "Verify draft migration, typing before hydration and during session expiry, delayed marker visibility after refresh, refusal and account changes with visible history or outstanding requests. Check attachments, consent, project deletion, keyboard focus, and standalone navigation in Russian, English and Chinese.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
   ],
   "releaseCompanions": {
-    "productHead": "ece0040e6b088cca7f412e07304663c7640f77f1",
+    "productHead": "1f28e0eb5329cea2d630e52203f7d3556ed7f432",
     "base": "31fac640a0171aebd926ba12742fd38c20430f4f",
-    "sourcePaths": 76,
-    "sourceDiffSha256": "89de8ea7de4b296076a90c1bd7fe0d0c51c73e02fa2081d8f7a59cb6984bdf94",
+    "sourcePaths": 77,
+    "sourceDiffSha256": "a14317aac480d003f8dfad87d4d670f5e531ba2e5f97741d2d3bc81df092d5b4",
     "extraPaths": [
       ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
       ".github/workflows/production-like-kubernetes-acceptance.yml",
@@ -118,9 +119,9 @@
       "docs/security/cryptographic-inventory.json",
       "scripts/release/production-like-kubernetes-source-preflight-test.sh"
     ],
-    "extraDiffSha256": "22155fa952f8afc637ef1aec35587e255c59e0da7653fa96ea967b0e38dbed16",
-    "combinedPathCount": 81,
-    "combinedDiffSha256": "7116c195bf9cf29ede02a47d92dace851796909bfe8350fb36c3de8b00a84910",
+    "extraDiffSha256": "8fdb0ee8364d3dd3b70d21b33e326fb1a49fe3dfdda81f718803ad7a7fa78c59",
+    "combinedPathCount": 82,
+    "combinedDiffSha256": "32f84021407c9da0f486ccd716631e7371046fcf67b6ca0ff0d46bb2537fa9b7",
     "reason": "Update the generated source inventory, run the design-system browsers on the same supported Ubuntu 24.04 as Gekta, and allow the existing guard regression suite up to 420 seconds only on the exact same-repository product branch. The scope check keeps 180 seconds. Both checks must pass."
   }
 }
