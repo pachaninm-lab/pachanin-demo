@@ -105,9 +105,23 @@ export function useGektaWorkspaceOwner(locale: GektaLocale): string | null {
       event.stopImmediatePropagation();
       if (previous?.startsWith('account:')) recover();
     };
-    const onVisible = () => { if (document.visibilityState === 'visible') resume(); };
+    // A second window can switch accounts while this one stays visible and receives no focus or input.
+    const checkVisibleOwner = () => {
+      if (document.visibilityState === 'visible' && currentGektaOwner() !== observed) resume();
+    };
+    const cookieEvents = (window as Window & { cookieStore?: EventTarget }).cookieStore;
+    let ownerTimer: number | undefined;
+    const onVisible = () => {
+      window.clearInterval(ownerTimer);
+      ownerTimer = undefined;
+      if (document.visibilityState !== 'visible') return;
+      resume();
+      // A replacement cookie may be readable without a cookie-change event.
+      ownerTimer = window.setInterval(checkVisibleOwner, 250);
+    };
     const events = ['pointerdown', 'keydown', 'beforeinput', 'input', 'change', 'click', 'submit', 'drop'];
-    resume();
+    onVisible();
+    cookieEvents?.addEventListener('change', checkVisibleOwner);
     window.addEventListener('pageshow', resume);
     window.addEventListener('focus', resume);
     window.addEventListener(GEKTA_SESSION_CHANGED, resume);
@@ -115,6 +129,8 @@ export function useGektaWorkspaceOwner(locale: GektaLocale): string | null {
     for (const name of events) document.addEventListener(name, beforeInteraction, true);
     return () => {
       mounted = false;
+      window.clearInterval(ownerTimer);
+      cookieEvents?.removeEventListener('change', checkVisibleOwner);
       window.removeEventListener('pageshow', resume);
       window.removeEventListener('focus', resume);
       window.removeEventListener(GEKTA_SESSION_CHANGED, resume);

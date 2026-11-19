@@ -2,8 +2,30 @@ import { GektaHomeLinks } from './GektaHomeLinks';
 import { GektaExperienceFrame } from './GektaExperienceFrame';
 import { GektaHero } from './GektaHero';
 import { GektaViewportAuthority } from './GektaViewportAuthority';
+import { SESSION_COOKIE } from '@/lib/auth-cookies';
 import type { GektaLocale } from '@/lib/gekta/content';
 import { getGektaApplicationSchema, safeJsonLd } from '@/lib/gekta/seo';
+
+// Capture an actual edit made to the server-rendered field before React takes over.
+// Browsers may restore a textarea on Back without the user editing it.
+const earlyComposerInput = `(() => {
+  const controller = new AbortController();
+  const options = { capture: true, signal: controller.signal };
+  function capture(event) {
+    const field = event.target;
+    if (!event.isTrusted || !(field instanceof HTMLTextAreaElement) || field.id !== 'gekta-composer-input') return;
+    const marker = document.cookie.split('; ').find(part => part.startsWith('${SESSION_COOKIE}=')) || '';
+    if (event.type === 'beforeinput') {
+      if (field.gektaEarlyEdit?.marker !== marker && field.value !== field.defaultValue) field.value = field.defaultValue;
+      field.gektaEditingMarker = marker;
+    } else if (field.gektaEditingMarker === marker) {
+      field.gektaEarlyEdit = { marker, text: field.value };
+    }
+  }
+  document.addEventListener('beforeinput', capture, options);
+  document.addEventListener('input', capture, options);
+  document.addEventListener('gekta-composer-ready', () => controller.abort(), { once: true });
+})();`;
 
 const mobileTouchContract = `
 [data-gekta-chat-workspace='true'] {
@@ -142,6 +164,7 @@ export function GektaProductShell({ locale }: { locale: GektaLocale }) {
     <div className='min-h-screen overflow-x-clip'>
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(getGektaApplicationSchema(locale)) }} />
       <style dangerouslySetInnerHTML={{ __html: mobileTouchContract }} />
+      <script dangerouslySetInnerHTML={{ __html: earlyComposerInput }} />
       <GektaViewportAuthority />
       <GektaExperienceFrame locale={locale} hero={<GektaHero locale={locale} />} discovery={<GektaHomeLinks locale={locale} />} />
     </div>
