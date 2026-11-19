@@ -104,7 +104,7 @@ describe('Gekta anonymous entitlement', () => {
     const fetch = vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }));
     const context = {
       React: { useCallback: (callback: () => Promise<string | null>) => callback },
-      workspaceMode: 'local', locale: 'ru', fetch, applyEntitlement, track,
+      workspaceMode: 'local', locale: 'ru', isCurrentOwner: () => true, accountApi: vi.fn(), fetch, applyEntitlement, track,
       entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, accessError: 'synthetic access error',
       setConsentRequired: vi.fn(), setError: vi.fn(),
     };
@@ -333,7 +333,7 @@ describe('Gekta anonymous entitlement', () => {
     const retry = workspace.slice(workspace.indexOf('const retry = React.useCallback('), workspace.indexOf('const copyMessage = React.useCallback('));
     expect(retry).toContain('const ticket = await reserveAnswer(');
     expect(retry).toContain('() => revision === promptIntentRevision.current, controller.signal);');
-    expect(retry).toContain('if (!ticket || revision !== promptIntentRevision.current || controller.signal.aborted) return;');
+    expect(retry).toContain('if (!ticket || !isCurrentOwner() || revision !== promptIntentRevision.current || controller.signal.aborted) return;');
     expect(retry.indexOf('await reserveAnswer(')).toBeLessThan(retry.indexOf('await runGeneration('));
     expect(workspace).toContain("'x-gekta-answer-ticket': ticket");
     expect(workspace).toContain("if (finalMessage.status === 'answered') await settleAnswer(ticket);");

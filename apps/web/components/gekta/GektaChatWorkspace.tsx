@@ -23,7 +23,7 @@ import {
   type GektaProject,
 } from '@/lib/gekta/projects';
 import {
-  accountApi,
+  accountApi as requestAccountApi,
   chunkImport,
   createWorkspaceId as id,
   importAlreadyDone,
@@ -50,7 +50,7 @@ import type { GektaEntitlementSnapshot } from '@/lib/gekta/entitlement';
 import type { GektaConversation, GektaMessage } from './GektaChatTypes';
 import { GektaThemeToggle } from './GektaAppearance';
 import { GektaBrandMark } from './GektaBrandMark';
-import { clearGektaTabDrafts, isNewGektaDraft, useGektaDrafts } from './useGektaDrafts';
+import { clearGektaTabDrafts, currentGektaOwner, isNewGektaDraft, useGektaDrafts, useGektaWorkspaceOwner } from './useGektaDrafts';
 import { GektaInstallButton, GektaInstallGuide, useGektaInstall } from './GektaInstallButton';
 import styles from './GektaWorkspace.module.css';
 
@@ -191,7 +191,25 @@ function track(event: string, locale: GektaLocale, extra?: Record<string, string
   if (Array.isArray(target.dataLayer)) target.dataLayer.push(detail);
 }
 
-export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFooter, onEnteredChat }: { locale?: GektaLocale; discoveryHero?: React.ReactNode; discoveryFooter?: React.ReactNode; onEnteredChat?: () => void }) {
+type WorkspaceProps = { locale?: GektaLocale; discoveryHero?: React.ReactNode; discoveryFooter?: React.ReactNode; onEnteredChat?: () => void };
+
+export function GektaChatWorkspace(props: WorkspaceProps) {
+  const locale = props.locale ?? 'ru';
+  const owner = useGektaWorkspaceOwner(locale);
+  return <OwnedGektaWorkspace key={JSON.stringify([locale, owner])} {...props} locale={locale} owner={owner} />;
+}
+
+function OwnedGektaWorkspace({ locale = 'ru', discoveryHero, discoveryFooter, onEnteredChat, owner }: WorkspaceProps & { owner: string | null }) {
+  const lifetime = React.useRef<AbortController | null>(null);
+  React.useLayoutEffect(() => {
+    const scope = new AbortController();
+    lifetime.current = scope;
+    return () => { scope.abort(); lifetime.current = null; };
+  }, []);
+  const isCurrentOwner = React.useCallback(() =>
+    Boolean(lifetime.current && !lifetime.current.signal.aborted && currentGektaOwner() === owner), [owner]);
+  const accountApi = React.useCallback(<T,>(path: string, init?: Parameters<typeof requestAccountApi<T>>[1]) =>
+    requestAccountApi<T>(path, { ...init, signal: init?.signal ?? lifetime.current?.signal }, isCurrentOwner), [isCurrentOwner]);
   const router = useRouter();
   const { canInstall, guide, requestInstall, dismissGuide } = useGektaInstall();
   React.useEffect(() => {
@@ -262,7 +280,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
   const [projects, setProjects] = React.useState<GektaProject[]>([]);
   const [activeProjectId, setActiveProjectId] = React.useState<string | null>(null);
   const { book: draftBook, value: input, setText: setInput, replace: replaceInput, canUndo, undo: undoDraft,
-    select: selectDraft, remove: removeDraft, clear: clearDrafts, move: moveDraft, reassignProject: reassignDraftProject } = useGektaDrafts(locale, activeId, activeProjectId);
+    select: selectDraft, remove: removeDraft, clear: clearDrafts, move: moveDraft, reassignProject: reassignDraftProject } = useGektaDrafts(locale, activeId, activeProjectId, owner);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [answerLocale, setAnswerLocale] = React.useState<GektaAnswerLocale>('auto');
   const [entitlement, setEntitlement] = React.useState<GektaEntitlementSnapshot | null>(null);
@@ -635,6 +653,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
   React.useEffect(() => () => {
     reservationController.current?.abort();
     historyRequest.current?.abort();
+    abortRef.current?.abort();
+    entitlementProbeController.current?.abort();
+    pendingConsentedPrompt.current = null;
   }, []);
 
   const newChat = React.useCallback(() => {
@@ -749,7 +770,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
 
   /** Server decides whether another answer may be generated. */
   const reserveAnswer = React.useCallback(async (onConsentRequired?: () => void, isCurrentIntent: () => boolean = () => true, signal?: AbortSignal): Promise<string | null> => {
-    if (!isCurrentIntent() || signal?.aborted) return null;
+    if (!isCurrentOwner() || !isCurrentIntent() || signal?.aborted) return null;
     entitlementProbeController.current?.abort();
     entitlementProbeController.current = null;
     entitlementRequestRevision.current += 1;
@@ -757,7 +778,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
     // режима: иначе пробный период упирался бы в десять бесплатных ответов.
     if (workspaceMode === 'server') {
       const decision = await accountApi<{ entitlement: GektaEntitlementSnapshot }>('entitlement');
-      if (!isCurrentIntent() || signal?.aborted) return null;
+      if (!isCurrentOwner() || !isCurrentIntent() || signal?.aborted) return null;
       if (decision.ok && decision.data?.entitlement) {
         const snapshot = { ...decision.data.entitlement, remaining: null, limit: null };
         setEntitlement(snapshot);
@@ -778,10 +799,10 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
         body: JSON.stringify({ action: 'reserve', locale }),
         signal,
       });
-      if (!isCurrentIntent() || signal?.aborted) return null;
+      if (!isCurrentOwner() || !isCurrentIntent() || signal?.aborted) return null;
       if (!response.ok) { setError(accessError); return null; }
       const payload = await response.json() as { allowed?: boolean; ticket?: string | null; reason?: string };
-      if (!isCurrentIntent() || signal?.aborted) return null;
+      if (!isCurrentOwner() || !isCurrentIntent() || signal?.aborted) return null;
       applyEntitlement(payload);
       if (payload.reason === 'consent_required') {
         setConsentRequired(true);
@@ -801,26 +822,28 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
       if (isCurrentIntent() && !signal?.aborted) setError(accessError);
       return null;
     }
-  }, [accessError, applyEntitlement, locale, workspaceMode]);
+  }, [accessError, accountApi, applyEntitlement, isCurrentOwner, locale, workspaceMode]);
 
   const settleAnswer = React.useCallback(async (ticket: string) => {
     // Счётчик аккаунта двигает сервер, когда сохраняет ответ ассистента.
     if (ticket === ACCOUNT_TICKET) return;
+    if (!isCurrentOwner()) return;
     try {
       const response = await fetch('/api/gekta/entitlement', {
         method: 'POST',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'complete', ticket }),
+        signal: lifetime.current?.signal,
       });
       if (response.ok) applyEntitlement(await response.json());
     } catch {
       // The reservation is settled server-side on the next request anyway.
     }
-  }, [applyEntitlement]);
+  }, [applyEntitlement, isCurrentOwner]);
 
   const runGeneration = React.useCallback(async ({ question, documents: requestDocuments = [], history, conversationId, baseMessages, ticket }: { question: string; documents?: readonly GektaDocumentContext[]; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
-    if (sending) return;
+    if (sending || !isCurrentOwner()) return;
     const revision = promptIntentRevision.current;
     const assistantId = id('assistant');
     liveReplyId.current = assistantId;
@@ -859,7 +882,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
         mode: 'public',
         signal: controller.signal,
         onSnapshot: (snapshot) => {
-          if (revision !== promptIntentRevision.current || (deadlineReached && !stopRequested.current)) return;
+          if (!isCurrentOwner() || revision !== promptIntentRevision.current || (deadlineReached && !stopRequested.current)) return;
           const text = snapshot.status === 'refused' ? finalText(locale, snapshot) : snapshot.text;
           setMessages([...baseMessages, { ...assistantBase, text: cleanText(text), status: snapshot.status, refusal: snapshot.refusal, citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })) }]);
         },
@@ -894,7 +917,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
         setSending(false);
       }
     }
-  }, [answerLocale, locale, saveConversation, sending, settleAnswer]);
+  }, [answerLocale, isCurrentOwner, locale, saveConversation, sending, settleAnswer]);
 
   const submit = React.useCallback(async (resumed?: SubmittedPrompt) => {
     if (historyPhase !== 'ready' || sending || submittingPrompt.current === promptIntentRevision.current) return;
@@ -918,7 +941,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
         pendingConsentedPrompt.current = submitted;
         setConsentRequested(true);
       }, () => revision === promptIntentRevision.current, controller.signal);
-      if (!ticket || revision !== promptIntentRevision.current) return;
+      if (!ticket || !isCurrentOwner() || controller.signal.aborted || revision !== promptIntentRevision.current) return;
       pendingConsentedPrompt.current = null;
       const conversationId = activeId || id('conversation');
       const history = historyFrom(messages);
@@ -938,7 +961,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
       if (reservationController.current === controller) reservationController.current = null;
       if (submittingPrompt.current === revision) submittingPrompt.current = null;
     }
-  }, [activeId, documents, draftBook.active, historyPhase, input, locale, messages, moveDraft, onEnteredChat, reserveAnswer, runGeneration, saveConversation, sending]);
+  }, [activeId, documents, draftBook.active, historyPhase, input, isCurrentOwner, locale, messages, moveDraft, onEnteredChat, reserveAnswer, runGeneration, saveConversation, sending]);
 
   const retry = React.useCallback(async (assistantIndex: number) => {
     if (sending || submittingPrompt.current === promptIntentRevision.current) return;
@@ -964,7 +987,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, discoveryFoot
         pendingConsentedPrompt.current = { kind: 'retry', messageId: assistant.id, locale };
         setConsentRequested(true);
       }, () => revision === promptIntentRevision.current, controller.signal);
-      if (!ticket || revision !== promptIntentRevision.current || controller.signal.aborted) return;
+      if (!ticket || !isCurrentOwner() || revision !== promptIntentRevision.current || controller.signal.aborted) return;
       const conversationId = activeId || id('conversation');
       const question = messages[userIndex].text;
       const baseMessages = messages.slice(0, userIndex + 1);

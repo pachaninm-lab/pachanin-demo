@@ -36,7 +36,7 @@ function actualClient(locale: string, initialCookie?: string) {
   let currentCookie = initialCookie;
   const state: { notice: { locale: string; snapshot: string } | null; required: boolean } = { notice: null, required: false };
   const context: Record<string, unknown> = { React: { useCallback: (fn: unknown) => fn },
-    locale, workspaceMode: 'local', acceptingConsent: false, legalPresentation: null,
+    locale, workspaceMode: 'local', isCurrentOwner: () => true, accountApi: vi.fn(), acceptingConsent: false, legalPresentation: null,
     setEntitlement: vi.fn(), setRegistrationUrl: vi.fn(), setBillingEnabled: vi.fn(),
     setConsentRequired: vi.fn(value => { state.required = value; }),
     setLegalPresentation: vi.fn(value => { state.notice = value; context.legalPresentation = value; }),

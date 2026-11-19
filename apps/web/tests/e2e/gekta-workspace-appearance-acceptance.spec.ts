@@ -284,6 +284,52 @@ for (const recovered of [true, false]) {
   });
 }
 
+test('protects a visible account draft when its marker expires during uninterrupted typing', async ({ page, context, baseURL }) => {
+  const email = 'orchard@example.test';
+  const text = 'Закрытый расчёт хозяйства';
+  const marker = encodeURIComponent(JSON.stringify({ email }));
+  await context.addCookies([{ name: 'pc_session_present', value: marker, url: baseURL! }]);
+  await page.route('**/api/gekta/account/entitlement', route => route.fulfill({ status: 503, json: {} }));
+  await page.route('**/api/gekta/auth/refresh', route => route.fulfill({ status: 401, json: { ok: false } }));
+  await page.goto('/gekta');
+  const input = page.locator('#gekta-composer-input');
+  await input.fill(text);
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeEnabled();
+  await context.clearCookies({ name: 'pc_session_present' });
+  await input.press('End');
+  await input.press('X');
+  await expect(input).not.toHaveValue(new RegExp(text));
+  const partitions = await page.evaluate(() => Object.entries(sessionStorage).filter(([key]) => key.startsWith('gekta-tab-drafts-v1:ru:')));
+  expect(partitions.find(([key]) => key.endsWith(':guest'))?.[1] ?? '').not.toContain(text);
+  expect(partitions.find(([key]) => key.includes('account%3A'))?.[1]).toContain(text);
+});
+
+test('replaces the selected history and projects when a tab returns under another account', async ({ page, context, baseURL }) => {
+  await page.setViewportSize({ width: 1280, height: 840 });
+  const marker = (email: string) => encodeURIComponent(JSON.stringify({ email }));
+  let owner = 'a';
+  const time = '2026-08-15T11:00:00Z';
+  const row = (who: string) => ({ id: 'chat-' + who, title: 'Переписка ' + who, projectId: null, locale: 'ru', createdAt: time, updatedAt: time });
+  const ownerCookie = () => context.addCookies([{ name: 'pc_session_present', value: marker(owner + '@example.test'), url: baseURL! }]);
+  await ownerCookie();
+  await page.route('**/api/gekta/account/entitlement', r => r.fulfill({ json: {} }));
+  await page.route('**/api/gekta/account/projects', r => r.fulfill({ json: { projects: [{ id: 'project-' + owner, name: 'Проект ' + owner, locale: 'ru', createdAt: time, updatedAt: time }] } }));
+  await page.route('**/api/gekta/account/conversations', r => r.fulfill({ json: { conversations: [row(owner)] } }));
+  await page.route('**/api/gekta/account/conversations/chat-a', r => r.fulfill({ json: { ...row('a'), messages: [{ id: 'm-a', role: 'user', body: 'Закрытая реплика A', createdAt: time }] } }));
+  await page.goto('/gekta');
+  const side = page.locator('aside');
+  await side.getByRole('button', { name: 'Переписка a', exact: true }).click();
+  await expect(page.getByText('Закрытая реплика A', { exact: true })).toBeVisible();
+  owner = 'b';
+  await ownerCookie();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(side.getByRole('button', { name: 'Переписка b', exact: true })).toBeVisible();
+  await expect(side.getByRole('button', { name: /Проект b/ }).first()).toBeVisible();
+  await expect(side.getByText('Переписка a', { exact: true })).toHaveCount(0);
+  await expect(side.getByText('Проект a', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Закрытая реплика A', { exact: true })).toHaveCount(0);
+});
+
 test('uses a single navigation surface and releases mobile modal isolation on resize', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/gekta');

@@ -179,6 +179,7 @@ export type AccountResponse<T> = { ok: boolean; status: number; data: T | null }
 
 let refreshInFlight: Promise<boolean> | null = null;
 const REFRESH_LOCK = 'gekta-product-session-refresh';
+export const GEKTA_SESSION_CHANGED = 'gekta-session-changed';
 
 async function refreshAccountSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
@@ -190,6 +191,7 @@ async function refreshAccountSession(): Promise<boolean> {
         cache: 'no-store',
         headers: { 'x-csrf-token': csrfToken() },
       });
+      if (response.ok && typeof window !== 'undefined') window.dispatchEvent(new Event(GEKTA_SESSION_CHANGED));
       return response.ok;
     } catch {
       return false;
@@ -247,16 +249,22 @@ async function accountRequest(
 export async function accountApi<T>(
   path: string,
   init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
+  isCurrent?: () => boolean,
 ): Promise<AccountResponse<T>> {
   const method = init?.method ?? 'GET';
   try {
     const request = { method, body: init?.body, signal: init?.signal };
-    let response = await accountRequest(path, request);
+    const send = () => {
+      if (isCurrent && !isCurrent()) throw new DOMException('Workspace changed', 'AbortError');
+      return accountRequest(path, request);
+    };
+    let response = await send();
     // Product refresh tokens rotate. Web Locks coordinate every tab; the
     // module promise remains the safe fallback within one browser context.
     if (response.status === 401) {
-      response = await recoverAccountSession(() => accountRequest(path, request), response);
+      response = await recoverAccountSession(send, response);
     }
+    if (isCurrent && !isCurrent()) return { ok: false, status: 0, data: null };
     if (!response.ok) return { ok: false, status: response.status, data: null };
     const text = await response.text();
     return { ok: true, status: response.status, data: (text ? JSON.parse(text) : null) as T };
