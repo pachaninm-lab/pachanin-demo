@@ -255,8 +255,13 @@ for (const recovered of [true, false]) {
     const waitForRefresh = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/api/gekta/auth/refresh', async route => {
       await waitForRefresh;
-      if (recovered) await context.addCookies([{ name: 'pc_session_present', value: marker(owner), url: baseURL! }]);
       await route.fulfill({ status: recovered ? 200 : 401, json: { ok: recovered } });
+      if (recovered) {
+        // Model WebKit exposing the rotated marker after the network response was delivered.
+        await page.evaluate(value => {
+          window.setTimeout(() => { document.cookie = 'pc_session_present=' + value + '; Path=/; SameSite=Lax'; }, 50);
+        }, marker(owner));
+      }
     });
     const composer = page.locator('#gekta-composer-input');
     await page.goto('/gekta');

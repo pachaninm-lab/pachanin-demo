@@ -191,7 +191,15 @@ async function refreshAccountSession(): Promise<boolean> {
         cache: 'no-store',
         headers: { 'x-csrf-token': csrfToken() },
       });
-      if (response.ok && typeof window !== 'undefined') window.dispatchEvent(new Event(GEKTA_SESSION_CHANGED));
+      if (response.ok && typeof window !== 'undefined') {
+        // WebKit can finish fetch before the new presentation marker is visible to document.cookie.
+        // Never infer an owner from the successful response while its cookie is still missing.
+        for (const delay of [0, 16, 64, 160, 320]) {
+          if (document.cookie.split('; ').some(entry => entry.startsWith(SESSION_COOKIE + '='))) break;
+          await new Promise<void>(resolve => window.setTimeout(resolve, delay));
+        }
+        window.dispatchEvent(new Event(GEKTA_SESSION_CHANGED));
+      }
       return response.ok;
     } catch {
       return false;
