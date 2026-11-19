@@ -1,6 +1,7 @@
 import type { GektaConversation, GektaMessage } from '@/components/gekta/GektaChatTypes';
 import type { GektaProject } from '@/lib/gekta/projects';
 import { restoreGektaAssistantState } from './message-status';
+import { SESSION_COOKIE } from '@/lib/auth-cookies';
 
 /**
  * Серверная история Гекты.
@@ -14,6 +15,14 @@ import { restoreGektaAssistantState } from './message-status';
 export const GEKTA_HISTORY_IMPORT_FLAG = 'gekta-history-imported-v1';
 
 export type WorkspaceMode = 'local' | 'server';
+
+export function createWorkspaceId(prefix: string): string {
+  const crypto = globalThis.crypto;
+  const suffix = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${prefix}-${suffix}`;
+}
 
 export type ServerConversationRow = {
   id: string;
@@ -169,6 +178,7 @@ export function csrfToken(): string {
 export type AccountResponse<T> = { ok: boolean; status: number; data: T | null };
 
 let refreshInFlight: Promise<boolean> | null = null;
+const REFRESH_LOCK = 'gekta-product-session-refresh';
 
 async function refreshAccountSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
@@ -197,13 +207,22 @@ async function recoverAccountSession(
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
   if (!locks) return await refreshAccountSession() ? retry() : initial;
 
-  return locks.request('gekta-product-session-refresh', async () => {
+  return locks.request(REFRESH_LOCK, async () => {
     // Another tab may have rotated the shared HttpOnly cookies while this tab
     // waited. Recheck first so we do not rotate the new refresh token again.
     const afterWait = await retry();
     if (afterWait.status !== 401) return afterWait;
     return await refreshAccountSession() ? retry() : afterWait;
   });
+}
+
+/** A returning tab can still have its HttpOnly refresh cookie after the short presentation marker expires. */
+export async function restoreGektaSessionMarker(): Promise<boolean> {
+  const refreshIfMissing = async () => {
+    if (document.cookie.split('; ').some(entry => entry.startsWith(SESSION_COOKIE + '='))) return true;
+    return refreshAccountSession();
+  };
+  return navigator.locks ? navigator.locks.request(REFRESH_LOCK, refreshIfMissing) : refreshIfMissing();
 }
 
 async function accountRequest(

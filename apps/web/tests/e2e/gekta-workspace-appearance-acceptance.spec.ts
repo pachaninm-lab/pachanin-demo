@@ -225,9 +225,64 @@ test('detaches an unsent project draft and keeps its text after the project is d
   await page.reload();
   await side.getByRole('button', { name: 'Черновик ' + question }).click();
   await expect(page.locator('#gekta-composer-input')).toHaveValue(question);
-  const rows = await page.evaluate(() => JSON.parse(sessionStorage.getItem('gekta-tab-drafts-v1:ru')!).rows);
+  const rows = await page.evaluate(() => JSON.parse(sessionStorage.getItem('gekta-tab-drafts-v1:ru:guest')!).rows);
   expect(rows).toContainEqual(expect.objectContaining({ text: question, projectId: null }));
 });
+
+for (const recovered of [true, false]) {
+  test(`keeps account drafts isolated when the short session marker expires and refresh ${recovered ? 'succeeds' : 'fails'}`, async ({ page, context, baseURL }) => {
+    const owner = 'field@example.test';
+    const otherOwner = 'mill@example.test';
+    const privateDraft = 'Расчёт по закрытому договору';
+    const guestDraft = 'Гостевой вопрос о перевозке';
+    const marker = (email: string) => encodeURIComponent(JSON.stringify({ email, role: 'gekta' }));
+    const setOwner = async (email: string) => {
+      await context.addCookies([{ name: 'pc_session_present', value: marker(email), url: baseURL! }]);
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    };
+    await context.addCookies([{ name: 'pc_session_present', value: marker(owner), url: baseURL! }]);
+    await page.addInitScript(({ owner, privateDraft }) => {
+      if (sessionStorage.getItem('fixture-draft-seeded')) return;
+      // A returning tab created on the previous version has a single legacy slot.
+      sessionStorage.setItem('gekta-tab-drafts-v1:ru', JSON.stringify({ owner: 'account:' + owner, active: 'draft-home',
+        rows: [{ id: 'draft-home', projectId: null, text: privateDraft }] }));
+      sessionStorage.setItem('fixture-draft-seeded', '1');
+    }, { owner, privateDraft });
+    await page.route('**/api/gekta/account/entitlement', route => route.fulfill({ json: {} }));
+    await page.route('**/api/gekta/account/conversations', route => route.fulfill({ json: { conversations: [] } }));
+    await page.route('**/api/gekta/account/projects', route => route.fulfill({ json: { projects: [] } }));
+    let release!: () => void;
+    const waitForRefresh = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/gekta/auth/refresh', async route => {
+      await waitForRefresh;
+      await route.fulfill({ status: recovered ? 200 : 401, json: { ok: recovered },
+        headers: recovered ? { 'Set-Cookie': 'pc_session_present=' + marker(owner) + '; Path=/; SameSite=Lax' } : {} });
+    });
+    const composer = page.locator('#gekta-composer-input');
+    await page.goto('/gekta');
+    await expect(composer).toHaveValue(privateDraft);
+    const refreshStarted = page.waitForRequest(req => req.url().endsWith('/api/gekta/auth/refresh'));
+    const refreshFinished = page.waitForResponse(res => res.url().endsWith('/api/gekta/auth/refresh'));
+    try {
+      await context.clearCookies({ name: 'pc_session_present' });
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await refreshStarted;
+      await expect(composer).toHaveValue('');
+      await composer.fill(guestDraft);
+    } finally { release(); }
+    await refreshFinished;
+    await expect(composer).toHaveValue(recovered ? privateDraft : guestDraft);
+    await page.reload();
+    await expect(composer).toHaveValue(recovered ? privateDraft : guestDraft);
+    await setOwner(otherOwner);
+    await expect(composer).toHaveValue('');
+    await composer.fill('Отдельный расчёт мельницы');
+    await setOwner(owner);
+    await expect(composer).toHaveValue(privateDraft);
+    await setOwner(otherOwner);
+    await expect(composer).toHaveValue('Отдельный расчёт мельницы');
+  });
+}
 
 test('uses a single navigation surface and releases mobile modal isolation on resize', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

@@ -3,6 +3,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { SESSION_COOKIE } from '@/lib/auth-cookies';
 import type { GektaLocale } from '@/lib/gekta/content';
+import { createWorkspaceId, restoreGektaSessionMarker } from '@/lib/gekta/server-workspace';
 
 export type GektaDraft = { id: string; text: string; previous?: string; projectId: string | null };
 type DraftBook = { active: string; rows: GektaDraft[] };
@@ -13,7 +14,7 @@ const MAX_DRAFTS = 60;
 export function isNewGektaDraft(id: string) { return id.startsWith('draft-'); }
 
 function freshId() {
-  return 'draft-' + (globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2));
+  return createWorkspaceId('draft');
 }
 
 // This presentation cookie only partitions tab-local text. Account access is decided by the server.
@@ -26,11 +27,31 @@ function browserOwner(): string | null {
   } catch { return null; }
 }
 
+function ownerKey(locale: GektaLocale, owner: string): string {
+  return PREFIX + locale + ':' + encodeURIComponent(owner);
+}
+
+function hasAccountDraft(locale: GektaLocale): boolean {
+  try {
+    const legacy = sessionStorage.getItem(PREFIX + locale);
+    return Object.keys(sessionStorage).some(key => key.startsWith(ownerKey(locale, 'account:')))
+      || (legacy !== null && String(JSON.parse(legacy)?.owner).startsWith('account:'));
+  } catch { return false; }
+}
+
 function readBook(locale: GektaLocale, owner: string | null): DraftBook {
   if (owner === null) return EMPTY;
   try {
-    const saved = JSON.parse(sessionStorage.getItem(PREFIX + locale) || 'null');
+    const key = ownerKey(locale, owner);
+    const scoped = sessionStorage.getItem(key);
+    const saved = JSON.parse(scoped ?? sessionStorage.getItem(PREFIX + locale) ?? 'null');
     if (saved?.owner !== owner || !Array.isArray(saved.rows)) return EMPTY;
+    if (scoped === null) {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(saved));
+        sessionStorage.removeItem(PREFIX + locale);
+      } catch { /* Leave the original intact if this tab cannot write. */ }
+    }
     const rows: GektaDraft[] = saved.rows.slice(0, MAX_DRAFTS).flatMap((row: GektaDraft) =>
       row && typeof row.id === 'string' && typeof row.text === 'string' && row.text.length > 0
         ? [{ id: row.id, text: row.text.slice(0, 1200), projectId: typeof row.projectId === 'string' ? row.projectId : null,
@@ -40,7 +61,11 @@ function readBook(locale: GektaLocale, owner: string | null): DraftBook {
 }
 
 export function clearGektaTabDrafts() {
-  try { for (const locale of ['ru', 'en', 'zh']) sessionStorage.removeItem(PREFIX + locale); } catch {}
+  try {
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith(PREFIX)) sessionStorage.removeItem(key);
+    }
+  } catch {}
 }
 
 export function useGektaDrafts(locale: GektaLocale, activeId: string | null, projectId: string | null) {
@@ -59,18 +84,34 @@ export function useGektaDrafts(locale: GektaLocale, activeId: string | null, pro
     current.current = next;
     setBook(next);
     const owner = scope.current?.owner;
+    if (!owner || browserOwner() !== owner) return;
     try {
-      if (owner && browserOwner() === owner && next.rows.length) sessionStorage.setItem(PREFIX + locale, JSON.stringify({ ...next, owner }));
-      else sessionStorage.removeItem(PREFIX + locale);
+      const key = ownerKey(locale, owner);
+      if (next.rows.length) sessionStorage.setItem(key, JSON.stringify({ ...next, owner }));
+      else sessionStorage.removeItem(key);
     } catch { /* The active tab still holds its in-memory draft. */ }
   }, [locale]);
   useLayoutEffect(() => {
-    const sync = () => setBook(initialize());
+    let mounted = true;
+    let pending = false;
+    const sync = () => {
+      setBook(initialize());
+      if (pending || browserOwner() !== 'guest' || !hasAccountDraft(locale)) return;
+      pending = true;
+      void restoreGektaSessionMarker().catch(() => false).finally(() => {
+        pending = false;
+        if (mounted) setBook(initialize());
+      });
+    };
     sync();
     window.addEventListener('pageshow', sync);
     window.addEventListener('focus', sync);
-    return () => { window.removeEventListener('pageshow', sync); window.removeEventListener('focus', sync); };
-  }, [initialize]);
+    return () => {
+      mounted = false;
+      window.removeEventListener('pageshow', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialize, locale]);
 
   const write = useCallback((text: string, replacing = false) => {
     const source = initialize();

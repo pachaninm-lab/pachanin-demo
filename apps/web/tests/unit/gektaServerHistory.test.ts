@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { IMPORT_CHUNK_BYTES, IMPORT_CHUNK_CONVERSATIONS, chunkImport, importablePayload, toConversation, toProject } from '@/lib/gekta/server-workspace';
+import { describe, expect, it, vi } from 'vitest';
+import { IMPORT_CHUNK_BYTES, IMPORT_CHUNK_CONVERSATIONS, chunkImport, createWorkspaceId, importablePayload, toConversation, toProject } from '@/lib/gekta/server-workspace';
 import type { GektaConversation } from '@/components/gekta/GektaChatTypes';
 
 const root = resolve(__dirname, '../..');
@@ -224,9 +224,21 @@ describe('Gekta keeps one authority for the history', () => {
   });
 
   it('coordinates rotating refresh tokens across browser tabs', () => {
-    expect(serverWorkspace).toContain("locks.request('gekta-product-session-refresh'");
+    expect(serverWorkspace).toContain("const REFRESH_LOCK = 'gekta-product-session-refresh'");
+    expect(serverWorkspace).toContain('locks.request(REFRESH_LOCK, async () =>');
+    expect(serverWorkspace).toContain('locks.request(REFRESH_LOCK, refreshIfMissing)');
     expect(serverWorkspace).toContain('const afterWait = await retry();');
     expect(serverWorkspace).toContain('if (afterWait.status !== 401) return afterWait;');
+  });
+
+  it('uses all 128 bits from Web Crypto when randomUUID is unavailable', () => {
+    const bytes = Uint8Array.from({ length: 16 }, (_, i) => i + 1);
+    const getRandomValues = vi.fn((output: Uint8Array) => { output.set(bytes); return output; });
+    vi.stubGlobal('crypto', { getRandomValues });
+    try {
+      expect(createWorkspaceId('draft')).toBe('draft-0102030405060708090a0b0c0d0e0f10');
+      expect(getRandomValues).toHaveBeenCalledTimes(1);
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it('does not show a free-answer counter to an account that has none', () => {

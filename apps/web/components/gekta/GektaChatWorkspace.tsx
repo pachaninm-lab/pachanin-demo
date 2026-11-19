@@ -25,6 +25,7 @@ import {
 import {
   accountApi,
   chunkImport,
+  createWorkspaceId as id,
   importAlreadyDone,
   importablePayload,
   logoutGektaAccount,
@@ -107,11 +108,6 @@ const CHAT_UI = {
   en: { assistant: 'Gekta', you: 'You', working: 'Gekta is analysing…', ready: 'Gekta’s answer is ready.', copy: 'Copy', copied: 'Copied', retry: 'Retry', sources: 'Sources', send: 'Send', stop: 'Stop', boundary: 'Anonymous history is stored in this browser. Do not send passwords, tokens, banking credentials or unnecessary personal data.', reconnecting: 'The connection dropped before the answer started. Reconnecting…', starters: 'Example questions', openMenu: 'Open history', closeMenu: 'Close history', newChat: 'New chat', productHome: 'Gekta — product home', clearConfirm: 'Delete all Gekta history from this browser?', deleteConfirm: 'Delete this conversation?', account: 'Gekta account', signedIn: 'History and projects are saved to your account.', logout: 'Sign out', loggingOut: 'Signing out…' },
   zh: { assistant: 'Gekta', you: '你', working: 'Gekta 正在分析…', ready: 'Gekta 的回答已就绪。', copy: '复制', copied: '已复制', retry: '重试', sources: '来源', send: '发送', stop: '停止', boundary: '匿名历史记录保存在此浏览器中。请勿发送密码、令牌、银行凭据或不必要的个人信息。', reconnecting: '回答开始前连接中断，正在重新连接…', starters: '示例问题', openMenu: '打开历史记录', closeMenu: '关闭历史记录', newChat: '新对话', productHome: 'Gekta — 产品主页', clearConfirm: '从此浏览器删除全部 Gekta 历史记录？', deleteConfirm: '删除此对话？', account: 'Gekta 账户', signedIn: '历史记录和项目已保存到账户。', logout: '退出登录', loggingOut: '正在退出…' },
 } as const;
-
-function id(prefix: string): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
 
 function cleanText(value: string): string {
   return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ').replace(/[ \t]+/gu, ' ').replace(/ *\n */gu, '\n').replace(/\n{3,}/gu, '\n\n').trim();
