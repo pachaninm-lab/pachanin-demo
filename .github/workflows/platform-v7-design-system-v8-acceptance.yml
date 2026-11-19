@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   browser-accessibility-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     services:
       postgres:

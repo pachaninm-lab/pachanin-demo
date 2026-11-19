@@ -2,12 +2,14 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "status": "active",
   "branch": "review/gekta-mobile-20261119",
-  "purpose": "Admit the listed Gekta workspace, localized entry, draft and attachment ownership, account history, consent and acceptance changes for a separate product PR after this manifest merges into main.",
+  "purpose": "Admit the listed Gekta workspace, localized entry, private draft and attachment handling, account history, consent and release checks for the product PR.",
   "baseline": {
     "branch": "main",
-    "commit": "479497fb7c7d0110994917f5384b3aff74b5a7ab"
+    "commit": "351b43498e7ed5208a8bc5dd30a249b65bda6351"
   },
   "allowedPaths": [
+    ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
+    ".github/workflows/production-like-kubernetes-acceptance.yml",
     "apps/web/app/gekta/about/page.tsx",
     "apps/web/app/gekta/app-icon.png/route.ts",
     "apps/web/app/gekta/apple-icon.tsx",
@@ -83,22 +85,42 @@
     "apps/web/tests/unit/gektaStandaloneExperience.test.ts",
     "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
     "apps/web/tests/unit/gektaWorkspaceIa.test.ts",
-    "scripts/production-web-live-acceptance.sh"
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/release/production-like-kubernetes-source-preflight-test.sh"
   ],
   "sourceEvidence": {
     "artifact": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "bfeab67fa1674783f21e0de975ba5a3f519d40fb35065fd3b150929e42096413",
-    "patchBaseCommit": "479497fb7c7d0110994917f5384b3aff74b5a7ab",
-    "patchResultTree": "a2e89272bc01e1198ba37438f879dee8575479fe",
-    "baselineResultTree": "a2e89272bc01e1198ba37438f879dee8575479fe",
-    "sourceDiffSha256": "d5bd1686cc9db06ed48967aa586d9c57c776e0767e61723e5e40e18cea782e08",
+    "patchSha256": "f1e4db7e79ec9d5dd1feb93e2fb9b1309d218d1ead553aa70578915390323083",
+    "patchBaseCommit": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
+    "patchResultTree": "c9e49b1696feed86ebaabe702ed0f685ed8ff75c",
+    "baselineResultTree": "c9e49b1696feed86ebaabe702ed0f685ed8ff75c",
+    "sourceDiffSha256": "d53608d66feee70be87ec886c94bf6ebd863d5cffed6dc51dee8e3e84f03964a",
     "diffCommand": "git diff --binary --full-index --no-renames <source-base> <source-head>",
     "changedPathCount": 76
   },
   "acceptance": [
-    "Submit the product diff from the named branch after this admission is present on main. Verify its 76 paths and source diff digest against the evidence.",
+    "Verify the 76 product files against sourceEvidence, the five release companions against their separate digest, and the combined 81-file diff against releaseCompanions.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
-    "Recheck delayed consent, account history, cross-chat and unfinished attachment processing, project deletion and keyboard modal focus using isolated test data.",
+    "Verify the account draft partition through short-cookie expiry, recovery, rejection and account switches, plus delayed consent, attachments, history, project deletion and keyboard focus.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
-  ]
+  ],
+  "releaseCompanions": {
+    "productHead": "3a7af510a87a9988e20006b077cdd98826492c54",
+    "base": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
+    "sourcePaths": 76,
+    "sourceDiffSha256": "d53608d66feee70be87ec886c94bf6ebd863d5cffed6dc51dee8e3e84f03964a",
+    "extraPaths": [
+      ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
+      ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json",
+      "scripts/release/production-like-kubernetes-source-preflight-test.sh"
+    ],
+    "extraDiffSha256": "6281e5d28708b6882ab18884f1c7ec0f1b03df8e69486ae9ec07cdea524cc259",
+    "combinedPathCount": 81,
+    "combinedDiffSha256": "9df7d2812228db863835bc81d39ae942c3ee6890f87e0a883618c501cb38b4fc",
+    "reason": "Update the generated source inventory, run the design-system browsers on the same supported Ubuntu 24.04 as Gekta, and allow the existing guard regression suite up to 420 seconds only on the exact same-repository product branch. The scope check keeps 180 seconds. Both checks must pass."
+  }
 }
