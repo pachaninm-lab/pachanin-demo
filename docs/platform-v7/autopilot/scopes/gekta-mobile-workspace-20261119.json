@@ -87,18 +87,18 @@
   ],
   "sourceEvidence": {
     "artifact": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "2caad51ca73869ae408d95209aa6aae91cf84473bbf1989949ae2b0792666902",
+    "patchSha256": "bfeab67fa1674783f21e0de975ba5a3f519d40fb35065fd3b150929e42096413",
     "patchBaseCommit": "479497fb7c7d0110994917f5384b3aff74b5a7ab",
-    "patchResultTree": "d3c63bbbbc493ee23a702e0052a7ffd36d083852",
-    "baselineResultTree": "d3c63bbbbc493ee23a702e0052a7ffd36d083852",
-    "sourceDiffSha256": "149e0d93a512b7db3f2e6f62023eb93c0cef6fec5264b73b509836e6e4fe5d4e",
+    "patchResultTree": "a2e89272bc01e1198ba37438f879dee8575479fe",
+    "baselineResultTree": "a2e89272bc01e1198ba37438f879dee8575479fe",
+    "sourceDiffSha256": "d5bd1686cc9db06ed48967aa586d9c57c776e0767e61723e5e40e18cea782e08",
     "diffCommand": "git diff --binary --full-index --no-renames <source-base> <source-head>",
     "changedPathCount": 76
   },
   "acceptance": [
     "Submit the product diff from the named branch after this admission is present on main. Verify its 76 paths and source diff digest against the evidence.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
-    "Reproduce and recheck delayed consent, conversation history, attachment upload across chats, project deletion and keyboard modal focus with isolated test data.",
+    "Recheck delayed consent, account history, cross-chat and unfinished attachment processing, project deletion and keyboard modal focus using isolated test data.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
   ]
 }
