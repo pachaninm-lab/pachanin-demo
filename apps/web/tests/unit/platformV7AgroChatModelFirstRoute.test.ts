@@ -196,6 +196,35 @@ describe('agro policy at the actual public streaming boundary', () => {
     expect(boundary.model.mock.calls[0][1].originalQuestion).toBe(item.message);
   });
 
+  const fixedOatsLot = 'Есть 2 тонны овса по 10 долларов за тонну, курс 80 рублей за доллар. Во сколько это обойдётся в рублях за тонну и за всю партию?';
+
+  it.each([
+    ['ru', fixedOatsLot, '800,00 ₽/т', '1600,00 ₽'],
+    ['ru', 'В условном инвойсе QA-1 (овёс) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т до копеек.', '800,00 ₽/т', '1600,00 ₽'],
+    ['en', 'We bought 2 tonnes of oats at 10 US dollars per tonne. Use the exchange rate of 80 RUB/USD. How much is that in RUB per tonne and for the whole lot?', '800.00 RUB/t', '1600.00 RUB'],
+    ['zh', '我买了2吨燕麦，每吨10美元，按1美元兑80卢布计算。每吨和整批分别是多少卢布？', '800.00 卢布/吨', '1600.00 卢布'],
+  ])('publishes both supplied-rate values and their verified source in %s', async (locale, question, perTonne, total) => {
+    const result = await arithmeticResult(question, locale);
+    expect(result.text).toContain(perTonne);
+    expect(result.text).toContain(total);
+    expect(result.assessment).toMatchObject({ source: 'deterministic_calculator', currentDataRequired: false });
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('asks for all lot terms when the public question loses its ending', async () => {
+    const result = await arithmeticResult(fixedOatsLot.padEnd(1200, ' ') + 'Учти ещё 500 ₽ за доставку.');
+    expect(result.text).toContain('Конец вопроса');
+    expect(result.text).not.toContain('1600');
+    expect(result.assessment).toMatchObject({ source: 'policy', safetyFlags: ['INCOMPLETE_QUESTION'] });
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('preserves the market-data status for an additional live-rate request', async () => {
+    const result = await arithmeticResult(fixedOatsLot + ' Для итога используй сегодняшний рыночный курс.');
+    expect(result.assessment).toMatchObject({ source: 'local_qwen', currentDataRequired: true });
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['ru', 'Переведи 32 ц/га на площади 45 га в тонны на гектар и общий объём.', ['3,2 т/га', '144 т']],
     ['en', 'Convert 41 metric quintals/ha over 90 hectares to tonnes.', ['4.1 t/ha', '369 t']],
@@ -379,6 +408,7 @@ describe('agro policy at the actual public streaming boundary', () => {
     // Keep the existing model input budget; only the calculator's admission
     // learns that the original question was longer than the bounded envelope.
     expect(boundary.model.mock.calls[0][1].originalQuestion.length).toBeLessThanOrEqual(1200);
+    expect(boundary.model.mock.calls[0][1].originalQuestionTruncated).toBe(true);
   });
 
   // Exact independent counterexamples from the rejected private cf284d6 head.

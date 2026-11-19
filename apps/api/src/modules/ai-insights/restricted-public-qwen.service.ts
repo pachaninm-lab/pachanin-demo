@@ -32,8 +32,11 @@ import {
 import {
   ProviderStreamParser,
   StreamingAnswerGate,
-  economicComparisonFor,
+  canonicalCalculationQuestion,
+  checkedSuppliedTrade,
   economicComparisonCopy,
+  economicComparisonFor,
+  formatSuppliedFraction,
   paymentTimingFromUser,
   saleProceedsFromUser,
   storageCostFromUser,
@@ -681,23 +684,27 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   const locale: PublicLocale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
   const answerMode: PublicAnswerMode = row.answerMode === 'general_agro' ? 'general_agro' : 'verified_platform';
   const responseBudgetProfile = normalizeResponseBudgetProfile(row.responseBudget, answerMode);
-  const currentDataRequired = row.currentDataRequired === true;
   const history = normalizeHistory(row.history);
   // The bounded exercise supplies its own operands. Its checked copy never
   // authorizes publishing unchecked provider numbers or economic advice.
   // Keep the complete original question in the provider prompt in every case.
   const completeOriginal = cleanSingleLineText(row.originalQuestion, MAX_QUESTION_CHARS + 1)
     || cleanSingleLineText(row.question, MAX_QUESTION_CHARS + 1);
-  const standaloneCalculation = answerMode === 'general_agro'
-    && documents.length === 0 && history.length === 0
-    && completeOriginal.length <= MAX_QUESTION_CHARS;
-  const calculationQuestion = standaloneCalculation ? canonicalCalculationQuestion(completeOriginal) : null;
+  const standalone = answerMode === 'general_agro' && documents.length === 0 && history.length === 0;
+  const wireQuestion = typeof row.originalQuestion === 'string' && row.originalQuestion.trim()
+    ? row.originalQuestion : row.question;
+  const wireLength = typeof wireQuestion === 'string' ? wireQuestion.length : 0;
+  // Older gateways send at most 1,200 characters without reporting truncation.
+  const truncated = row.originalQuestionTruncated === true || wireLength > MAX_QUESTION_CHARS
+    || (wireLength === MAX_QUESTION_CHARS && row.originalQuestionTruncated !== false);
+  const calculationQuestion = standalone && !truncated && completeOriginal.length <= MAX_QUESTION_CHARS
+    ? canonicalCalculationQuestion(completeOriginal) : null;
   const suppliedHypotheticalCalculation = calculationQuestion
     ? suppliedHypotheticalCalculationFor(calculationQuestion, locale)
     : null;
-  const suppliedTradeCalculation = calculationQuestion
-    ? suppliedTradeCalculationFor(calculationQuestion, locale)
-    : null;
+  const trade = standalone ? checkedSuppliedTrade(originalQuestion, locale, truncated) : null;
+  const suppliedTradeCalculation = trade?.answer ?? null;
+  const currentDataRequired = row.currentDataRequired === true && !(trade?.fixedRateLot && !trade.truncated);
   const conversationState = cleanMultilineText(row.conversationState, MAX_CONVERSATION_STATE_CHARS);
   if (SECRET_PATTERN.test(conversationState)) {
     throw new BadRequestException('Secret-like conversation state is forbidden in the public model contour.');
@@ -737,119 +744,6 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
     suppliedHypotheticalCalculation,
     suppliedTradeCalculation,
   });
-}
-
-const TRADE_QUANTITY_SCALE = 1_000n;
-const TRADE_REFERENCE = '[A-Z0-9][A-Z0-9/-]{0,23}';
-const TRADE_CROP = '[\\p{L}]+(?:[ -][\\p{L}]+){0,3}';
-const TRADE_RUB = '(?:₽|руб(?:лей|ля|ль|\\.)?)';
-const TRADE_TONNES = '(?:т|тонн(?:ы|у|а)?)';
-
-function tradeOperand(name: string, decimal: ',' | '.', places = 3): string {
-  const separator = decimal === '.' ? '\\.' : ',';
-  return `(?<${name}>(?:\\d{1,3}(?: \\d{3}){1,2}|\\d{1,9})(?:${separator}\\d{1,${places}})?)`;
-}
-
-const TRADE_FORMS = (['ru', 'en', 'zh'] as const).flatMap(language => {
-  const separator = language === 'ru' ? ',' : '.';
-  const money = (name: string) => tradeOperand(name, separator, 2);
-  const quantity = (name: string) => tradeOperand(name, separator);
-  const cost = money('cost');
-  const area = quantity('area');
-  const mass = quantity('mass');
-  const massA = quantity('massA');
-  const massB = quantity('massB');
-  const priceA = money('priceA');
-  const priceB = money('priceB');
-  const price = money('price');
-  const rate = quantity('rate');
-  const ref = TRADE_REFERENCE;
-  const crop = TRADE_CROP;
-  const rub = TRADE_RUB;
-  const ton = TRADE_TONNES;
-  const patterns = {
-    ru: [
-      `(?:Уч[её]т затрат(?: ${ref}, ${crop})?\\. Всего|Себестоимость: (?:общие )?затраты) ${cost} ${rub}, (?:уборочная )?площадь ${area} га, (?:валовой )?сбор ${mass} ${ton}\\. (?:Найди|Рассчитай|Посчитай) (?:затраты|себестоимость) на тонну и гектар(?: с округлением до копеек)?[.!?]?`,
-      `(?:По уч[её]тной ведомости ${ref} первого лота ${crop} [—–-] |Первый лот: )${massA} ${ton} по ${priceA} ${rub}/т, второ(?:го|й):? [—–-]? ?${massB} ${ton} по ${priceB} ${rub}/т\\. (?:Базис и оплата совпадают|Условия одинаковы)\\. (?:Дай|Рассчитай|Посчитай) (?:совокупную стоимость и цену, взвешенную по тоннам|общую стоимость и средневзвешенную цену)(?: \\(до 0,01 ₽/т\\))?[.!?]?`,
-      `(?:В условном инвойсе ${ref} \\(${crop}\\) цена|Цена) ${price} USD (?:за тонну|на тонну)\\. (?:В задаче использовать курс|Заданный курс) ${rate} ${rub} за доллар\\. (?:Дай|Рассчитай|Посчитай) цену в рублях за тонну и за ${mass} ${ton}(?: до копеек)?[.!?]?`,
-    ],
-    en: [
-      `(?:Farm cost sheet ${ref} for ${crop}|Farm costs): RUB ${cost} total, ${area} ha and output ${mass} t\\. (?:Give|Calculate) RUB per tonne and per hectare(?: to two decimals)?[.!?]?`,
-      `(?:Ledger ${ref}|Two lots): ${massA} t(?: of ${crop})? at ${priceA} RUB/t and ${massB} t at ${priceB} RUB/t, same terms\\. (?:Give|Calculate) the combined value and volume-weighted RUB/t(?: to two decimals)?[.!?]?`,
-      `(?:Fictional invoice ${ref}, ${crop}|Given price): ${price} USD/t at the supplied rate ${rate} RUB per USD\\. (?:Compute|Calculate) RUB/t and total RUB for ${mass} t(?: to two decimals)?[.!?]?(?: Do not use an outside rate\\.)?`,
-    ],
-    zh: [
-      `(?:${crop}成本表${ref}|农业成本)：总支出${cost}卢布，面积${area}公顷，产量${mass}吨。分别求每吨和每公顷成本(?:，保留两位)?。?`,
-      `(?:台账${ref}有两批${crop}|两批粮食)，${massA}吨每吨${priceA}卢布及${massB}吨每吨${priceB}卢布，交易条件相同。求总货值和按吨数加权的每吨单价(?:，单价保留两位)?。?`,
-      `(?:练习发票${ref}：${crop}报价|给定单价：)${price}美元/吨，题设汇率每美元${rate}卢布。求卢布每吨和${mass}吨总值(?:，保留两位)?。?`,
-    ],
-  };
-  return patterns[language].map(pattern => new RegExp('^' + pattern.normalize('NFKC') + '$', 'iu'));
-});
-
-/** Use only complete questions with explicit sources for every operand. */
-function suppliedTradeCalculationFor(text: string, locale: PublicLocale): string | null {
-  const match = TRADE_FORMS.map(form => form.exec(text)).find(Boolean);
-  const values = match?.groups;
-  if (!values) return null;
-
-  const read = (name: string) => {
-    const [whole, fraction = ''] = values[name].replaceAll(' ', '').replace(',', '.').split('.');
-    return BigInt(whole) * TRADE_QUANTITY_SCALE + BigInt(fraction.padEnd(3, '0'));
-  };
-  const localize = (value: string) => locale === 'ru' ? value.replace('.', ',') : value;
-  const input = (name: string) => localize(values[name].replaceAll(' ', '').replace(',', '.'));
-  const result = (numerator: bigint, denominator: bigint) => {
-    const value = formatSuppliedFraction(numerator, denominator, 2);
-    const [whole, fraction = ''] = value.text.split('.');
-    return `${value.exact ? '=' : '≈'} ${localize(`${whole}.${fraction.padEnd(2, '0')}`)}`;
-  };
-  const rub = locale === 'zh' ? '卢布' : locale === 'en' ? 'RUB' : '₽';
-  const ton = locale === 'zh' ? '吨' : locale === 'en' ? 't' : 'т';
-  const hectare = locale === 'zh' ? '公顷' : locale === 'en' ? 'ha' : 'га';
-
-  if (values.cost) {
-    const mass = read('mass'), area = read('area'), cost = read('cost');
-    if (mass === 0n || area === 0n) {
-      return locale === 'zh' ? '请核对产量和面积，两者都必须大于零。'
-        : locale === 'en' ? 'Please check the output and area. Both must be greater than zero.'
-        : 'Уточни валовой сбор и площадь. Оба значения должны быть больше нуля.';
-    }
-    return `${input('cost')} ${rub} ÷ ${input('mass')} ${ton} ${result(cost, mass)} ${rub}/${ton}.\n`
-      + `${input('cost')} ${rub} ÷ ${input('area')} ${hectare} ${result(cost, area)} ${rub}/${hectare}.`;
-  }
-  if (values.massA) {
-    const massA = read('massA'), massB = read('massB');
-    const mass = massA + massB;
-    if (mass === 0n) {
-      return locale === 'zh' ? '请核对两批货物的总重量，必须大于零。'
-        : locale === 'en' ? 'Please check the combined lot weight. It must be greater than zero.'
-        : 'Уточни общий вес партий. Он должен быть больше нуля.';
-    }
-    const total = massA * read('priceA') + massB * read('priceB');
-    const exactTotal = localize(formatSuppliedFraction(total, TRADE_QUANTITY_SCALE ** 2n, 5).text);
-    return `${input('massA')} × ${input('priceA')} + ${input('massB')} × ${input('priceB')} ${result(total, TRADE_QUANTITY_SCALE ** 2n)} ${rub}.\n`
-      + `${exactTotal} ÷ (${input('massA')} + ${input('massB')}) ${result(total, TRADE_QUANTITY_SCALE * mass)} ${rub}/${ton}.`;
-  }
-  const rate = read('rate');
-  if (rate === 0n) {
-    return locale === 'zh' ? '请核对题设汇率，汇率必须大于零。'
-      : locale === 'en' ? 'Please check the supplied exchange rate. It must be greater than zero.'
-      : 'Уточни заданный курс. Он должен быть больше нуля.';
-  }
-  const perTonne = read('price') * rate;
-  const basis = locale === 'zh' ? '按题设汇率：' : locale === 'en' ? 'At the supplied exchange rate: ' : 'По заданному курсу: ';
-  const formula = `${input('price')} × ${input('rate')}`;
-  return `${basis}${formula} ${result(perTonne, TRADE_QUANTITY_SCALE ** 2n)} ${rub}/${ton}.\n`
-    + `${formula} × ${input('mass')} ${result(perTonne * read('mass'), TRADE_QUANTITY_SCALE ** 3n)} ${rub}.`;
-}
-
-function canonicalCalculationQuestion(question: string): string | null {
-  // Only decimal-digit representations may canonicalize to one ASCII digit.
-  // Powers, subscripts and other numeric symbols must not become operands.
-  if ([...question.matchAll(/\p{Number}/gu)].some(([value]) =>
-    !/^\p{Decimal_Number}$/u.test(value) || !/^[0-9]$/u.test(value.normalize('NFKC')))) return null;
-  return question.normalize('NFKC');
 }
 
 function suppliedHypotheticalCalculationFor(text: string, locale: PublicLocale): string | null {
@@ -912,15 +806,6 @@ function suppliedHypotheticalCalculationFor(text: string, locale: PublicLocale):
     return `${intro}${a} / ${b} ${result.exact ? '=' : '≈'} ${result.text} ${unit}${rounding}.`;
   }
   return null;
-}
-
-/** Positive bounded operands; integer arithmetic makes the rounding explicit. */
-function formatSuppliedFraction(numerator: bigint, denominator: bigint, places: number): Readonly<{ text: string; exact: boolean }> {
-  const scale = 10n ** BigInt(places);
-  const rounded = (numerator * scale + denominator / 2n) / denominator;
-  const whole = rounded / scale;
-  const fraction = (rounded % scale).toString().padStart(places, '0').replace(/0+$/u, '');
-  return Object.freeze({ text: `${whole}${fraction ? `.${fraction}` : ''}`, exact: rounded * denominator === numerator * scale });
 }
 
 /** Only positively named software references may be excluded from operands. */

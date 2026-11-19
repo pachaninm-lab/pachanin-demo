@@ -19,6 +19,7 @@ import {
   type AssistantSafetyReason,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
+import { checkedSuppliedTrade } from '../../../../api/src/modules/ai-insights/restricted-public-qwen.stream-gate';
 import { answerFarmerStarterQuestion } from '@/lib/platform-v7/public-assistant-knowledge';
 import { resolveInternalStreamEndpoint, streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
 import {
@@ -96,7 +97,7 @@ type PublicEnvelope = Readonly<{
 
 type ArithmeticFact = Readonly<{ value: bigint; start: number; end: number }>;
 type SuppliedArithmetic = Readonly<{
-  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'dry_matter' | 'offer_netback';
+  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'dry_matter' | 'offer_netback' | 'fixed_rate_lot';
   answer: string;
 }>;
 const ARITHMETIC_SCALE = BigInt(1000);
@@ -630,7 +631,17 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  const arithmetic = suppliedArithmetic(envelope, answerMode);
+  const trade = answerMode === 'general_agro' && !envelope.history.length && !envelope.documents.length
+    ? checkedSuppliedTrade(envelope.question, locale, envelope.questionTruncated) : null;
+  if (trade?.fixedRateLot && trade.truncated) {
+    return admitted(streamDirectAnswer(trade.answer, {
+      source: 'policy', answerMode, currentDataRequired: false, modelIdentity: null,
+      truncated: false, safetyFlags: ['INCOMPLETE_QUESTION'],
+    }));
+  }
+  const arithmetic: SuppliedArithmetic | null = trade?.fixedRateLot
+    ? { operation: 'fixed_rate_lot', answer: trade.answer }
+    : suppliedArithmetic(envelope, answerMode);
   if (arithmetic) {
     return admitted(streamDirectAnswer(arithmetic.answer, {
       source: 'deterministic_calculator',
@@ -931,6 +942,7 @@ function streamModelFirstAnswer(
         const payload = {
           question: grounding.understanding?.normalizedQuestion || envelope.question || grounding.title,
           originalQuestion: envelope.question,
+          originalQuestionTruncated: envelope.questionTruncated,
           documents: envelope.documents,
           locale,
           answerMode,
