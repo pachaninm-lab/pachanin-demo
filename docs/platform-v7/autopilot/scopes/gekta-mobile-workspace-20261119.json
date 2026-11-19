@@ -8,6 +8,7 @@
     "commit": "479497fb7c7d0110994917f5384b3aff74b5a7ab"
   },
   "allowedPaths": [
+    ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
     "apps/web/app/gekta/about/page.tsx",
     "apps/web/app/gekta/app-icon.png/route.ts",
     "apps/web/app/gekta/apple-icon.tsx",
@@ -83,6 +84,8 @@
     "apps/web/tests/unit/gektaStandaloneExperience.test.ts",
     "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
     "apps/web/tests/unit/gektaWorkspaceIa.test.ts",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json",
     "scripts/production-web-live-acceptance.sh"
   ],
   "sourceEvidence": {
@@ -96,9 +99,24 @@
     "changedPathCount": 76
   },
   "acceptance": [
-    "Submit the product diff from the named branch after this admission is present on main. Verify its 76 paths and source diff digest against the evidence.",
+    "Verify the original 76 product paths against sourceEvidence, the three release companion files against their separate digest, and the combined 79-file diff against releaseCompanions. All exact-head checks still apply.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
     "Recheck delayed consent, account history, cross-chat and unfinished attachment processing, project deletion and keyboard modal focus using isolated test data.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
-  ]
+  ],
+  "releaseCompanions": {
+    "productHead": "1093471f73079ebbe38fedb5c77b75bd0345d2d6",
+    "base": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
+    "sourcePaths": 76,
+    "sourceDiffSha256": "d5bd1686cc9db06ed48967aa586d9c57c776e0767e61723e5e40e18cea782e08",
+    "extraPaths": [
+      ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "extraDiffSha256": "5c74bbd99c473faa106ec5c07a1324c7db1f927d8b7ba53e7ae53cf798203ec2",
+    "combinedPathCount": 79,
+    "combinedDiffSha256": "757a223fb164b5d0ec33a5a2d3d69cf9986443c044e0c3489082d7568dc0f0bd",
+    "reason": "The unchanged source suite requires a current generated cryptographic inventory; use the same Ubuntu 24.04 runner already used by the Gekta browser suite to install the repository-pinned browsers."
+  }
 }
