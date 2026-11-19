@@ -255,8 +255,13 @@ for (const recovered of [true, false]) {
     const waitForRefresh = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/api/gekta/auth/refresh', async route => {
       await waitForRefresh;
-      await route.fulfill({ status: recovered ? 200 : 401, json: { ok: recovered },
-        headers: recovered ? { 'Set-Cookie': 'pc_session_present=' + marker(owner) + '; Path=/; SameSite=Lax' } : {} });
+      await route.fulfill({ status: recovered ? 200 : 401, json: { ok: recovered } });
+      if (recovered) {
+        // Model WebKit exposing the rotated marker after the network response was delivered.
+        await page.evaluate(value => {
+          window.setTimeout(() => { document.cookie = 'pc_session_present=' + value + '; Path=/; SameSite=Lax'; }, 50);
+        }, marker(owner));
+      }
     });
     const composer = page.locator('#gekta-composer-input');
     await page.goto('/gekta');
@@ -281,6 +286,131 @@ for (const recovered of [true, false]) {
     await expect(composer).toHaveValue(privateDraft);
     await setOwner(otherOwner);
     await expect(composer).toHaveValue('Отдельный расчёт мельницы');
+  });
+}
+
+test('keeps text typed into a new-chat link before hydration and preserves the previous draft', async ({ page }) => {
+  const old = 'Ранее начатый расчёт';
+  const typed = 'Сколько стоит перевозка?';
+  await page.addInitScript(({ old }) => {
+    sessionStorage.setItem('gekta-tab-drafts-v1:ru:guest', JSON.stringify({
+      owner: 'guest', active: 'draft-existing', rows: [{ id: 'draft-existing', text: old, projectId: null }],
+    }));
+  }, { old });
+  let release!: () => void;
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  await page.route(/\/_next\/static\/chunks\/.+\.js$/u, async route => { await delayed; await route.continue(); });
+  const input = page.locator('#gekta-composer-input');
+  try {
+    await page.goto('/gekta?chat=new', { waitUntil: 'commit' });
+    await input.fill(typed);
+    await expect(input).toHaveValue(typed);
+  } finally { release(); }
+  await expect(page).not.toHaveURL(/chat=new/u);
+  await expect(input).toHaveValue(typed);
+  const texts = await page.evaluate(() => JSON.parse(sessionStorage.getItem('gekta-tab-drafts-v1:ru:guest')!).rows.map((row: { text: string }) => row.text));
+  expect(texts).toEqual(expect.arrayContaining([old, typed]));
+});
+
+test('protects a visible account draft when its marker expires during uninterrupted typing', async ({ page, context, baseURL }) => {
+  const email = 'orchard@example.test';
+  const text = 'Закрытый расчёт хозяйства';
+  const marker = encodeURIComponent(JSON.stringify({ email }));
+  await context.addCookies([{ name: 'pc_session_present', value: marker, url: baseURL! }]);
+  await page.route('**/api/gekta/account/entitlement', route => route.fulfill({ status: 503, json: {} }));
+  await page.route('**/api/gekta/auth/refresh', route => route.fulfill({ status: 401, json: { ok: false } }));
+  await page.goto('/gekta');
+  const input = page.locator('#gekta-composer-input');
+  await input.fill(text);
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeEnabled();
+  await context.clearCookies({ name: 'pc_session_present' });
+  await input.press('End');
+  await input.press('X');
+  await expect(input).not.toHaveValue(new RegExp(text));
+  const partitions = await page.evaluate(() => Object.entries(sessionStorage).filter(([key]) => key.startsWith('gekta-tab-drafts-v1:ru:')));
+  expect(partitions.find(([key]) => key.endsWith(':guest'))?.[1] ?? '').not.toContain(text);
+  expect(partitions.find(([key]) => key.includes('account%3A'))?.[1]).toContain(text);
+});
+
+for (const condition of ['a tab returns under another account', 'another window changes account while the visible tab stays idle'] as const) {
+  test(`replaces the selected history and projects when ${condition}`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 1280, height: 840 });
+    const marker = (email: string) => encodeURIComponent(JSON.stringify({ email }));
+    let owner = 'a';
+    const time = '2026-08-15T11:00:00Z';
+    const row = (who: string) => ({ id: 'chat-' + who, title: 'Переписка ' + who, projectId: null, locale: 'ru', createdAt: time, updatedAt: time });
+    const ownerCookie = () => context.addCookies([{ name: 'pc_session_present', value: marker(owner + '@example.test'), url: baseURL! }]);
+    await ownerCookie();
+    await page.route('**/api/gekta/account/entitlement', r => r.fulfill({ json: {} }));
+    await page.route('**/api/gekta/account/projects', r => r.fulfill({ json: { projects: [{ id: 'project-' + owner, name: 'Проект ' + owner, locale: 'ru', createdAt: time, updatedAt: time }] } }));
+    await page.route('**/api/gekta/account/conversations', r => r.fulfill({ json: { conversations: [row(owner)] } }));
+    await page.route('**/api/gekta/account/conversations/chat-a', r => r.fulfill({ json: { ...row('a'), messages: [{ id: 'm-a', role: 'user', body: 'Закрытая реплика A', createdAt: time }] } }));
+    await page.goto('/gekta');
+    const side = page.locator('aside');
+    await side.getByRole('button', { name: 'Переписка a', exact: true }).click();
+    await expect(page.getByText('Закрытая реплика A', { exact: true })).toBeVisible();
+    if (condition === 'a tab returns under another account') {
+      owner = 'b';
+      await ownerCookie();
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    } else {
+      const sibling = await context.newPage();
+      await sibling.goto('/robots.txt');
+      await page.bringToFront();
+      await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible');
+      owner = 'b';
+      await sibling.evaluate(value => {
+        document.cookie = 'pc_session_present=' + value + '; Path=/; SameSite=Lax';
+      }, marker('b@example.test'));
+      // Both windows share the cookie. The visible workspace receives no further input or synthetic focus.
+      await expect(page.getByText('Закрытая реплика A', { exact: true })).toHaveCount(0, { timeout: 3000 });
+    }
+    await expect(side.getByRole('button', { name: 'Переписка b', exact: true })).toBeVisible();
+    await expect(side.getByRole('button', { name: /Проект b/ }).first()).toBeVisible();
+    await expect(side.getByText('Переписка a', { exact: true })).toHaveCount(0);
+    await expect(side.getByText('Проект a', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Закрытая реплика A', { exact: true })).toHaveCount(0);
+  });
+}
+
+for (const direction of ['Back', 'Forward'] as const) {
+  test(`keeps browser ${direction} from importing another owner's restored form text`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 1280, height: 840 });
+    const input = page.locator('#gekta-composer-input');
+    const drafts = { a: 'Расходы хозяйства А', b: 'Черновик хозяйства Б' };
+    const marker = (owner: 'a' | 'b') => encodeURIComponent(JSON.stringify({ email: owner + '@example.test' }));
+    const saved = (owner: 'a' | 'b') => page.evaluate(email => {
+      const key = 'gekta-tab-drafts-v1:ru:' + encodeURIComponent('account:' + email + '@example.test');
+      return JSON.parse(sessionStorage.getItem(key) || '{}').rows?.[0]?.text;
+    }, owner);
+    const sibling = await context.newPage();
+    await sibling.goto('/robots.txt');
+    const switchTo = (owner: 'a' | 'b') => sibling.evaluate(value => {
+      document.cookie = 'pc_session_present=' + value + '; Path=/; SameSite=Lax';
+    }, marker(owner));
+    await page.route('**/api/gekta/account/**', route => route.fulfill({ json: { conversations: [], projects: [] } }));
+    await context.addCookies([{ name: 'pc_session_present', value: marker('b'), url: baseURL! }]);
+    await page.goto('/gekta?visit=b');
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
+    await input.fill(drafts.b);
+    await expect.poll(() => saved('b')).toBe(drafts.b);
+    await page.goto('/robots.txt');
+    await switchTo('a');
+    await page.goto('/gekta?visit=a');
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
+    await input.fill(drafts.a);
+    await expect.poll(() => saved('a')).toBe(drafts.a);
+    if (direction === 'Back') await page.goto('/robots.txt?visit=away');
+    else await page.goBack();
+    await switchTo('b');
+    if (direction === 'Back') await page.goBack();
+    else await page.goForward();
+    await expect(input).toHaveValue(drafts.b);
+    await input.focus();
+    await expect.poll(() => saved('b')).toBe(drafts.b);
+    await expect.poll(() => saved('a')).toBe(drafts.a);
+    await page.reload();
+    await expect(input).toHaveValue(drafts.b);
   });
 }
 

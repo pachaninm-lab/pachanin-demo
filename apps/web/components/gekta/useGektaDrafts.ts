@@ -3,7 +3,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { SESSION_COOKIE } from '@/lib/auth-cookies';
 import type { GektaLocale } from '@/lib/gekta/content';
-import { createWorkspaceId, restoreGektaSessionMarker } from '@/lib/gekta/server-workspace';
+import { createWorkspaceId, GEKTA_SESSION_CHANGED, restoreGektaSessionMarker } from '@/lib/gekta/server-workspace';
 
 export type GektaDraft = { id: string; text: string; previous?: string; projectId: string | null };
 type DraftBook = { active: string; rows: GektaDraft[] };
@@ -18,7 +18,8 @@ function freshId() {
 }
 
 // This presentation cookie only partitions tab-local text. Account access is decided by the server.
-function browserOwner(): string | null {
+export function currentGektaOwner(): string | null {
+  if (typeof document === 'undefined') return 'guest';
   try {
     const marker = document.cookie.split('; ').find((part) => part.startsWith(SESSION_COOKIE + '='));
     if (!marker) return 'guest';
@@ -68,50 +69,104 @@ export function clearGektaTabDrafts() {
   } catch {}
 }
 
-export function useGektaDrafts(locale: GektaLocale, activeId: string | null, projectId: string | null) {
+// A tab can return with another user's cookies while still displaying the previous editor.
+export function useGektaWorkspaceOwner(locale: GektaLocale): string | null {
+  const [owner, setOwner] = useState(currentGektaOwner);
+  useLayoutEffect(() => {
+    let mounted = true;
+    let observed = currentGektaOwner();
+    let pending = false;
+    const observe = () => {
+      const next = currentGektaOwner();
+      const changed = observed !== next;
+      observed = next;
+      if (mounted) setOwner(next);
+      return changed;
+    };
+    const recover = () => {
+      if (pending || observed !== 'guest') return;
+      pending = true;
+      void restoreGektaSessionMarker().catch(() => false).finally(() => {
+        pending = false;
+        if (mounted) observe();
+      });
+    };
+    const resume = () => {
+      const previous = observed;
+      observe();
+      if (previous?.startsWith('account:') || hasAccountDraft(locale)) recover();
+    };
+    const beforeInteraction = (event: Event) => {
+      if (!(event.target instanceof Element) || !event.target.closest('#gekta-chat')) return;
+      const previous = observed;
+      if (!observe()) return;
+      // The event targets a DOM node rendered for the previous owner.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (previous?.startsWith('account:')) recover();
+    };
+    // A second window can switch accounts while this one stays visible and receives no focus or input.
+    const checkVisibleOwner = () => {
+      if (document.visibilityState === 'visible' && currentGektaOwner() !== observed) resume();
+    };
+    const cookieEvents = (window as Window & { cookieStore?: EventTarget }).cookieStore;
+    let ownerTimer: number | undefined;
+    const onVisible = () => {
+      window.clearInterval(ownerTimer);
+      ownerTimer = undefined;
+      if (document.visibilityState !== 'visible') return;
+      resume();
+      // A replacement cookie may be readable without a cookie-change event.
+      ownerTimer = window.setInterval(checkVisibleOwner, 250);
+    };
+    const events = ['pointerdown', 'keydown', 'beforeinput', 'input', 'change', 'click', 'submit', 'drop'];
+    onVisible();
+    cookieEvents?.addEventListener('change', checkVisibleOwner);
+    window.addEventListener('pageshow', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener(GEKTA_SESSION_CHANGED, resume);
+    document.addEventListener('visibilitychange', onVisible);
+    for (const name of events) document.addEventListener(name, beforeInteraction, true);
+    return () => {
+      mounted = false;
+      window.clearInterval(ownerTimer);
+      cookieEvents?.removeEventListener('change', checkVisibleOwner);
+      window.removeEventListener('pageshow', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener(GEKTA_SESSION_CHANGED, resume);
+      document.removeEventListener('visibilitychange', onVisible);
+      for (const name of events) document.removeEventListener(name, beforeInteraction, true);
+    };
+  }, [locale]);
+  return owner;
+}
+
+export function useGektaDrafts(locale: GektaLocale, activeId: string | null, projectId: string | null, owner: string | null) {
   const [book, setBook] = useState<DraftBook>(EMPTY);
   const current = useRef(EMPTY);
-  const scope = useRef<{ locale: GektaLocale; owner: string | null } | null>(null);
+  const initialized = useRef(false);
   const initialize = useCallback(() => {
-    const owner = browserOwner();
-    if (scope.current?.locale !== locale || scope.current.owner !== owner) {
-      current.current = readBook(locale, owner);
-      scope.current = { locale, owner };
+    if (!initialized.current) {
+      const stored = readBook(locale, owner);
+      // Select the URL's new question before the composer can claim input typed into server HTML.
+      const openedNew = new URLSearchParams(window.location.search).get('chat') === 'new';
+      current.current = openedNew ? { ...stored, active: freshId() } : stored;
+      initialized.current = true;
     }
     return current.current;
-  }, [locale]);
+  }, [locale, owner]);
   const commit = useCallback((next: DraftBook) => {
+    if (currentGektaOwner() !== owner) return;
     current.current = next;
     setBook(next);
-    const owner = scope.current?.owner;
-    if (!owner || browserOwner() !== owner) return;
+    if (!owner) return;
     try {
       const key = ownerKey(locale, owner);
       if (next.rows.length) sessionStorage.setItem(key, JSON.stringify({ ...next, owner }));
       else sessionStorage.removeItem(key);
     } catch { /* The active tab still holds its in-memory draft. */ }
-  }, [locale]);
-  useLayoutEffect(() => {
-    let mounted = true;
-    let pending = false;
-    const sync = () => {
-      setBook(initialize());
-      if (pending || browserOwner() !== 'guest' || !hasAccountDraft(locale)) return;
-      pending = true;
-      void restoreGektaSessionMarker().catch(() => false).finally(() => {
-        pending = false;
-        if (mounted) setBook(initialize());
-      });
-    };
-    sync();
-    window.addEventListener('pageshow', sync);
-    window.addEventListener('focus', sync);
-    return () => {
-      mounted = false;
-      window.removeEventListener('pageshow', sync);
-      window.removeEventListener('focus', sync);
-    };
-  }, [initialize, locale]);
+  }, [locale, owner]);
+  useLayoutEffect(() => { commit(initialize()); }, [commit, initialize]);
 
   const write = useCallback((text: string, replacing = false) => {
     const source = initialize();

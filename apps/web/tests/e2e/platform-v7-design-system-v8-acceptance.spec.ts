@@ -365,11 +365,21 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         const path = route === 'gekta' ? (locale === 'ru' ? '/gekta' : `/gekta/${locale}`) : `/platform-v7/${route}?lang=${locale}`;
         const response = await page.goto(path, { waitUntil: 'load' });
         expect(response?.ok(), path).toBe(true);
-        const header = page.locator('[data-public-site-header="canonical"]');
+        const workspace = page.locator('[data-gekta-chat-workspace]');
+        const platformHeader = page.locator('[data-public-site-header="canonical"]');
+        const header = route === 'gekta' ? workspace.locator('main > header') : platformHeader;
         await expect(header).toHaveCount(1);
         await expect(header).toBeVisible();
-        await expect(header.locator('.pc-site-brand')).toHaveAttribute('href', `/platform-v7?lang=${locale}`);
-        const controls = header.locator('a:visible, summary:visible');
+        if (route === 'gekta') {
+          await expect(platformHeader).toHaveCount(0);
+          await expect(workspace).toHaveAttribute('lang', locale === 'zh' ? 'zh-CN' : locale);
+          await expect(header.locator('[data-gekta-brand-home]')).toHaveAttribute('href', path);
+          await expect(workspace.getByRole('heading', { level: 1 })).toBeVisible();
+          await expect(workspace.locator('#gekta-composer-input')).toBeEditable();
+        } else {
+          await expect(header.locator('.pc-site-brand')).toHaveAttribute('href', `/platform-v7?lang=${locale}`);
+        }
+        const controls = header.locator(route === 'gekta' ? 'a:visible, button:visible' : 'a:visible, summary:visible');
         for (const control of await controls.all()) {
           const box = await control.boundingBox();
           expect(box, `${path} ${width}px header control`).not.toBeNull();
@@ -469,7 +479,7 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         await expectNoHorizontalOverflow(page);
         if (width === widths[0]) {
           const scan = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']);
-          const result = await (route === 'gekta' ? scan.include('[data-gekta-public-header]') : scan).analyze();
+          const result = await scan.analyze();
           const blocking = result.violations.filter(item => item.impact === 'serious' || item.impact === 'critical');
           expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
         }
@@ -491,22 +501,35 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
     const path = locale === 'ru' ? '/gekta' : `/gekta/${locale}`;
     await page.goto(path, { waitUntil: 'load' });
     await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
-    const publicHeader = page.locator('[data-gekta-public-header]');
-    await expect(publicHeader).toBeVisible();
-    const menu = page.locator('[data-gekta-chat-workspace] > div > main > header > button').first();
+    const workspace = page.locator('[data-gekta-chat-workspace]');
+    const background = workspace.locator(':scope > div').first();
+    const labels = {
+      ru: { history: 'Открыть историю', newChat: 'Новый диалог' },
+      en: { history: 'Open history', newChat: 'New chat' },
+      zh: { history: '打开历史记录', newChat: '新对话' },
+    }[locale];
+    const menu = workspace.getByRole('button', { name: labels.history, exact: true });
     await menu.click();
-    const dialog = page.locator('[role="dialog"][aria-labelledby="gekta-mobile-drawer-title"]');
+    const dialog = page.getByRole('dialog', { name: 'Gekta', exact: true });
     await expect(dialog).toBeVisible();
-    await expect(publicHeader).toHaveAttribute('inert', '');
+    await expect(background).toHaveAttribute('inert', '');
+    await expect(background).toHaveAttribute('aria-hidden', 'true');
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
-    await expect(publicHeader).not.toHaveAttribute('inert', '');
+    await expect(background).not.toHaveAttribute('inert', '');
     await expect(menu).toBeFocused();
-    await publicHeader.locator('a[href$="?chat=new"]').click();
-    await expect(page).toHaveURL(new RegExp(`${path.replaceAll('/', '\\/')}\\?chat=new$`));
+    const composer = workspace.locator('#gekta-composer-input');
+    await composer.fill('42');
+    await menu.click();
+    await dialog.getByRole('button', { name: labels.newChat, exact: true }).click();
+    await expect(composer).toHaveValue('');
+    await expect(composer).toBeFocused();
+    await page.goto(path + '?chat=new');
+    await expect(page).not.toHaveURL(/chat=new/u);
+    expect(new URL(page.url()).pathname).toBe(path);
     await expect(page.locator('[data-gekta-experience]')).toHaveAttribute('data-gekta-experience', 'chat');
-    await expect(page.locator('[data-gekta-public-header]')).toHaveCount(0);
-    await expect(page.locator('[data-gekta-chat-workspace]')).toBeVisible();
+    await expect(page.locator('[data-public-site-header="canonical"]')).toHaveCount(0);
+    await expect(composer).toBeEditable();
     expect(aiCommands).toEqual([]);
     expect(failures).toEqual([]);
   });

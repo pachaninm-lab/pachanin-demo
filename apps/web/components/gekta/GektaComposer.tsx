@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { ArrowUp, Square, Undo2 } from 'lucide-react';
 import type { PublicAssistantDocument } from '@/components/platform-v7/PublicAssistantAttachmentPicker';
+import { SESSION_COOKIE } from '@/lib/auth-cookies';
 import type { GektaLocale } from '@/lib/gekta/content';
 import { GektaAttachments } from './GektaAttachments';
 import { GektaVoiceInput } from './GektaVoiceInput';
@@ -44,18 +45,38 @@ export function GektaComposer({ locale, value, placeholder, sending, historyRead
   onStop: () => void;
   onError: (message: string) => void;
 }) {
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement & {
+    gektaEditingMarker?: string;
+    gektaEarlyEdit?: { marker: string; text: string };
+  }>(null);
+  const currentValue = React.useRef(value);
   const pendingAttachmentSubmit = React.useRef(false);
   const [uploading, setUploading] = React.useState(false);
   const [voiceStatus, setVoiceStatus] = React.useState('');
   const canSubmit = historyReady && !uploading && Boolean(value.trim() || documents.length);
 
+  React.useLayoutEffect(() => { currentValue.current = value; }, [value]);
+
   React.useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    // Keep text entered before React attached the input handler.
-    if (textarea && textarea.value !== textarea.defaultValue) {
-      onChange(textarea.value);
+    const field = textareaRef.current;
+    if (!field) return;
+    const earlyEdit = field.gektaEarlyEdit;
+    delete field.gektaEarlyEdit;
+    delete field.gektaEditingMarker;
+    document.dispatchEvent(new Event('gekta-composer-ready'));
+    const marker = document.cookie.split('; ').find(part => part.startsWith(SESSION_COOKIE + '=')) || '';
+    const restore = () => {
+      if (field.value !== currentValue.current) field.value = currentValue.current;
+    };
+    if (earlyEdit && earlyEdit.marker === marker) {
+      currentValue.current = earlyEdit.text;
+      onChange(earlyEdit.text);
+    } else {
+      restore();
     }
+    // History traversal can restore browser form state independently of React.
+    window.addEventListener('pageshow', restore);
+    return () => window.removeEventListener('pageshow', restore);
   }, [onChange]);
 
   React.useEffect(() => {
@@ -88,6 +109,7 @@ export function GektaComposer({ locale, value, placeholder, sending, historyRead
         <label htmlFor='gekta-composer-input' className='sr-only'>{placeholder}</label>
         <textarea
           id='gekta-composer-input'
+          autoComplete='off'
           ref={textareaRef}
           value={value}
           onInput={(event) => onChange(event.currentTarget.value)}

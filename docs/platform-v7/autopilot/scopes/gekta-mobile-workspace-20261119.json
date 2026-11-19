@@ -5,7 +5,7 @@
   "purpose": "Admit the listed Gekta workspace, localized entry, private draft and attachment handling, account history, consent and release checks for the product PR.",
   "baseline": {
     "branch": "main",
-    "commit": "351b43498e7ed5208a8bc5dd30a249b65bda6351"
+    "commit": "31fac640a0171aebd926ba12742fd38c20430f4f"
   },
   "allowedPaths": [
     ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
@@ -69,6 +69,7 @@
     "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
     "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
     "apps/web/tests/e2e/gekta-workspace-appearance-acceptance.spec.ts",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
     "apps/web/tests/unit/gektaDocumentContext.test.ts",
     "apps/web/tests/unit/gektaEntitlement.test.ts",
@@ -92,25 +93,25 @@
   ],
   "sourceEvidence": {
     "artifact": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "f1e4db7e79ec9d5dd1feb93e2fb9b1309d218d1ead553aa70578915390323083",
-    "patchBaseCommit": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
-    "patchResultTree": "c9e49b1696feed86ebaabe702ed0f685ed8ff75c",
-    "baselineResultTree": "c9e49b1696feed86ebaabe702ed0f685ed8ff75c",
-    "sourceDiffSha256": "d53608d66feee70be87ec886c94bf6ebd863d5cffed6dc51dee8e3e84f03964a",
+    "patchSha256": "16293f2c39e53e1570e3328df65a631fa5d1993bc4b5d0004f021035fd826254",
+    "patchBaseCommit": "31fac640a0171aebd926ba12742fd38c20430f4f",
+    "patchResultTree": "d053eed8c8dd5b42f91748fca90c03bd3b470a4b",
+    "baselineResultTree": "d053eed8c8dd5b42f91748fca90c03bd3b470a4b",
+    "sourceDiffSha256": "b2943f5bf23355f3f7c8560614297407feab78bd7c3570bdd1954eb78feb1f2e",
     "diffCommand": "git diff --binary --full-index --no-renames <source-base> <source-head>",
-    "changedPathCount": 76
+    "changedPathCount": 77
   },
   "acceptance": [
-    "Verify the 76 product files against sourceEvidence, the five release companions against their separate digest, and the combined 81-file diff against releaseCompanions.",
+    "Verify the 77 product and acceptance files against sourceEvidence, five release companions against their separate digest, and the combined 82-file diff against releaseCompanions.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
-    "Verify the account draft partition through short-cookie expiry, recovery, rejection and account switches, plus delayed consent, attachments, history, project deletion and keyboard focus.",
+    "Verify draft migration, typing before hydration and during session expiry, delayed marker visibility after refresh, refusal and account changes with visible history or outstanding requests, including a second window changing account while the first remains idle, and Back/Forward browser form restoration. Check attachments, consent, project deletion, keyboard focus, and standalone navigation in Russian, English and Chinese.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
   ],
   "releaseCompanions": {
-    "productHead": "3a7af510a87a9988e20006b077cdd98826492c54",
-    "base": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
-    "sourcePaths": 76,
-    "sourceDiffSha256": "d53608d66feee70be87ec886c94bf6ebd863d5cffed6dc51dee8e3e84f03964a",
+    "productHead": "fb44591c342dae376a67f79ad3e732f7f087941b",
+    "base": "31fac640a0171aebd926ba12742fd38c20430f4f",
+    "sourcePaths": 77,
+    "sourceDiffSha256": "b2943f5bf23355f3f7c8560614297407feab78bd7c3570bdd1954eb78feb1f2e",
     "extraPaths": [
       ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
       ".github/workflows/production-like-kubernetes-acceptance.yml",
@@ -118,9 +119,9 @@
       "docs/security/cryptographic-inventory.json",
       "scripts/release/production-like-kubernetes-source-preflight-test.sh"
     ],
-    "extraDiffSha256": "6281e5d28708b6882ab18884f1c7ec0f1b03df8e69486ae9ec07cdea524cc259",
-    "combinedPathCount": 81,
-    "combinedDiffSha256": "9df7d2812228db863835bc81d39ae942c3ee6890f87e0a883618c501cb38b4fc",
+    "extraDiffSha256": "274e82610d8501ca8d84f7d3e168c533739eb1baa006242b5de0ab515c6b55e0",
+    "combinedPathCount": 82,
+    "combinedDiffSha256": "c94d6a500157ba0a3298775e45b2a92a20d9432e48cc63e186179ae597152fdd",
     "reason": "Update the generated source inventory, run the design-system browsers on the same supported Ubuntu 24.04 as Gekta, and allow the existing guard regression suite up to 420 seconds only on the exact same-repository product branch. The scope check keeps 180 seconds. Both checks must pass."
   }
 }

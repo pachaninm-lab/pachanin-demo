@@ -21,6 +21,7 @@ function actualCallback(name: 'submit' | 'retry', context: Record<string, unknow
 function client(documents = [doc()]) {
   const cache = new GektaDocumentRetryCache();
   const context = {
+    isCurrentOwner: vi.fn(() => true),
     documents, sending: false, historyPhase: 'ready', input: 'Проверь условия договора по зерну.', locale: 'ru', activeId: 'conversation-1', messages: [] as unknown[],
     documentRetries: { current: cache }, readDocumentContext, DOCUMENT_CONTEXT_COPY,
     submittingPrompt: { current: null as number | null }, promptIntentRevision: { current: 0 },
@@ -113,6 +114,19 @@ describe('G-A04 structured extracted document context', () => {
     expect(context.setDocuments).not.toHaveBeenCalled();
     expect(cache.read('user-1')).toBeUndefined();
     expect(context.submittingPrompt.current).toBeNull();
+  });
+});
+
+describe('workspace owner during a reservation', () => {
+  it('drops a previously prepared question when the account changes during reservation', async () => {
+    const { context } = client();
+    context.reserveAnswer.mockImplementationOnce(async () => {
+      context.isCurrentOwner.mockReturnValue(false);
+      return 'one-use-ticket';
+    });
+    await actualCallback('submit', context)();
+    expect(context.runGeneration).not.toHaveBeenCalled();
+    expect(context.saveConversation).not.toHaveBeenCalled();
   });
 });
 
