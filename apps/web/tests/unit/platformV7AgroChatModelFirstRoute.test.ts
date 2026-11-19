@@ -214,6 +214,19 @@ describe('agro policy at the actual public streaming boundary', () => {
     expect(boundary.model).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['ru', 'В условном инвойсе QA-10 (пшеница погрузка отдельно) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.', '1600,00 ₽', 'Это стоимость товара', 'укажи их размер для расчёта суммы к оплате'],
+    ['en', 'Fictional invoice QA-10, canola handling extra: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.', '1600.00 RUB', 'goods at the quoted price', 'give their amounts to calculate the total payable'],
+    ['zh', '练习发票QA-10：小麦另计装卸费报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。', '1600.00 卢布', '按报价计算的货值', '请告知金额，以便计算最终应付金额'],
+  ])('only quotes a goods subtotal for separately billed invoice terms in %s', async (locale, message, value, basis, clarification) => {
+    const result = await arithmeticResult(message, locale);
+    expect(result.text).toContain(value);
+    expect(result.text).toContain(basis);
+    expect(result.text).toContain(clarification);
+    expect(result.assessment?.source).toBe('deterministic_calculator');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
   it('asks for all lot terms when the public question loses its ending', async () => {
     const result = await arithmeticResult(fixedOatsLot.padEnd(1200, ' ') + 'Учти ещё 500 ₽ за доставку.');
     expect(result.text).toContain('Конец вопроса');

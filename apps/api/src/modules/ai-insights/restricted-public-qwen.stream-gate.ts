@@ -639,8 +639,17 @@ function formatSuppliedTrade(values: Record<string, string>, locale: PublicLocal
   const perTonne = read('price') * rate;
   const basis = locale === 'zh' ? '按题设汇率：' : locale === 'en' ? 'At the supplied exchange rate: ' : 'По заданному курсу: ';
   const formula = `${input('price')} × ${input('rate')}`;
-  return `${basis}${formula} ${result(perTonne, TRADE_QUANTITY_SCALE ** 2n)} ${rub}/${ton}.\n`
+  const amounts = `${basis}${formula} ${result(perTonne, TRADE_QUANTITY_SCALE ** 2n)} ${rub}/${ton}.\n`
     + `${formula} × ${input('mass')} ${result(perTonne * read('mass'), TRADE_QUANTITY_SCALE ** 3n)} ${rub}.`;
+  if (!values.invoiceCrop) return amounts;
+  // An open invoice label can carry a price condition in any language. These
+  // operands always justify a goods subtotal, never a separate charge amount.
+  const invoiceBasis = locale === 'zh'
+    ? '以上是按报价计算的货值。如有另计费用或折扣，请告知金额，以便计算最终应付金额。'
+    : locale === 'en'
+      ? 'These figures cover the goods at the quoted price. If separate charges or discounts apply, give their amounts to calculate the total payable.'
+      : 'Это стоимость товара по указанной цене. Если есть отдельные расходы или скидки, укажи их размер для расчёта суммы к оплате.';
+  return amounts + '\n' + invoiceBasis;
 }
 
 export function canonicalCalculationQuestion(question: string): string | null {

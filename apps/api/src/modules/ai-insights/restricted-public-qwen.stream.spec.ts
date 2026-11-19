@@ -154,6 +154,21 @@ describe('RestrictedPublicQwenService.generateStream', () => {
         expected: ['800.00 卢布/吨', '1600.00 卢布'],
       },
       {
+        locale: 'ru', currentDataRequired: true,
+        question: 'В условном инвойсе QA-10 (пшеница погрузка отдельно) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.',
+        expected: ['800,00 ₽/т', '1600,00 ₽', 'Это стоимость товара', 'укажи их размер для расчёта суммы к оплате'],
+      },
+      {
+        locale: 'en', currentDataRequired: true,
+        question: 'Fictional invoice QA-10, canola handling extra: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.',
+        expected: ['800.00 RUB/t', '1600.00 RUB', 'goods at the quoted price', 'give their amounts to calculate the total payable'],
+      },
+      {
+        locale: 'zh', currentDataRequired: true,
+        question: '练习发票QA-10：小麦另计装卸费报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。',
+        expected: ['800.00 卢布/吨', '1600.00 卢布', '按报价计算的货值', '请告知金额，以便计算最终应付金额'],
+      },
+      {
         locale: 'ru',
         question: 'Есть 263 тонны ржи по 274 доллара за тонну, курс 83,386 рубля за доллар. Во сколько это обойдётся в рублях за тонну и за всю партию?',
         currentDataRequired: true,
