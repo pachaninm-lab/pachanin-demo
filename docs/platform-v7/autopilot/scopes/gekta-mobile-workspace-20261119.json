@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "status": "active",
   "branch": "review/gekta-mobile-20261119",
-  "purpose": "Admit the listed Gekta workspace, localized entry, draft, consent and acceptance changes for a separate product PR after this manifest merges into main.",
+  "purpose": "Admit the listed Gekta workspace, localized entry, draft and attachment ownership, account history, consent and acceptance changes for a separate product PR after this manifest merges into main.",
   "baseline": {
     "branch": "main",
     "commit": "479497fb7c7d0110994917f5384b3aff74b5a7ab"
@@ -21,6 +21,7 @@
     "apps/web/components/gekta/GektaAboutPage.tsx",
     "apps/web/components/gekta/GektaAccessGate.tsx",
     "apps/web/components/gekta/GektaAppearance.tsx",
+    "apps/web/components/gekta/GektaAttachments.tsx",
     "apps/web/components/gekta/GektaBrandMark.tsx",
     "apps/web/components/gekta/GektaChatWorkspace.tsx",
     "apps/web/components/gekta/GektaComposer.tsx",
@@ -86,17 +87,18 @@
   ],
   "sourceEvidence": {
     "artifact": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "f4583e7e43ffc3d1972e75442cf3621f64188d18fb86d660f12957633397e1bc",
-    "patchBaseCommit": "13a998e86e95914006df7766a6c6208a229fe10c",
-    "patchResultTree": "4710af8821a39e6fd95dee630e6576df02048369",
-    "baselineResultTree": "9767e61c233f7564f12706f3bbd080d5fe266d0d",
-    "sourceDiffSha256": "914a8cb0e7d0063223405e32dae14e49f0a0e8bb89cedc2549836ed8d69e7725",
+    "patchSha256": "2caad51ca73869ae408d95209aa6aae91cf84473bbf1989949ae2b0792666902",
+    "patchBaseCommit": "479497fb7c7d0110994917f5384b3aff74b5a7ab",
+    "patchResultTree": "d3c63bbbbc493ee23a702e0052a7ffd36d083852",
+    "baselineResultTree": "d3c63bbbbc493ee23a702e0052a7ffd36d083852",
+    "sourceDiffSha256": "149e0d93a512b7db3f2e6f62023eb93c0cef6fec5264b73b509836e6e4fe5d4e",
     "diffCommand": "git diff --binary --full-index --no-renames <source-base> <source-head>",
-    "changedPathCount": 75
+    "changedPathCount": 76
   },
   "acceptance": [
-    "Submit the product diff from the named branch after this admission is present on main. Verify its 75 paths and source diff digest against the evidence.",
+    "Submit the product diff from the named branch after this admission is present on main. Verify its 76 paths and source diff digest against the evidence.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
+    "Reproduce and recheck delayed consent, conversation history, attachment upload across chats, project deletion and keyboard modal focus with isolated test data.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
   ]
 }
