@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { parse } from 'postcss';
 import { describe, expect, it } from 'vitest';
+import Head from '@/app/platform-v7/head';
+import { getGektaApplicationSchema } from '@/lib/gekta/seo';
+import { CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
@@ -40,24 +46,28 @@ const visibleBrandSources = [
 const allBrandSources = Object.values(sources).join('\n');
 
 describe('Gekta public brand contract', () => {
-  it('keeps the mobile menu target above the strict browser acceptance floor', () => {
-    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
-    const rule = siteHeader.match(/\.pc-site-header\[data-public-site-header='canonical'\] \.pc-site-mobile-menu > summary \{([^}]+)\}/);
-    expect(rule).not.toBeNull();
-    for (const property of ['width', 'min-width', 'height', 'min-height']) {
-      expect(rule![1]).toContain(`${property}: 48px !important`);
-    }
+  it.each(['home', 'public'])('keeps the canonical 48px mobile menu in the %s small-screen stylesheet', surface => {
+    const css = parse(read('styles/platform-v7-canonical-' + surface + '-v1.css'));
+    const sizing = new Map<string, string>();
+    css.walkAtRules('media', media => {
+      if (media.params.replace(/\s/g, '') !== '(max-width:760px)') return;
+      media.walkRules(rule => {
+        if (!rule.selectors.some(selector => selector.replace(/\s+/g, '').endsWith('.pc-site-mobile-menu>summary'))) return;
+        rule.walkDecls(decl => { sizing.set(decl.prop, decl.value); });
+      });
+    });
+    for (const property of ['width', 'min-width', 'height', 'min-height']) expect(sizing.get(property)).toBe('48px');
   });
 
-
-  it('reserves narrow-screen room for the full registration label and 48px menu', () => {
-    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
-    const narrowRules = siteHeader.split('@media (max-width: 430px) {')[1]?.split('@media (max-width: 340px) {')[0];
-    expect(narrowRules).toBeDefined();
-    const primary = narrowRules!.match(/:is\(\.pc-v6-header-cta, \.pc-ppe-primary-button, \.p7-about-register, \.p7-contact-register\) \{([^}]+)\}/);
-    expect(primary).not.toBeNull();
-    expect(primary![1]).toContain('padding-inline: 8px !important');
-    expect(primary![1]).not.toMatch(/font-size|overflow|text-overflow|display/);
+  it('provides a full registration label inside the compact mobile menu', () => {
+    const labels = { ru: ['Подать заявку', 'Подать заявку на подключение'], en: ['Apply for access', 'Apply for platform access'], zh: ['申请接入', '申请接入平台'] };
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const html = renderToStaticMarkup(createElement(CanonicalPublicHeader, { locale, localeControl: createElement('span') }));
+      const dom = new DOMParser().parseFromString(html, 'text/html');
+      const link = dom.querySelector('header details a[href="/platform-v7/register?lang=' + locale + '"]');
+      expect(link?.textContent).toBe(labels[locale][0]);
+      expect(link?.getAttribute('aria-label')).toBe(labels[locale][1]);
+    }
   });
 
   it('uses the canonical Russian brand, descriptor and action language', () => {
@@ -88,13 +98,18 @@ describe('Gekta public brand contract', () => {
     expect(sources.productPassport).toContain('Gekta 解释交易中正在发生什么，以及下一步做什么');
   });
 
-  it('publishes Gekta as a named SoftwareApplication and a human-readable public route', () => {
-    expect(sources.platformHead).toContain("name: 'Гекта'");
-    expect(sources.platformHead).toContain("alternateName: ['Gekta', 'ГЕКТА', 'Аграрный интеллект для земли, урожая и решений']");
-    expect(sources.platformHead).toContain("name: 'Гекта — аграрный интеллект для земли, урожая и решений'");
-    expect(sources.platformPage).toContain('аграрным интеллектом Гекта');
-    expect(sources.passportPage).toContain("title: 'Гекта в работе — Прозрачная Цена'");
-    expect(sources.passportPage).toContain("canonical: '/platform-v7/ai-in-action'");
+  it('publishes a named Gekta application at its standalone URL and keeps the Deal explainer discoverable', () => {
+    const html = renderToStaticMarkup(createElement(Head));
+    const dom = new DOMParser().parseFromString(html, 'text/html');
+    const graph = JSON.parse(dom.querySelector('script[type="application/ld+json"]')!.textContent!)['@graph'];
+    const product = graph.find((item: { name?: string }) => item.name === 'Гекта');
+    const standalone = getGektaApplicationSchema('ru');
+    expect(product).toMatchObject({ '@type': 'SoftwareApplication', name: standalone.name, url: standalone.url });
+    expect(product.alternateName).toEqual(expect.arrayContaining(['Gekta', 'ГЕКТА']));
+    const list = graph.find((item: { '@type': string }) => item['@type'] === 'ItemList');
+    const explainer = list.itemListElement.find((item: { name: string }) => item.name === 'Гекта в сделке');
+    expect(new URL(explainer.url).href).toBe(new URL('/platform-v7/ai-in-action', standalone.url).href);
+    for (const lang of ['en', 'zh'] as const) expect(new URL(getGektaApplicationSchema(lang).url).pathname).toBe('/gekta/' + lang);
   });
 
   it('keeps the international alias wrapper transparent instead of creating a second brand authority', () => {
@@ -125,7 +140,11 @@ describe('Gekta public brand contract', () => {
   });
 
   it('rejects forbidden Gekta spellings without banning generic AI terminology', () => {
-    for (const forbidden of ['Гекто', 'Gekto', 'Hekta', 'Gecta', 'TAI Гекта']) {
+    // The instrumental «Гектой» is a valid inflection of the Russian name.
+    const misspelling = /(?<![\p{L}\p{M}])Гекто(?![\p{L}\p{M}])/iu;
+    expect('Спросить Гекто.').toMatch(misspelling);
+    expect(allBrandSources).not.toMatch(misspelling);
+    for (const forbidden of ['Gekto', 'Hekta', 'Gecta', 'TAI Гекта']) {
       expect(allBrandSources).not.toContain(forbidden);
     }
     expect(sources.assistant).toContain("import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';");

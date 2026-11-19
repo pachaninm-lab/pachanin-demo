@@ -123,7 +123,7 @@ async function expectTextControlsIosSafe(page: Page) {
 
   const selects = metrics.filter((item) => item.tag === 'SELECT');
   expect(selects.length, 'support topic selector must remain visibly selectable').toBeGreaterThan(0);
-  expect(selects.every((item) => item.appearance !== 'none' && item.webkitAppearance !== 'none'), JSON.stringify(selects, null, 2)).toBe(true);
+  expect(selects.every((item) => item.appearance === 'none' || item.webkitAppearance === 'none'), JSON.stringify(selects, null, 2)).toBe(true);
 }
 
 async function expectSemiboldButtonTypography(locator: Locator) {
@@ -176,7 +176,13 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   await expect(page).toHaveURL(/\/gekta\/support\/?$/);
   const utility = page.locator('[data-gekta-utility-page="support"]');
   await expectTextAutosizingDisabled(utility, '[data-gekta-utility-page]', 180);
-  await expect(page.getByRole('heading', { level: 1, name: 'Поддержка в одном интерфейсе' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Поддержка Гекты' })).toBeVisible();
+  const messageField = page.getByRole('textbox', { name: 'Что произошло' });
+  await expect(messageField).toBeInViewport({ ratio: 1 });
+  expect((await messageField.boundingBox())?.y).toBeLessThan(350);
+  const topic = page.getByRole('combobox', { name: 'Тема' });
+  await topic.selectOption('technical');
+  await expect(topic).toHaveValue('technical');
   await expectAppearanceReset(page.locator('button:visible'));
   await expectTargetsAtLeast(page.locator('button:visible, a:visible'), 44);
   await expectTextControlsIosSafe(page);
@@ -191,7 +197,7 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   const securityResponse = await page.goto('/gekta/security', { waitUntil: 'load' });
   expect(securityResponse?.ok()).toBe(true);
   await expectTextAutosizingDisabled(page.locator('[data-gekta-utility-page="security"]'), '[data-gekta-utility-page]', 180);
-  await expect(page.getByRole('heading', { level: 1, name: 'Безопасность без выхода из Гекты' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Данные и безопасность' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath('gekta-security-ios-safari-polish-320x700.png'),

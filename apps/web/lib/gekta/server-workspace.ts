@@ -1,5 +1,6 @@
 import type { GektaConversation, GektaMessage } from '@/components/gekta/GektaChatTypes';
 import type { GektaProject } from '@/lib/gekta/projects';
+import { restoreGektaAssistantState } from './message-status';
 
 /**
  * Серверная история Гекты.
@@ -46,18 +47,21 @@ export function toConversation(row: ServerConversationRow, now: string): GektaCo
   if (!row || typeof row.id !== 'string' || !row.id) return null;
   const title = typeof row.title === 'string' ? row.title.trim() : '';
   if (!title) return null;
+  const language = locale(row.locale);
   const messages: GektaMessage[] = (row.messages ?? []).flatMap((message) => {
     if (!message || typeof message.id !== 'string' || typeof message.body !== 'string') return [];
+    const role = message.role === 'assistant' ? 'assistant' : 'user';
     return [{
       id: message.id,
-      role: message.role === 'assistant' ? 'assistant' : 'user',
+      role,
       text: message.body,
       createdAt: moment(message.createdAt, now),
+      ...(role === 'assistant' ? restoreGektaAssistantState(language, message.body) : {}),
     }];
   });
   return {
     id: row.id,
-    locale: locale(row.locale),
+    locale: language,
     title,
     createdAt: moment(row.createdAt, now),
     updatedAt: moment(row.updatedAt, now),

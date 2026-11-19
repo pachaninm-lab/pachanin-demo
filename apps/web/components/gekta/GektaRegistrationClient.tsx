@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Check, Copy, KeyRound, LoaderCircle, MailCheck, ShieldCheck } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, KeyRound, LoaderCircle, MailCheck, ShieldCheck } from 'lucide-react';
 import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
+import { GektaBrandMark } from './GektaBrandMark';
 
 type Mode = 'register' | 'login';
 type Step = 'form' | 'email' | 'verify' | 'mfa' | 'backup';
@@ -24,6 +25,11 @@ const UI = {
   zh: {
     back: '返回 Gekta', title: 'Gekta 账户', lead: '继续对话并保存历史记录和项目。账户保护完成后将开始30天试用。', register: '注册', login: '登录', name: '姓名', namePlaceholder: '农业专家', phone: '电话', phonePlaceholder: '+86 138 0000 0000', phoneHint: '请输入联系电话。不会发送短信；该号码将保持未验证状态。', email: '电子邮箱', password: '密码', passwordHint: '12–128个字符，至少包含三类：小写、大写、数字、符号。', termsPrefix: '我接受', terms: 'Gekta 使用条款', privacyPrefix: '我单独同意', privacy: '个人数据处理', create: '创建账户', creating: '正在创建…', enter: '登录', entering: '正在登录…', consentRefresh: '文档已更改或表单已过期。请刷新页面、阅读文档并重新确认两项选择。', reload: '刷新文档', genericError: '无法完成请求。请检查信息后重试。', unavailable: '注册服务暂时不可用，请稍后重试。', invalidLogin: '登录失败，请检查电子邮箱和密码。', emailTitle: '请检查邮箱', emailBody: '如果该地址可用，我们会发送一次性确认链接。此回复不会透露账户是否存在。', resend: '再次发送链接', resending: '正在发送…', resendDone: '请求已接受，请检查收件箱和垃圾邮件。', useLogin: '已确认邮箱？登录', verifyTitle: '确认电子邮箱', verifyBody: '服务器已接受该链接。请按按钮一次性确认地址，然后继续强制双重验证。', verifyAction: '确认电子邮箱', verifying: '正在检查一次性链接…', verifyInvalid: '链接无效、已使用或已过期。请登录以继续设置双重验证。', mfaTitle: '保护账户', mfaLoginTitle: '输入第二重验证', mfaBody: '将密钥添加到身份验证器应用，然后输入当前六位代码。', mfaLoginBody: '输入身份验证器代码或一次性备用代码。', secret: '设置密钥', openAuthenticator: '在身份验证器应用中打开', code: 'MFA 代码', confirm: '确认并开始试用', confirming: '正在检查…', mfaInvalid: '代码未通过。请检查设备时间后重试。', backupTitle: '保存备用代码', backupBody: '每个代码只能使用一次。离开此页面后将不再显示。', copy: '复制代码', copied: '已复制', saved: '我已将备用代码保存在安全位置', continue: '进入 Gekta', trial: '服务器为每个账户仅提供一次30天试用。', languages: { ru: 'RU', en: 'EN', zh: '中文' },
   },
+} as const;
+const PASSWORD_VISIBILITY = {
+  ru: { show: 'Показать пароль', hide: 'Скрыть пароль' },
+  en: { show: 'Show password', hide: 'Hide password' },
+  zh: { show: '显示密码', hide: '隐藏密码' },
 } as const;
 
 function csrfToken(): string {
@@ -59,6 +65,7 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
   const [phone, setPhone] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [passwordVisible, setPasswordVisible] = React.useState(false);
   // Committed links bind the rendered documents and merchant profile. A renewed
   // nonce for the same commitments does not change what the user accepted.
   const consentIdentity = JSON.stringify([initialLocale, consentPresentation?.termsHref ?? null,
@@ -135,8 +142,9 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
     } catch (reason) { setError(reason instanceof Error && reason.message === 'unavailable' ? ui.unavailable : ui.mfaInvalid); } finally { setBusy(false); }
   };
 
-  const switchMode = (next: Mode) => { setMode(next); setStep('form'); setError(''); setNotice(''); };
-  const fieldClass = 'mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  const switchMode = (next: Mode) => { setMode(next); setStep('form'); setError(''); setNotice(''); setPasswordVisible(false); };
+  const fieldClass = 'mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-base font-normal text-slate-950 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  const visibilityLabel = PASSWORD_VISIBILITY[initialLocale][passwordVisible ? 'hide' : 'show'];
 
   return (
     <main className='min-h-screen bg-[#f6f5ef] px-4 py-6 text-slate-950 sm:py-10'>
@@ -147,24 +155,56 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
         </div>
 
         <section className='mt-5 overflow-hidden rounded-3xl border border-emerald-950/10 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.08)]'>
-          <header data-gekta-registration-hero='true' className='border-b border-emerald-950/15 bg-emerald-950 bg-gradient-to-br from-emerald-950 to-emerald-800 px-6 py-7 text-white sm:px-8' style={{ backgroundColor: '#064e3b' }}>
-            <div className='flex items-center gap-3'><span className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-xl font-black text-emerald-900'>G</span><div><p className='text-xs font-bold tracking-[0.18em] text-emerald-100'>GEKTA</p><h1 className='text-2xl font-bold text-white'>{ui.title}</h1></div></div>
-            <p className='mt-4 max-w-lg text-sm leading-6 text-emerald-50'>{ui.lead}</p>
+          <header data-gekta-registration-hero='true' className='border-b border-emerald-950/15 bg-[#eff5ee] px-5 py-5 sm:px-8 sm:py-6'>
+            <div className='flex items-center gap-3'>
+              <GektaBrandMark size={40} />
+              <h1 className='text-[26px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-3xl'>{ui.title}</h1>
+            </div>
+            <p className='mt-3 max-w-lg text-sm leading-6 text-slate-600'>{ui.lead}</p>
           </header>
 
-          <div className='p-6 sm:p-8'>
+          <div className='p-5 sm:p-8'>
             {busy && step === 'mfa' && !mfa ? <div className='py-10 text-center' role='status'><LoaderCircle className='mx-auto h-7 w-7 animate-spin text-emerald-700' /><p className='mt-3 text-sm text-slate-600'>{ui.verifying}</p></div> : null}
-            {step === 'form' ? <><div className='grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1' role='tablist'>{(['register', 'login'] as const).map((value) => <button key={value} type='button' role='tab' aria-selected={mode === value} onClick={() => switchMode(value)} className={`min-h-11 rounded-xl px-4 text-sm font-semibold ${mode === value ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-600'}`}>{value === 'register' ? ui.register : ui.login}</button>)}</div>
-              <form className='mt-6 space-y-4' onSubmit={submit}>
+            {step === 'form' ? <>
+              <div className='grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1' role='tablist' aria-label={ui.title} onKeyDown={(event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === 'Home' ? 'register' : event.key === 'End' ? 'login' : mode === 'register' ? 'login' : 'register';
+                switchMode(next);
+                event.currentTarget.querySelector<HTMLButtonElement>(`#gekta-account-tab-${next}`)?.focus();
+              }}>
+                {(['register', 'login'] as const).map((value) => (
+                  <button key={value} id={`gekta-account-tab-${value}`} type='button' role='tab'
+                    aria-controls='gekta-account-form' aria-selected={mode === value} tabIndex={mode === value ? 0 : -1}
+                    onClick={() => switchMode(value)}
+                    className={`min-h-11 rounded-xl border px-2 text-sm font-semibold ${mode === value ? 'border-emerald-700 bg-white text-emerald-900 shadow-sm' : 'border-transparent text-slate-600 hover:bg-white'}`}>
+                    {value === 'register' ? ui.register : ui.login}
+                  </button>
+                ))}
+              </div>
+              <div id='gekta-account-form' role='tabpanel' aria-labelledby={`gekta-account-tab-${mode}`}>
+              <form className='mt-5 space-y-4' onSubmit={submit}>
                 {mode === 'register' ? <><label className='block text-sm font-semibold text-slate-800'>{ui.name}<input required minLength={2} maxLength={120} autoComplete='name' value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder={ui.namePlaceholder} className={fieldClass} /></label><label className='block text-sm font-semibold text-slate-800'>{ui.phone}<input required type='tel' minLength={8} maxLength={32} autoComplete='tel' value={phone} onChange={(event) => setPhone(event.target.value)} placeholder={ui.phonePlaceholder} className={fieldClass} /><span className='mt-2 block text-xs font-normal leading-5 text-slate-500'>{ui.phoneHint}</span></label></> : null}
                 <label className='block text-sm font-semibold text-slate-800'>{ui.email}<input required type='email' maxLength={254} autoComplete='email' value={email} onChange={(event) => setEmail(event.target.value)} className={fieldClass} /></label>
-                <label className='block text-sm font-semibold text-slate-800'>{ui.password}<input required type='password' minLength={mode === 'register' ? 12 : 1} maxLength={128} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} className={fieldClass} />{mode === 'register' ? <span className='mt-2 block text-xs font-normal leading-5 text-slate-500'>{ui.passwordHint}</span> : null}</label>
+                <div>
+                  <label htmlFor='gekta-account-password' className='block text-sm font-semibold text-slate-800'>{ui.password}</label>
+                  <div className='relative'>
+                    <input id='gekta-account-password' required type={passwordVisible ? 'text' : 'password'} minLength={mode === 'register' ? 12 : 1} maxLength={128} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} aria-describedby={mode === 'register' ? 'gekta-password-hint' : undefined} value={password} onChange={(event) => setPassword(event.target.value)} className={`${fieldClass} pr-14`} />
+                    <button type='button' onClick={() => setPasswordVisible((visible) => !visible)} aria-label={visibilityLabel} title={visibilityLabel} aria-controls='gekta-account-password'
+                      className='absolute bottom-0.5 right-1 grid h-11 w-11 place-items-center rounded-lg text-slate-600 hover:bg-slate-100'>
+                      {passwordVisible ? <EyeOff className='h-[18px] w-[18px]' aria-hidden='true' /> : <Eye className='h-[18px] w-[18px]' aria-hidden='true' />}
+                    </button>
+                  </div>
+                  {mode === 'register' ? <p id='gekta-password-hint' className='mt-2 text-xs leading-5 text-slate-500'>{ui.passwordHint}</p> : null}
+                </div>
                 {mode === 'register' ? <div className='space-y-3 pt-1'><label className='flex items-start gap-3 text-sm leading-6 text-slate-700'><input required type='checkbox' checked={terms} onChange={(event) => setTerms(event.target.checked)} className='mt-1 h-5 w-5 shrink-0 accent-emerald-700' /><span>{ui.termsPrefix} <Link target='_blank' href={consentPresentation?.termsHref || '/legal/usloviya-ispolzovaniya-gekta'} className='font-semibold text-emerald-800 underline'>{ui.terms}</Link>.</span></label><label className='flex items-start gap-3 text-sm leading-6 text-slate-700'><input required type='checkbox' checked={privacy} onChange={(event) => setPrivacy(event.target.checked)} className='mt-1 h-5 w-5 shrink-0 accent-emerald-700' /><span>{ui.privacyPrefix} <Link target='_blank' href={consentPresentation?.privacyHref || '/legal/politika-konfidencialnosti'} className='font-semibold text-emerald-800 underline'>{ui.privacy}</Link>.</span></label></div> : null}
                 {mode === 'register' && !consentPresentation?.snapshot ? <p className='rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{ui.unavailable}</p> : null}
                 {error ? <p className='rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}
                 {consentRefreshRequired && mode === 'register' ? <button type='button' onClick={() => window.location.reload()} className='min-h-11 w-full rounded-xl border border-emerald-700 px-4 text-sm font-bold text-emerald-800'>{ui.reload}</button> : null}
                 <button disabled={busy || (mode === 'register' && (consentRefreshRequired || !consentPresentation?.snapshot))} className='flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white hover:bg-emerald-900 disabled:cursor-wait disabled:opacity-60'>{busy ? <LoaderCircle className='h-5 w-5 animate-spin' /> : <ShieldCheck className='h-5 w-5' />}{busy ? mode === 'register' ? ui.creating : ui.entering : mode === 'register' ? ui.create : ui.enter}</button>
-              </form></> : null}
+              </form>
+              </div>
+            </> : null}
             {step === 'email' ? <div className='py-3 text-center'><MailCheck className='mx-auto h-12 w-12 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{ui.emailTitle}</h2><p className='mt-3 text-sm leading-6 text-slate-600'>{ui.emailBody}</p>{notice ? <p className='mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900' role='status'>{notice}</p> : null}{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button type='button' onClick={() => void resend()} disabled={busy} className='mt-6 min-h-11 w-full rounded-xl border border-emerald-700 px-4 text-sm font-bold text-emerald-800 disabled:opacity-60'>{busy ? ui.resending : ui.resend}</button><button type='button' onClick={() => switchMode('login')} className='mt-3 min-h-11 w-full rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50'>{ui.useLogin}</button></div> : null}
             {step === 'verify' ? <div className='py-3 text-center'><MailCheck className='mx-auto h-12 w-12 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{ui.verifyTitle}</h2><p className='mt-3 text-sm leading-6 text-slate-600'>{ui.verifyBody}</p>{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button type='button' onClick={() => void confirmEmail()} disabled={busy} className='mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white disabled:opacity-60'>{busy ? <LoaderCircle className='h-5 w-5 animate-spin' /> : <MailCheck className='h-5 w-5' />}{busy ? ui.verifying : ui.verifyAction}</button></div> : null}
             {step === 'mfa' && mfa ? <form onSubmit={verifyMfa} className='py-2'><KeyRound className='h-11 w-11 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{mfa.enrollmentRequired ? ui.mfaTitle : ui.mfaLoginTitle}</h2><p className='mt-2 text-sm leading-6 text-slate-600'>{mfa.enrollmentRequired ? ui.mfaBody : ui.mfaLoginBody}</p>{mfa.enrollmentRequired && mfa.setupSecret ? <div className='mt-5 rounded-2xl border border-emerald-900/15 bg-emerald-50 p-4'><p className='text-xs font-bold uppercase tracking-wide text-emerald-900'>{ui.secret}</p><code className='mt-2 block break-all rounded-lg bg-white px-3 py-3 text-sm font-bold text-slate-900'>{mfa.setupSecret}</code>{mfa.otpAuthUri ? <a href={mfa.otpAuthUri} className='mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800 underline'>{ui.openAuthenticator}</a> : null}</div> : null}<label className='mt-5 block text-sm font-semibold text-slate-800'>{ui.code}<input required autoFocus inputMode={mfa.enrollmentRequired ? 'numeric' : 'text'} autoComplete='one-time-code' maxLength={128} value={code} onChange={(event) => setCode(event.target.value)} className={`${fieldClass} text-center font-mono text-lg tracking-[0.18em]`} /></label>{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button disabled={busy} className='mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white disabled:opacity-60'>{busy ? <LoaderCircle className='h-5 w-5 animate-spin' /> : <Check className='h-5 w-5' />}{busy ? ui.confirming : ui.confirm}</button><p className='mt-4 text-center text-xs leading-5 text-slate-500'>{ui.trial}</p></form> : null}

@@ -10,6 +10,7 @@ const zhPage = read('app/gekta/zh/page.tsx');
 const product = read('components/gekta/GektaProductShell.tsx');
 const workspace = read('components/gekta/GektaChatWorkspace.tsx');
 const sidebar = read('components/gekta/GektaSidebar.tsx');
+const settings = read('components/gekta/GektaSettingsDialog.tsx');
 const composer = read('components/gekta/GektaComposer.tsx');
 const attachments = read('components/gekta/GektaAttachments.tsx');
 const markdown = read('components/gekta/GektaMarkdown.tsx');
@@ -26,7 +27,8 @@ describe('Gekta standalone public experience', () => {
     expect(product).not.toContain("'use client'");
     expect(page).toContain("<GektaProductShell locale='ru' />");
     expect(product).toContain('<GektaHero locale={locale} />');
-    expect(product).toContain('<GektaDiscoverySections locale={locale} />');
+    expect(product).toContain('<GektaHomeLinks locale={locale} />');
+    expect(read('components/gekta/GektaAboutPage.tsx')).toContain('<GektaDiscoverySections locale={locale} />');
     expect(workspace).toContain("'use client'");
     expect(content).toContain('Гекта — аграрный ИИ для сельского хозяйства и агробизнеса');
     expect(content).toContain('Не просто чат. Аграрный контекст в одном диалоге.');
@@ -59,7 +61,7 @@ describe('Gekta standalone public experience', () => {
   it('provides real conversation management instead of a static capabilities sidebar', () => {
     expect(sidebar).toContain('Search history');
     expect(sidebar).toContain('Переименовать');
-    expect(sidebar).toContain('Очистить историю');
+    expect(settings).toContain('Удалить историю в этом браузере');
     expect(sidebar).toContain('<GektaConversationList');
     expect(sidebar).not.toContain('С чем помогает');
     expect(workspace).toContain('const HISTORY_STORAGE');
@@ -83,7 +85,9 @@ describe('Gekta standalone public experience', () => {
 
   it('supports markdown, tables, safe links, sources, stop/retry/copy and safe-area composer UX', () => {
     expect(markdown).toContain("url.protocol === 'http:' || url.protocol === 'https:'");
-    expect(markdown).toContain("className='my-4 max-w-full overflow-x-auto rounded-2xl border border-slate-200'");
+    expect(markdown).toContain("data-gekta-answer-table='true'");
+    expect(markdown).toContain("scope='col'");
+    expect(markdown).toContain('tabIndex={0}');
     expect(markdown).not.toContain('dangerouslySetInnerHTML');
     expect(sources).toContain("url.protocol === 'https:' || url.protocol === 'http:'");
     expect(sources).toContain('<details');

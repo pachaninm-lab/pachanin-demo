@@ -5,13 +5,15 @@ import { Check, FolderInput, MoreHorizontal, Pencil, Trash2, X } from 'lucide-re
 import type { GektaProject } from '@/lib/gekta/projects';
 import type { GektaConversation } from './GektaChatTypes';
 
-export function GektaConversationList({ conversations, projects, activeId, emptyLabel, renameLabel, deleteLabel, projectLabel, noProjectLabel, onSelect, onRename, onDelete, onProject }: {
+export function GektaConversationList({ conversations, projects, activeId, emptyLabel, renameLabel, deleteLabel, cancelLabel, menuLabel, projectLabel, noProjectLabel, onSelect, onRename, onDelete, onProject }: {
   conversations: readonly GektaConversation[];
   projects: readonly GektaProject[];
   activeId: string | null;
   emptyLabel: string;
   renameLabel: string;
   deleteLabel: string;
+  cancelLabel: string;
+  menuLabel: string;
   projectLabel: string;
   noProjectLabel: string;
   onSelect: (conversation: GektaConversation) => void;
@@ -22,7 +24,7 @@ export function GektaConversationList({ conversations, projects, activeId, empty
   const [menuId, setMenuId] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState('');
-  if (!conversations.length) return <p className='px-3 py-4 text-sm leading-6 text-slate-500'>{emptyLabel}</p>;
+  if (!conversations.length) return <p className='px-2 text-sm leading-6 text-slate-500'>{emptyLabel}</p>;
   return (
     <div className='space-y-1'>
       {conversations.map((conversation) => {
@@ -33,14 +35,22 @@ export function GektaConversationList({ conversations, projects, activeId, empty
               <div className='flex items-center gap-1 p-2'>
                 <input autoFocus value={draft} maxLength={80} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && draft.trim()) { onRename(conversation.id, draft.trim()); setEditingId(null); } if (event.key === 'Escape') setEditingId(null); }} className='min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-emerald-600' aria-label={renameLabel} />
                 <button type='button' className='flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-white' onClick={() => { if (draft.trim()) onRename(conversation.id, draft.trim()); setEditingId(null); }} aria-label={renameLabel}><Check className='h-4 w-4' aria-hidden='true' /></button>
-                <button type='button' className='flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-white' onClick={() => setEditingId(null)} aria-label='Cancel'><X className='h-4 w-4' aria-hidden='true' /></button>
+                <button type='button' className='flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-white' onClick={() => setEditingId(null)} aria-label={cancelLabel}><X className='h-4 w-4' aria-hidden='true' /></button>
               </div>
             ) : (
               <>
-                <button type='button' onClick={() => onSelect(conversation)} className='block min-h-11 w-full truncate rounded-xl py-2.5 pl-3 pr-14 text-left text-sm text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'>{conversation.title}</button>
-                <button type='button' onClick={() => setMenuId(menuId === conversation.id ? null : conversation.id)} className='absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 opacity-100 hover:bg-white sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100' aria-label='Conversation menu' aria-expanded={menuId === conversation.id}><MoreHorizontal className='h-4 w-4' aria-hidden='true' /></button>
+                <div className='flex items-start'>
+                  <button type='button' onClick={() => { onSelect(conversation); setMenuId(null); }}
+                    aria-current={activeId === conversation.id ? 'true' : undefined}
+                    className='min-h-11 min-w-0 flex-1 break-words rounded-xl py-2.5 pl-3 pr-1 text-left text-sm leading-5 text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'>
+                    {conversation.title}
+                  </button>
+                  <button type='button' onClick={() => setMenuId(menuId === conversation.id ? null : conversation.id)}
+                    className='flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white'
+                    aria-label={menuLabel} aria-expanded={menuId === conversation.id}><MoreHorizontal className='h-4 w-4' aria-hidden='true' /></button>
+                </div>
                 {menuId === conversation.id ? (
-                  <div className='absolute right-1 top-11 z-20 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl'>
+                  <div className='mx-1 mb-1 rounded-xl border border-slate-200 bg-white p-1'>
                     <button type='button' onClick={() => { setDraft(conversation.title); setEditingId(conversation.id); setMenuId(null); }} className='flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm hover:bg-slate-50'><Pencil className='h-4 w-4' aria-hidden='true' />{renameLabel}</button>
                     {projects.length ? (
                       <label className='mt-1 block px-2.5 pb-1'>

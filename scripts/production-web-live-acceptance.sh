@@ -103,7 +103,7 @@ check_html() {
   html_tag="$(grep -Eio '<html[^>]*>' <<< "$body" | head -n1 || true)"
   grep -Fiq "lang=\"$lang\"" <<< "$html_tag" || missing+=(html-lang)
   grep -Fq "<title>$title</title>" <<< "$body" || missing+=(title)
-  grep -Fq "$h1" <<< "$body" || missing+=(h1)
+  grep -Fq ">$h1</h1>" <<< "$body" || missing+=(h1)
   link_has_attributes "$body" 'rel="canonical"' "href=\"$LIVE_BASE$canonical\"" || missing+=(canonical)
   link_has_attributes "$body" 'hreflang="ru-RU"' "href=\"$LIVE_BASE/gekta\"" || missing+=(hreflang-ru)
   link_has_attributes "$body" 'hreflang="en"' "href=\"$LIVE_BASE/gekta/en\"" || missing+=(hreflang-en)
@@ -162,9 +162,9 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   crawler_ru_ok=0
   crawler_en_ok=0
   crawler_zh_ok=0
-  check_html "$gekta_ru_body" ru 'ru' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' '/gekta' && crawler_ru_ok=1
-  check_html "$gekta_en_body" en 'en' 'Gekta — agricultural AI for farming and agribusiness' 'Gekta — agricultural AI for farming and agribusiness' '/gekta/en' && crawler_en_ok=1
-  check_html "$gekta_zh_body" zh 'zh-CN' 'Gekta — 面向农业生产与农业经营的农业 AI' 'Gekta — 面向农业生产与农业经营的农业 AI' '/gekta/zh' && crawler_zh_ok=1
+  check_html "$gekta_ru_body" ru 'ru' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' 'Чем помочь хозяйству?' '/gekta' && crawler_ru_ok=1
+  check_html "$gekta_en_body" en 'en' 'Gekta — agricultural AI for farming and agribusiness' 'How can I help your farm?' '/gekta/en' && crawler_en_ok=1
+  check_html "$gekta_zh_body" zh 'zh-CN' 'Gekta — 面向农业生产与农业经营的农业 AI' '有什么农业问题？' '/gekta/zh' && crawler_zh_ok=1
   crawler_ok=0
   if (( crawler_ru_ok == 1 && crawler_en_ok == 1 && crawler_zh_ok == 1 )); then
     crawler_ok=1

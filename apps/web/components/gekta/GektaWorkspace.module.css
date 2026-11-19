@@ -1,0 +1,631 @@
+.surface {
+  --gekta-bg: #f7f8f3;
+  --gekta-rail: #edf1e9;
+  --gekta-panel: #fff;
+  --gekta-subtle: #f2f5ef;
+  --gekta-hover: #e7ede4;
+  --gekta-line: #d6ded3;
+  --gekta-strong-line: #84998a;
+  --gekta-text: #192923;
+  --gekta-muted: #53665b;
+  --gekta-accent: #295941;
+  --gekta-accent-wash: #e5efe0;
+  --gekta-focus: #27684a;
+  --gekta-button: #24523d;
+  --gekta-button-hover: #193d2b;
+  --gekta-button-ink: #fff;
+  --gekta-error-ink: #8e2835;
+  --gekta-error-surface: #fbebec;
+  --gekta-error-line: #e5bfc4;
+  --gekta-wash: #edf2e4;
+  --gekta-shadow: 0 14px 38px -27px rgb(25 57 39 / 36%);
+  min-height: 100svh;
+  background: var(--gekta-bg);
+  color: var(--gekta-text);
+  color-scheme: light;
+  font-family: var(--font-inter, system-ui), system-ui, sans-serif;
+}
+
+:global(html[data-gekta-theme='dark']) .surface {
+  --gekta-bg: #141c17;
+  --gekta-rail: #18221b;
+  --gekta-panel: #1e2a22;
+  --gekta-subtle: #223027;
+  --gekta-hover: #2c3b31;
+  --gekta-line: #38493e;
+  --gekta-strong-line: #728c7a;
+  --gekta-text: #edf4ec;
+  --gekta-muted: #b1c2b5;
+  --gekta-accent: #add9af;
+  --gekta-accent-wash: #263b2e;
+  --gekta-focus: #c7eac0;
+  --gekta-button: #c4e5bb;
+  --gekta-button-hover: #d7efce;
+  --gekta-button-ink: #183824;
+  --gekta-error-ink: #ffc2c9;
+  --gekta-error-surface: #3b2429;
+  --gekta-error-line: #70424b;
+  --gekta-wash: #1b2a20;
+  --gekta-shadow: 0 14px 38px -27px rgb(0 0 0 / 75%);
+  color-scheme: dark;
+}
+
+/* The public platform loads Tailwind utilities without browser resets. */
+:where(.surface) *,
+:where(.surface) *::before,
+:where(.surface) *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+}
+
+:where(.surface button, .surface input, .surface select, .surface textarea) {
+  color: inherit;
+  font: inherit;
+}
+
+:where(.surface button, .surface input:not([type='checkbox'], [type='radio']), .surface select, .surface textarea) {
+  background: transparent;
+}
+
+/* Existing conversation, document and account components inherit one palette. */
+.surface :is(:global(.text-slate-950), :global(.text-slate-900), :global(.text-slate-800), :global(.text-slate-700)) {
+  color: var(--gekta-text);
+}
+
+.surface :is(:global(.text-slate-600), :global(.text-slate-500), :global(.text-slate-400), :global(.visited\:text-slate-600:visited)) {
+  color: var(--gekta-muted);
+}
+
+.surface :is(:global(.text-emerald-700), :global(.text-emerald-800), :global(.text-emerald-900), :global(.text-emerald-950)) {
+  color: var(--gekta-accent);
+}
+
+.surface :is(:global(.text-rose-700), :global(.text-rose-800), :global(.text-rose-900), :global(.text-red-700)) {
+  color: var(--gekta-error-ink);
+}
+
+.surface :is(:global(.bg-white), :global(.hover\:bg-white:hover)) {
+  background-color: var(--gekta-panel);
+}
+
+.surface :is(:global(.bg-slate-50), :global(.bg-slate-50\/80), :global(.bg-slate-100), :global(.hover\:bg-slate-50:hover), :global(.hover\:bg-slate-100:hover)) {
+  background-color: var(--gekta-subtle);
+}
+
+.surface :is(:global(.bg-\[\#f6f5ef\]), :global(.bg-\[\#f6f5ef\]\/95)) {
+  background-color: var(--gekta-rail);
+}
+
+.surface :is(:global(.bg-\[\#fbfaf5\]), :global(.bg-\[\#fbfaf5\]\/95), :global(.bg-\[\#fcfbf7\]), :global(.bg-\[\#fcfbf7\]\/95)) {
+  background-color: var(--gekta-bg);
+}
+
+.surface :is(:global(.bg-emerald-50), :global(.bg-emerald-50\/95), :global(.bg-\[\#eff5ee\]), :global(.bg-\[\#f3f8f3\]), :global(.hover\:bg-emerald-50:hover)) {
+  background-color: var(--gekta-accent-wash);
+}
+
+.surface :is(:global(.bg-emerald-700), :global(.bg-emerald-800)) {
+  background-color: var(--gekta-button);
+  color: var(--gekta-button-ink);
+}
+
+.surface :is(:global(.hover\:bg-emerald-800:hover), :global(.hover\:bg-emerald-900:hover)) {
+  background-color: var(--gekta-button-hover);
+  color: var(--gekta-button-ink);
+}
+
+.surface :is(:global(.bg-rose-50), :global(.bg-rose-100), :global(.hover\:bg-rose-50:hover), :global(.hover\:bg-rose-100:hover)) {
+  background-color: var(--gekta-error-surface);
+}
+
+.surface :is(:global(.border-slate-100), :global(.border-slate-200), :global(.border-slate-200\/70), :global(.border-slate-200\/80), :global(.border-slate-300), :global(.border-emerald-900\/10), :global(.border-emerald-900\/15), :global(.border-emerald-950\/10), :global(.border-emerald-950\/15), :global(.divide-slate-200) > :not([hidden]) ~ :not([hidden])) {
+  border-color: var(--gekta-line);
+}
+
+.surface :is(:global(.border-rose-100), :global(.border-rose-200), :global(.border-rose-300)) {
+  border-color: var(--gekta-error-line);
+}
+
+.surface :is(:global(.border-emerald-300), :global(.border-emerald-600), :global(.border-emerald-700), :global(.hover\:border-emerald-300:hover), :global(.focus\:border-emerald-500:focus)) {
+  border-color: var(--gekta-strong-line);
+}
+
+.surface :is(:global(.hover\:text-slate-900:hover), :global(.hover\:text-slate-950:hover)) {
+  color: var(--gekta-text);
+}
+
+.surface textarea::placeholder,
+.surface input::placeholder {
+  color: var(--gekta-muted);
+  opacity: 1;
+}
+
+.surface :is(button, a, input, select, textarea, summary):focus-visible {
+  outline-color: var(--gekta-focus);
+}
+
+.surface :is(button, a, input, select, summary):focus-visible {
+  outline: 2px solid var(--gekta-focus);
+  outline-offset: 2px;
+}
+
+.surface :is(:global(.ring-emerald-100), :global(.focus\:ring-emerald-100:focus)) {
+  --tw-ring-color: var(--gekta-accent-wash);
+}
+
+.workspace {
+  background: var(--gekta-bg, #f7f8f3);
+  color: var(--gekta-text, #192923);
+}
+
+.workspace:not(:global(.overflow-hidden)) > div {
+  min-height: max(720px, 100svh);
+}
+
+.workspace:global(.overflow-hidden) {
+  height: 100dvh;
+}
+
+.rail {
+  width: clamp(216px, 19vw, 258px);
+  background: var(--gekta-rail, #edf1e9);
+}
+
+.rail > div {
+  position: sticky;
+  top: 0;
+  max-height: 100dvh;
+}
+
+.topbar {
+  min-height: calc(62px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-inline: clamp(12px, 3vw, 30px);
+  border-bottom: 1px solid var(--gekta-line, #d6ded3);
+  background: var(--gekta-bg, #f7f8f3);
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 750 20px/1.15 var(--font-manrope, system-ui), system-ui, sans-serif;
+  letter-spacing: -0.035em;
+  text-decoration: none;
+}
+
+.brandMark {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+}
+
+.iconButton,
+.installButton {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--gekta-text, #192923);
+  font: inherit;
+  cursor: pointer;
+}
+
+.iconButton:hover,
+.installButton:hover {
+  background: var(--gekta-hover, #e7ede4);
+}
+
+.installButton {
+  padding-inline: 11px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.installDialog {
+  position: fixed;
+  inset: 0;
+  width: min(calc(100% - 28px), 410px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 22px;
+  border: 1px solid var(--gekta-line);
+  border-radius: 24px;
+  background: var(--gekta-panel);
+  color: var(--gekta-text);
+  box-shadow: 0 24px 90px rgb(0 0 0 / 24%);
+}
+
+.installDialog::backdrop {
+  background: rgb(9 19 12 / 58%);
+}
+
+.installDialog ol {
+  display: grid;
+  gap: 10px;
+  padding-inline-start: 22px;
+  list-style: decimal;
+}
+
+.installDialog li {
+  padding-inline-start: 4px;
+  color: var(--gekta-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.welcome {
+  width: 100%;
+  max-width: 820px;
+  margin-inline: auto;
+  padding: clamp(44px, 11vh, 114px) 30px 40px;
+}
+
+.workspace:not(:global(.overflow-hidden)) :global(main) {
+  background: radial-gradient(ellipse 74% 53% at 50% 0%, var(--gekta-wash, #edf2e4), transparent 100%);
+}
+
+.hero {
+  text-align: center;
+  margin-inline: auto;
+}
+
+.hero h1 {
+  max-width: 13em;
+  margin-inline: auto;
+  color: var(--gekta-text);
+  font: 690 clamp(33px, 4vw, 56px)/1.06 var(--font-manrope, system-ui), system-ui, sans-serif;
+  letter-spacing: -0.043em;
+  text-wrap: balance;
+}
+
+.hero p {
+  max-width: 39rem;
+  margin: 16px auto 0;
+  color: var(--gekta-muted);
+  font-size: 16px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.starter {
+  border-color: var(--gekta-line);
+  background: var(--gekta-panel);
+  color: var(--gekta-text);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.starter:hover {
+  border-color: var(--gekta-strong-line);
+  background: var(--gekta-subtle);
+}
+
+.starter :global(svg) {
+  color: var(--gekta-accent);
+}
+
+.composerBar {
+  border-top: 1px solid var(--gekta-line);
+  background: var(--gekta-bg);
+}
+
+.composerBar :global([data-gekta-access-gate]) {
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom, 0px));
+}
+
+.surface :global([data-gekta-composer-root]) {
+  max-width: 820px;
+}
+
+.welcome :global([data-gekta-composer-root]) {
+  padding-inline: 0;
+}
+
+.surface :global([data-gekta-drop-target]) {
+  border-color: var(--gekta-line);
+  box-shadow: var(--gekta-shadow);
+}
+
+.surface :global([data-gekta-drop-target]):focus-within {
+  border-color: var(--gekta-focus);
+  box-shadow: 0 0 0 2px var(--gekta-accent-wash), var(--gekta-shadow);
+}
+
+.surface :global(#gekta-composer-input):focus {
+  outline: none;
+}
+
+.surface :global([data-gekta-submit]):disabled {
+  border: 0;
+  background-color: var(--gekta-subtle);
+  color: var(--gekta-muted);
+}
+
+.answerTable {
+  margin-block: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--gekta-line, #d6ded3);
+  border-radius: 16px;
+  background: var(--gekta-panel, #fff);
+  color: var(--gekta-text, #192923);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.answerTable:focus-visible {
+  outline: 2px solid var(--gekta-focus, #27684a);
+  outline-offset: 3px;
+}
+
+.answerTable table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+.answerTable th,
+.answerTable td {
+  min-width: 5.5rem;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gekta-line, #d6ded3);
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.answerTable th {
+  background: var(--gekta-subtle, #f2f5ef);
+  font-weight: 650;
+}
+
+.answerTable tr:last-child td { border-bottom: 0; }
+.answerTableLabel { display: none; }
+
+@media (max-width: 639px) {
+  .answerTable {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .answerTable table { display: block; }
+
+  .answerTable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .answerTable tbody { display: grid; gap: 8px; }
+
+  .answerTable tbody tr {
+    display: grid;
+    min-width: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--gekta-line, #d6ded3);
+    border-radius: 14px;
+    background: var(--gekta-panel, #fff);
+  }
+
+  .answerTable tbody td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 10px;
+    min-width: 0;
+    padding: 7px 0;
+    border: 0;
+  }
+
+  .answerTable tbody td + td { border-top: 1px solid var(--gekta-line, #d6ded3); }
+  .answerTableLabel { display: block; color: var(--gekta-muted, #53665b); font-size: 12px; font-weight: 550; }
+}
+
+.surface :global([data-gekta-settings]),
+.surface :global([data-gekta-consent]) {
+  border: 1px solid var(--gekta-line);
+}
+
+.themeChoice {
+  display: flex;
+  min-height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 3px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--gekta-muted, #53665b);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+input:checked + .themeChoice {
+  border-color: var(--gekta-strong-line, #84998a);
+  background: var(--gekta-panel, #fff);
+  color: var(--gekta-accent, #295941);
+}
+
+input:focus-visible + .themeChoice,
+input:focus-visible + .settingSwitch {
+  outline: 2px solid var(--gekta-focus, #27684a);
+  outline-offset: 2px;
+}
+
+.settingSwitch {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 1px solid var(--gekta-strong-line, #84998a);
+  border-radius: 14px;
+  background: var(--gekta-subtle, #f2f5ef);
+}
+
+.settingSwitch::after {
+  position: absolute;
+  inset: 3px auto auto 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gekta-muted, #53665b);
+  content: '';
+}
+
+input:checked + .settingSwitch { background: var(--gekta-button, #24523d); }
+input:checked + .settingSwitch::after {
+  transform: translateX(16px);
+  background: var(--gekta-button-ink, #fff);
+}
+
+.selectControl {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--gekta-line, #d6ded3);
+  border-radius: 12px;
+  appearance: none;
+  background: var(--gekta-subtle, #f2f5ef);
+  color: var(--gekta-text, #192923);
+  font-size: 16px;
+}
+
+.messageUser {
+  max-width: min(100%, 40rem);
+  margin-left: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--gekta-line);
+  border-radius: 20px 20px 6px 20px;
+  background: var(--gekta-accent-wash);
+}
+
+.messageUser p {
+  overflow-wrap: anywhere;
+}
+
+.answerNotice {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--gekta-line, #d6ded3);
+  border-radius: 16px;
+  background: var(--gekta-subtle, #f2f5ef);
+  color: var(--gekta-text, #192923);
+  overflow-wrap: anywhere;
+}
+
+.answerNotice[data-gekta-answer-notice='error'] {
+  border-color: var(--gekta-error-line, #e5bfc4);
+  background: var(--gekta-error-surface, #fbebec);
+}
+
+.answerNotice[data-gekta-answer-notice='error'] > svg {
+  color: var(--gekta-error-ink, #8e2835);
+}
+
+.noticeAction {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-inline: 12px;
+  border: 1px solid var(--gekta-line, #d6ded3);
+  border-radius: 10px;
+  background: var(--gekta-panel, #fff);
+  color: var(--gekta-text, #192923);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.noticeAction:hover { background: var(--gekta-hover, #e7ede4); }
+
+@media (min-width: 1024px) {
+  .topbar .mobileAction {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .workspace:not(:global(.overflow-hidden)) > div {
+    min-height: 100svh;
+  }
+
+  .topbar {
+    min-height: calc(56px + env(safe-area-inset-top, 0px));
+    padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .topbarActions {
+    gap: 2px;
+  }
+
+  .brand {
+    gap: 6px;
+    font-size: 17px;
+  }
+
+  .brandMark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .topbar .installButton {
+    display: none;
+  }
+
+  .welcome {
+    padding: clamp(24px, 5vh, 54px) max(14px, env(safe-area-inset-right, 0px)) 26px max(14px, env(safe-area-inset-left, 0px));
+  }
+
+  .hero h1 {
+    font-size: clamp(31px, 7.7vw, 43px);
+    letter-spacing: -0.041em;
+  }
+
+  .hero p {
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .installDialog {
+    width: min(calc(100% - 20px), 440px);
+    margin-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  }
+
+  :global(html[data-gekta-keyboard-open='true']) .welcome :global([data-gekta-composer-root]) {
+    padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starter {
+    transition: none;
+  }
+}

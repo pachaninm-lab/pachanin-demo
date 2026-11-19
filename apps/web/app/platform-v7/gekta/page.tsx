@@ -2,7 +2,7 @@ import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
 import { ArrowRight, FileText, Sprout, Truck } from 'lucide-react';
-import { CanonicalBottomNav, CanonicalFooter, CanonicalPublicHeader, canonicalPublicLocale } from '@/components/platform-v7/PublicCanonicalPrimitives';
+import { CanonicalBottomNav, CanonicalFooter, CanonicalPublicHeader, StandaloneGektaLink, canonicalPublicLocale } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { PublicGektaChatButton } from '@/components/platform-v7/PublicGektaChatButton';
 
 const COPY = {
@@ -66,7 +66,10 @@ export default async function GektaEntryPage() {
   return <main className='pc-canonical-public pc-cp-page-gekta' data-testid='gekta-public-entry'>
     <CanonicalPublicHeader locale={locale} activePath='/platform-v7/gekta' />
     <section className='pc-cp-gekta-public-hero'><div className='pc-cp-container'><div className='pc-cp-gekta-hero-grid'>
-      <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.eyebrow}</span><h1>{c.title}</h1><p>{c.lead}</p><div className='pc-cp-actions'><PublicGektaChatButton locale={locale} variant='section' /></div></div>
+      <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.eyebrow}</span><h1>{c.title}</h1><p>{c.lead}</p><div className='pc-cp-actions'>
+        <PublicGektaChatButton locale={locale} variant='section' />
+        <StandaloneGektaLink locale={locale} className='pc-cp-button pc-cp-button--secondary' />
+      </div></div>
       <aside className='pc-cp-gekta-hero-quote'><strong>{c.note}</strong><p>{c.noteText}</p></aside>
     </div></div></section>
     <section className='pc-cp-section'><div className='pc-cp-container'><div className='pc-cp-section-head'><h2>{c.tasks}</h2></div>

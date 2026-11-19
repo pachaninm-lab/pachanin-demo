@@ -3,6 +3,9 @@ import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { transpileModule } from 'typescript';
 import { NextRequest } from 'next/server';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { GektaAccessGate } from '@/components/gekta/GektaAccessGate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { middleware as applyMiddleware } from '../../middleware';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
@@ -22,6 +25,16 @@ import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const ORIGIN = 'https://example.test';
+
+it.each([['ru', '/gekta/support'], ['en', '/gekta/en/support'], ['zh', '/gekta/zh/support']] as const)(
+  'opens the available renewal contact for %s when checkout has no published route', (locale, href) => {
+    const entitlement = { ...resolveAnonymousEntitlement({ used: 0 }, new Date()), state: 'TRIAL_EXPIRED' as const, canAsk: false };
+    const html = renderToStaticMarkup(createElement(GektaAccessGate, { locale, entitlement, billingEnabled: true, registrationUrl: null }));
+    expect(html).toContain('href="' + href + '"');
+    expect(read('app' + href + '/page.tsx')).toBeTruthy();
+    expect(html).not.toContain('/gekta/subscribe');
+  },
+);
 
 /**
  * The route reads only headers, the request cookie and the JSON body. The test
@@ -318,12 +331,13 @@ describe('Gekta anonymous entitlement', () => {
   it('asks the server before every generation and never decides access in the browser', () => {
     const workspace = read('components/gekta/GektaChatWorkspace.tsx');
     const retry = workspace.slice(workspace.indexOf('const retry = React.useCallback('), workspace.indexOf('const copyMessage = React.useCallback('));
-    expect(retry).toContain('const ticket = await reserveAnswer(undefined, () => revision === promptIntentRevision.current, controller.signal);');
+    expect(retry).toContain('const ticket = await reserveAnswer(');
+    expect(retry).toContain('() => revision === promptIntentRevision.current, controller.signal);');
     expect(retry).toContain('if (!ticket || revision !== promptIntentRevision.current || controller.signal.aborted) return;');
     expect(retry.indexOf('await reserveAnswer(')).toBeLessThan(retry.indexOf('await runGeneration('));
     expect(workspace).toContain("'x-gekta-answer-ticket': ticket");
     expect(workspace).toContain("if (finalMessage.status === 'answered') await settleAnswer(ticket);");
-    expect(workspace).toContain('entitlement && !entitlement.canAsk ? <GektaAccessGate');
+    expect(workspace).toMatch(/const accessGate = entitlement && !entitlement.canAsk\s+\? <GektaAccessGate/);
     expect(workspace).not.toContain('localStorage.getItem(\'gekta-quota');
   });
 });

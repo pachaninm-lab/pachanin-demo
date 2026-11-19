@@ -46,10 +46,10 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(empty).toContain("data-gekta-composer-slot='true'");
     expect(empty.indexOf('{hero}')).toBeLessThan(empty.indexOf("data-gekta-composer-slot='true'"));
     expect(empty.indexOf("data-gekta-composer-slot='true'")).toBeLessThan(empty.indexOf("data-gekta-examples='true'"));
-    expect(composer).toContain("import { createPortal } from 'react-dom'");
-    expect(composer).toContain("workspace.classList.contains('overflow-hidden')");
-    expect(composer).toContain("[data-gekta-composer-slot='true']");
-    expect(composer).toContain('return startSlot ? createPortal(composer, startSlot) : composer');
+    expect(empty).toContain('{accessGate ?? composer}');
+    expect(workspace).toContain('composer={activeChat ? null : composer}');
+    expect(workspace).toContain('{activeChat ? accessGate ?? composer : null}');
+    expect(composer).not.toContain('createPortal');
     expect(product).toContain("main > div:last-of-type:empty");
   });
 
@@ -73,7 +73,8 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(composer).toContain('Math.min(144, Math.max(68');
     expect(composer).toContain('Boolean(value.trim() || documents.length)');
     expect(composer).toContain('ATTACHMENT_ONLY_PROMPT');
-    expect(composer).toContain('CircleSlash2');
+    expect(composer).toContain('disabled={!canSubmit}');
+    expect(composer).toContain('aria-label={sendLabel}');
     expect(composer).toContain('text-[14px] leading-5');
     expect(composer).toContain('Не отправляй пароли, токены и другие секреты.');
     expect(product).toContain("input:not([type='checkbox']):not([type='radio']):not([type='file'])");
@@ -117,15 +118,15 @@ describe('Gekta mobile UX red-team contracts', () => {
   });
 
   it('lets mobile users scroll navigation instead of sacrificing project/history space', () => {
-    expect(sidebar).toContain("<div className='md:hidden'>{navigation}</div>");
-    expect(sidebar).toContain("<div className='hidden md:block'>{navigation}</div>");
+    expect(sidebar).toMatch(/<div className='lg:hidden'>\s*\{navigation\}\s*\{drawerStatus\}/);
+    expect(sidebar).toContain("<div className='hidden lg:block'>{navigation}</div>");
     expect(sidebar).toContain('overflow-y-auto overscroll-contain');
   });
 
   it('keeps project controls touch-safe and replaces browser-native prompts with inline actions', () => {
-    expect(projects).toContain("className='flex h-11 w-11 items-center");
-    expect(projects).toContain('opacity-100');
-    expect(projects).toContain('md:opacity-0');
+    expect(projects).toContain("className='flex min-h-11 min-w-11 items-center");
+    expect(projects).toContain('aria-expanded={showActions}');
+    expect(projects).toContain('Действия с проектом');
     expect(projects).toContain('addDescription');
     expect(projects).toContain('deletePendingId');
     expect(projects).toContain('renameDraft');

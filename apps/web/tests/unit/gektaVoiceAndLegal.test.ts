@@ -95,18 +95,6 @@ describe('Gekta legal surface', () => {
     expect(workspace).toContain('setConsentRequired(body.consentCurrent !== true);');
   });
 
-  it('does not let a late consent probe steal active composer focus or submit before acceptance', () => {
-    expect(consent).toContain('function activeDraftAtMount()');
-    expect(consent).toContain('document.activeElement === composer || composer.value.trim().length > 0');
-    expect(consent).toContain('const [deferred, setDeferred] = React.useState(activeDraftAtMount);');
-    expect(consent).toContain("document.addEventListener('keydown', onKeyDown, true)");
-    expect(consent).toContain("document.addEventListener('click', onClick, true)");
-    expect(consent).toContain("target.closest(\"[data-gekta-submit='true']\")");
-    expect(composer).toContain("data-gekta-submit='true'");
-    expect(consent).toContain('const panelRef = useDialogFocus(!deferred, ignoreEscape);');
-    expect(consent).not.toContain('useDialogFocus(true, onAccept)');
-  });
-
   it('binds a consent record to the session, the version and the server clock', () => {
     const session = createAnonymousSession(new Date('2026-08-12T10:00:00Z'));
     const accepted = recordConsent(session, GEKTA_LEGAL_VERSION, new Date('2026-08-12T10:05:00Z'));
@@ -365,6 +353,29 @@ afterEach(() => {
 });
 
 describe('G-A02 first manual question from discovery', () => {
+  it('keeps the selected example editable when the initial consent probe returns', async () => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>(resolve => { release = resolve; }) });
+    render(createElement(GektaChatWorkspace, { discoveryHero: createElement('h1', null, 'Гекта') }));
+    const box = screen.getByRole('textbox') as HTMLTextAreaElement;
+    fireEvent.click(screen.getByRole('button', { name: /Себестоимость.*48 000/ }));
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(box);
+    expect(box.value).toContain('48 000');
+    fireEvent.input(box, { target: { value: 'Мои затраты 56 000 ₽/га' } });
+    expect(consentWrites(spy)).toHaveLength(0);
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(document.activeElement).toBe(dialog.querySelector('h2'));
+    expect(box.closest('[inert]')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(document.activeElement).toBe(box));
+    expect(box.value).toBe('Мои затраты 56 000 ₽/га');
+    expect(consentWrites(spy)).toHaveLength(0);
+    expect(generations(spy)).toHaveLength(0);
+  });
   it.each(['click', 'enter'])('reveals consent on the first %s and resumes exactly once only after confirmation', async (intent) => {
     const spy = installServer();
     const box = await draft();

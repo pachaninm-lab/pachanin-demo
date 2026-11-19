@@ -158,6 +158,20 @@ async function acceptRequiredConsent(page: Page) {
   }));
 }
 
+// Verify the real localized notice on a new chat. Opening saved history alone never accepts terms.
+async function acceptFirstChatConsent(page: Page) {
+  const route = new URL(page.url()).pathname;
+  await page.goto(route + '?chat=new', { waitUntil: 'load' });
+  if (!await page.locator('[data-gekta-consent]').isVisible()) {
+    const question = { ru: 'Сколько тонн в 2 000 кг?', en: 'How many tonnes is 2,000 kg?', zh: '2000 千克是多少吨？' };
+    const composer = page.locator('#gekta-composer-input');
+    await composer.fill(question[mobileConsentLocale(page.url())]);
+    await composer.press('Enter');
+  }
+  await acceptRequiredConsent(page);
+  await page.goto(route, { waitUntil: 'load' });
+}
+
 async function acceptConsentIfPresent(page: Page) {
   const consent = page.locator('[data-gekta-consent="true"]');
   if (await consent.count()) await acceptRequiredConsent(page);
@@ -291,8 +305,8 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await moreExamples.click();
       await expect(page.locator('[data-gekta-starter="true"]:visible')).toHaveCount(2);
 
+      await acceptFirstChatConsent(page);
       await openSeededConversation(page, viewport.width);
-      await acceptRequiredConsent(page);
       await expect(page.locator('[data-gekta-role="assistant"]')).toBeVisible();
       const composer = page.locator('#gekta-composer-input');
       await expect(composer).toBeVisible();
@@ -398,8 +412,8 @@ test.describe('Gekta exact production mobile acceptance', () => {
           animations: 'disabled',
         });
 
+        await acceptFirstChatConsent(page);
         await openSeededConversation(page, viewport.width, route.menu, route.closeMenu);
-        await acceptRequiredConsent(page);
         await expect(page.locator('[data-gekta-role="assistant"]')).toBeVisible();
         await expectTargetsAtLeast(visibleWorkspaceTargets(page), 44);
         await expectNoHorizontalOverflow(page);
@@ -408,11 +422,10 @@ test.describe('Gekta exact production mobile acceptance', () => {
     }
   }
 
-  test('390px preserves draft, caret and composer geometry through 20 keyboard cycles', async ({ page }) => {
+  test('390px active chat preserves draft, caret and composer geometry through 20 keyboard cycles', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const response = await page.goto('/gekta', { waitUntil: 'load' });
+    const response = await page.goto('/gekta?chat=new', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
-    await page.locator('[data-gekta-starter="true"]').first().click();
     await acceptConsentIfPresent(page);
 
     const composer = page.locator('#gekta-composer-input');

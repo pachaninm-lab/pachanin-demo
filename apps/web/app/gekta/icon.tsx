@@ -1,5 +1,8 @@
-import { ImageResponse } from 'next/og';
+import { gektaAppIcon } from '@/lib/gekta/app-icon';
 
-export const size = { width: 64, height: 64 };
+export const size = { width: 192, height: 192 };
 export const contentType = 'image/png';
-export default function Icon() { return new ImageResponse(<div style={{ width: '100%', height: '100%', borderRadius: 16, background: '#166534', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, fontWeight: 800, fontFamily: 'sans-serif' }}>G</div>, size); }
+
+export default function Icon() {
+  return gektaAppIcon(size.width);
+}

@@ -42,7 +42,15 @@ describe('Gekta reads the server history as untrusted input', () => {
     expect(parsed?.locale).toBe('en');
     expect(parsed?.projectId).toBe('p-1');
     expect(parsed?.createdAt).toBe('2026-07-01T08:00:00.000Z');
-    expect(parsed?.messages[0]?.role).toBe('assistant');
+    expect(parsed?.messages[0]).toMatchObject({ role: 'assistant', status: 'answered' });
+  });
+
+  it('restores a failure recorded before account history carried UI state', () => {
+    const parsed = toConversation({
+      id: 's-2', title: 'Хранение зерна', locale: 'en', projectId: null, createdAt: NOW, updatedAt: NOW,
+      messages: [{ id: 'm-2', role: 'assistant', body: 'No answer was received. Check the connection and retry.', createdAt: NOW }],
+    }, NOW);
+    expect(parsed?.messages[0]).toMatchObject({ role: 'assistant', status: 'refused', refusal: 'UPSTREAM_ERROR' });
   });
 
   it('drops a row that has no usable identity or title', () => {
@@ -163,12 +171,10 @@ describe('Gekta keeps one authority for the history', () => {
   it('loads the replies when a restored conversation is opened', () => {
     // Список приходит без реплик, поэтому без дочитывания диалог из истории
     // открывался бы пустым.
-    expect(workspace).toContain("accountApi<ServerConversationRow>(`conversations/${encodeURIComponent(serverId)}`)");
+    expect(workspace).toContain("accountApi<ServerConversationRow>(`conversations/${encodeURIComponent(serverId)}`, { signal: controller.signal })");
     expect(workspace).toContain('for (const message of restored.messages) sentMessageIds.current.add(message.id);');
-    // Пользователь мог переключиться, пока читались реплики. Проверка идёт по
-    // ref, а обновление состояния остаётся чистым.
-    expect(workspace).toContain('if (activeIdRef.current === conversation.id) setMessages([...restored.messages]);');
-    expect(workspace).toContain('activeIdRef.current = activeId;');
+    expect(workspace).toContain('historyRequest.current?.abort()');
+    expect(workspace).toContain("historyReady={historyPhase === 'ready'}");
   });
 
   it('searches the account on the server, not only the loaded page', () => {
@@ -229,7 +235,7 @@ describe('Gekta keeps one authority for the history', () => {
 
   it('sends deletions to the server so they survive a reload', () => {
     expect(workspace).toContain("accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' })");
-    expect(workspace).toContain("accountApi(`projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' })");
+    expect(workspace).toContain("accountApi(`projects/${encodeURIComponent(serverId)}`, { method: 'DELETE' })");
   });
 
   it('clears only the language the user was looking at', () => {
