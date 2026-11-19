@@ -2,10 +2,10 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "status": "active",
   "branch": "review/gekta-mobile-20261119",
-  "purpose": "Admit the listed Gekta workspace, localized entry, draft and attachment ownership, account history, consent and acceptance changes for a separate product PR after this manifest merges into main.",
+  "purpose": "Admit the listed Gekta workspace, localized entry, private draft and attachment handling, account history, consent and release checks for the product PR.",
   "baseline": {
     "branch": "main",
-    "commit": "479497fb7c7d0110994917f5384b3aff74b5a7ab"
+    "commit": "351b43498e7ed5208a8bc5dd30a249b65bda6351"
   },
   "allowedPaths": [
     ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
@@ -90,33 +90,33 @@
   ],
   "sourceEvidence": {
     "artifact": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "bfeab67fa1674783f21e0de975ba5a3f519d40fb35065fd3b150929e42096413",
-    "patchBaseCommit": "479497fb7c7d0110994917f5384b3aff74b5a7ab",
-    "patchResultTree": "a2e89272bc01e1198ba37438f879dee8575479fe",
-    "baselineResultTree": "a2e89272bc01e1198ba37438f879dee8575479fe",
-    "sourceDiffSha256": "d5bd1686cc9db06ed48967aa586d9c57c776e0767e61723e5e40e18cea782e08",
+    "patchSha256": "f1e4db7e79ec9d5dd1feb93e2fb9b1309d218d1ead553aa70578915390323083",
+    "patchBaseCommit": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
+    "patchResultTree": "c9e49b1696feed86ebaabe702ed0f685ed8ff75c",
+    "baselineResultTree": "c9e49b1696feed86ebaabe702ed0f685ed8ff75c",
+    "sourceDiffSha256": "d53608d66feee70be87ec886c94bf6ebd863d5cffed6dc51dee8e3e84f03964a",
     "diffCommand": "git diff --binary --full-index --no-renames <source-base> <source-head>",
     "changedPathCount": 76
   },
   "acceptance": [
-    "Verify the original 76 product paths against sourceEvidence, the three release companion files against their separate digest, and the combined 79-file diff against releaseCompanions. All exact-head checks still apply.",
+    "Verify the 76 product files against sourceEvidence, the three release companions against their separate digest, and the combined 79-file diff against releaseCompanions.",
     "Run the production-mode web build, typecheck, Gekta unit cases, and Chromium and WebKit mobile UI checks against the submitted product head.",
-    "Recheck delayed consent, account history, cross-chat and unfinished attachment processing, project deletion and keyboard modal focus using isolated test data.",
+    "Verify the account draft partition through short-cookie expiry, recovery, rejection and account switches, plus delayed consent, attachments, history, project deletion and keyboard focus.",
     "Obtain a separate independent review and exact-head implementation-owner audit. Production follows the canonical REG.RU release and revision checks."
   ],
   "releaseCompanions": {
-    "productHead": "1093471f73079ebbe38fedb5c77b75bd0345d2d6",
+    "productHead": "3a7af510a87a9988e20006b077cdd98826492c54",
     "base": "351b43498e7ed5208a8bc5dd30a249b65bda6351",
     "sourcePaths": 76,
-    "sourceDiffSha256": "d5bd1686cc9db06ed48967aa586d9c57c776e0767e61723e5e40e18cea782e08",
+    "sourceDiffSha256": "d53608d66feee70be87ec886c94bf6ebd863d5cffed6dc51dee8e3e84f03964a",
     "extraPaths": [
       ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
-    "extraDiffSha256": "5c74bbd99c473faa106ec5c07a1324c7db1f927d8b7ba53e7ae53cf798203ec2",
+    "extraDiffSha256": "54945766caac18a58956082a1c9567376b523ef0a6aa09bc45c74910de45a6fa",
     "combinedPathCount": 79,
-    "combinedDiffSha256": "757a223fb164b5d0ec33a5a2d3d69cf9986443c044e0c3489082d7568dc0f0bd",
+    "combinedDiffSha256": "fff260477b78e9f5b068eb1f80ccd9c17be59013d6ec8ce32a81fdb707bbf3fc",
     "reason": "The unchanged source suite requires a current generated cryptographic inventory; use the same Ubuntu 24.04 runner already used by the Gekta browser suite to install the repository-pinned browsers."
   }
 }
