@@ -122,7 +122,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   });
 
   for (const method of ['buffered', 'streaming'] as const) {
-    it.each([
+    it.each<{ locale: string; question: string; expected: string[]; currentDataRequired?: boolean }>([
       {
         locale: 'ru',
         question: 'Учёт затрат M03-443, овёс. Всего 689940 ₽, уборочная площадь 160,5 га, валовой сбор 497 т. Найди затраты на тонну и гектар с округлением до копеек.',
@@ -137,6 +137,21 @@ describe('RestrictedPublicQwenService.generateStream', () => {
         locale: 'ru',
         question: 'В условном инвойсе M16-444 (рожь) цена 262 USD за тонну. В задаче использовать курс 82,504 ₽ за доллар. Дай цену в рублях за тонну и за 245 т до копеек.',
         expected: ['21616,05 ₽/т', '5295931,76 ₽'],
+      },
+      ...['triticale', 'canola', 'chickpeas', 'hard red spring wheat'].map(crop => ({
+        locale: 'en', currentDataRequired: true,
+        question: `Fictional invoice QA-10, ${crop}: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.`,
+        expected: ['800.00 RUB/t', '1600.00 RUB'],
+      })),
+      {
+        locale: 'ru', currentDataRequired: true,
+        question: 'В условном инвойсе QA-10 (яровая тритикале) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.',
+        expected: ['800,00 ₽/т', '1600,00 ₽'],
+      },
+      {
+        locale: 'zh', currentDataRequired: true,
+        question: '练习发票QA-10：鹰嘴豆报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。',
+        expected: ['800.00 卢布/吨', '1600.00 卢布'],
       },
       {
         locale: 'ru',
@@ -244,6 +259,9 @@ describe('RestrictedPublicQwenService.generateStream', () => {
       { question: 'Цена ржи: 274 USD/т, партия 263 т пшеницы, курс 83,386 ₽/USD. Сколько в рублях за тонну и за всю партию?', locale: 'ru' },
       { question: 'Купили 263 т ржи по 274 USD/т. Возьми курс 83,386 USD за рубль и посчитай цену за тонну и общую стоимость до копеек.', locale: 'ru' },
       { question: 'Fictional invoice FX-1, wheat with freight: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.', locale: 'en' },
+      { question: 'Fictional invoice FX-1, canola CIF: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.', locale: 'en' },
+      { question: 'В условном инвойсе QA-10 (нут с доставкой) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.', locale: 'ru' },
+      { question: '练习发票QA-10：鹰嘴豆另加运费报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。', locale: 'zh' },
       { question: '我们买了263吨黑麦，每吨274美元，按1美元兑83.386卢布计算。每吨和整批分别是多少卢布？但最后请按今天的市场汇率。', locale: 'zh' },
       { question: 'We bought 263 tons of rye at 274 US dollars per tonne. Use the exchange rate of 83.386 RUB/USD. How much is that in RUB per tonne and for the whole lot?', locale: 'en' },
     ])(`does not apply the supplied calculation to mixed or ambiguous inputs (${method})`, async item => {

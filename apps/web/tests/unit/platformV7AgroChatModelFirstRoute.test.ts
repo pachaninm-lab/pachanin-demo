@@ -200,6 +200,9 @@ describe('agro policy at the actual public streaming boundary', () => {
 
   it.each([
     ['ru', fixedOatsLot, '800,00 ₽/т', '1600,00 ₽'],
+    ['en', 'Fictional invoice QA-10, triticale: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.', '800.00 RUB/t', '1600.00 RUB'],
+    ['ru', 'В условном инвойсе QA-10 (масличный лён) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.', '800,00 ₽/т', '1600,00 ₽'],
+    ['zh', '练习发票QA-10：鹰嘴豆报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。', '800.00 卢布/吨', '1600.00 卢布'],
     ['ru', 'В условном инвойсе QA-1 (овёс) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т до копеек.', '800,00 ₽/т', '1600,00 ₽'],
     ['en', 'We bought 2 tonnes of oats at 10 US dollars per tonne. Use the exchange rate of 80 RUB/USD. How much is that in RUB per tonne and for the whole lot?', '800.00 RUB/t', '1600.00 RUB'],
     ['zh', '我买了2吨燕麦，每吨10美元，按1美元兑80卢布计算。每吨和整批分别是多少卢布？', '800.00 卢布/吨', '1600.00 卢布'],

@@ -496,9 +496,13 @@ const FX_LOT_CROPS = {
   en: '(?:rye|wheat|barley|corn|maize|oats|peas|buckwheat|millet|sorghum|soybeans?|rapeseed|sunflower seeds)',
   zh: '(?:黑麦|小麦|大麦|玉米|燕麦|豌豆|荞麦|小米|高粱|大豆|油菜籽|葵花籽)',
 } as const;
-const FX_INVOICE_CROP = new RegExp(
-  `^(?:${FX_LOT_CROPS.ru}|рожь|пшеница|ячмень|кукуруза|ов[её]с|горох|гречиха|просо|соя|рапс|подсолнечник|рис|чечевица|rice|lentils|winter wheat|spring wheat|冬小麦|春小麦|水稻|${FX_LOT_CROPS.en}|${FX_LOT_CROPS.zh})$`, 'iu',
-);
+// A formal invoice delimits the commodity label separately from all operands.
+// Keep variety and commodity names open, but do not discard terms in that label.
+const INVOICE_LABEL_TERMS = [
+  /\b(?:with(?:out)?|incl(?:uding|usive)?|excluding|plus|minus|after|before|less|net|gross|freight|delivery|shipping|transport|haulage|insurance|commission|discount|surcharge|fees?|costs?|expenses?|dut(?:y|ies)|tax(?:es)?|VAT|market|spot|rate|EXW|FCA|CPT|CIP|DAP|DPU|DDP|FAS|FOB|CFR|CIF)\b/iu,
+  /(?<!\p{L})(?:с|со|без|включая|плюс|минус|после|до|доставк\p{L}*|перевозк\p{L}*|фрахт\p{L}*|расход\p{L}*|сбор\p{L}*|комисси\p{L}*|скидк\p{L}*|наценк\p{L}*|надбавк\p{L}*|пошлин\p{L}*|налог\p{L}*|страхов\p{L}*|ндс|рыночн\p{L}*|курс\p{L}*)(?!\p{L})/iu,
+  /含运|含税|不含|另加|加收|扣除|到岸|离岸|运费|运输|费用|成本|佣金|附加费|保险|折扣|税|市场价|汇率/u,
+];
 
 function tradeOperand(name: string, decimal: ',' | '.', places = 3): string {
   const separator = decimal === '.' ? '\\.' : ',';
@@ -581,7 +585,7 @@ function matchSuppliedTrade(text: string) {
     const operands = pattern.exec(text)?.groups;
     if (!operands) continue;
     // A label such as “wheat with freight” can change the amount due.
-    if (operands.invoiceCrop && !FX_INVOICE_CROP.test(operands.invoiceCrop)) return null;
+    if (operands.invoiceCrop && INVOICE_LABEL_TERMS.some(term => term.test(operands.invoiceCrop))) return null;
     return { operands, fixedRateLot: operands.rate !== undefined };
   }
   return null;
