@@ -131,7 +131,10 @@ export function useGektaDrafts(locale: GektaLocale, activeId: string | null, pro
   const initialized = useRef(false);
   const initialize = useCallback(() => {
     if (!initialized.current) {
-      current.current = readBook(locale, owner);
+      const stored = readBook(locale, owner);
+      // Select the URL's new question before the composer can claim input typed into server HTML.
+      const openedNew = new URLSearchParams(window.location.search).get('chat') === 'new';
+      current.current = openedNew ? { ...stored, active: freshId() } : stored;
       initialized.current = true;
     }
     return current.current;
@@ -147,7 +150,7 @@ export function useGektaDrafts(locale: GektaLocale, activeId: string | null, pro
       else sessionStorage.removeItem(key);
     } catch { /* The active tab still holds its in-memory draft. */ }
   }, [locale, owner]);
-  useLayoutEffect(() => { setBook(initialize()); }, [initialize]);
+  useLayoutEffect(() => { commit(initialize()); }, [commit, initialize]);
 
   const write = useCallback((text: string, replacing = false) => {
     const source = initialize();

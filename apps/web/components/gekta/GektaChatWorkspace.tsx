@@ -340,7 +340,6 @@ function OwnedGektaWorkspace({ locale = 'ru', discoveryHero, discoveryFooter, on
       window.localStorage.setItem(LOCALE_STORAGE, locale);
       const params = new URLSearchParams(window.location.search);
       const prompt = params.get('prompt');
-      if (params.get('chat') === 'new') selectDraft();
       if (prompt) replaceInput(cleanText(prompt).slice(0, 1_200));
       // A topic page or a floating entry can ask for the workspace directly.
       if (prompt || params.get('chat') === 'new') {

@@ -255,8 +255,8 @@ for (const recovered of [true, false]) {
     const waitForRefresh = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/api/gekta/auth/refresh', async route => {
       await waitForRefresh;
-      await route.fulfill({ status: recovered ? 200 : 401, json: { ok: recovered },
-        headers: recovered ? { 'Set-Cookie': 'pc_session_present=' + marker(owner) + '; Path=/; SameSite=Lax' } : {} });
+      if (recovered) await context.addCookies([{ name: 'pc_session_present', value: marker(owner), url: baseURL! }]);
+      await route.fulfill({ status: recovered ? 200 : 401, json: { ok: recovered } });
     });
     const composer = page.locator('#gekta-composer-input');
     await page.goto('/gekta');
@@ -283,6 +283,29 @@ for (const recovered of [true, false]) {
     await expect(composer).toHaveValue('Отдельный расчёт мельницы');
   });
 }
+
+test('keeps text typed into a new-chat link before hydration and preserves the previous draft', async ({ page }) => {
+  const old = 'Ранее начатый расчёт';
+  const typed = 'Сколько стоит перевозка?';
+  await page.addInitScript(({ old }) => {
+    sessionStorage.setItem('gekta-tab-drafts-v1:ru:guest', JSON.stringify({
+      owner: 'guest', active: 'draft-existing', rows: [{ id: 'draft-existing', text: old, projectId: null }],
+    }));
+  }, { old });
+  let release!: () => void;
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  await page.route(/\/_next\/static\/chunks\/.+\.js$/u, async route => { await delayed; await route.continue(); });
+  const input = page.locator('#gekta-composer-input');
+  try {
+    await page.goto('/gekta?chat=new', { waitUntil: 'commit' });
+    await input.fill(typed);
+    await expect(input).toHaveValue(typed);
+  } finally { release(); }
+  await expect(page).not.toHaveURL(/chat=new/u);
+  await expect(input).toHaveValue(typed);
+  const texts = await page.evaluate(() => JSON.parse(sessionStorage.getItem('gekta-tab-drafts-v1:ru:guest')!).rows.map((row: { text: string }) => row.text));
+  expect(texts).toEqual(expect.arrayContaining([old, typed]));
+});
 
 test('protects a visible account draft when its marker expires during uninterrupted typing', async ({ page, context, baseURL }) => {
   const email = 'orchard@example.test';
