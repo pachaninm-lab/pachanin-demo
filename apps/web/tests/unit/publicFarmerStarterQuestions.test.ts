@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET, POST } from '@/app/api/public-platform-assistant/route';
+import type { GektaDocumentContext } from '@/lib/gekta/document-context';
 import { answerFarmerStarterQuestion, publicAssistantCatalog } from '@/lib/platform-v7/public-assistant-knowledge';
 
 const endpoint = 'https://example.test/api/public-platform-assistant';
@@ -68,7 +69,12 @@ describe('actual fast starter and contextual model route', () => {
   ];
   const captured: Record<string, unknown>[] = [];
   afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); captured.length = 0; });
-  async function askModel(message: string, history: {role: string; text: string}[] = [], locale = 'ru') {
+  async function askModel(
+    message: string,
+    history: {role: string; text: string}[] = [],
+    locale = 'ru',
+    documents: readonly GektaDocumentContext[] = [],
+  ) {
     vi.stubEnv('TAI_RESTRICTED_QWEN_PUBLIC_ENABLED', 'true');
     vi.stubEnv('TAI_PUBLIC_GATEWAY_HMAC_SECRET', 'test-only-secret-not-a-credential-123456789');
     vi.stubEnv('TAI_RESTRICTED_QWEN_MODEL_IDENTITY', 'test-model');
@@ -83,10 +89,121 @@ describe('actual fast starter and contextual model route', () => {
     const { POST: modelPost } = await import('@/app/api/agro-chat/route');
     const response = await modelPost(new NextRequest(endpoint + '?stream=1', {
       method: 'POST', headers: {'content-type':'application/json'},
-      body: JSON.stringify({message, locale, context:'platform', history}),
+      body: JSON.stringify({message, locale, context:'platform', history, documents}),
     }));
     return response.text();
   }
+
+  const offer = 'Lot M04-431, 206 t of peas. EXW is 12780 RUB/t, CPT is 13460 RUB/t. CPT-only seller costs per tonne: freight 612, loading 88, lab 48. Timing, quality and VAT match. Which offer pays more after costs and by how much for the lot?';
+  const revision = 'В полученной версии договора D04-Q354 укажи прежнюю цифру и предлагаемую. Какая цена согласована по представленному пакету?';
+  const draft = {
+    name: 'D04-Q354-redline.docx',
+    text: 'Цена (горох), п. 4.2. [удалено, правка не принята: 13430 ₽/т] [вставлено, правка не принята: 13676 ₽/т]. Документ без подписей. Принятый договор не приложен.',
+    truncated: false,
+  };
+
+  it.each([
+    { message: 'Поле M01-406, культура пшеница. Средняя урожайность 23,35 ц/га, уборочная площадь 49,25 га. Вычисли массу в тоннах до сотых и покажи переход единиц.',
+      locale: 'ru', source: 'deterministic_calculator', requires: ['1 ц = 100 кг = 0,1 т', '115,00 т'], excludes: ['1152,19 т'] },
+    { message: offer, locale: 'en', source: 'deterministic_calculator', requires: ['12712 RUB/t', 'EXW yields 68 RUB/t more', '14008 RUB'], excludes: ['CPT yields'] },
+    { message: revision, locale: 'ru', documents: [draft], source: 'document_evidence',
+      requires: ['13430 ₽/т', '13676 ₽/т', 'согласованная цена не подтверждена'], excludes: ['цена согласована на'] },
+    { message: 'Партия ячменя 260 т. Покупатель A предлагает 13 480 ₽/т EXW. Покупатель B — 14 240 ₽/т CPT. Продавец при CPT платит перевозку 580 ₽/т, погрузку 65 ₽/т и анализ 45 ₽/т. НДС и дата оплаты одинаковы. Какая оферта выгоднее в рублях на тонну и всю партию?',
+      locale: 'ru', source: 'deterministic_calculator', requires: ['13550 ₽/т', 'CPT даёт больше на 70 ₽/т', '18200 ₽'], excludes: ['EXW даёт больше'] },
+    { message: 'Учётная кормовая проба 629. Взвесили 24,2 кг сырого корма, доля сухого вещества 33%. Рассчитай кг сухого вещества до сотых. Кормовую норму не назначай.',
+      locale: 'ru', source: 'deterministic_calculator', requires: ['24,2 кг × 33 ÷ 100 ≈ 7,99 кг сухого вещества'], excludes: ['8,00 кг', '8,01 кг'] },
+    { message: 'Feed ledger sample silo-4: 22.4 kg as fed at 33.1% dry matter. Calculate dry matter kg to two decimals.',
+      locale: 'en', source: 'deterministic_calculator', requires: ['22.4 kg × 33.1 ÷ 100 ≈ 7.41 kg dry matter'], excludes: ['daily ration'] },
+    { message: '鲜重21.8千克，干物质32.5%。只计算干物质千克，保留两位。',
+      locale: 'zh', source: 'deterministic_calculator', requires: ['21.8 千克 × 32.5 ÷ 100 ≈ 7.09 千克干物质'], excludes: ['建议饲喂'] },
+    { message: 'Масса сырого корма 10 кг, доля сухого вещества 101%. Сколько килограммов сухого вещества в пробе?',
+      locale: 'ru', source: 'deterministic_calculator', requires: ['от 0 до 100%'], excludes: ['10,10 кг'] },
+  ])('supplies the checked answer for $source in $locale', async ({ message, locale, documents, source, requires, excludes }) => {
+    const text = await askModel(message, [], locale, documents);
+    const frames = text.split('\n').filter(line => line.startsWith('data:')).map(line => JSON.parse(line.slice(5)));
+    expect(frames.some(frame => frame.event === 'done' && frame.complete === true)).toBe(true);
+    expect(JSON.parse(frames.find(frame => frame.event === 'assessment').summary).source).toBe(source);
+    const answer = frames.filter(frame => frame.event === 'token').map(frame => frame.text).join('');
+    for (const required of requires) expect(answer).toContain(required);
+    for (const excluded of excludes) expect(answer).not.toContain(excluded);
+    expect(captured).toHaveLength(0);
+  });
+
+  it('does not answer a feed ration request with only the sample calculation', async () => {
+    const response = await askModel('Масса сырого корма 10 кг, доля сухого вещества 30%. Сколько килограммов сухого вещества в пробе? Подбери норму кормления.');
+    expect(response).not.toContain('deterministic_calculator');
+    expect(captured).toHaveLength(1);
+  });
+
+  it('does not assign a checked result to offers with different VAT terms', async () => {
+    const result = await askModel(offer.replace('quality and VAT match', 'quality match but VAT differs'), [], 'en');
+    expect(result).not.toContain('deterministic_calculator');
+    expect(captured).toHaveLength(1);
+  });
+
+  it('does not use an unsigned markup to adjudicate a second document', async () => {
+    const second = { name: 'Подписанное дополнение.txt', text: 'Подтверждено 12500 ₽/т.', truncated: false };
+    const result = await askModel(revision, [], 'ru', [draft, second]);
+    expect(result).not.toContain('document_evidence');
+    expect(captured.at(-1)?.documents).toEqual([draft, second]);
+  });
+
+  it.each([
+    [revision.replace('D04-Q354', 'D04-Q355'), draft, 'D04-Q355'],
+    [revision, { ...draft, name: 'D04-Q3540-redline.docx' }, 'D04-Q354'],
+    ['Проверь правки по договору D04-Q354. Какая цена была предложена?', {
+      ...draft,
+      text: 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nДоговор № D04-Q355\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].',
+    }, 'D04-Q354'],
+  ] as const)('withholds prices when the requested contract cannot be matched: %s', async (question, attachment, ref) => {
+    const result = await askModel(question, [], 'ru', [attachment]);
+    expect(result).toContain('document_evidence');
+    expect(result).toContain(`Для сверки цены по договору ${ref} прикрепи его версию с правками`);
+    expect(result).not.toContain('13430 ₽/т');
+    expect(result).not.toContain('13676 ₽/т');
+    expect(captured).toHaveLength(0);
+  });
+
+  it.each(['Договор: D04-Q355', 'Договор №\u00a0D04-Q355', 'Договор № D04-Q354/2026', 'Правки к условию об оплате'])('requires the Word text to establish a named contract despite a matching filename: %s', async heading => {
+    const attachment = { ...draft,
+      text: `Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\n${heading}\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].`,
+    };
+    const result = await askModel(revision, [], 'ru', [attachment]);
+    expect(result).toContain('Для сверки цены по договору D04-Q354 прикрепи его версию с правками');
+    expect(result).not.toContain('13430 ₽/т');
+    expect(result).not.toContain('13676 ₽/т');
+    expect(captured).toHaveLength(0);
+  });
+
+  it.each([
+    ['Проверь правки по контракту D04-Q355. Какая цена была предложена?', 'Для сверки цены по договору D04-Q355'],
+    ['Что предложили по цене в правках к соглашению D04-Q355?', 'укажи номер договора и пункт'],
+    ['Проверь правки по договорам D04-Q354 и D04-Q355. Какая цена была предложена?', 'укажи номер договора и пункт'],
+  ])('does not quote Word prices for unsupported or ambiguous contract references: %s', async (question, expected) => {
+    const attachment = { ...draft,
+      text: 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\nДоговор № D04-Q354\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].',
+    };
+    const result = await askModel(question, [], 'ru', [attachment]);
+    expect(result).toContain('document_evidence');
+    expect(result).toContain(expected);
+    expect(result).not.toContain('13430 ₽/т');
+    expect(result).not.toContain('13676 ₽/т');
+    expect(captured).toHaveLength(0);
+  });
+
+  it.each([
+    ['Договор поставки № D04-Q354', 'D04-Q354'],
+    ['Договор:\u00a0D04-Q354/2026', 'D04-Q354/2026'],
+  ])('uses a Word contract identifier in the document itself: %s', async (heading, ref) => {
+    const attachment = { ...draft, name: 'Цена.docx',
+      text: `Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\n${heading}\nЦена: [Удалено (правка)]13430 ₽/т[Конец правки] [Вставлено (правка)]13676 ₽/т[Конец правки].`,
+    };
+    const result = await askModel(revision.replace('D04-Q354', ref), [], 'ru', [attachment]);
+    expect(result).toContain('13676 ₽/т');
+    expect(result).toContain('согласованная цена не подтверждена');
+    expect(captured).toHaveLength(0);
+  });
+
   publicAssistantCatalog('ru').starterPrompts.forEach((question, index) => {
     it(`answers starter ${index + 1} directly and sends its follow-up to inference`, async () => {
       const direct = await askModel(question);

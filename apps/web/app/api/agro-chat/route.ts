@@ -96,7 +96,7 @@ type PublicEnvelope = Readonly<{
 
 type ArithmeticFact = Readonly<{ value: bigint; start: number; end: number }>;
 type SuppliedArithmetic = Readonly<{
-  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even';
+  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'dry_matter' | 'offer_netback';
   answer: string;
 }>;
 const ARITHMETIC_SCALE = BigInt(1000);
@@ -111,19 +111,233 @@ function arithmeticFacts(question: string, units: string): readonly ArithmeticFa
     if (/(?:\bnegative|\bminus|минус|отрицательн[\p{L}]*|负|負)\s*$/iu.test(question.slice(Math.max(0, match.index! - 40), match.index!))) return null;
     // A three-digit suffix with a nonzero integer could be a thousands
     // separator in another locale. Leading-zero fractions are unambiguous.
-    if (/[.,][0-9]{3}$/u.test(match[1]) && !/^0[.,]/u.test(match[1])) return null;
-    const [whole, fraction = ''] = match[1].replace(',', '.').split('.');
-    facts.push({ value: BigInt(whole) * ARITHMETIC_SCALE + BigInt(fraction.padEnd(3, '0')), start: match.index!, end: match.index! + match[0].length });
+    const value = parseSuppliedNumber(match[1]);
+    if (value === null) return null;
+    facts.push({ value, start: match.index!, end: match.index! + match[0].length });
   }
   return facts;
 }
 
-function arithmeticDecimal(numerator: bigint, denominator: bigint, locale: PublicLocale): string {
-  const precision = ARITHMETIC_PRECISION;
-  const rounded = (numerator * precision * BigInt(2) + denominator) / (denominator * BigInt(2));
+function arithmeticDecimal(numerator: bigint, denominator: bigint, locale: PublicLocale, decimals?: number): string {
+  const precision = decimals === undefined ? ARITHMETIC_PRECISION : BigInt(10) ** BigInt(decimals);
+  const magnitude = numerator < BigInt(0) ? -numerator : numerator;
+  const rounded = (magnitude * precision * BigInt(2) + denominator) / (denominator * BigInt(2));
   const whole = rounded / precision;
-  const fraction = String(rounded % precision).padStart(12, '0').replace(/0+$/u, '');
-  return `${whole}${fraction ? `${locale === 'ru' ? ',' : '.'}${fraction}` : ''}`;
+  const padded = String(rounded % precision).padStart(decimals ?? 12, '0');
+  const fraction = decimals === undefined ? padded.replace(/0+$/u, '') : padded;
+  const sign = numerator < BigInt(0) && rounded !== BigInt(0) ? '−' : '';
+  return `${sign}${whole}${fraction ? `${locale === 'ru' ? ',' : '.'}${fraction}` : ''}`;
+}
+
+const SUPPLIED_NUMBER = '(?:\\d{1,3}(?:[ \u00a0\u202f]\\d{3}){1,2}|\\d{1,9})(?:[.,]\\d{1,3})?';
+const arithmeticInput = (name: string) => `(?<${name}>${SUPPLIED_NUMBER})`;
+
+function parseSuppliedNumber(value: string): bigint | null {
+  const grouped = /[ \u00a0\u202f]/u.test(value);
+  // A three-digit suffix on an ungrouped integer is ambiguous across locales.
+  if (!grouped && /[.,]\d{3}$/u.test(value) && !/^0[.,]/u.test(value)) return null;
+  const [whole, fraction = ''] = value.replace(/[ \u00a0\u202f]/gu, '').replace(',', '.').split('.');
+  return BigInt(whole) * ARITHMETIC_SCALE + BigInt(fraction.padEnd(3, '0'));
+}
+const FIELD_REF = '[\\p{L}\\d][\\p{L}\\d-]{0,30}';
+const CROP_NAME = '[\\p{L}]+(?:[ -][\\p{L}]+){0,3}';
+const SUPPLIED_MASS_FORMS = ([
+  [`(?:Поле ${FIELD_REF}, культура ${CROP_NAME}\\. )?(?:Средняя )?урожайность ${arithmeticInput('rate')} ц/га, (?:уборочная )?площадь ${arithmeticInput('area')} га\\. Вычисли массу в тоннах до сотых и покажи переход единиц\\.`, 'metric_yield', 2],
+  [`(?:Средняя )?урожайность ${arithmeticInput('rate')} ц/га, площадь ${arithmeticInput('area')} га\\. Сколько тонн\\?`, 'metric_yield', undefined],
+  [`Field ${FIELD_REF} \\(${CROP_NAME}\\): ${arithmeticInput('rate')} metric quintals?/ha over ${arithmeticInput('area')} ha\\. Convert and calculate (?:gross )?metric tonnes to (?:two|2) decimals\\.`, 'metric_yield', 2],
+  [`A ${CROP_NAME} field averages ${arithmeticInput('rate')} metric quintals per hectare\\. The harvested area is ${arithmeticInput('area')} hectares and a metric quintal is 100 kilograms\\. Calculate gross metric tonnes to two decimals\\.`, 'metric_yield', 2],
+  [`田块${FIELD_REF}种植${CROP_NAME}，平均产量每公顷${arithmeticInput('rate')}公担，收获面积${arithmeticInput('area')}公顷。换算公担并计算总吨数，四舍五入到两位。`, 'metric_yield', 2],
+  [`(?:На полях ${FIELD_REF} под ${CROP_NAME} )?расход семян ${arithmeticInput('rate')} кг/га (?:при площади|на площади) ${arithmeticInput('area')} га\\. Сколько тонн нужно заказать без запаса\\? Округли до тысячных\\.`, 'seed_mass', 3],
+  [`Fields? ${FIELD_REF} \\(${CROP_NAME}\\) needs? ${arithmeticInput('rate')} kg/ha of seed over ${arithmeticInput('area')} ha\\. How many tonnes before buffer\\? Round to (?:three|3) decimals\\.`, 'seed_mass', 3],
+  [`田块${FIELD_REF}播种${CROP_NAME}，每公顷用种${arithmeticInput('rate')}千克，面积${arithmeticInput('area')}公顷。无备用时需要订购多少吨？保留三位小数。`, 'seed_mass', 3],
+] as const).map(([form, operation, decimals]) => ({
+  pattern: new RegExp(`^${form}$`, 'iu'),
+  operation,
+  decimals,
+}));
+
+const SUPPLIED_OFFER_FORMS = [
+  `У партии ${FIELD_REF} \\(${CROP_NAME}, ${arithmeticInput('mass')} т\\) две оферты: ${arithmeticInput('exw')} ₽/т EXW и ${arithmeticInput('cpt')} ₽/т CPT\\. Дополнительные расходы продавца только для CPT: транспорт ${arithmeticInput('freight')}, погрузка ${arithmeticInput('loading')}, анализ ${arithmeticInput('lab')} ₽/т\\. Дата оплаты, качество и НДС совпадают\\. Какая оферта выгоднее и на сколько рублей по всей партии\\?`,
+  `Lot ${FIELD_REF}, ${arithmeticInput('mass')} t of ${CROP_NAME}\\. EXW is ${arithmeticInput('exw')} RUB/t, CPT is ${arithmeticInput('cpt')} RUB/t\\. CPT-only seller costs per tonne: freight ${arithmeticInput('freight')}, loading ${arithmeticInput('loading')}, lab ${arithmeticInput('lab')}\\. Timing, quality and VAT match\\. Which offer pays more after costs and by how much for the lot\\?`,
+  `${FIELD_REF}批次${CROP_NAME}共${arithmeticInput('mass')}吨。EXW报价每吨${arithmeticInput('exw')}卢布，CPT报价每吨${arithmeticInput('cpt')}卢布。只有CPT在卖方每吨产生运费${arithmeticInput('freight')}、装货${arithmeticInput('loading')}、检测${arithmeticInput('lab')}。账期、质量和增值税一致。哪个报价到手更多？整批差多少卢布？`,
+  `Партия ${CROP_NAME} ${arithmeticInput('mass')} т\\. Покупатель A предлагает ${arithmeticInput('exw')} ₽/т EXW\\. Покупатель B — ${arithmeticInput('cpt')} ₽/т CPT\\. Продавец при CPT платит перевозку ${arithmeticInput('freight')} ₽/т, погрузку ${arithmeticInput('loading')} ₽/т и анализ ${arithmeticInput('lab')} ₽/т\\. НДС и дата оплаты одинаковы\\. Какая оферта выгоднее в рублях на тонну и всю партию\\?`,
+].map(form => new RegExp(`^${form}$`, 'iu'));
+
+const SUPPLIED_DRY_MATTER_FORMS = [
+  `(?:Уч[её]тная кормовая проба ${FIELD_REF}\\. )?Взвесили ${arithmeticInput('mass')} кг сырого корма, доля сухого вещества ${arithmeticInput('share')}%\\. Рассчитай кг сухого вещества до сотых\\.(?: Кормовую норму не назначай\\.)?`,
+  `Масса сырого корма ${arithmeticInput('mass')} кг, доля сухого вещества ${arithmeticInput('share')}%\\. Сколько килограммов сухого вещества в пробе\\?`,
+  `(?:Feed ledger sample ${FIELD_REF}: )?${arithmeticInput('mass')} kg as fed at ${arithmeticInput('share')}% dry matter\\. Calculate dry matter kg to (?:2|two) decimals(?: for the ledger only)?\\.`,
+  `(?:饲料样本${FIELD_REF})?鲜重${arithmeticInput('mass')}千克，干物质${arithmeticInput('share')}%。只计算干物质千克，保留两位。`,
+].map(form => new RegExp(`^${form}$`, 'iu'));
+
+function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedArithmetic | null {
+  const normalized = question.trim().replace(/\s+/gu, ' ');
+  const display = (value: bigint) => arithmeticDecimal(value, ARITHMETIC_SCALE, locale);
+  const pick = (ru: string, en: string, zh: string) => locale === 'en' ? en : locale === 'zh' ? zh : ru;
+  for (const { pattern, operation, decimals } of SUPPLIED_MASS_FORMS) {
+    const groups = pattern.exec(normalized)?.groups;
+    if (!groups) continue;
+    const rate = parseSuppliedNumber(groups.rate);
+    const area = parseSuppliedNumber(groups.area);
+    if (rate === null || area === null) return null;
+    const divisor = operation === 'metric_yield' ? 10 : 1000;
+    const numerator = rate * area;
+    const denominator = ARITHMETIC_SCALE ** BigInt(2) * BigInt(divisor);
+    const total = arithmeticDecimal(numerator, denominator, locale, decimals);
+    const exact = decimals === undefined || (numerator * BigInt(10) ** BigInt(decimals)) % denominator === BigInt(0);
+    const rateUnit = operation === 'metric_yield'
+      ? pick('ц/га', 'metric quintals/ha', '公担/公顷')
+      : pick('кг/га', 'kg/ha', '千克/公顷');
+    const conversion = operation === 'metric_yield'
+      ? pick('1 ц = 100 кг = 0,1 т.', '1 metric quintal = 100 kg = 0.1 t.', '1 公担 = 100 千克 = 0.1 吨。')
+      : pick('1 т = 1000 кг.', '1 t = 1000 kg.', '1 吨 = 1000 千克。');
+    return { operation, answer: `${conversion}\n${display(rate)} ${rateUnit} × ${display(area)} ${pick('га', 'ha', '公顷')} ÷ ${divisor} ${exact ? '=' : '≈'} ${total} ${pick('т', 't', '吨')}.` };
+  }
+
+  for (const pattern of SUPPLIED_DRY_MATTER_FORMS) {
+    const groups = pattern.exec(normalized)?.groups;
+    if (!groups) continue;
+    const mass = parseSuppliedNumber(groups.mass);
+    const share = parseSuppliedNumber(groups.share);
+    if (mass === null || share === null) return null;
+    if (share > BigInt(100) * ARITHMETIC_SCALE) return { operation: 'dry_matter', answer: pick(
+      'Доля сухого вещества должна быть от 0 до 100%. Проверь процент в протоколе пробы.',
+      'Dry matter must be between 0% and 100%. Check the sample record.',
+      '干物质比例必须在0%到100%之间。请核对样本记录。',
+    ) };
+    const numerator = mass * share;
+    const denominator = BigInt(100) * ARITHMETIC_SCALE ** BigInt(2);
+    const total = arithmeticDecimal(numerator, denominator, locale, 2);
+    const equals = numerator * BigInt(100) % denominator === BigInt(0) ? '=' : '≈';
+    const unit = pick('кг', 'kg', '千克');
+    return { operation: 'dry_matter', answer: `${display(mass)} ${unit} × ${display(share)} ÷ 100 ${equals} ${total} ${pick('кг сухого вещества', 'kg dry matter', '千克干物质')}${pick('.', '.', '。')}` };
+  }
+
+  for (const pattern of SUPPLIED_OFFER_FORMS) {
+    const groups = pattern.exec(normalized)?.groups;
+    if (!groups) continue;
+    const mass = parseSuppliedNumber(groups.mass);
+    const exw = parseSuppliedNumber(groups.exw);
+    const cpt = parseSuppliedNumber(groups.cpt);
+    const freight = parseSuppliedNumber(groups.freight);
+    const loading = parseSuppliedNumber(groups.loading);
+    const lab = parseSuppliedNumber(groups.lab);
+    if (mass === null || mass === BigInt(0) || exw === null || cpt === null || freight === null || loading === null || lab === null) return null;
+    const netCpt = cpt - freight - loading - lab;
+    const delta = netCpt - exw;
+    const winner = delta > BigInt(0) ? 'CPT' : 'EXW';
+    const difference = delta < BigInt(0) ? -delta : delta;
+    const lotDelta = arithmeticDecimal(difference * mass, ARITHMETIC_SCALE ** BigInt(2), locale);
+    const unit = pick('₽/т', 'RUB/t', '卢布/吨');
+    const net = `CPT: ${display(cpt)} − ${display(freight)} − ${display(loading)} − ${display(lab)} = ${display(netCpt)} ${unit}. EXW: ${display(exw)} ${unit}.`;
+    const conclusion = delta === BigInt(0) ? pick('По этим данным оферты равны.', 'The offers yield the same proceeds on these inputs.', '按给定数据，两种报价的净收入相同。') : pick(
+      `${winner} даёт больше на ${display(difference)} ${unit}. По всей партии: ${display(difference)} × ${display(mass)} = ${lotDelta} ₽.`,
+      `${winner} yields ${display(difference)} ${unit} more. For the lot: ${display(difference)} × ${display(mass)} = ${lotDelta} RUB.`,
+      `${winner} 每吨多 ${display(difference)} 卢布。整批相差 ${display(difference)} × ${display(mass)} = ${lotDelta} 卢布。`,
+    );
+    return { operation: 'offer_netback', answer: `${net}\n${conclusion}` };
+  }
+  return null;
+}
+
+const GEKTA_WORD_REVISION_NOTICE = 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.';
+const CONTRACT_REF = '[\\p{L}\\d][\\p{L}\\d._/-]{0,40}';
+const NUMBERED_CONTRACT = '(?=[a-zа-яё0-9._/-]*[0-9])[a-zа-яё0-9]+(?:[._/-][a-zа-яё0-9]+)*(?![a-zа-яё0-9_/-]|\\.[a-zа-яё0-9])';
+const HORIZONTAL_SPACE = '[\\t\\p{Zs}]';
+const CONTRACT_LABEL = `(?:договор[ауе]?(?:${HORIZONTAL_SPACE}+поставки)?|contract(?:${HORIZONTAL_SPACE}+draft)?|合同(?:草案)?)`;
+const CONTRACT_SEPARATOR = `${HORIZONTAL_SPACE}*[:：]?${HORIZONTAL_SPACE}*(?:(?:№|#|No\\.|No(?=${HORIZONTAL_SPACE}|[:：]))${HORIZONTAL_SPACE}*[:：]?${HORIZONTAL_SPACE}*)?`;
+const DECLARED_CONTRACT = new RegExp(
+  `(?:^|\\n)${HORIZONTAL_SPACE}*${CONTRACT_LABEL}${CONTRACT_SEPARATOR}(?<ref>${NUMBERED_CONTRACT})` +
+  `(?=${HORIZONTAL_SPACE}*(?:\\r?\\n|$)|[.,]?${HORIZONTAL_SPACE}+(?:от|dated)${HORIZONTAL_SPACE}+\\d)`, 'giu',
+);
+const AMOUNT = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3}){1,2}|\\d{1,9})(?:[.,]\\d{1,2})?';
+const RATE = `(?:${AMOUNT}\\s*(?:₽|RUB)\\s*/\\s*(?:т|t)|每吨${AMOUNT}卢布)`;
+
+const PRICE_QUESTIONS = [
+  `В полученной версии договора (?<ref>${CONTRACT_REF}) укажи прежнюю цифру и предлагаемую\\. Какая цена согласована по представленному пакету\\?`,
+  'Укажи прежнюю и предлагаемую цену в правках\\. Подтверждено ли согласование\\?',
+  `Проверь правки по (?:договору|контракту) (?<ref>${CONTRACT_REF})\\. Какая цена была предложена\\?`,
+  `For contract draft (?<ref>${CONTRACT_REF}), report the old and proposed price\\. Does the supplied packet establish an agreed amount\\?`,
+  'Report the old and proposed price in the tracked changes\\. Is the price agreed\\?',
+  `在合同草案(?<ref>${CONTRACT_REF})中指出旧价格和新建议价格。材料能证明已约定哪个价格吗？`,
+].map(form => new RegExp(`^${form}$`, 'iu'));
+
+const PENDING_PRICE_PAIRS = [
+  `Цена \\([\\p{L} -]+\\), п\\. \\d+(?:\\.\\d+)*\\. \\[удалено, правка не принята: (?<prior>${RATE})\\] \\[вставлено, правка не принята: (?<proposed>${RATE})\\]\\. Документ без подписей\\. Принятый договор не приложен\\.`,
+  `[\\p{L} -]+ price, §\\d+(?:\\.\\d+)*\\. \\[pending tracked deletion: (?<prior>${RATE})\\] \\[pending tracked insertion: (?<proposed>${RATE})\\]\\. Unsigned\\. No executed version attached\\.`,
+  `[\\p{L}]+价格第\\d+(?:\\.\\d+)*款：\\[未接受删除：(?<prior>${RATE})\\] \\[未接受插入：(?<proposed>${RATE})\\]。这份草案没有签字，未附已签版本。`,
+].map(form => new RegExp(`^${form}$`, 'iu'));
+
+const WORD_PRICE_PAIR = new RegExp(
+  `(?:цена|стоимость|unit\\s+price|价格条款)[^\\[\\]\\r\\n]{0,75}\\s*` +
+  `\\[Удалено \\(правка\\)\\]\\s*(?<prior>${RATE})\\s*\\[Конец правки\\]\\s*` +
+  `\\[Вставлено \\(правка\\)\\]\\s*(?<proposed>${RATE})\\s*\\[Конец правки\\]`, 'giu',
+);
+
+function revisionQuestion(question: string): boolean {
+  return /цен|\bprice\b|价格|旧价|建议价/iu.test(question)
+    && /прав(?:к|ок)|изменен|поменял|черновик|redline|tracked|revision|修订/iu.test(question)
+    && /согласова|предлож|прежн|старо|agreed|agreement|proposed|建议|约定/iu.test(question);
+}
+
+function matchesRequestedContract(reference: string, fileName: string, documentText: string, explicitDraftRecord: boolean): boolean {
+  const wanted = reference.toUpperCase();
+  const declared = [...documentText.matchAll(DECLARED_CONTRACT)].map(match => match.groups!.ref.normalize('NFKC').toUpperCase());
+  if (declared.length > 0) return declared.every(ref => ref === wanted);
+  if (!explicitDraftRecord) return false;
+  const stem = fileName.replace(/\.docx$/iu, '');
+  return stem.toUpperCase() === wanted
+    || stem.replace(/[-_ ](?:redline|tracked|draft|правки|черновик)$/iu, '').toUpperCase() === wanted;
+}
+
+/** Cite a price revision without treating the Word markup as evidence of agreement. */
+function answerTrackedPriceRevision(
+  question: string,
+  documents: readonly GektaDocumentContext[],
+  locale: PublicLocale,
+): string | null {
+  if (documents.length !== 1) return null;
+  const document = documents[0];
+  if (!/\.docx$/iu.test(document.name)) return null;
+  const text = document.text.trim();
+  const exactQuestion = PRICE_QUESTIONS.map(pattern => pattern.exec(question.trim())).find(Boolean);
+  const trackedWord = text.startsWith(GEKTA_WORD_REVISION_NOTICE);
+  if (!exactQuestion) {
+    if (!trackedWord || !revisionQuestion(question)) return null;
+    if (locale === 'en') return 'To verify the proposed price, specify the contract number and the clause and attach the matching draft.';
+    if (locale === 'zh') return '请明确核对哪个合同和条款，并附上对应的修订版本。';
+    return 'Чтобы сверить предложенную цену, укажи номер договора и пункт и приложи соответствующую версию с правками.';
+  }
+  const exactPair = !document.truncated
+    ? PENDING_PRICE_PAIRS.map(pattern => pattern.exec(text)?.groups).find(Boolean) : undefined;
+  const wordPairs = !exactPair && trackedWord
+    ? [...text.matchAll(WORD_PRICE_PAIR)].map(match => match.groups!) : [];
+  if (!exactPair && !wordPairs.length) {
+    if (!trackedWord) return null;
+    if (locale === 'en') return 'The extract does not show a complete price change. Attach the page containing both values.';
+    if (locale === 'zh') return '当前摘录不含完整的价格修订，请附上同时显示两个价格的页面。';
+    return 'Во фрагменте нет полной правки цены. Прикрепи страницу с прежним и предложенным значениями.';
+  }
+  const reference = exactQuestion.groups?.ref;
+  const name = document.name.replace(/[\p{C}\s]+/gu, ' ').trim();
+  if (reference && !matchesRequestedContract(reference.normalize('NFKC'), name, text, Boolean(exactPair))) {
+    if (locale === 'en') return `Please attach the version of contract ${reference} with tracked changes. “${name}” cannot be matched to that contract.`;
+    if (locale === 'zh') return `请附上合同 ${reference} 的修订版本。现有文件《${name}》无法与该合同匹配。`;
+    return `Для сверки цены по договору ${reference} прикрепи его версию с правками. Файл «${name}» не подтверждает этот номер.`;
+  }
+  if (wordPairs.length > 1) {
+    if (locale === 'en') return 'The file contains several tracked price changes. Specify the clause or lot to review.';
+    if (locale === 'zh') return '文件中有多处价格修订，请确认要核对的条款或批次。';
+    return 'В файле несколько правок цены. Чтобы выбрать нужную, уточни пункт договора или партию.';
+  }
+  const { prior, proposed } = exactPair ?? wordPairs[0];
+  if (locale === 'en') {
+    return `In “${name}”, the deleted value is ${prior}. The proposed value is ${proposed}. ${document.truncated ? 'The extract is incomplete. ' : ''}The tracked changes do not establish an agreed price.`;
+  }
+  if (locale === 'zh') {
+    return `在《${name}》中，删除值为${prior}，拟议值为${proposed}。${document.truncated ? '摘录不完整。' : ''}这些修订不能证明价格已约定。`;
+  }
+  return `В файле «${name}» удаляемое значение — ${prior}. Предлагаемое значение — ${proposed}. ${document.truncated ? 'Показанный фрагмент неполный. ' : ''}По этим правкам согласованная цена не подтверждена.`;
 }
 
 /**
@@ -179,6 +393,8 @@ function suppliedArithmetic(envelope: PublicEnvelope, answerMode: PublicAnswerMo
   // actual platform question must retain its verified knowledge boundary.
   if (EXPLICIT_PLATFORM_PATTERNS.some(pattern => pattern.test(question))
     || (answerMode !== 'general_agro' && !/(?:учебн|условн|hypothetic|supplied\s+figures|假设|题目提供)/iu.test(question))) return null;
+  const supplied = suppliedMassOrOffer(question, envelope.locale);
+  if (supplied) return supplied;
   if (!admittedArithmeticForm(question)) return null;
   if (!/(?:рассчита|посчита|перевед|сколько|calculate|convert|how\s+many|what\s+is|计算|换算|多少)/iu.test(question)) return null;
   if (/[+−-]\s*\d/gu.test(question)
@@ -423,6 +639,20 @@ export async function POST(request: NextRequest) {
       modelIdentity: null,
       truncated: false,
       calculator: { version: 'supplied-input-v1', operation: arithmetic.operation },
+      safetyFlags: [],
+    }));
+  }
+
+  const trackedPriceAnswer = !envelope.questionTruncated && !envelope.history.length
+    ? answerTrackedPriceRevision(envelope.question, envelope.documents, locale)
+    : null;
+  if (trackedPriceAnswer) {
+    return admitted(streamDirectAnswer(trackedPriceAnswer, {
+      source: 'document_evidence',
+      answerMode: 'general_agro',
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
       safetyFlags: [],
     }));
   }
