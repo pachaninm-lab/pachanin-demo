@@ -110,6 +110,14 @@ describe('actual fast starter and contextual model route', () => {
       requires: ['13430 ₽/т', '13676 ₽/т', 'согласованная цена не подтверждена'], excludes: ['цена согласована на'] },
     { message: 'Партия ячменя 260 т. Покупатель A предлагает 13 480 ₽/т EXW. Покупатель B — 14 240 ₽/т CPT. Продавец при CPT платит перевозку 580 ₽/т, погрузку 65 ₽/т и анализ 45 ₽/т. НДС и дата оплаты одинаковы. Какая оферта выгоднее в рублях на тонну и всю партию?',
       locale: 'ru', source: 'deterministic_calculator', requires: ['13550 ₽/т', 'CPT даёт больше на 70 ₽/т', '18200 ₽'], excludes: ['EXW даёт больше'] },
+    { message: 'Учётная кормовая проба 629. Взвесили 24,2 кг сырого корма, доля сухого вещества 33%. Рассчитай кг сухого вещества до сотых. Кормовую норму не назначай.',
+      locale: 'ru', source: 'deterministic_calculator', requires: ['24,2 кг × 33 ÷ 100 ≈ 7,99 кг сухого вещества'], excludes: ['8,00 кг', '8,01 кг'] },
+    { message: 'Feed ledger sample silo-4: 22.4 kg as fed at 33.1% dry matter. Calculate dry matter kg to two decimals.',
+      locale: 'en', source: 'deterministic_calculator', requires: ['22.4 kg × 33.1 ÷ 100 ≈ 7.41 kg dry matter'], excludes: ['daily ration'] },
+    { message: '鲜重21.8千克，干物质32.5%。只计算干物质千克，保留两位。',
+      locale: 'zh', source: 'deterministic_calculator', requires: ['21.8 千克 × 32.5 ÷ 100 ≈ 7.09 千克干物质'], excludes: ['建议饲喂'] },
+    { message: 'Масса сырого корма 10 кг, доля сухого вещества 101%. Сколько килограммов сухого вещества в пробе?',
+      locale: 'ru', source: 'deterministic_calculator', requires: ['от 0 до 100%'], excludes: ['10,10 кг'] },
   ])('supplies the checked answer for $source in $locale', async ({ message, locale, documents, source, requires, excludes }) => {
     const text = await askModel(message, [], locale, documents);
     const frames = text.split('\n').filter(line => line.startsWith('data:')).map(line => JSON.parse(line.slice(5)));
@@ -119,6 +127,12 @@ describe('actual fast starter and contextual model route', () => {
     for (const required of requires) expect(answer).toContain(required);
     for (const excluded of excludes) expect(answer).not.toContain(excluded);
     expect(captured).toHaveLength(0);
+  });
+
+  it('does not answer a feed ration request with only the sample calculation', async () => {
+    const response = await askModel('Масса сырого корма 10 кг, доля сухого вещества 30%. Сколько килограммов сухого вещества в пробе? Подбери норму кормления.');
+    expect(response).not.toContain('deterministic_calculator');
+    expect(captured).toHaveLength(1);
   });
 
   it('does not assign a checked result to offers with different VAT terms', async () => {

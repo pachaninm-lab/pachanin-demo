@@ -96,7 +96,7 @@ type PublicEnvelope = Readonly<{
 
 type ArithmeticFact = Readonly<{ value: bigint; start: number; end: number }>;
 type SuppliedArithmetic = Readonly<{
-  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'offer_netback';
+  operation: 'cost_per_hectare' | 'metric_yield' | 'mass_loss' | 'break_even' | 'seed_mass' | 'dry_matter' | 'offer_netback';
   answer: string;
 }>;
 const ARITHMETIC_SCALE = BigInt(1000);
@@ -163,6 +163,13 @@ const SUPPLIED_OFFER_FORMS = [
   `Партия ${CROP_NAME} ${arithmeticInput('mass')} т\\. Покупатель A предлагает ${arithmeticInput('exw')} ₽/т EXW\\. Покупатель B — ${arithmeticInput('cpt')} ₽/т CPT\\. Продавец при CPT платит перевозку ${arithmeticInput('freight')} ₽/т, погрузку ${arithmeticInput('loading')} ₽/т и анализ ${arithmeticInput('lab')} ₽/т\\. НДС и дата оплаты одинаковы\\. Какая оферта выгоднее в рублях на тонну и всю партию\\?`,
 ].map(form => new RegExp(`^${form}$`, 'iu'));
 
+const SUPPLIED_DRY_MATTER_FORMS = [
+  `(?:Уч[её]тная кормовая проба ${FIELD_REF}\\. )?Взвесили ${arithmeticInput('mass')} кг сырого корма, доля сухого вещества ${arithmeticInput('share')}%\\. Рассчитай кг сухого вещества до сотых\\.(?: Кормовую норму не назначай\\.)?`,
+  `Масса сырого корма ${arithmeticInput('mass')} кг, доля сухого вещества ${arithmeticInput('share')}%\\. Сколько килограммов сухого вещества в пробе\\?`,
+  `(?:Feed ledger sample ${FIELD_REF}: )?${arithmeticInput('mass')} kg as fed at ${arithmeticInput('share')}% dry matter\\. Calculate dry matter kg to (?:2|two) decimals(?: for the ledger only)?\\.`,
+  `(?:饲料样本${FIELD_REF})?鲜重${arithmeticInput('mass')}千克，干物质${arithmeticInput('share')}%。只计算干物质千克，保留两位。`,
+].map(form => new RegExp(`^${form}$`, 'iu'));
+
 function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedArithmetic | null {
   const normalized = question.trim().replace(/\s+/gu, ' ');
   const display = (value: bigint) => arithmeticDecimal(value, ARITHMETIC_SCALE, locale);
@@ -185,6 +192,25 @@ function suppliedMassOrOffer(question: string, locale: PublicLocale): SuppliedAr
       ? pick('1 ц = 100 кг = 0,1 т.', '1 metric quintal = 100 kg = 0.1 t.', '1 公担 = 100 千克 = 0.1 吨。')
       : pick('1 т = 1000 кг.', '1 t = 1000 kg.', '1 吨 = 1000 千克。');
     return { operation, answer: `${conversion}\n${display(rate)} ${rateUnit} × ${display(area)} ${pick('га', 'ha', '公顷')} ÷ ${divisor} ${exact ? '=' : '≈'} ${total} ${pick('т', 't', '吨')}.` };
+  }
+
+  for (const pattern of SUPPLIED_DRY_MATTER_FORMS) {
+    const groups = pattern.exec(normalized)?.groups;
+    if (!groups) continue;
+    const mass = parseSuppliedNumber(groups.mass);
+    const share = parseSuppliedNumber(groups.share);
+    if (mass === null || share === null) return null;
+    if (share > BigInt(100) * ARITHMETIC_SCALE) return { operation: 'dry_matter', answer: pick(
+      'Доля сухого вещества должна быть от 0 до 100%. Проверь процент в протоколе пробы.',
+      'Dry matter must be between 0% and 100%. Check the sample record.',
+      '干物质比例必须在0%到100%之间。请核对样本记录。',
+    ) };
+    const numerator = mass * share;
+    const denominator = BigInt(100) * ARITHMETIC_SCALE ** BigInt(2);
+    const total = arithmeticDecimal(numerator, denominator, locale, 2);
+    const equals = numerator * BigInt(100) % denominator === BigInt(0) ? '=' : '≈';
+    const unit = pick('кг', 'kg', '千克');
+    return { operation: 'dry_matter', answer: `${display(mass)} ${unit} × ${display(share)} ÷ 100 ${equals} ${total} ${pick('кг сухого вещества', 'kg dry matter', '千克干物质')}${pick('.', '.', '。')}` };
   }
 
   for (const pattern of SUPPLIED_OFFER_FORMS) {
