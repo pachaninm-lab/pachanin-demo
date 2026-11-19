@@ -708,9 +708,9 @@
     "purpose": "Request a separate, exact-path source review for the Gekta mobile workspace. The active R1 owner and milestone credit stay as recorded.",
     "requestedSourceBranch": "review/gekta-mobile-20261119",
     "baseCommit": "13a998e86e95914006df7766a6c6208a229fe10c",
-    "candidateTree": "225c7f6b706980b540284ca18aff3702f3605942",
+    "candidateTree": "4710af8821a39e6fd95dee630e6576df02048369",
     "patchFile": "GEKTA_Interface_PWA.patch",
-    "patchSha256": "5b507d075cc1231d44fff4b80a5792d9d25c5133d0d5f28d0262f388cf9c94e6",
+    "patchSha256": "f4583e7e43ffc3d1972e75442cf3621f64188d18fb86d660f12957633397e1bc",
     "changedPathCount": 75,
     "sourcePaths": [
       "apps/web/app/gekta/about/page.tsx",
@@ -791,16 +791,19 @@
     ],
     "localVerification": {
       "nextProductionBuild": "passed",
-      "gektaUnitCasesPassed": 343,
+      "gektaUnitCasesPassed": 389,
       "browserCasesPassed": {
-        "chromium": 67,
-        "webkit": 67
+        "chromium": 75,
+        "webkit": 75
       },
       "accessibilityEngine": "axe-core 4.11.2",
       "accessibilityScans": 20,
       "automatedViolations": 0,
       "streamingFixture": "Incremental loopback stream; real production inference was outside this UX check.",
-      "patchApplication": "Applying the patch against the base reproduced the candidate tree."
+      "patchApplication": "Applying the patch against the base reproduced the candidate tree.",
+      "frontendTypecheck": "passed",
+      "firstCalculation": "RU, EN and ZH at 390px and 1280px; editing, focus containment, cancel/return, one edited question per accepted send. Renewed consent on Retry preserves the follow-up draft.",
+      "packagedPreview": "Passed in Chromium and WebKit."
     },
     "nextReview": "Admit only the listed paths for source review, then run applicable CI and independent review on the submitted source.",
     "productionDeployment": "pending"
