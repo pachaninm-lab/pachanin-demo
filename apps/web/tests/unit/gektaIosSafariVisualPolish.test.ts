@@ -44,7 +44,7 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(composer).not.toContain("ru: 'История этого режима хранится в браузере. Не отправляй секреты, пароли и токены.'");
   });
 
-  it('normalizes text controls while preserving the native support selector affordance', () => {
+  it('styles mobile fields and exercises the native support select in the browser', () => {
     expect(utilityStyle).toContain("input:not([type='checkbox']):not([type='radio']):not([type='file'])");
     expect(utilityStyle).toContain('-webkit-appearance: none');
     expect(utilityStyle).toContain('appearance: none');
@@ -54,7 +54,7 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(utilityStyle).not.toContain('font: inherit');
     expect(browserAcceptance).toContain("item.tag === 'SELECT'");
     expect(browserAcceptance).toContain('support topic selector must remain visibly selectable');
-    expect(browserAcceptance).toContain("item.appearance !== 'none'");
+    expect(browserAcceptance).toContain("topic.selectOption('technical')");
   });
 
   it('runs visual evidence for chrome reset, text sizing, typography and utility navigation in PR and production acceptance', () => {

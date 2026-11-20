@@ -1,52 +1,69 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+import { CANONICAL_DEAL_STAGES, CanonicalGektaStrip, CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
+import { GektaFloatingEntry } from '@/components/gekta/GektaFloatingEntry';
+import { generateMetadata as dealMetadata } from '@/app/platform-v7/ai-in-action/page';
+import { GEKTA_PATHS } from '@/lib/gekta/content';
+
+vi.mock('next-intl/server', () => ({ getLocale: async () => 'ru' }));
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
-const storyCopy = read('i18n/platform-v7-home-story-product.ts');
 const floatingEntry = read('components/gekta/GektaFloatingEntry.tsx');
 const assistant = read('components/platform-v7/PublicPlatformAssistant.tsx');
 const contextualPrompts = read('components/platform-v7/PublicContextualAssistantPrompts.tsx');
 
 describe('Gekta platform scenario and standalone Gekta product are separate entry points', () => {
-  it('keeps the in-Deal Gekta explanation on the platform route, not on the standalone product route', () => {
-    expect(home).toContain('const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;');
-    expect(home).not.toContain('const taiHref = `/gekta');
-    expect(home).toContain("eventName='tai_detail_open'");
-    expect(storyCopy).toContain('Гекта');
+  it('keeps the explanation of the Deal on its own localized platform route', async () => {
+    const metadata = await dealMetadata();
+    expect(metadata.alternates?.canonical).toBe('/platform-v7/ai-in-action');
+    for (const lang of ['ru', 'en', 'zh']) {
+      expect(metadata.alternates?.languages?.[lang]).toBe('/platform-v7/ai-in-action?lang=' + lang);
+    }
+    expect(metadata.title).toContain('Гекта');
   });
 
-  it('keeps the standalone Gekta product block with its own canonical route and CTA', () => {
-    expect(home).toContain('const gektaProductHref = GEKTA_PATHS[normalizedLocale];');
-    expect(home).toContain("data-gekta-product-entry='true'");
-    expect(home).toContain('{story.gektaProduct.title}');
-    expect(home).toContain('{story.gektaProduct.cta}');
-    expect(home).toContain("eventName='gekta_product_open'");
-    expect(storyCopy).toContain("title: 'Гекта — самостоятельный аграрный ИИ'");
-    expect(storyCopy).toContain("cta: 'Открыть Гекту'");
-    expect(storyCopy).toContain("title: 'Gekta — a standalone agricultural AI'");
-    expect(storyCopy).toContain("title: 'Gekta — 独立的农业人工智能'");
+  it('renders a direct localized product link next to the distinct in-page Deal assistant', () => {
+    expect(home).toContain('<CanonicalGektaStrip locale={locale}');
+    for (const [locale, open] of [['ru', 'Открыть Гекту'], ['en', 'Open Gekta'], ['zh', '打开 Gekta']] as const) {
+      const dom = new DOMParser().parseFromString(renderToStaticMarkup(createElement(CanonicalGektaStrip, { locale })), 'text/html');
+      const link = dom.querySelector('a');
+      expect(link?.getAttribute('href')).toBe(GEKTA_PATHS[locale]);
+      expect(link?.textContent).toBe(open);
+      expect(dom.querySelector('button[aria-haspopup="dialog"]')?.getAttribute('aria-controls')).toBe('pc-public-assistant-panel');
+    }
   });
 
-  it('publishes the standalone product as a navigation destination without making it a Deal phase', () => {
-    expect(home).toContain("<a href={gektaProductHref} data-nav-product='gekta'>{story.gektaProduct.navLabel}</a>");
-    expect(storyCopy).toContain("navLabel: 'Гекта'");
-    expect(storyCopy).toContain("navLabel: 'Gekta'");
-    expect(storyCopy).toContain("processTitle: 'Семь шагов обычной агросделки'");
-    expect(storyCopy).not.toContain("title: 'Анализ Гекты'");
+  it('keeps the product overview in navigation and the seven actual stages in the Deal', () => {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const html = renderToStaticMarkup(createElement(CanonicalPublicHeader, { locale, localeControl: createElement('span') }));
+      const dom = new DOMParser().parseFromString(html, 'text/html');
+      const link = dom.querySelector('header nav a[href="/platform-v7/gekta?lang=' + locale + '"]');
+      expect(link?.textContent).toBe(locale === 'ru' ? 'Гекта' : 'Gekta');
+      expect(CANONICAL_DEAL_STAGES[locale]).toHaveLength(7);
+      expect(CANONICAL_DEAL_STAGES[locale].join(' ')).not.toMatch(/Гекта|Gekta/i);
+    }
   });
 
-  it('renders an icon-only floating product entry that yields to an open dialog', () => {
-    expect(home).toContain('<GektaFloatingEntry locale=');
-    expect(floatingEntry).not.toContain("'use client'");
-    expect(floatingEntry).toContain('aria-label={LABEL[locale]}');
-    expect(floatingEntry).toContain('?chat=new');
+  it('yields the floating shortcut to the common dock and open dialogs', () => {
+    const layout = read('app/platform-v7/layout.tsx');
+    expect(home).not.toContain('<GektaFloatingEntry');
+    expect(layout).toContain("<PublicContactDock assistantContext='public' publicMode='gekta'");
+    const html = renderToStaticMarkup(createElement(GektaFloatingEntry, { locale: 'ru' }));
+    const dom = new DOMParser().parseFromString(html, 'text/html');
+    const link = dom.querySelector('a');
+    expect(link?.getAttribute('href')).toBe('/gekta?chat=new');
+    expect(link?.getAttribute('aria-label')).toBe('Открыть Гекту — новый диалог');
+    expect(link?.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(link?.textContent?.trim()).toBe('');
     expect(floatingEntry).toContain('env(safe-area-inset-bottom');
     expect(floatingEntry).toContain(':focus-visible');
+    expect(floatingEntry).toContain('body:has(.pc-public-contact-dock) .pc-gekta-floating');
     expect(floatingEntry).toContain("body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating");
-    expect(floatingEntry).toContain("<span aria-hidden='true' className='pc-gekta-floating-mark'>G</span>");
   });
 
   it('reaches the canonical home through a transparent alias wrapper without hidden tree surgery', () => {

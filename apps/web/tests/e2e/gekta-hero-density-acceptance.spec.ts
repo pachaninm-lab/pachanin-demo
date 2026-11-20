@@ -22,9 +22,9 @@ async function textLineCount(locator: Locator): Promise<number> {
 }
 
 for (const route of [
-  { path: '/gekta', lang: 'ru' },
-  { path: '/gekta/en', lang: 'en' },
-  { path: '/gekta/zh', lang: 'zh-CN' },
+  { path: '/gekta', lang: 'ru', calculation: 'Себестоимость' },
+  { path: '/gekta/en', lang: 'en', calculation: 'Cost per tonne' },
+  { path: '/gekta/zh', lang: 'zh-CN', calculation: '每吨成本' },
 ] as const) {
   test(`${route.lang} keeps the approved hero and composer inside 320x700`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
@@ -41,16 +41,21 @@ for (const route of [
     await expect(lead).toBeVisible();
     await expect(composer).toBeVisible();
 
-    expect(await textLineCount(h1)).toBeLessThanOrEqual(5);
+    expect(await textLineCount(h1)).toBeLessThanOrEqual(2);
     const leadLines = await textLineCount(lead);
     expect(leadLines).toBeGreaterThanOrEqual(2);
-    expect(leadLines).toBeLessThanOrEqual(4);
+    expect(leadLines).toBeLessThanOrEqual(3);
 
     const composerBox = await composer.boundingBox();
     expect(composerBox).not.toBeNull();
-    if (composerBox) expect(composerBox.y + composerBox.height).toBeLessThanOrEqual(701);
+    if (composerBox) {
+      expect(composerBox.y).toBeLessThanOrEqual(280);
+      expect(composerBox.y + composerBox.height).toBeLessThanOrEqual(701);
+    }
 
-    await expect(page.locator('[data-gekta-starter="true"]:visible')).toHaveCount(2);
+    const examples = page.locator('[data-gekta-starter="true"]:visible');
+    await expect(examples).toHaveCount(2);
+    await expect(examples.nth(1)).toContainText(route.calculation);
     await expect(page.locator("[data-gekta-primary-cta='true'], [data-gekta-floating-entry]")).toHaveCount(0);
   });
 }

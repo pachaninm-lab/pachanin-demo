@@ -1,11 +1,31 @@
-import Link from 'next/link';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import { GektaDiscoverySections } from './GektaDiscoverySections';
+import { GektaHomeLinks } from './GektaHomeLinks';
 import { GektaExperienceFrame } from './GektaExperienceFrame';
 import { GektaHero } from './GektaHero';
 import { GektaViewportAuthority } from './GektaViewportAuthority';
-import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
-import { getGektaApplicationSchema, getGektaFaqSchema, safeJsonLd } from '@/lib/gekta/seo';
+import { SESSION_COOKIE } from '@/lib/auth-cookies';
+import type { GektaLocale } from '@/lib/gekta/content';
+import { getGektaApplicationSchema, safeJsonLd } from '@/lib/gekta/seo';
+
+// Capture an actual edit made to the server-rendered field before React takes over.
+// Browsers may restore a textarea on Back without the user editing it.
+const earlyComposerInput = `(() => {
+  const controller = new AbortController();
+  const options = { capture: true, signal: controller.signal };
+  function capture(event) {
+    const field = event.target;
+    if (!event.isTrusted || !(field instanceof HTMLTextAreaElement) || field.id !== 'gekta-composer-input') return;
+    const marker = document.cookie.split('; ').find(part => part.startsWith('${SESSION_COOKIE}=')) || '';
+    if (event.type === 'beforeinput') {
+      if (field.gektaEarlyEdit?.marker !== marker && field.value !== field.defaultValue) field.value = field.defaultValue;
+      field.gektaEditingMarker = marker;
+    } else if (field.gektaEditingMarker === marker) {
+      field.gektaEarlyEdit = { marker, text: field.value };
+    }
+  }
+  document.addEventListener('beforeinput', capture, options);
+  document.addEventListener('input', capture, options);
+  document.addEventListener('gekta-composer-ready', () => controller.abort(), { once: true });
+})();`;
 
 const mobileTouchContract = `
 [data-gekta-chat-workspace='true'] {
@@ -19,7 +39,7 @@ const mobileTouchContract = `
   font-family: inherit;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   /* WebKit keeps UA border/background/shadow values on otherwise unstyled
      icon buttons even after appearance:none. Reset only the two neutral
      mobile controls that intentionally inherit the surrounding surface. */
@@ -118,7 +138,7 @@ const mobileTouchContract = `
     max-width: none;
     min-width: 0;
     margin: 0;
-    background: #fcfbf7;
+    background: var(--gekta-bg, #f7f8f3);
     box-shadow: 0 -10px 32px rgba(15, 23, 42, 0.08);
   }
   html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) main > div:first-of-type {
@@ -139,28 +159,14 @@ const mobileTouchContract = `
 }
 `;
 
-const PUBLIC_COPY = {
-  ru: { nav: 'Навигация Гекты', menu: 'Открыть меню', platform: 'Платформа', trust: 'Доверие', contact: 'Контакты', open: 'К Гекте', language: 'Сменить язык', home: 'Прозрачная Цена — на главную' },
-  en: { nav: 'Gekta navigation', menu: 'Open menu', platform: 'Platform', trust: 'Trust', contact: 'Contact', open: 'Open Gekta', language: 'Change language', home: 'Transparent Price — home' },
-  zh: { nav: 'Gekta 导航', menu: '打开菜单', platform: '平台', trust: '信任', contact: '联系', open: '打开 Gekta', language: '切换语言', home: '透明价格 — 返回首页' },
-};
-const PUBLIC_CHROME = `.pc-gekta-public-header{min-height:64px}[data-gekta-experience='discovery']:has([role='dialog'][aria-modal='true'])>.pc-gekta-public-header{visibility:hidden}.pc-gekta-public-header a:focus-visible{outline:3px solid #087a3b;outline-offset:3px}`;
-
 export function GektaProductShell({ locale }: { locale: GektaLocale }) {
-  const copy = PUBLIC_COPY[locale];
-  const paths = GEKTA_PATHS;
-  const next = locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
-  const suffix = `?lang=${locale}`;
-  const nav = <><Link href={`/platform-v7${suffix}`}>{copy.platform}</Link><Link href={`/platform-v7/trust${suffix}`}>{copy.trust}</Link><Link href={`/platform-v7/contact${suffix}`}>{copy.contact}</Link></>;
-  const publicHeader = <PublicSiteHeader ariaLabel={copy.nav} brandHomeLabel={copy.home} brandHomeHref={`/platform-v7${suffix}`} navLabel={copy.nav} menuLabel={copy.menu} nav={nav} localeControl={<Link className='pc-site-locale-switch' href={paths[next]} aria-label={copy.language}>{locale.toUpperCase()}</Link>} actions={<a className='pc-v6-header-cta' href={`${paths[locale]}?chat=new`}>{copy.open}</a>} />;
   return (
-    <main className='min-h-screen overflow-x-clip bg-[#fcfbf7]'>
+    <div className='min-h-screen overflow-x-clip'>
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(getGektaApplicationSchema(locale)) }} />
-      <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(getGektaFaqSchema(locale)) }} />
       <style dangerouslySetInnerHTML={{ __html: mobileTouchContract }} />
-      <style>{PUBLIC_CHROME}</style>
+      <script dangerouslySetInnerHTML={{ __html: earlyComposerInput }} />
       <GektaViewportAuthority />
-      <GektaExperienceFrame locale={locale} publicHeader={publicHeader} hero={<GektaHero locale={locale} />} discovery={<GektaDiscoverySections locale={locale} />} />
-    </main>
+      <GektaExperienceFrame locale={locale} hero={<GektaHero locale={locale} />} discovery={<GektaHomeLinks locale={locale} />} />
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2318,
+  "scannedFiles": 2333,
   "operations": [
     {
       "operation": "encryption",
@@ -404,12 +404,12 @@
             "apps/web/apps/web/middleware.ts",
             "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
             "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
-            "apps/web/components/gekta/GektaChatWorkspace.tsx",
             "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
             "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
             "apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx",
             "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
             "apps/web/lib/commercial-workspace-repository.ts",
+            "apps/web/lib/gekta/server-workspace.ts",
             "apps/web/lib/offline.ts",
             "apps/web/lib/server/transactional-mail.ts",
             "apps/web/middleware.ts",
@@ -421,11 +421,11 @@
     {
       "operation": "weak-prng",
       "label": "Non-cryptographic randomness",
-      "sites": 53,
+      "sites": 52,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 53,
+          "sites": 52,
           "files": [
             "apps/api/src/auth-mail-worker.ts",
             "apps/api/src/common/prisma/rls-transaction.service.ts",
@@ -449,7 +449,6 @@
             "apps/web/app/api/platform-v7/leads/route.ts",
             "apps/web/app/api/sim/bank-callback/route.ts",
             "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
-            "apps/web/components/gekta/GektaChatWorkspace.tsx",
             "apps/web/components/platform-v7/AiAssistantPanel.tsx",
             "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
             "apps/web/components/platform-v7/ControlTowerCharts.tsx",

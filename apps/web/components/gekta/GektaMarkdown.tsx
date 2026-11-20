@@ -1,4 +1,8 @@
 import * as React from 'react';
+import type { GektaLocale } from '@/lib/gekta/content';
+import styles from './GektaWorkspace.module.css';
+
+const TABLE_LABEL = { ru: 'Таблица в ответе', en: 'Table in the answer', zh: '回答中的表格' } as const;
 
 function safeHref(raw: string): string | null {
   try {
@@ -44,7 +48,7 @@ function cells(line: string): string[] {
   return line.trim().replace(/^\|/u, '').replace(/\|$/u, '').split('|').map((value) => value.trim());
 }
 
-export function GektaMarkdown({ text }: { text: string }) {
+export function GektaMarkdown({ text, locale }: { text: string; locale: GektaLocale }) {
   const lines = text.replace(/\r\n?/gu, '\n').split('\n');
   const blocks: React.ReactNode[] = [];
   let i = 0;
@@ -63,15 +67,30 @@ export function GektaMarkdown({ text }: { text: string }) {
     }
 
     if (i + 1 < lines.length && line.includes('|') && isTableDivider(lines[i + 1])) {
-      const header = cells(line);
+      const headers = cells(line);
       const rows: string[][] = [];
       i += 2;
       while (i < lines.length && lines[i].includes('|') && lines[i].trim()) rows.push(cells(lines[i++]));
       blocks.push(
-        <div key={`table-${i}`} className='my-4 max-w-full overflow-x-auto rounded-2xl border border-slate-200'>
-          <table className='min-w-full border-collapse text-left text-sm'>
-            <thead className='bg-slate-50'><tr>{header.map((cell, idx) => <th key={idx} className='whitespace-nowrap border-b border-slate-200 px-4 py-3 font-semibold text-slate-900'>{inline(cell, `th-${i}-${idx}`)}</th>)}</tr></thead>
-            <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className='border-b border-slate-100 last:border-0'>{header.map((_, colIndex) => <td key={colIndex} className='min-w-32 px-4 py-3 align-top leading-6 text-slate-700'>{inline(row[colIndex] || '', `td-${i}-${rowIndex}-${colIndex}`)}</td>)}</tr>)}</tbody>
+        <div key={`table-${i}`} className={styles.answerTable} data-gekta-answer-table='true' role='region' aria-label={TABLE_LABEL[locale]} tabIndex={0}>
+          <table role='table'>
+            <thead role='rowgroup'>
+              <tr role='row'>
+                {headers.map((header, column) => <th role='columnheader' scope='col' key={column}>{inline(header, `th-${i}-${column}`)}</th>)}
+              </tr>
+            </thead>
+            <tbody role='rowgroup'>
+              {rows.map((row, rowIndex) => (
+                <tr role='row' key={rowIndex}>
+                  {headers.map((header, column) => (
+                    <td role='cell' key={column}>
+                      <span className={styles.answerTableLabel} aria-hidden='true' inert>{inline(header, `label-${i}-${column}`)}</span>
+                      <span>{inline(row[column] || '', `td-${i}-${rowIndex}-${column}`)}</span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       );

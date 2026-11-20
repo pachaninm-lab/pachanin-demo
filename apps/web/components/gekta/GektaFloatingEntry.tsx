@@ -1,4 +1,5 @@
 import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
+import { GektaGlyph } from '@/lib/gekta/brand';
 
 const LABEL: Record<GektaLocale, string> = {
   ru: 'Открыть Гекту — новый диалог',
@@ -26,7 +27,7 @@ export function GektaFloatingEntry({ locale }: { locale: GektaLocale }) {
         title={LABEL[locale]}
         data-gekta-floating-entry='true'
       >
-        <span aria-hidden='true' className='pc-gekta-floating-mark'>G</span>
+        <GektaGlyph size={31} />
       </a>
     </>
   );
@@ -51,13 +52,6 @@ const FLOATING_ENTRY_STYLES = `
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: transform .18s ease, box-shadow .18s ease;
-}
-.pc-gekta-floating-mark {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 25px;
-  font-weight: 850;
-  line-height: 1;
-  letter-spacing: -.02em;
 }
 @media (hover: hover) {
   .pc-gekta-floating:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(9, 33, 24, .26); }
@@ -94,7 +88,6 @@ body:has(.pc-public-assistant-panel) .pc-gekta-floating {
 }
 @media (max-width: 350px) {
   .pc-gekta-floating { right: max(8px, env(safe-area-inset-right, 0px)); width: 52px; height: 52px; }
-  .pc-gekta-floating-mark { font-size: 23px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-gekta-floating { transition: none; }

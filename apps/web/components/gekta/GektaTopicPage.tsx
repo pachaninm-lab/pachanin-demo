@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { GEKTA_TOPICS, type GektaTopic } from '@/lib/gekta/content';
 import { getGektaTopicSchema, safeJsonLd } from '@/lib/gekta/seo';
+import { GektaBrandMark } from './GektaBrandMark';
 
 export function GektaTopicPage({ topic }: { topic: GektaTopic }) {
   const related = topic.related.flatMap((slug) => {
@@ -13,9 +14,8 @@ export function GektaTopicPage({ topic }: { topic: GektaTopic }) {
     <main className='min-h-screen overflow-x-clip bg-[#fbfaf5] text-slate-950'>
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(getGektaTopicSchema(topic)) }} />
       <div className='mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12'>
-        <Link href='/gekta' className='inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'><ArrowLeft className='h-4 w-4' aria-hidden='true' />Гекта</Link>
-        <p className='mt-10 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800'>ГЕКТА · Аграрный интеллект</p>
-        <h1 className='mt-4 max-w-4xl text-balance text-[36px] font-semibold leading-[1.04] tracking-[-0.035em] sm:text-6xl'>{topic.h1}</h1>
+        <Link href='/gekta' className='inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'><ArrowLeft className='h-4 w-4' aria-hidden='true' /><GektaBrandMark />Гекта</Link>
+        <h1 className='mt-7 max-w-4xl text-balance text-[34px] font-semibold leading-[1.08] tracking-[-0.035em] sm:mt-10 sm:text-6xl'>{topic.h1}</h1>
         <p className='mt-6 max-w-3xl text-lg leading-8 text-slate-600'>{topic.lead}</p>
         <Link href={promptHref} className='mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-emerald-800 px-6 py-3 font-semibold text-white hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700'>Спросить Гекту по этой задаче<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link>
       </div>

@@ -58,7 +58,8 @@ export function getGektaMetadata(locale: GektaLocale): Metadata {
       description: meta.description,
       images: [`${path}/opengraph-image`],
     },
-    manifest: '/gekta/manifest.webmanifest',
+    manifest: '/gekta/manifest.webmanifest' + (locale === 'ru' ? '' : `?lang=${locale}`),
+    appleWebApp: { capable: true, title: locale === 'ru' ? 'Гекта' : 'Gekta' },
   };
 }
 
@@ -99,7 +100,7 @@ export function getGektaFaqSchema(locale: GektaLocale) {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     inLanguage: copy.htmlLang,
-    url: `${GEKTA_ORIGIN}${GEKTA_PATHS[locale]}`,
+    url: `${GEKTA_ORIGIN}${GEKTA_PATHS[locale]}/about`,
     mainEntity: copy.faq.map(([question, answer]) => ({
       '@type': 'Question',
       name: question,

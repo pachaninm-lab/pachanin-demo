@@ -60,13 +60,13 @@ export function GektaMobileDrawer({ open, closeLabel, onClose: closeRequested, c
   return (
     <div
       ref={dialogRef}
-      className='fixed left-0 right-0 z-50 md:hidden'
+      className='fixed left-0 right-0 z-50 lg:hidden'
       style={{ top: 'var(--gekta-visual-viewport-top, 0px)', height: 'var(--gekta-visual-viewport-height, 100dvh)' }}
       role='dialog'
       aria-modal='true'
       aria-labelledby='gekta-mobile-drawer-title'
     >
-      <button type='button' className='absolute inset-0 bg-slate-950/40' onClick={onClose} aria-label={closeLabel} />
+      <button type='button' className='absolute inset-0 bg-slate-950/40' onClick={onClose} tabIndex={-1} aria-hidden='true' />
       <div
         ref={panelRef}
         data-gekta-mobile-drawer-panel='true'

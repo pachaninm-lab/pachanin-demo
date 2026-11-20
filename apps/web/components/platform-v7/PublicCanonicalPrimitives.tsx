@@ -16,6 +16,7 @@ import {
   Store,
   UserRound,
 } from 'lucide-react';
+import { GEKTA_PATHS } from '@/lib/gekta/content';
 import { PublicGektaChatButton } from './PublicGektaChatButton';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicSiteHeader } from './PublicSiteHeader';
@@ -60,9 +61,9 @@ const NAV = {
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Подать заявку', application: 'Подать заявку на подключение', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Apply for access', application: 'Apply for platform access', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '申请接入', application: '申请接入平台', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { openGekta: 'Открыть Гекту', login: 'Войти', register: 'Подать заявку', application: 'Подать заявку на подключение', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { openGekta: 'Open Gekta', login: 'Sign in', register: 'Apply for access', application: 'Apply for platform access', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { openGekta: '打开 Gekta', login: '登录', register: '申请接入', application: '申请接入平台', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -287,6 +288,10 @@ export function CanonicalStateLens({
   );
 }
 
+export function StandaloneGektaLink({ locale, className }: { locale: CanonicalPublicLocale; className?: string }) {
+  return <a className={className} href={GEKTA_PATHS[locale]}>{ACTIONS[locale].openGekta}</a>;
+}
+
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
@@ -300,7 +305,7 @@ export function CanonicalGektaStrip({ locale }: { locale: string }) {
         <span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p>
         <div className='pc-cp-gekta-actions'>
           <PublicGektaChatButton locale={lang} variant='section' />
-          <a href={`/platform-v7/gekta?lang=${lang}`}>{lang === 'ru' ? 'Открыть Гекту' : lang === 'en' ? 'Open Gekta' : '打开 Gekta'}</a>
+          <StandaloneGektaLink locale={lang} />
         </div>
       </div>
       <div className='pc-cp-gekta-chips'>{c.chips.map((chip) => <span key={chip}>{chip}</span>)}</div>

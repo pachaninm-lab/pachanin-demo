@@ -24,8 +24,8 @@ describe('Gekta screenshot regressions', () => {
 
   it('keeps registration readable without a gradient and removes internal copy', () => {
     expect(registration).toContain("data-gekta-registration-hero='true'");
-    expect(registration).toContain("bg-emerald-950 bg-gradient-to-br");
-    expect(registration).toContain("style={{ backgroundColor: '#064e3b' }}");
+    expect(registration).toContain("bg-[#eff5ee]");
+    expect(registration).toContain('<GektaBrandMark size={40} />');
     expect(registration).toContain('placeholder:text-slate-400');
     expect(registration).not.toContain('DECLARED');
     expect(registration).toContain('номер сохраняется как неподтверждённый');

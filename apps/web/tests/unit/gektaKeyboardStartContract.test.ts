@@ -6,6 +6,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 const product = read('components/gekta/GektaProductShell.tsx');
 const viewport = read('components/gekta/GektaViewportAuthority.tsx');
 const composer = read('components/gekta/GektaComposer.tsx');
+const workspace = read('components/gekta/GektaChatWorkspace.tsx');
 const empty = read('components/gekta/GektaEmptyState.tsx');
 const hero = read('components/gekta/GektaHero.tsx');
 const mobileCopy = read('lib/gekta/mobile-copy.ts');
@@ -15,16 +16,16 @@ describe('Gekta empty-start keyboard contract', () => {
     expect(empty).toContain("data-gekta-composer-slot='true'");
     expect(empty.indexOf('{hero}')).toBeLessThan(empty.indexOf("data-gekta-composer-slot='true'"));
     expect(empty.indexOf("data-gekta-composer-slot='true'")).toBeLessThan(empty.indexOf("data-gekta-examples='true'"));
-    expect(composer).toContain("import { createPortal } from 'react-dom'");
-    expect(composer).toContain('return startSlot ? createPortal(composer, startSlot) : composer');
+    expect(empty).toContain('{accessGate ?? composer}');
+    expect(workspace).toContain('composer={activeChat ? null : composer}');
   });
 
   it('uses the approved compact hero copy in RU, EN and ZH', () => {
     expect(hero).toContain("getGektaMobileHeroCopy(locale)");
     expect(hero).toContain("data-gekta-hero-lead='true'");
     expect(mobileCopy).toContain("eyebrow: 'ГЕКТА · АГРАРНЫЙ ИНТЕЛЛЕКТ'");
-    expect(mobileCopy).toContain("h1: 'Гекта — аграрный ИИ для хозяйства и агробизнеса'");
-    expect(mobileCopy).toContain("lead: 'Задай вопрос по полю, животным, технике, документам или экономике хозяйства. Гекта удерживает контекст, показывает риски и следующий шаг.'");
+    expect(mobileCopy).toContain("h1: 'Чем помочь хозяйству?'");
+    expect(mobileCopy).toContain("lead: 'Задай аграрный вопрос, приложи документ или проверь расчёт.'");
     expect(mobileCopy).toContain("eyebrow: 'GEKTA · AGRICULTURAL INTELLIGENCE'");
     expect(mobileCopy).toContain("eyebrow: 'GEKTA · 农业智能'");
   });
@@ -51,8 +52,8 @@ describe('Gekta empty-start keyboard contract', () => {
   });
 
   it('does not reparent the textarea when keyboard state changes', () => {
-    expect(composer).toContain("workspace.classList.contains('overflow-hidden')");
-    expect(composer).toContain("attributeFilter: ['class']");
+    expect(composer).not.toContain('createPortal');
+    expect(composer).not.toContain('MutationObserver');
     expect(composer).not.toContain('gektaKeyboardOpen');
     expect(composer).not.toContain('RelocationState');
     expect(composer).not.toContain('selectionStart');

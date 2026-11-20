@@ -11,7 +11,7 @@ const UI = {
 export function GektaLegalFooter({ locale }: { locale: GektaLocale }) {
   const ui = UI[locale];
   return (
-    <footer className='border-t border-slate-200 bg-white' data-gekta-legal-footer='true'>
+    <footer id='documents' className='border-t border-slate-200 bg-white' data-gekta-legal-footer='true'>
       <div className='mx-auto max-w-6xl px-4 py-10 sm:px-6'>
         <h2 className='text-sm font-semibold text-slate-900'>{ui.title}</h2>
         <ul className='mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3'>

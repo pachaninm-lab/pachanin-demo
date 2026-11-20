@@ -7,6 +7,8 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 const shell = read('apps/web/components/gekta/GektaProductShell.tsx');
 const viewport = read('apps/web/components/gekta/GektaViewportAuthority.tsx');
 const composer = read('apps/web/components/gekta/GektaComposer.tsx');
+const empty = read('apps/web/components/gekta/GektaEmptyState.tsx');
+const workspace = read('apps/web/components/gekta/GektaChatWorkspace.tsx');
 const sidebar = read('apps/web/components/gekta/GektaSidebar.tsx');
 const discovery = read('apps/web/components/gekta/GektaDiscoverySections.tsx');
 const footer = read('apps/web/components/gekta/GektaLegalFooter.tsx');
@@ -38,10 +40,11 @@ describe('Gekta real-mobile touch and secondary-route contract', () => {
     expect(shell).toContain('scroll-behavior: auto !important');
   });
 
-  it('keeps one discovery portal parent across keyboard cycles instead of reparenting on focus', () => {
-    expect(composer).toContain('createPortal');
-    expect(composer).toContain("workspace.querySelector<HTMLElement>(\"[data-gekta-composer-slot='true']\")");
-    expect(composer).toContain("workspace.classList.contains('overflow-hidden')");
+  it('keeps the discovery composer in its server-rendered parent across keyboard cycles', () => {
+    expect(empty).toContain("data-gekta-composer-slot='true'");
+    expect(empty).toContain('{accessGate ?? composer}');
+    expect(workspace).toContain('composer={activeChat ? null : composer}');
+    expect(composer).not.toContain('createPortal');
     expect(composer).not.toContain('RelocationState');
     expect(composer).not.toContain('gektaKeyboardOpen');
     expect(composer).toContain("textareaRef.current?.focus({ preventScroll: true })");

@@ -1,5 +1,7 @@
 import type { GektaConversation, GektaMessage } from '@/components/gekta/GektaChatTypes';
 import type { GektaProject } from '@/lib/gekta/projects';
+import { restoreGektaAssistantState } from './message-status';
+import { SESSION_COOKIE } from '@/lib/auth-cookies';
 
 /**
  * Серверная история Гекты.
@@ -13,6 +15,14 @@ import type { GektaProject } from '@/lib/gekta/projects';
 export const GEKTA_HISTORY_IMPORT_FLAG = 'gekta-history-imported-v1';
 
 export type WorkspaceMode = 'local' | 'server';
+
+export function createWorkspaceId(prefix: string): string {
+  const crypto = globalThis.crypto;
+  const suffix = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${prefix}-${suffix}`;
+}
 
 export type ServerConversationRow = {
   id: string;
@@ -46,18 +56,21 @@ export function toConversation(row: ServerConversationRow, now: string): GektaCo
   if (!row || typeof row.id !== 'string' || !row.id) return null;
   const title = typeof row.title === 'string' ? row.title.trim() : '';
   if (!title) return null;
+  const language = locale(row.locale);
   const messages: GektaMessage[] = (row.messages ?? []).flatMap((message) => {
     if (!message || typeof message.id !== 'string' || typeof message.body !== 'string') return [];
+    const role = message.role === 'assistant' ? 'assistant' : 'user';
     return [{
       id: message.id,
-      role: message.role === 'assistant' ? 'assistant' : 'user',
+      role,
       text: message.body,
       createdAt: moment(message.createdAt, now),
+      ...(role === 'assistant' ? restoreGektaAssistantState(language, message.body) : {}),
     }];
   });
   return {
     id: row.id,
-    locale: locale(row.locale),
+    locale: language,
     title,
     createdAt: moment(row.createdAt, now),
     updatedAt: moment(row.updatedAt, now),
@@ -165,6 +178,8 @@ export function csrfToken(): string {
 export type AccountResponse<T> = { ok: boolean; status: number; data: T | null };
 
 let refreshInFlight: Promise<boolean> | null = null;
+const REFRESH_LOCK = 'gekta-product-session-refresh';
+export const GEKTA_SESSION_CHANGED = 'gekta-session-changed';
 
 async function refreshAccountSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
@@ -176,6 +191,15 @@ async function refreshAccountSession(): Promise<boolean> {
         cache: 'no-store',
         headers: { 'x-csrf-token': csrfToken() },
       });
+      if (response.ok && typeof window !== 'undefined') {
+        // WebKit can finish fetch before the new presentation marker is visible to document.cookie.
+        // Never infer an owner from the successful response while its cookie is still missing.
+        for (const delay of [0, 16, 64, 160, 320]) {
+          if (document.cookie.split('; ').some(entry => entry.startsWith(SESSION_COOKIE + '='))) break;
+          await new Promise<void>(resolve => window.setTimeout(resolve, delay));
+        }
+        window.dispatchEvent(new Event(GEKTA_SESSION_CHANGED));
+      }
       return response.ok;
     } catch {
       return false;
@@ -193,13 +217,22 @@ async function recoverAccountSession(
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
   if (!locks) return await refreshAccountSession() ? retry() : initial;
 
-  return locks.request('gekta-product-session-refresh', async () => {
+  return locks.request(REFRESH_LOCK, async () => {
     // Another tab may have rotated the shared HttpOnly cookies while this tab
     // waited. Recheck first so we do not rotate the new refresh token again.
     const afterWait = await retry();
     if (afterWait.status !== 401) return afterWait;
     return await refreshAccountSession() ? retry() : afterWait;
   });
+}
+
+/** A returning tab can still have its HttpOnly refresh cookie after the short presentation marker expires. */
+export async function restoreGektaSessionMarker(): Promise<boolean> {
+  const refreshIfMissing = async () => {
+    if (document.cookie.split('; ').some(entry => entry.startsWith(SESSION_COOKIE + '='))) return true;
+    return refreshAccountSession();
+  };
+  return navigator.locks ? navigator.locks.request(REFRESH_LOCK, refreshIfMissing) : refreshIfMissing();
 }
 
 async function accountRequest(
@@ -224,16 +257,22 @@ async function accountRequest(
 export async function accountApi<T>(
   path: string,
   init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
+  isCurrent?: () => boolean,
 ): Promise<AccountResponse<T>> {
   const method = init?.method ?? 'GET';
   try {
     const request = { method, body: init?.body, signal: init?.signal };
-    let response = await accountRequest(path, request);
+    const send = () => {
+      if (isCurrent && !isCurrent()) throw new DOMException('Workspace changed', 'AbortError');
+      return accountRequest(path, request);
+    };
+    let response = await send();
     // Product refresh tokens rotate. Web Locks coordinate every tab; the
     // module promise remains the safe fallback within one browser context.
     if (response.status === 401) {
-      response = await recoverAccountSession(() => accountRequest(path, request), response);
+      response = await recoverAccountSession(send, response);
     }
+    if (isCurrent && !isCurrent()) return { ok: false, status: 0, data: null };
     if (!response.ok) return { ok: false, status: response.status, data: null };
     const text = await response.text();
     return { ok: true, status: response.status, data: (text ? JSON.parse(text) : null) as T };

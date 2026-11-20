@@ -1,9 +1,11 @@
 import { PUBLIC_BRAND_ORIGIN } from '@/lib/platform-v7/public-brand-domain';
+import { GEKTA_PATHS } from '@/lib/gekta/content';
 
 const siteUrl = PUBLIC_BRAND_ORIGIN;
 const platformUrl = `${siteUrl}/platform-v7`;
 const dealFlowUrl = `${siteUrl}/platform-v7/deal-flow`;
 const taiUrl = `${siteUrl}/platform-v7/ai-in-action`;
+const gektaUrl = new URL(GEKTA_PATHS.ru, siteUrl).href;
 const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
@@ -103,12 +105,12 @@ const structuredData = {
     },
     {
       '@type': 'SoftwareApplication',
-      '@id': `${taiUrl}#software`,
+      '@id': `${gektaUrl}#software`,
       name: 'Гекта',
       alternateName: ['Gekta', 'ГЕКТА', 'Помощник для земли, урожая и агробизнеса'],
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
-      url: taiUrl,
+      url: gektaUrl,
       inLanguage: ['ru-RU', 'en', 'zh-CN'],
       description: taiDescription,
       audience: [
@@ -164,7 +166,7 @@ const structuredData = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Главная платформы', url: platformUrl },
         { '@type': 'ListItem', position: 2, name: 'Сделка в работе', url: dealFlowUrl },
-        { '@type': 'ListItem', position: 3, name: 'Гекта — аграрный интеллект для земли, урожая и решений', url: taiUrl },
+        { '@type': 'ListItem', position: 3, name: 'Гекта в сделке', url: taiUrl },
         { '@type': 'ListItem', position: 4, name: 'Документный контур', url: docsUrl },
         { '@type': 'ListItem', position: 5, name: 'Контакты', url: contactUrl },
         { '@type': 'ListItem', position: 6, name: 'О платформе', url: aboutUrl },

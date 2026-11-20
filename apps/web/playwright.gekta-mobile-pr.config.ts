@@ -31,6 +31,7 @@ export default defineConfig({
     /gekta-keyboard-start-acceptance\.spec\.ts/,
     /gekta-hero-density-acceptance\.spec\.ts/,
     /gekta-ios-safari-visual-polish-acceptance\.spec\.ts/,
+    /gekta-workspace-appearance-acceptance\.spec\.ts/,
   ],
   fullyParallel: false,
   forbidOnly: true,

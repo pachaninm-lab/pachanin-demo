@@ -49,10 +49,9 @@ describe('Gekta chat workspace information architecture', () => {
 
   it('only shows settings that work end to end', () => {
     expect(settings).toContain('{ui.interface}');
-    expect(settings).toContain('{ui.answers}');
+    expect(settings).toContain('{ui.answerLanguage}');
     expect(settings).toContain('{ui.history}');
-    // Appearance, voice and subscription must not appear until they are real.
-    expect(settings).not.toContain('Внешний вид');
+    expect(settings).toContain('<GektaThemeOptions locale={locale} />');
     expect(settings).not.toContain('Подписка');
     expect(workspace).toContain("locale: answerLocale === 'auto' ? locale : answerLocale");
     expect(workspace).toContain('const changeAnswerLocale = React.useCallback(');
@@ -61,8 +60,8 @@ describe('Gekta chat workspace information architecture', () => {
   it('gives both modal surfaces the same keyboard contract', () => {
     expect(focus).toContain("event.key === 'Escape'");
     expect(focus).toContain("event.key !== 'Tab'");
-    expect(focus).toContain('restore.focus()');
-    expect(settings).toContain('useDialogFocus(true, onClose)');
+    expect(focus).toContain('restore.focus({ preventScroll: true })');
+    expect(settings).toContain('useDialogFocus(true, onClose, returnFocus)');
     expect(settings).toContain("aria-modal='true'");
     expect(drawer).toContain('useDialogFocus(open, onClose)');
     expect(drawer).toContain("aria-modal='true'");

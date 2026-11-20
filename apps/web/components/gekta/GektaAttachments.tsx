@@ -21,16 +21,18 @@ function readableBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function GektaAttachments({ locale, disabled, documents, onChange, onError, children }: {
+export function GektaAttachments({ locale, disabled, documents, getUploadSignal, uploading, onUploadingChange, onChange, onError, children }: {
   locale: GektaLocale;
   disabled: boolean;
   documents: readonly PublicAssistantDocument[];
-  onChange: (documents: readonly PublicAssistantDocument[]) => void;
+  getUploadSignal: () => AbortSignal;
+  uploading: boolean;
+  onUploadingChange: (value: boolean) => void;
+  onChange: React.Dispatch<React.SetStateAction<readonly PublicAssistantDocument[]>>;
   onError: (message: string) => void;
   children: React.ReactNode;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
   const [textareaFocused, setTextareaFocused] = React.useState(false);
   const ui = COPY[locale];
@@ -43,21 +45,24 @@ export function GektaAttachments({ locale, disabled, documents, onChange, onErro
     if (oversized) { onError(ui.tooLarge); return; }
     if (!selected.length) return;
     const form = new FormData();
+    const signal = getUploadSignal();
     selected.forEach((file) => form.append('files', file));
-    setUploading(true);
+    onUploadingChange(true);
     try {
-      const response = await fetch('/api/public-platform-assistant/attachments', { method: 'POST', cache: 'no-store', body: form });
+      const response = await fetch('/api/public-platform-assistant/attachments', { method: 'POST', cache: 'no-store', body: form, signal });
       const payload = await response.json().catch(() => null) as { documents?: PublicAssistantDocument[]; rejected?: Array<{ name: string; code: string }> } | null;
-      if (!response.ok || !payload?.documents?.length) { onError(ui.failed); return; }
-      onChange([...documents, ...payload.documents].slice(0, MAX_FILES));
-      if (payload.rejected?.length) onError(ui.partial);
+      if (signal.aborted) return;
+      const received = payload?.documents;
+      if (!response.ok || !received?.length) { onError(ui.failed); return; }
+      onChange(current => [...current, ...received].slice(0, MAX_FILES));
+      if (payload?.rejected?.length) onError(ui.partial);
     } catch {
-      onError(ui.failed);
+      if (!signal.aborted) onError(ui.failed);
     } finally {
-      setUploading(false);
+      onUploadingChange(false);
       if (inputRef.current) inputRef.current.value = '';
     }
-  }, [disabled, documents, onChange, onError, ui, uploading]);
+  }, [disabled, documents.length, getUploadSignal, onChange, onError, onUploadingChange, ui, uploading]);
 
   const focusSurface = textareaFocused
     ? 'border-emerald-700 shadow-[0_12px_34px_rgba(15,23,42,0.10),0_0_0_3px_rgba(4,120,87,0.10)]'

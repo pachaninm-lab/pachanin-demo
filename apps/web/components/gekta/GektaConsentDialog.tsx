@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import Link from 'next/link';
 import type { GektaLocale } from '@/lib/gekta/content';
 import { useDialogFocus } from './useDialogFocus';
@@ -14,6 +13,7 @@ const UI = {
     and: 'и',
     privacy: 'политику конфиденциальности',
     cta: 'Понятно, начать',
+    back: 'Вернуться к вопросу',
     failed: 'Не удалось сохранить подтверждение. Попробуйте ещё раз.',
   },
   en: {
@@ -24,6 +24,7 @@ const UI = {
     and: 'and the',
     privacy: 'privacy policy',
     cta: 'Got it, start',
+    back: 'Back to my question',
     failed: 'Could not save your confirmation. Please try again.',
   },
   zh: {
@@ -34,73 +35,22 @@ const UI = {
     and: '与',
     privacy: '隐私政策',
     cta: '知道了，开始',
+    back: '返回问题',
     failed: '无法保存确认，请重试。',
   },
 } as const;
 
-function activeDraftAtMount(): boolean {
-  if (typeof document === 'undefined') return false;
-  const composer = document.getElementById('gekta-composer-input');
-  return composer instanceof HTMLTextAreaElement
-    && (document.activeElement === composer || composer.value.trim().length > 0);
+function currentComposer() {
+  return document.getElementById('gekta-composer-input');
 }
 
-/**
- * One compact notice before the first conversation. Acceptance is recorded
- * server-side against the session id and the document version, so it is not
- * shown again until the documents actually change.
- *
- * The entitlement probe is asynchronous. If its answer arrives after a person
- * has already started typing, the notice waits for the next submit intent
- * instead of stealing focus from the composer while the mobile keyboard owns
- * the visual viewport. The intercepted submit is never sent before consent.
- */
-export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/usloviya-ispolzovaniya-gekta', privacyHref = '/legal/politika-konfidencialnosti', disabled = false, failed = false, requested = false, onRequest }: {
-  locale: GektaLocale; onAccept: () => void; termsHref?: string; privacyHref?: string; disabled?: boolean; failed?: boolean; requested?: boolean; onRequest?: () => void;
+/** The server requests this notice when an answer needs fresh consent. */
+export function GektaConsentDialog({ locale, onAccept, onDismiss, termsHref = '/legal/usloviya-ispolzovaniya-gekta', privacyHref = '/legal/politika-konfidencialnosti', disabled = false, failed = false }: {
+  locale: GektaLocale; onAccept: () => void; onDismiss: () => void; termsHref?: string; privacyHref?: string; disabled?: boolean; failed?: boolean;
 }) {
   const ui = UI[locale];
-  const [deferred, setDeferred] = React.useState(activeDraftAtMount);
-  React.useEffect(() => {
-    if (requested) setDeferred(false);
-  }, [requested]);
-  // Accepting is the only way out: Escape is swallowed but never treated as consent.
-  const ignoreEscape = React.useCallback(() => {}, []);
-  const panelRef = useDialogFocus(!deferred, ignoreEscape);
+  const panelRef = useDialogFocus(true, onDismiss, currentComposer);
   const legalLinkClass = 'inline-flex min-h-11 items-center font-medium text-emerald-800 underline underline-offset-2 sm:min-h-0';
-
-  React.useEffect(() => {
-    if (!deferred) return undefined;
-
-    const reveal = (event: Event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      onRequest?.();
-      setDeferred(false);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (!(target instanceof HTMLTextAreaElement) || target.id !== 'gekta-composer-input') return;
-      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
-      reveal(event);
-    };
-
-    const onClick = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (!target.closest("[data-gekta-submit='true']")) return;
-      reveal(event);
-    };
-
-    document.addEventListener('keydown', onKeyDown, true);
-    document.addEventListener('click', onClick, true);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true);
-      document.removeEventListener('click', onClick, true);
-    };
-  }, [deferred, onRequest]);
-
-  if (deferred) return null;
 
   return (
     <div className='fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4'>
@@ -109,11 +59,12 @@ export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/uslov
         role='dialog'
         aria-modal='true'
         aria-labelledby='gekta-consent-title'
+        aria-describedby='gekta-consent-description'
         data-gekta-consent='true'
-        className='w-full rounded-t-3xl bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-3xl sm:pb-5'
+        className='max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-3xl sm:pb-5'
       >
-        <h2 id='gekta-consent-title' className='text-base font-semibold text-slate-950'>{ui.title}</h2>
-        <p className='mt-2 text-sm leading-6 text-slate-600'>{ui.body}</p>
+        <h2 id='gekta-consent-title' tabIndex={-1} data-gekta-initial-focus='true' className='text-base font-semibold text-slate-950'>{ui.title}</h2>
+        <p id='gekta-consent-description' className='mt-2 text-sm leading-6 text-slate-600'>{ui.body}</p>
         <p className='mt-3 text-xs leading-5 text-slate-500'>
           {ui.accept}{' '}
           <Link href={termsHref} className={legalLinkClass}>{ui.terms}</Link>{' '}
@@ -129,6 +80,14 @@ export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/uslov
           data-gekta-consent-accept='true'
         >
           {ui.cta}
+        </button>
+        <button
+          type='button'
+          onClick={onDismiss}
+          className='mt-1 min-h-11 w-full rounded-xl px-4 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+          data-gekta-consent-dismiss='true'
+        >
+          {ui.back}
         </button>
       </div>
     </div>

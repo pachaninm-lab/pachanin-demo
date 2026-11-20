@@ -36,13 +36,13 @@ function actualClient(locale: string, initialCookie?: string) {
   let currentCookie = initialCookie;
   const state: { notice: { locale: string; snapshot: string } | null; required: boolean } = { notice: null, required: false };
   const context: Record<string, unknown> = { React: { useCallback: (fn: unknown) => fn },
-    locale, workspaceMode: 'local', acceptingConsent: false, legalPresentation: null,
+    locale, workspaceMode: 'local', isCurrentOwner: () => true, accountApi: vi.fn(), acceptingConsent: false, legalPresentation: null,
     setEntitlement: vi.fn(), setRegistrationUrl: vi.fn(), setBillingEnabled: vi.fn(),
     setConsentRequired: vi.fn(value => { state.required = value; }),
     setLegalPresentation: vi.fn(value => { state.notice = value; context.legalPresentation = value; }),
     setAcceptingConsent: vi.fn(value => { context.acceptingConsent = value; }),
     setConsentError: vi.fn(), setConsentRequested: vi.fn(), setResumeConsentedPrompt: vi.fn(),
-    entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, accessError: 'synthetic access error', setError: vi.fn(), track: vi.fn() };
+    promptIntentRevision: { current: 0 }, entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, accessError: 'synthetic access error', setError: vi.fn(), track: vi.fn() };
   const fetch = vi.fn(async (_url: string, init: RequestInit) => {
     const response = await POST(request(currentCookie, JSON.parse(String(init.body)), locale));
     currentCookie = cookie(response);
@@ -166,7 +166,7 @@ describe('Actual anonymous document/profile/session commitment', () => {
     await runInNewContext(`${code}\nglobalThis.result`, { React: { useCallback: fn => fn }, locale: 'ru', acceptingConsent: false,
       legalPresentation: { locale: 'ru', snapshot: 'own-public-commitment' }, fetch, applyEntitlement, track,
       setConsentRequired, setAcceptingConsent: vi.fn(), setConsentError: vi.fn(),
-      entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, setConsentRequested: vi.fn(), setResumeConsentedPrompt: vi.fn() }, { timeout: 1_000 });
+      promptIntentRevision: { current: 0 }, entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, setConsentRequested: vi.fn(), setResumeConsentedPrompt: vi.fn() }, { timeout: 1_000 });
     if (outcome === 'success') { expect(setConsentRequired).toHaveBeenCalledWith(false); expect(track).toHaveBeenCalledOnce(); }
     else { expect(setConsentRequired).not.toHaveBeenCalledWith(false); expect(setConsentRequired).toHaveBeenCalledWith(true); expect(track).not.toHaveBeenCalled(); }
   });

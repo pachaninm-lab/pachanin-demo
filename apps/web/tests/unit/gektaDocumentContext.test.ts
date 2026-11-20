@@ -21,7 +21,8 @@ function actualCallback(name: 'submit' | 'retry', context: Record<string, unknow
 function client(documents = [doc()]) {
   const cache = new GektaDocumentRetryCache();
   const context = {
-    documents, sending: false, input: 'Проверь условия договора по зерну.', locale: 'ru', activeId: 'conversation-1', messages: [] as unknown[],
+    isCurrentOwner: vi.fn(() => true),
+    documents, sending: false, historyPhase: 'ready', input: 'Проверь условия договора по зерну.', locale: 'ru', activeId: 'conversation-1', messages: [] as unknown[],
     documentRetries: { current: cache }, readDocumentContext, DOCUMENT_CONTEXT_COPY,
     submittingPrompt: { current: null as number | null }, promptIntentRevision: { current: 0 },
     reservationController: { current: null as AbortController | null }, pendingConsentedPrompt: { current: null as { question: string; locale: string } | null },
@@ -29,7 +30,8 @@ function client(documents = [doc()]) {
     cleanText: (s: string) => s, id: () => 'user-1', titleFrom: (s: string) => s,
     historyFrom: () => [], reserveAnswer: vi.fn(async () => 'one-use-ticket'), runGeneration: vi.fn(async () => undefined),
     saveConversation: vi.fn(), focusComposer: vi.fn(), onEnteredChat: vi.fn(), track: vi.fn(),
-    setError: vi.fn(), setInput: vi.fn(), setActiveId: vi.fn(), setMessages: vi.fn(), setDocuments: vi.fn(),
+    draftBook: { active: 'conversation-1' }, serverConversationIds: { current: new Map<string, string>() },
+    moveDraft: vi.fn(), replaceInput: vi.fn(), setError: vi.fn(), setActiveId: vi.fn(), setMessages: vi.fn(), setDocuments: vi.fn(),
   };
   return { cache, context };
 }
@@ -59,6 +61,14 @@ describe('G-A04 structured extracted document context', () => {
     expect(saved).toContain('Условия.docx');
     expect(saved).not.toContain('QA_END_987');
   });
+  it('clears only the question that was accepted when consent resumes an earlier submission', async () => {
+    const { context } = client([]);
+    context.input = 'Уточнение по новому договору';
+    const original = 'Рассчитай первый договор';
+    await actualCallback('submit', context)({ kind: 'send', question: original, text: original, draftId: 'conversation-1', locale: 'ru', files: [], context: [] });
+    expect(context.moveDraft).toHaveBeenCalledWith('conversation-1', 'conversation-1', original);
+    expect(context.runGeneration).toHaveBeenCalledWith(expect.objectContaining({ question: original }));
+  });
   it('rejects oversized documents before consuming an answer reservation', async () => {
     const { context } = client([doc('x'.repeat(12_001))]);
     await actualCallback('submit', context)();
@@ -74,15 +84,20 @@ describe('G-A04 structured extracted document context', () => {
       return null as unknown as string;
     });
     await actualCallback('submit', context)();
-    expect(context.pendingConsentedPrompt.current).toEqual({ question: context.input, locale: 'ru' });
+    expect(context.pendingConsentedPrompt.current).toMatchObject({ kind: 'send', question: context.input, locale: 'ru', files: context.documents, context: original });
     expect(context.setConsentRequested).toHaveBeenCalledWith(true);
     expect(context.setDocuments).not.toHaveBeenCalled();
     expect(context.runGeneration).not.toHaveBeenCalled();
     expect(context.saveConversation).not.toHaveBeenCalled();
-    await actualCallback('submit', context)(context.input, true);
+    const newFile = doc('Материал для следующего вопроса');
+    const filesAtClick = context.documents;
+    context.documents = [newFile];
+    await actualCallback('submit', context)(context.pendingConsentedPrompt.current);
     expect(context.runGeneration).toHaveBeenCalledTimes(1);
     expect(context.runGeneration).toHaveBeenCalledWith(expect.objectContaining({ question: context.input, documents: original, ticket: 'one-use-ticket' }));
     expect(cache.read('user-1')).toEqual(original);
+    const removeSubmitted = context.setDocuments.mock.calls[0][0];
+    expect(removeSubmitted([...filesAtClick, newFile])).toEqual([newFile]);
     expect(JSON.stringify(context.saveConversation.mock.calls)).not.toContain('QA_END_987');
   });
   it('does not cache, persist or send a document after the pending reservation was cancelled', async () => {
@@ -99,6 +114,19 @@ describe('G-A04 structured extracted document context', () => {
     expect(context.setDocuments).not.toHaveBeenCalled();
     expect(cache.read('user-1')).toBeUndefined();
     expect(context.submittingPrompt.current).toBeNull();
+  });
+});
+
+describe('workspace owner during a reservation', () => {
+  it('drops a previously prepared question when the account changes during reservation', async () => {
+    const { context } = client();
+    context.reserveAnswer.mockImplementationOnce(async () => {
+      context.isCurrentOwner.mockReturnValue(false);
+      return 'one-use-ticket';
+    });
+    await actualCallback('submit', context)();
+    expect(context.runGeneration).not.toHaveBeenCalled();
+    expect(context.saveConversation).not.toHaveBeenCalled();
   });
 });
 
@@ -119,7 +147,7 @@ describe('G-A06 document retry without silent evidence loss', () => {
     context.messages = [{ id: 'old-user', role: 'user', text: context.input, attachments: [{ name: 'old.docx' }] }, { role: 'assistant' }];
     await actualCallback('retry', context)(1);
     expect(context.setError).toHaveBeenCalledWith(DOCUMENT_CONTEXT_COPY[locale].missing);
-    expect(context.setInput).toHaveBeenCalledWith(context.input);
+    expect(context.replaceInput).toHaveBeenCalledWith(context.input);
     expect(context.reserveAnswer).not.toHaveBeenCalled();
     expect(context.runGeneration).not.toHaveBeenCalled();
     expect(context.setMessages).not.toHaveBeenCalled();
