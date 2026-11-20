@@ -627,6 +627,181 @@ jobs:
                           reporter['checked_report'](json.dumps(changed).encode(), 0)
 
 
+              def test_v3_fast_child_error_is_separate_from_unchanged_v2_selected_window(self):
+                  early = record('error while handling argument "--cpu-mask": invalid cpumask VALUE', __MONOTONIC_TIMESTAMP='1199999')
+                  current = record('llama startup information', __MONOTONIC_TIMESTAMP='1200000') * 15
+                  for rows in (early + current, current + early):
+                      result, calls = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=rows)
+                      self.assertEqual(result['journal'], reader['journal_result']('CURRENT_PARTIAL', 15))
+                      detail = result['startup_details']
+                      self.assertEqual(detail['status'], 'COLLECTED')
+                      self.assertEqual(detail['skipped_before_window'], 1)
+                      self.assertEqual(detail['selected']['entries'], 15)
+                      self.assertEqual(detail['selected']['codes'], [])
+                      pre = detail['pre_main']
+                      self.assertEqual(pre['scope'], 'PRE_MAIN_CURRENT_INVOCATION')
+                      self.assertEqual(pre['entries'], 1)
+                      self.assertEqual(pre['errorlike_messages'], 1)
+                      self.assertIn('ARGUMENT_PARSE_FAILED', pre['codes'])
+                      self.assertIn('CPU_MASK_INVALID', pre['codes'])
+                      self.assertEqual(pre['options'], ['CPU_MASK'])
+                      self.assertEqual(len(calls), 3)
+                      self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                      self.assertNotIn('VALUE', json.dumps(result))
+
+              def test_v3_pre_main_requires_valid_late_relation_and_equality_stays_selected(self):
+                  early = record('invalid argument: --cache-reuse VALUE', __MONOTONIC_TIMESTAMP='1199999')
+                  normal, _ = self.execute(journal=early)
+                  self.assertEqual(normal['startup_details']['pre_main']['scope'], 'NOT_SELECTED')
+                  self.assertEqual(normal['startup_details']['selected']['entries'], 1)
+                  late, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=early)
+                  self.assertEqual(late['journal'], reader['journal_result']('OLD'))
+                  self.assertEqual(late['startup_details']['pre_main']['entries'], 1)
+                  self.assertEqual(late['startup_details']['selected']['entries'], 0)
+                  equal, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=record(__MONOTONIC_TIMESTAMP='1200000'))
+                  self.assertEqual(equal['startup_details']['skipped_before_window'], 0)
+                  self.assertEqual(equal['startup_details']['pre_main']['entries'], 0)
+                  for start, end in (('0', '2000000'), ('3000000', '2000000'), ('1200000', '10000001')):
+                      result, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000', ExecMainStartTimestampMonotonic=start, ExecMainExitTimestampMonotonic=end), journal=early)
+                      self.assertEqual(result['startup_details']['pre_main']['scope'], 'NOT_SELECTED')
+                      self.assertEqual(result['startup_details']['pre_main']['entries'], 0)
+                      self.assertEqual(result['startup_details']['skipped_before_window'], 1)
+                      self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                  for begin in ('0', '10000001'):
+                      result, calls = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic=begin), journal=early)
+                      self.assertEqual(result['startup_details'], reader['empty_details']())
+                      self.assertEqual(len(calls), 2)
+
+              def test_v3_foreign_future_malformed_and_drift_clear_both_buckets(self):
+                  first = snapshot_blob(InactiveExitTimestampMonotonic='4000000')
+                  early = record('GEKTA_G3B_ERROR=candidate_exec_binary_mismatch', __MONOTONIC_TIMESTAMP='1199999')
+                  current = record('error while handling argument "--threads": invalid value VALUE')
+                  invalids = (record(_SYSTEMD_INVOCATION_ID='2' * 32), record(_SYSTEMD_UNIT='other.service'), record(__MONOTONIC_TIMESTAMP='10000001'), record(__MONOTONIC_TIMESTAMP='0'), b'{"MESSAGE":"VALUE","MESSAGE":"duplicate"}\n')
+                  for invalid in invalids:
+                      for rows in (early + current + invalid, invalid + early + current):
+                          result, _ = self.execute(first=first, journal=rows)
+                          self.assertEqual(result['startup_details'], reader['empty_details']())
+                          self.assertEqual(result['journal']['error_classes'], [])
+                  second = snapshot_blob(InactiveExitTimestampMonotonic='4000000', NRestarts='4')
+                  result, _ = self.execute(first=first, second=second, journal=early + current)
+                  self.assertEqual(result['journal']['status'], 'NOT_CURRENT')
+                  self.assertEqual(result['startup_details'], reader['empty_details']())
+
+              def test_v3_source_templates_cover_http_argument_wrapper_and_exception_grammars(self):
+                  examples = (
+                      ("couldn't bind HTTP server socket, hostname: VALUE, port: 18080", 'HTTP_SOCKET_BIND_FAILED'),
+                      ('failed to initialize HTTP server', 'HTTP_INIT_FAILED'),
+                      ('exiting due to HTTP server error', 'HTTP_START_FAILED'),
+                      ('error while handling argument "--threads": invalid value VALUE', 'ARGUMENT_PARSE_FAILED'),
+                      ('expected value for argument', 'ARGUMENT_VALUE_MISSING'),
+                      ('error while handling environment variable "LLAMA_ARG_THREADS": stoi', 'ENVIRONMENT_PARSE_FAILED'),
+                      ('Unsupported cache type: VALUE', 'CACHE_TYPE_UNSUPPORTED'),
+                      ('GEKTA_G3B_ERROR=candidate_exec_binary_mismatch', 'WRAPPER_BINARY_MISMATCH'),
+                      ('GEKTA_G3C_ERROR=candidate_exec_unrelated_flag_invalid:threads', 'WRAPPER_FLAG_INVALID'),
+                      ('GEKTA_G3C_ERROR=_Errno_13_Permission_denied_/private/VALUE', 'PERMISSION_DENIED'),
+                      ('GEKTA_G3C_ERROR=base_helper_missing_or_unsafe', 'WRAPPER_BASE_UNAVAILABLE'),
+                      ('GEKTA_G3C_ERROR=base_helper_permissions_invalid', 'WRAPPER_BASE_PERMISSION_INVALID'),
+                      ('RuntimeError: audited_g3c_base_import_failed', 'WRAPPER_BASE_IMPORT_INVALID'),
+                      ('sh: exec: llama-server: not found', 'SHELL_COMMAND_NOT_FOUND'),
+                      ('json.decoder.JSONDecodeError: Invalid control character at VALUE', 'PYTHON_EXCEPTION'),
+                      ("KeyError: 'exe_b64'", 'WRAPPER_EXE_FIELD_MISSING'),
+                      ('error while loading shared libraries: /private/VALUE', 'DYNAMIC_LINK_FAILED'),
+                      ('OSError: [Errno 99] Cannot assign requested address VALUE', 'LOCAL_ADDRESS_UNAVAILABLE'),
+                  )
+                  for message, expected in examples:
+                      with self.subTest(expected=expected):
+                          result, _ = self.execute(journal=record(message))
+                          self.assertIn(expected, result['startup_details']['selected']['codes'])
+                          self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                          self.assertNotIn('/private/', json.dumps(result))
+                  result, _ = self.execute(journal=record('json.decoder.JSONDecodeError: VALUE'))
+                  self.assertEqual(result['startup_details']['selected']['exceptions'], ['JSON_DECODE_ERROR'])
+
+              def test_v3_unknown_errorlike_messages_are_counted_without_inventing_cause(self):
+                  result, _ = self.execute(journal=record('fatal: novel condition VALUE') + record('startup information') + record('GEKTA_G3D_ERROR=novel_VALUE'))
+                  bucket = result['startup_details']['selected']
+                  self.assertEqual(bucket['entries'], 3)
+                  self.assertEqual(bucket['errorlike_messages'], 2)
+                  self.assertEqual(bucket['unmapped_error_messages'], 2)
+                  self.assertEqual(bucket['codes'], ['WRAPPER_ERROR_UNMAPPED'])
+                  self.assertEqual(bucket['options'], [])
+                  self.assertEqual(result['journal']['error_classes'], [])
+                  self.assertNotIn('novel', json.dumps(result))
+
+              def test_v3_pre_main_unsupported_and_access_limited_evidence_remain_partial(self):
+                  first = snapshot_blob(InactiveExitTimestampMonotonic='4000000')
+                  for message in (None, [65, 66], 'X' * 4097):
+                      result, _ = self.execute(first=first, journal=record(message, __MONOTONIC_TIMESTAMP='1199999') + record('startup information'), stderr=b'not seeing messages from other users')
+                      detail = result['startup_details']
+                      self.assertEqual(detail['pre_main']['unsupported_messages'], 1)
+                      self.assertEqual(detail['pre_main']['codes'], [])
+                      self.assertEqual(detail['coverage'], ['MAIN_START_ONLY', 'ACCESS_LIMITED', 'UNSUPPORTED_MESSAGES'])
+                      self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                  for kwargs in ({'timeout': True}, {'journal': b'X' * 65537}, {'journal_rc': 1, 'stderr': b'permission denied VALUE'}):
+                      result, _ = self.execute(first=first, **kwargs)
+                      self.assertEqual(result['startup_details'], reader['empty_details']())
+
+              def test_v3_private_values_paths_unknown_options_and_exception_text_are_not_exported(self):
+                  raw = '\n'.join(('error while handling argument "--private-value": invalid value /hidden/LEAKME',
+                                   'PermissionError: [Errno 13] LEAKME https://hidden.example/LEAKME',
+                                   'GEKTA_G3E_ERROR=LEAKME', 'Authorization: Bearer LEAKME'))
+                  result, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=record(raw, __MONOTONIC_TIMESTAMP='1199999') + record(raw))
+                  encoded = json.dumps(result)
+                  for value in ('LEAKME', '/hidden/', 'hidden.example', 'private-value', 'Authorization', 'Bearer'):
+                      self.assertNotIn(value, encoded)
+                  for name in ('selected', 'pre_main'):
+                      self.assertEqual(result['startup_details'][name]['options'], ['OTHER'])
+                  self.assertEqual(reporter['checked_report'](encoded.encode(), 0)[0], result)
+
+              def test_v3_reporter_rejects_extra_unknown_and_inconsistent_detail_fields(self):
+                  result, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=record('fatal: novel VALUE', __MONOTONIC_TIMESTAMP='1199999') + record())
+                  mutations = (
+                      lambda v: v.pop('startup_details'),
+                      lambda v: v['startup_details'].update(raw='VALUE'),
+                      lambda v: v['startup_details'].update(status='PRIVATE_VALUE'),
+                      lambda v: v['startup_details'].update(skipped_before_window=201),
+                      lambda v: v['startup_details'].update(skipped_before_window=False),
+                      lambda v: v['startup_details'].update(coverage=[]),
+                      lambda v: v['startup_details']['pre_main'].update(scope='MAIN_PROCESS_PROVEN'),
+                      lambda v: v['startup_details']['pre_main'].update(entries=0),
+                      lambda v: v['startup_details']['selected'].update(entries=0),
+                      lambda v: v['startup_details']['selected'].update(unmapped_error_messages=2),
+                      lambda v: v['startup_details']['selected'].update(codes=['PRIVATE_VALUE']),
+                      lambda v: v['startup_details']['selected'].update(options=['PRIVATE_VALUE']),
+                      lambda v: v['startup_details']['selected'].update(exceptions=['PRIVATE_VALUE']),
+                      lambda v: v['startup_details']['selected'].update(markers=['PRIVATE_VALUE']),
+                      lambda v: v['startup_details']['selected'].update(errorlike_messages=0),
+                      lambda v: v.update(startup_details=reader['empty_details']()),
+                  )
+                  for mutate in mutations:
+                      changed = copy.deepcopy(result)
+                      mutate(changed)
+                      with self.assertRaises(ValueError):
+                          reporter['checked_report'](json.dumps(changed).encode(), 0)
+
+              def test_v3_complete_finite_vocabulary_fits_receipt_cap_and_same_row_cap(self):
+                  result, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=record(__MONOTONIC_TIMESTAMP='1199999') + record())
+                  detail = result['startup_details']
+                  detail['skipped_before_window'] = 100
+                  detail['coverage'] = ['MAIN_START_ONLY', 'ROW_LIMIT_REACHED']
+                  for name in ('selected', 'pre_main'):
+                      bucket = detail[name]
+                      bucket.update(entries=100, unsupported_messages=0, errorlike_messages=100, unmapped_error_messages=100,
+                                    codes=list(reader['DETAIL_CODES']), options=list(reader['DETAIL_OPTIONS']),
+                                    exceptions=list(reader['DETAIL_EXCEPTIONS']), markers=list(reader['DETAIL_MARKERS']))
+                  result['journal'].update(entries=100, error_classes=list(reader['CLASSES']), argument_hints=list(reader['ARGUMENT_HINTS']))
+                  encoded = json.dumps(result, separators=(',', ':'), ensure_ascii=True).encode()
+                  self.assertLessEqual(len(encoded), 8192)
+                  self.assertEqual(reporter['checked_report'](encoded, 0)[0], result)
+                  with self.assertRaises(ValueError):
+                      reporter['checked_report'](encoded + b' ' * (8193 - len(encoded)), 0)
+                  rows = record('startup information', __MONOTONIC_TIMESTAMP='1199999') * 100 + record('startup information') * 100
+                  actual, calls = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=rows)
+                  self.assertEqual(actual['startup_details']['pre_main']['entries'], 100)
+                  self.assertEqual(actual['startup_details']['selected']['entries'], 100)
+                  self.assertIn('ROW_LIMIT_REACHED', actual['startup_details']['coverage'])
+                  self.assertEqual(len(calls), 3)
+
           if __name__ == '__main__':
               unittest.main(verbosity=2)
           FAILED_STARTUP_CONTRACT
@@ -1000,7 +1175,7 @@ jobs:
           import json
           import re
 
-          SCHEMA = 'gekta.fixed-unit-startup-evidence.v2'
+          SCHEMA = 'gekta.fixed-unit-startup-evidence.v3'
           ENUMS = {
               'LoadState': ('STUB', 'LOADED', 'NOT_FOUND', 'BAD_SETTING', 'ERROR', 'MERGED', 'MASKED', 'OTHER'),
               'ActiveState': ('ACTIVE', 'RELOADING', 'INACTIVE', 'FAILED', 'ACTIVATING', 'DEACTIVATING', 'MAINTENANCE', 'REFRESHING', 'OTHER'),
@@ -1017,6 +1192,46 @@ jobs:
           ARGUMENT_HINTS = ('THREADS', 'THREADS_BATCH', 'PARALLEL', 'CTX_SIZE', 'BATCH_SIZE', 'UBATCH_SIZE', 'CACHE_RAM', 'CACHE_REUSE', 'CACHE_PROMPT', 'KV_UNIFIED', 'FLASH_ATTN', 'MODEL', 'HOST', 'PORT', 'API_KEY', 'API_KEY_FILE', 'OTHER')
 
 
+          DETAIL_CODES = CLASSES + (
+              'ARGUMENT_PARSE_FAILED', 'ARGUMENT_VALUE_INVALID', 'ARGUMENT_VALUE_MISSING',
+              'ENVIRONMENT_PARSE_FAILED', 'CPU_MASK_INVALID', 'CPU_RANGE_INVALID',
+              'CPU_AFFINITY_FAILED', 'CACHE_TYPE_UNSUPPORTED', 'FILE_OPEN_FAILED',
+              'FILE_READ_FAILED', 'CONFIG_PARSE_FAILED', 'AUTH_CONFIG_FAILED',
+              'HTTP_INIT_FAILED', 'HTTP_START_FAILED', 'HTTP_SOCKET_BIND_FAILED',
+              'HTTP_STATIC_ASSETS_MISSING', 'HTTP_SSL_UNAVAILABLE', 'ROUTER_INIT_FAILED',
+              'TOOLS_SETUP_FAILED', 'MODEL_LOADING_EXIT', 'CONTEXT_INIT_FAILED',
+              'THREADPOOL_INIT_FAILED', 'BACKEND_LOAD_FAILED', 'CUDA_INIT_FAILED',
+              'WRAPPER_IDENTITY_REJECTED', 'WRAPPER_BINARY_MISMATCH', 'WRAPPER_STATE_INVALID',
+              'WRAPPER_ENV_INVALID', 'WRAPPER_CMDLINE_MISMATCH', 'WRAPPER_FLAG_INVALID',
+              'WRAPPER_ERROR_UNMAPPED', 'PYTHON_TRACEBACK', 'PYTHON_EXCEPTION',
+              'DYNAMIC_LINK_FAILED', 'SHELL_COMMAND_NOT_FOUND', 'EXEC_FORMAT_FAILED',
+              'UNCAUGHT_EXCEPTION', 'LOCAL_ADDRESS_UNAVAILABLE', 'FILE_DESCRIPTOR_LIMIT',
+              'WRAPPER_EXE_FIELD_MISSING', 'WRAPPER_BASE_UNAVAILABLE',
+              'WRAPPER_BASE_PERMISSION_INVALID', 'WRAPPER_BASE_IMPORT_INVALID',
+              'WRAPPER_DROPIN_PRECEDENCE_INVALID',
+          )
+          DETAIL_OPTIONS = ARGUMENT_HINTS + (
+              'CPU_MASK', 'CPU_RANGE', 'CPU_STRICT', 'CPU_MASK_BATCH', 'CPU_RANGE_BATCH',
+              'CPU_STRICT_BATCH', 'PRIO', 'PRIO_BATCH', 'NUMA', 'DEVICE', 'N_GPU_LAYERS',
+              'CACHE_TYPE_K', 'CACHE_TYPE_V', 'SSL_KEY_FILE', 'SSL_CERT_FILE',
+              'PATH', 'CHAT_TEMPLATE', 'CHAT_TEMPLATE_FILE', 'JINJA', 'LOG_FILE',
+              'GRAMMAR_FILE', 'MODEL_DRAFT', 'HF_REPO', 'REASONING', 'FIT',
+          )
+          DETAIL_EXCEPTIONS = (
+              'ASSERTION_ERROR', 'FILE_NOT_FOUND_ERROR', 'PERMISSION_ERROR', 'OS_ERROR',
+              'VALUE_ERROR', 'TYPE_ERROR', 'KEY_ERROR', 'RUNTIME_ERROR', 'JSON_DECODE_ERROR',
+              'SYNTAX_ERROR', 'IMPORT_ERROR', 'MODULE_NOT_FOUND_ERROR', 'MEMORY_ERROR',
+              'TIMEOUT_ERROR', 'UNICODE_DECODE_ERROR', 'INDEX_ERROR', 'OVERFLOW_ERROR',
+              'BAD_ALLOC', 'INVALID_ARGUMENT', 'OUT_OF_RANGE',
+          )
+          DETAIL_MARKERS = (
+              'ARGUMENT', 'ENVIRONMENT', 'CONFIGURATION', 'AUTHENTICATION', 'CPU_AFFINITY',
+              'MODEL', 'MEMORY', 'NETWORK_BIND', 'FILESYSTEM', 'PERMISSION', 'WRAPPER',
+              'PYTHON', 'BACKEND', 'HTTP', 'THREADING', 'TEMPLATE',
+          )
+          DETAIL_COVERAGE = ('MAIN_START_ONLY', 'ACCESS_LIMITED', 'ROW_LIMIT_REACHED', 'UNSUPPORTED_MESSAGES')
+
+
           def unique_object(pairs):
               result = {}
               for key, value in pairs:
@@ -1025,6 +1240,71 @@ jobs:
                   result[key] = value
               return result
 
+
+          def checked_details(report):
+              details = report['startup_details']
+              if not isinstance(details, dict) or set(details) != {'status', 'skipped_before_window', 'coverage', 'selected', 'pre_main'} or details['status'] not in ('UNAVAILABLE', 'COLLECTED'):
+                  raise ValueError
+              skipped = details['skipped_before_window']
+              if type(skipped) is not int or not 0 <= skipped <= 200:
+                  raise ValueError
+              def ordered(value, allowed):
+                  if not isinstance(value, list) or any(type(item) is not str or item not in allowed for item in value) or value != [item for item in allowed if item in value]:
+                      raise ValueError
+              ordered(details['coverage'], DETAIL_COVERAGE)
+              def bucket(value, pre=False):
+                  keys = {'entries', 'unsupported_messages', 'errorlike_messages', 'unmapped_error_messages', 'codes', 'options', 'exceptions', 'markers'}
+                  if not isinstance(value, dict) or set(value) != keys | ({'scope'} if pre else set()):
+                      raise ValueError
+                  for key in ('entries', 'unsupported_messages', 'errorlike_messages', 'unmapped_error_messages'):
+                      if type(value[key]) is not int or not 0 <= value[key] <= 200:
+                          raise ValueError
+                  if not 0 <= value['unmapped_error_messages'] <= value['errorlike_messages'] <= value['entries'] - value['unsupported_messages']:
+                      raise ValueError
+                  for key, allowed in (('codes', DETAIL_CODES), ('options', DETAIL_OPTIONS), ('exceptions', DETAIL_EXCEPTIONS), ('markers', DETAIL_MARKERS)):
+                      ordered(value[key], allowed)
+                      if value[key] and not value['errorlike_messages']:
+                          raise ValueError
+                  if value['options'] and not set(value['codes']) & {'INVALID_ARGUMENT', 'ARGUMENT_PARSE_FAILED', 'ARGUMENT_VALUE_INVALID', 'ARGUMENT_VALUE_MISSING', 'ENVIRONMENT_PARSE_FAILED', 'WRAPPER_FLAG_INVALID'}:
+                      raise ValueError
+                  if value['exceptions'] and not set(value['codes']) & {'PYTHON_EXCEPTION', 'UNCAUGHT_EXCEPTION'}:
+                      raise ValueError
+                  if pre and value['scope'] not in ('NOT_SELECTED', 'PRE_MAIN_CURRENT_INVOCATION'):
+                      raise ValueError
+                  return not any(value[key] for key in keys)
+              selected, pre = details['selected'], details['pre_main']
+              selected_empty, pre_empty = bucket(selected), bucket(pre, True)
+              if details['status'] == 'UNAVAILABLE':
+                  if skipped or details['coverage'] or not selected_empty or not pre_empty or pre['scope'] != 'NOT_SELECTED':
+                      raise ValueError
+                  if report['journal']['status'] in ('CURRENT', 'CURRENT_PARTIAL', 'OLD'):
+                      raise ValueError
+                  return
+              journal = report['journal']
+              if journal['status'] not in ('CURRENT', 'CURRENT_PARTIAL', 'OLD', 'UNREADABLE'):
+                  raise ValueError
+              if selected['entries'] != journal['entries'] or selected['unsupported_messages'] != journal['unsupported_messages'] or selected['entries'] + skipped > 200:
+                  raise ValueError
+              if not set(journal['error_classes']) <= set(selected['codes']):
+                  raise ValueError
+              if journal['status'] == 'OLD' and (selected['entries'] or not skipped):
+                  raise ValueError
+              if journal['status'] == 'UNREADABLE' and (not selected['entries'] or selected['unsupported_messages'] != selected['entries']):
+                  raise ValueError
+              late = report['timing_relation'] == 'UNIT_AFTER_MAIN_EXIT'
+              if late:
+                  if pre['scope'] != 'PRE_MAIN_CURRENT_INVOCATION' or pre['entries'] != skipped:
+                      raise ValueError
+              elif pre['scope'] != 'NOT_SELECTED' or not pre_empty:
+                  raise ValueError
+              coverage = details['coverage']
+              if ('MAIN_START_ONLY' in coverage) != late or ('ROW_LIMIT_REACHED' in coverage) != (selected['entries'] + skipped == 200):
+                  raise ValueError
+              if ('UNSUPPORTED_MESSAGES' in coverage) != (selected['unsupported_messages'] + pre['unsupported_messages'] > 0):
+                  raise ValueError
+              partial = late or 'ACCESS_LIMITED' in coverage or selected['unsupported_messages'] > 0 or skipped > 0
+              if journal['status'] in ('CURRENT', 'CURRENT_PARTIAL') and (journal['status'] == 'CURRENT_PARTIAL') != partial:
+                  raise ValueError
 
           def checked_report(raw, remote_rc):
               if not isinstance(raw, bytes) or not 0 < len(raw) <= 8192 or b'\x00' in raw:
@@ -1040,7 +1320,7 @@ jobs:
                   if set(report) != {'schema', 'observation'} or remote_rc != 0:
                       raise ValueError
                   return report, 0
-              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'timing_relation', 'journal'}:
+              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'timing_relation', 'journal', 'startup_details'}:
                   raise ValueError
               state = report['state']
               if not isinstance(state, dict) or set(state) != set(ENUMS) | set(LIMITS):
@@ -1090,6 +1370,7 @@ jobs:
                   raise ValueError
               if hints and ('INVALID_ARGUMENT' not in classes or journal['status'] not in ('CURRENT', 'CURRENT_PARTIAL')):
                   raise ValueError
+              checked_details(report)
               return report, 0
 
           import fcntl
@@ -1114,6 +1395,154 @@ jobs:
               'REQUIRED_FILE_UNAVAILABLE': (r'\b(?:no such file or directory|file not found|ENOENT)\b',),
           }
 
+
+          def detail_bucket():
+              return {'entries': 0, 'unsupported_messages': 0, 'errorlike_messages': 0,
+                      'unmapped_error_messages': 0, 'codes': [], 'options': [],
+                      'exceptions': [], 'markers': []}
+
+
+          def empty_details():
+              return {'status': 'UNAVAILABLE', 'skipped_before_window': 0, 'coverage': [],
+                      'selected': detail_bucket(),
+                      'pre_main': {'scope': 'NOT_SELECTED', **detail_bucket()}}
+
+
+          DETAIL_PATTERNS = {
+              # Literal grammars are from pinned public llama.cpp aedb2a5 and repository wrappers.
+              # These are message signatures, never a claim that a matching message caused exit.
+              'ARGUMENT_PARSE_FAILED': (r'\berror while handling argument\b', r'\binvalid value for (?:argument|option)\b', r'\bthe argument has been removed\b'),
+              'ARGUMENT_VALUE_INVALID': (r'\b(?:invalid (?:boolean )?value|unknown value for)\b', r'\berror:\s*invalid (?:repeat-last-n|dry-penalty-last-n|type for kv override)\b'),
+              'ARGUMENT_VALUE_MISSING': (r'\bexpected value for argument\b', r'\b(?:argument|option)\b.{0,120}\b(?:requires|missing)\b.{0,80}\b(?:value|argument)\b', r'\berror:\s*--model is required\b'),
+              'ENVIRONMENT_PARSE_FAILED': (r'\berror while handling environment variable\b',),
+              'CPU_MASK_INVALID': (r'\binvalid cpumask\b',),
+              'CPU_RANGE_INVALID': (r'\binvalid (?:cpu )?range\b',),
+              'CPU_AFFINITY_FAILED': (r'\b(?:failed|unable|cannot|could not)\b.{0,100}\b(?:cpu affinity|sched_setaffinity|pthread_setaffinity_np)\b', r'\b(?:sched_setaffinity|pthread_setaffinity_np)\b.{0,100}\b(?:failed|error|invalid)\b'),
+              'CACHE_TYPE_UNSUPPORTED': (r'\bunsupported cache type\b',),
+              'FILE_OPEN_FAILED': (r'\b(?:failed|unable|cannot|could not)\b.{0,80}\bopen (?:file|config|configuration)\b',),
+              'FILE_READ_FAILED': (r'\b(?:failed|unable|cannot|could not)\b.{0,80}\bread (?:file|config|configuration)\b',),
+              'CONFIG_PARSE_FAILED': (r'\b(?:failed|error|invalid|malformed)\b.{0,80}\b(?:config(?:uration)?|preset|json)\b', r'\b(?:config(?:uration)?|preset|json)\b.{0,80}\b(?:parse error|parsing error|invalid|malformed)\b'),
+              'AUTH_CONFIG_FAILED': (r'\b(?:api[-_ ]?key|authentication|authorization)\b.{0,100}\b(?:invalid|missing|not found|failed)\b', r'\b(?:invalid|missing)\b.{0,60}\bapi[-_ ]?key\b'),
+              'HTTP_INIT_FAILED': (r'\bfailed to initialize http server\b',),
+              'HTTP_START_FAILED': (r'\bexiting due to http server error\b', r'\b(?:failed|unable) to start http server\b'),
+              'HTTP_SOCKET_BIND_FAILED': (r"\bcouldn't bind http server socket\b", r'\bcannot bind http server socket\b'),
+              'HTTP_STATIC_ASSETS_MISSING': (r'\bstatic assets path not found\b',),
+              'HTTP_SSL_UNAVAILABLE': (r'\bthe server is built without ssl support\b',),
+              'ROUTER_INIT_FAILED': (r'\bfailed to initialize router models\b',),
+              'TOOLS_SETUP_FAILED': (r'\btools setup failed\b',),
+              'MODEL_LOADING_EXIT': (r'\bexiting due to model loading error\b',),
+              'CONTEXT_INIT_FAILED': (r'\b(?:failed|unable|cannot)\b.{0,100}\b(?:create|initialize|init)\b.{0,80}\b(?:llama )?context\b',),
+              'THREADPOOL_INIT_FAILED': (r'\b(?:failed|unable|cannot)\b.{0,100}\b(?:threadpool|thread pool|thread)\b',),
+              'BACKEND_LOAD_FAILED': (r'\b(?:failed|unable|cannot)\b.{0,100}\b(?:load|initialize|init)\b.{0,80}\bbackend\b',),
+              'CUDA_INIT_FAILED': (r'\b(?:cuda|cublas|cudart)\b.{0,120}\b(?:failed|error|no device|not supported)\b',),
+              'PYTHON_TRACEBACK': (r'(?m)^Traceback \(most recent call last\):\s*$',),
+              'DYNAMIC_LINK_FAILED': (r'\berror while loading shared libraries\b', r'\bsymbol lookup error\b'),
+              'SHELL_COMMAND_NOT_FOUND': (r'\bcommand not found\b', r'\bexec:.{0,120}\bnot found\b'),
+              'EXEC_FORMAT_FAILED': (r'\bexec format error\b', r'\bcannot execute binary file\b'),
+              'UNCAUGHT_EXCEPTION': (r'\bterminate called after throwing\b', r'\buncaught exception\b'),
+              'LOCAL_ADDRESS_UNAVAILABLE': (r'\bcannot assign requested address\b', r'\bEADDRNOTAVAIL\b'),
+              'FILE_DESCRIPTOR_LIMIT': (r'\btoo many open files\b', r'\bEMFILE\b'),
+              'WRAPPER_EXE_FIELD_MISSING': (r"\bKeyError:\s*['\x22]exe_b64['\x22]\s*$",),
+              'WRAPPER_BASE_UNAVAILABLE': (r'\baudited_g3c_base_missing\b',),
+              'WRAPPER_BASE_IMPORT_INVALID': (r'\baudited_g3c_base_import_failed\b',),
+          }
+          DETAIL_EXCEPTION_PATTERNS = {
+              'ASSERTION_ERROR': r'\bAssertionError:', 'FILE_NOT_FOUND_ERROR': r'\bFileNotFoundError:',
+              'PERMISSION_ERROR': r'\bPermissionError:', 'OS_ERROR': r'\bOSError:',
+              'VALUE_ERROR': r'\bValueError:', 'TYPE_ERROR': r'\bTypeError:', 'KEY_ERROR': r'\bKeyError:',
+              'RUNTIME_ERROR': r'\bRuntimeError:', 'JSON_DECODE_ERROR': r'\bJSONDecodeError:',
+              'SYNTAX_ERROR': r'\bSyntaxError:', 'IMPORT_ERROR': r'\bImportError:',
+              'MODULE_NOT_FOUND_ERROR': r'\bModuleNotFoundError:', 'MEMORY_ERROR': r'\bMemoryError:',
+              'TIMEOUT_ERROR': r'\bTimeoutError:', 'UNICODE_DECODE_ERROR': r'\bUnicodeDecodeError:',
+              'INDEX_ERROR': r'\bIndexError:', 'OVERFLOW_ERROR': r'\bOverflowError:',
+              'BAD_ALLOC': r'\bstd::bad_alloc\b', 'INVALID_ARGUMENT': r'\bstd::invalid_argument\b',
+              'OUT_OF_RANGE': r'\bstd::out_of_range\b',
+          }
+          DETAIL_MARKER_PATTERNS = {
+              'ARGUMENT': r'\b(?:argument|option|flag|value)\b',
+              'ENVIRONMENT': r'\b(?:environment|env)\b',
+              'CONFIGURATION': r'\b(?:config|configuration|preset|json)\b',
+              'AUTHENTICATION': r'\b(?:api[-_ ]?key|authentication|authorization|credential)\b',
+              'CPU_AFFINITY': r'\b(?:cpumask|affinity|cpu[-_ ]?(?:mask|range|strict)|sched_setaffinity)\b',
+              'MODEL': r'\b(?:model|gguf|tensor|architecture)\b',
+              'MEMORY': r'\b(?:memory|allocation|allocate|mmap|bad_alloc)\b',
+              'NETWORK_BIND': r'\b(?:bind|socket|address|port|hostname)\b',
+              'FILESYSTEM': r'\b(?:file|directory|path|filesystem|library|libraries)\b',
+              'PERMISSION': r'\b(?:permission|denied|EACCES|EPERM)\b',
+              'WRAPPER': r'GEKTA_G3[BCDE]_ERROR=',
+              'PYTHON': r'\b(?:Traceback|[A-Za-z]+Error):|Traceback \(',
+              'BACKEND': r'\b(?:backend|cuda|cublas|cudart)\b',
+              'HTTP': r'\b(?:http|https|ssl|tls|router)\b',
+              'THREADING': r'\b(?:thread|threads|threadpool|pthread)\b',
+              'TEMPLATE': r'\b(?:template|jinja|grammar)\b',
+          }
+          WRAPPER_CODE_PATTERNS = {
+              'WRAPPER_IDENTITY_REJECTED': r'candidate_exec_(?:must_use_service_user|identity_mismatch)',
+              'WRAPPER_BINARY_MISMATCH': r'candidate_exec_binary_mismatch',
+              'WRAPPER_STATE_INVALID': r'(?:state_schema_invalid|candidate_exec_state_invalid)',
+              'WRAPPER_ENV_INVALID': r'candidate_exec_environment_invalid',
+              'WRAPPER_CMDLINE_MISMATCH': r'candidate_exec_(?:cmdline|normalized)_digest_mismatch',
+              'WRAPPER_FLAG_INVALID': r'(?:flag_(?:value_missing|missing|duplicate|empty|cardinality)(?::[a-z_]+)?|slot_context_not_preserved|candidate_exec_(?:threads_invalid|scheduler_invalid|ubatch_invalid|unrelated_flag_invalid:[a-z_]+|flag_mismatch:[a-z_]+))',
+              'WRAPPER_BASE_UNAVAILABLE': r'base_helper_missing_or_unsafe',
+              'WRAPPER_BASE_PERMISSION_INVALID': r'base_helper_permissions_invalid',
+              'WRAPPER_BASE_IMPORT_INVALID': r'base_helper_import_invalid',
+              'WRAPPER_DROPIN_PRECEDENCE_INVALID': r'dropin_precedence_invalid',
+          }
+          OPTION_ERROR_CONTEXT = r'\b(?:error while handling argument|invalid value for (?:argument|option)|(?:unknown|unrecognized|invalid) (?:command[- ]line )?(?:argument|option|flag)|unknown value for)\b[^\r\n]{0,24}?(--[a-z][a-z0-9-]{0,63})\b'
+          ERRORLIKE = r"\b(?:error|fatal|exception|traceback|failed|failure|invalid|unsupported|unable|cannot|denied|missing)\b|couldn't|not found|not supported|no such file"
+
+
+          def classify_detail(message):
+              codes, options, exceptions, markers = set(), set(), set(), set()
+              for category, patterns in PATTERNS.items():
+                  if any(re.search(pattern, message, re.I) for pattern in patterns):
+                      codes.add(category)
+              for category, patterns in DETAIL_PATTERNS.items():
+                  if any(re.search(pattern, message, re.I) for pattern in patterns):
+                      codes.add(category)
+              for label, pattern in DETAIL_EXCEPTION_PATTERNS.items():
+                  if re.search(pattern, message):
+                      exceptions.add(label)
+              if exceptions:
+                  codes.add('PYTHON_EXCEPTION' if any(x not in ('BAD_ALLOC', 'INVALID_ARGUMENT', 'OUT_OF_RANGE') for x in exceptions) else 'UNCAUGHT_EXCEPTION')
+              wrapper = re.match(r'^GEKTA_G3[BCDE]_ERROR=([^\r\n]*)$', message)
+              if wrapper:
+                  payload = wrapper.group(1)
+                  hits = {label for label, pattern in WRAPPER_CODE_PATTERNS.items() if re.fullmatch(pattern, payload)}
+                  codes.update(hits or {'WRAPPER_ERROR_UNMAPPED'})
+                  if 'WRAPPER_FLAG_INVALID' in hits and ':' in payload:
+                      name = payload.rsplit(':', 1)[1].upper()
+                      options.add(name if name in DETAIL_OPTIONS else 'OTHER')
+              for match in re.finditer(OPTION_ERROR_CONTEXT, message, re.I):
+                  name = match.group(1)[2:].upper().replace('-', '_')
+                  options.add(name if name in DETAIL_OPTIONS else 'OTHER')
+              errorlike = bool(codes or exceptions or wrapper or re.search(ERRORLIKE, message, re.I))
+              if errorlike:
+                  for label, pattern in DETAIL_MARKER_PATTERNS.items():
+                      if re.search(pattern, message, re.I):
+                          markers.add(label)
+                  # OSError and wrapper-normalized OSError retain only finite errno categories.
+                  for match in re.finditer(r'(?:^|[^A-Za-z0-9])Errno[ _]+(2|8|12|13|22|24|98|99)(?=[^0-9]|$)', message, re.I):
+                      codes.add({'2': 'REQUIRED_FILE_UNAVAILABLE', '8': 'EXEC_FORMAT_FAILED',
+                                 '12': 'ALLOCATION_FAILED', '13': 'PERMISSION_DENIED',
+                                 '22': 'ARGUMENT_VALUE_INVALID', '24': 'FILE_DESCRIPTOR_LIMIT',
+                                 '98': 'ADDRESS_IN_USE', '99': 'LOCAL_ADDRESS_UNAVAILABLE'}[match.group(1)])
+              specific = codes - {'WRAPPER_ERROR_UNMAPPED', 'PYTHON_TRACEBACK', 'UNCAUGHT_EXCEPTION'}
+              return codes, options, exceptions, markers, errorlike, bool(errorlike and not specific)
+
+
+          def add_detail_message(bucket, message):
+              bucket['entries'] += 1
+              if not isinstance(message, str) or len(message.encode('utf-8')) > 4096:
+                  bucket['unsupported_messages'] += 1
+                  return
+              codes, options, exceptions, markers, errorlike, unmapped = classify_detail(message)
+              bucket['errorlike_messages'] += int(errorlike)
+              bucket['unmapped_error_messages'] += int(unmapped)
+              for key, values, allowed in (('codes', codes, DETAIL_CODES), ('options', options, DETAIL_OPTIONS),
+                                           ('exceptions', exceptions, DETAIL_EXCEPTIONS), ('markers', markers, DETAIL_MARKERS)):
+                  combined = set(bucket[key]) | values
+                  bucket[key] = [value for value in allowed if value in combined]
 
           class ProbeError(Exception):
               pass
@@ -1225,42 +1654,53 @@ jobs:
               return 'UNIT_BEFORE_OR_AT_MAIN_EXIT', begin
 
 
-          def read_journal(before, lower_bound, main_start_only):
+          def read_journal(before, lower_bound, main_start_only=False):
+              def unavailable(status):
+                  return journal_result(status), empty_details()
               invocation = before['invocation']
               if not invocation:
-                  return journal_result('NO_INVOCATION')
+                  return unavailable('NO_INVOCATION')
               if lower_bound is None:
-                  return journal_result('INVALID')
+                  return unavailable('INVALID')
               argv = ['/usr/bin/journalctl', '--no-pager', '--boot', '--lines=200', '--output=json', '--output-fields=MESSAGE,_SYSTEMD_INVOCATION_ID,_SYSTEMD_UNIT,__MONOTONIC_TIMESTAMP', '_SYSTEMD_UNIT=' + SERVICE, '_SYSTEMD_INVOCATION_ID=' + invocation]
               outcome, rc, raw, stderr = bounded_command(argv, 65536)
               if outcome != 'OK':
-                  return journal_result(outcome if outcome in JOURNAL_STATES else 'READ_ERROR')
+                  return unavailable(outcome if outcome in JOURNAL_STATES else 'READ_ERROR')
               access_limited = re.search(br'permission denied|access denied|insufficient permissions|not seeing messages from other users|no journal files were opened', stderr, re.I) is not None
               if rc != 0:
-                  return journal_result('UNREADABLE' if access_limited else 'READ_ERROR')
+                  return unavailable('UNREADABLE' if access_limited else 'READ_ERROR')
               if not raw.strip() or raw.strip() == b'-- No entries --':
-                  return journal_result('UNREADABLE' if access_limited else 'NO_EVIDENCE')
+                  return unavailable('UNREADABLE' if access_limited else 'NO_EVIDENCE')
               try:
                   lines = raw.decode('utf-8').splitlines()
                   if not 1 <= len(lines) <= 200:
                       raise ValueError
                   now_us = time.monotonic_ns() // 1000
                   observations, unsupported, older, classes, hints = 0, 0, 0, set(), set()
+                  details = empty_details()
+                  details['status'] = 'COLLECTED'
+                  if main_start_only:
+                      # This separate bucket binds current boot/unit/invocation, not MainPID.
+                      # It does not change the v2 selected window or claim complete startup coverage.
+                      details['pre_main']['scope'] = 'PRE_MAIN_CURRENT_INVOCATION'
                   for line in lines:
                       row = json.loads(line, object_pairs_hook=unique_object)
                       if not isinstance(row, dict) or row.get('_SYSTEMD_UNIT') != SERVICE or row.get('_SYSTEMD_INVOCATION_ID') != invocation:
-                          return journal_result('NOT_CURRENT')
+                          return unavailable('NOT_CURRENT')
                       timestamp = row.get('__MONOTONIC_TIMESTAMP')
                       if not isinstance(timestamp, str) or not re.fullmatch(r'[1-9][0-9]{0,19}', timestamp):
                           raise ValueError
                       stamp = int(timestamp)
                       if stamp > now_us:
-                          return journal_result('NOT_CURRENT')
+                          return unavailable('NOT_CURRENT')
                       if stamp < lower_bound:
                           older += 1
+                          if main_start_only:
+                              add_detail_message(details['pre_main'], row.get('MESSAGE'))
                           continue
                       observations += 1
                       message = row.get('MESSAGE')
+                      add_detail_message(details['selected'], message)
                       if not isinstance(message, str) or len(message.encode('utf-8')) > 4096:
                           unsupported += 1
                           continue
@@ -1270,13 +1710,19 @@ jobs:
                       for match in re.finditer(r'\b(?:unknown|unrecognized|invalid) (?:command[- ]line )?(?:argument|option|flag)\s*[:=]?\s*[\x22\x27\x60]?(--[a-z][a-z0-9-]{0,63})\b', message, re.I):
                           label = match.group(1)[2:].upper().replace('-', '_')
                           hints.add(label if label in ARGUMENT_HINTS else 'OTHER')
+                  details['skipped_before_window'] = older
+                  conditions = {'MAIN_START_ONLY': main_start_only, 'ACCESS_LIMITED': access_limited,
+                                'ROW_LIMIT_REACHED': len(lines) == 200,
+                                'UNSUPPORTED_MESSAGES': unsupported + details['pre_main']['unsupported_messages'] > 0}
+                  details['coverage'] = [value for value in DETAIL_COVERAGE if conditions[value]]
                   if not observations:
-                      return journal_result('OLD' if older else 'NO_EVIDENCE')
+                      return journal_result('OLD' if older else 'NO_EVIDENCE'), details
                   if unsupported == observations:
-                      return journal_result('UNREADABLE', observations, unsupported)
-                  return journal_result('CURRENT_PARTIAL' if access_limited or unsupported or older or main_start_only else 'CURRENT', observations, unsupported, [value for value in CLASSES if value in classes], [value for value in ARGUMENT_HINTS if value in hints])
+                      return journal_result('UNREADABLE', observations, unsupported), details
+                  journal = journal_result('CURRENT_PARTIAL' if access_limited or unsupported or older or main_start_only else 'CURRENT', observations, unsupported, [value for value in CLASSES if value in classes], [value for value in ARGUMENT_HINTS if value in hints])
+                  return journal, details
               except (ValueError, UnicodeError, KeyError, OverflowError):
-                  return journal_result('INVALID')
+                  return unavailable('INVALID')
 
 
           def observe_failure():
@@ -1289,17 +1735,18 @@ jobs:
                   return {'schema': SCHEMA, 'observation': 'NOT_FAILED'}
               now_us = time.monotonic_ns() // 1000
               relation, lower_bound = select_journal_window(before, now_us)
-              journal = read_journal(before, lower_bound, relation == 'UNIT_AFTER_MAIN_EXIT')
+              journal, details = read_journal(before, lower_bound, relation == 'UNIT_AFTER_MAIN_EXIT')
               after = snapshot()
               if nonroot_subject() != subject:
                   raise ProbeError('IDENTITY_REJECTED')
               if before != after:
                   journal = journal_result('NOT_CURRENT')
+                  details = empty_details()
               start, end = (before['times'][key] for key in ('ExecMainStartTimestampMonotonic', 'ExecMainExitTimestampMonotonic'))
               age = (now_us - end) // 1000000 if 0 < start <= end <= now_us else None
               if age is not None and age > 4294967295:
                   age = None
-              return {'schema': SCHEMA, 'observation': 'COMPLETE', 'state': state, 'main_exit_age_seconds': age, 'timing_relation': relation, 'journal': journal}
+              return {'schema': SCHEMA, 'observation': 'COMPLETE', 'state': state, 'main_exit_age_seconds': age, 'timing_relation': relation, 'journal': journal, 'startup_details': details}
 
 
           def main():
@@ -1324,7 +1771,7 @@ jobs:
           import json
           import re
 
-          SCHEMA = 'gekta.fixed-unit-startup-evidence.v2'
+          SCHEMA = 'gekta.fixed-unit-startup-evidence.v3'
           ENUMS = {
               'LoadState': ('STUB', 'LOADED', 'NOT_FOUND', 'BAD_SETTING', 'ERROR', 'MERGED', 'MASKED', 'OTHER'),
               'ActiveState': ('ACTIVE', 'RELOADING', 'INACTIVE', 'FAILED', 'ACTIVATING', 'DEACTIVATING', 'MAINTENANCE', 'REFRESHING', 'OTHER'),
@@ -1341,6 +1788,46 @@ jobs:
           ARGUMENT_HINTS = ('THREADS', 'THREADS_BATCH', 'PARALLEL', 'CTX_SIZE', 'BATCH_SIZE', 'UBATCH_SIZE', 'CACHE_RAM', 'CACHE_REUSE', 'CACHE_PROMPT', 'KV_UNIFIED', 'FLASH_ATTN', 'MODEL', 'HOST', 'PORT', 'API_KEY', 'API_KEY_FILE', 'OTHER')
 
 
+          DETAIL_CODES = CLASSES + (
+              'ARGUMENT_PARSE_FAILED', 'ARGUMENT_VALUE_INVALID', 'ARGUMENT_VALUE_MISSING',
+              'ENVIRONMENT_PARSE_FAILED', 'CPU_MASK_INVALID', 'CPU_RANGE_INVALID',
+              'CPU_AFFINITY_FAILED', 'CACHE_TYPE_UNSUPPORTED', 'FILE_OPEN_FAILED',
+              'FILE_READ_FAILED', 'CONFIG_PARSE_FAILED', 'AUTH_CONFIG_FAILED',
+              'HTTP_INIT_FAILED', 'HTTP_START_FAILED', 'HTTP_SOCKET_BIND_FAILED',
+              'HTTP_STATIC_ASSETS_MISSING', 'HTTP_SSL_UNAVAILABLE', 'ROUTER_INIT_FAILED',
+              'TOOLS_SETUP_FAILED', 'MODEL_LOADING_EXIT', 'CONTEXT_INIT_FAILED',
+              'THREADPOOL_INIT_FAILED', 'BACKEND_LOAD_FAILED', 'CUDA_INIT_FAILED',
+              'WRAPPER_IDENTITY_REJECTED', 'WRAPPER_BINARY_MISMATCH', 'WRAPPER_STATE_INVALID',
+              'WRAPPER_ENV_INVALID', 'WRAPPER_CMDLINE_MISMATCH', 'WRAPPER_FLAG_INVALID',
+              'WRAPPER_ERROR_UNMAPPED', 'PYTHON_TRACEBACK', 'PYTHON_EXCEPTION',
+              'DYNAMIC_LINK_FAILED', 'SHELL_COMMAND_NOT_FOUND', 'EXEC_FORMAT_FAILED',
+              'UNCAUGHT_EXCEPTION', 'LOCAL_ADDRESS_UNAVAILABLE', 'FILE_DESCRIPTOR_LIMIT',
+              'WRAPPER_EXE_FIELD_MISSING', 'WRAPPER_BASE_UNAVAILABLE',
+              'WRAPPER_BASE_PERMISSION_INVALID', 'WRAPPER_BASE_IMPORT_INVALID',
+              'WRAPPER_DROPIN_PRECEDENCE_INVALID',
+          )
+          DETAIL_OPTIONS = ARGUMENT_HINTS + (
+              'CPU_MASK', 'CPU_RANGE', 'CPU_STRICT', 'CPU_MASK_BATCH', 'CPU_RANGE_BATCH',
+              'CPU_STRICT_BATCH', 'PRIO', 'PRIO_BATCH', 'NUMA', 'DEVICE', 'N_GPU_LAYERS',
+              'CACHE_TYPE_K', 'CACHE_TYPE_V', 'SSL_KEY_FILE', 'SSL_CERT_FILE',
+              'PATH', 'CHAT_TEMPLATE', 'CHAT_TEMPLATE_FILE', 'JINJA', 'LOG_FILE',
+              'GRAMMAR_FILE', 'MODEL_DRAFT', 'HF_REPO', 'REASONING', 'FIT',
+          )
+          DETAIL_EXCEPTIONS = (
+              'ASSERTION_ERROR', 'FILE_NOT_FOUND_ERROR', 'PERMISSION_ERROR', 'OS_ERROR',
+              'VALUE_ERROR', 'TYPE_ERROR', 'KEY_ERROR', 'RUNTIME_ERROR', 'JSON_DECODE_ERROR',
+              'SYNTAX_ERROR', 'IMPORT_ERROR', 'MODULE_NOT_FOUND_ERROR', 'MEMORY_ERROR',
+              'TIMEOUT_ERROR', 'UNICODE_DECODE_ERROR', 'INDEX_ERROR', 'OVERFLOW_ERROR',
+              'BAD_ALLOC', 'INVALID_ARGUMENT', 'OUT_OF_RANGE',
+          )
+          DETAIL_MARKERS = (
+              'ARGUMENT', 'ENVIRONMENT', 'CONFIGURATION', 'AUTHENTICATION', 'CPU_AFFINITY',
+              'MODEL', 'MEMORY', 'NETWORK_BIND', 'FILESYSTEM', 'PERMISSION', 'WRAPPER',
+              'PYTHON', 'BACKEND', 'HTTP', 'THREADING', 'TEMPLATE',
+          )
+          DETAIL_COVERAGE = ('MAIN_START_ONLY', 'ACCESS_LIMITED', 'ROW_LIMIT_REACHED', 'UNSUPPORTED_MESSAGES')
+
+
           def unique_object(pairs):
               result = {}
               for key, value in pairs:
@@ -1349,6 +1836,71 @@ jobs:
                   result[key] = value
               return result
 
+
+          def checked_details(report):
+              details = report['startup_details']
+              if not isinstance(details, dict) or set(details) != {'status', 'skipped_before_window', 'coverage', 'selected', 'pre_main'} or details['status'] not in ('UNAVAILABLE', 'COLLECTED'):
+                  raise ValueError
+              skipped = details['skipped_before_window']
+              if type(skipped) is not int or not 0 <= skipped <= 200:
+                  raise ValueError
+              def ordered(value, allowed):
+                  if not isinstance(value, list) or any(type(item) is not str or item not in allowed for item in value) or value != [item for item in allowed if item in value]:
+                      raise ValueError
+              ordered(details['coverage'], DETAIL_COVERAGE)
+              def bucket(value, pre=False):
+                  keys = {'entries', 'unsupported_messages', 'errorlike_messages', 'unmapped_error_messages', 'codes', 'options', 'exceptions', 'markers'}
+                  if not isinstance(value, dict) or set(value) != keys | ({'scope'} if pre else set()):
+                      raise ValueError
+                  for key in ('entries', 'unsupported_messages', 'errorlike_messages', 'unmapped_error_messages'):
+                      if type(value[key]) is not int or not 0 <= value[key] <= 200:
+                          raise ValueError
+                  if not 0 <= value['unmapped_error_messages'] <= value['errorlike_messages'] <= value['entries'] - value['unsupported_messages']:
+                      raise ValueError
+                  for key, allowed in (('codes', DETAIL_CODES), ('options', DETAIL_OPTIONS), ('exceptions', DETAIL_EXCEPTIONS), ('markers', DETAIL_MARKERS)):
+                      ordered(value[key], allowed)
+                      if value[key] and not value['errorlike_messages']:
+                          raise ValueError
+                  if value['options'] and not set(value['codes']) & {'INVALID_ARGUMENT', 'ARGUMENT_PARSE_FAILED', 'ARGUMENT_VALUE_INVALID', 'ARGUMENT_VALUE_MISSING', 'ENVIRONMENT_PARSE_FAILED', 'WRAPPER_FLAG_INVALID'}:
+                      raise ValueError
+                  if value['exceptions'] and not set(value['codes']) & {'PYTHON_EXCEPTION', 'UNCAUGHT_EXCEPTION'}:
+                      raise ValueError
+                  if pre and value['scope'] not in ('NOT_SELECTED', 'PRE_MAIN_CURRENT_INVOCATION'):
+                      raise ValueError
+                  return not any(value[key] for key in keys)
+              selected, pre = details['selected'], details['pre_main']
+              selected_empty, pre_empty = bucket(selected), bucket(pre, True)
+              if details['status'] == 'UNAVAILABLE':
+                  if skipped or details['coverage'] or not selected_empty or not pre_empty or pre['scope'] != 'NOT_SELECTED':
+                      raise ValueError
+                  if report['journal']['status'] in ('CURRENT', 'CURRENT_PARTIAL', 'OLD'):
+                      raise ValueError
+                  return
+              journal = report['journal']
+              if journal['status'] not in ('CURRENT', 'CURRENT_PARTIAL', 'OLD', 'UNREADABLE'):
+                  raise ValueError
+              if selected['entries'] != journal['entries'] or selected['unsupported_messages'] != journal['unsupported_messages'] or selected['entries'] + skipped > 200:
+                  raise ValueError
+              if not set(journal['error_classes']) <= set(selected['codes']):
+                  raise ValueError
+              if journal['status'] == 'OLD' and (selected['entries'] or not skipped):
+                  raise ValueError
+              if journal['status'] == 'UNREADABLE' and (not selected['entries'] or selected['unsupported_messages'] != selected['entries']):
+                  raise ValueError
+              late = report['timing_relation'] == 'UNIT_AFTER_MAIN_EXIT'
+              if late:
+                  if pre['scope'] != 'PRE_MAIN_CURRENT_INVOCATION' or pre['entries'] != skipped:
+                      raise ValueError
+              elif pre['scope'] != 'NOT_SELECTED' or not pre_empty:
+                  raise ValueError
+              coverage = details['coverage']
+              if ('MAIN_START_ONLY' in coverage) != late or ('ROW_LIMIT_REACHED' in coverage) != (selected['entries'] + skipped == 200):
+                  raise ValueError
+              if ('UNSUPPORTED_MESSAGES' in coverage) != (selected['unsupported_messages'] + pre['unsupported_messages'] > 0):
+                  raise ValueError
+              partial = late or 'ACCESS_LIMITED' in coverage or selected['unsupported_messages'] > 0 or skipped > 0
+              if journal['status'] in ('CURRENT', 'CURRENT_PARTIAL') and (journal['status'] == 'CURRENT_PARTIAL') != partial:
+                  raise ValueError
 
           def checked_report(raw, remote_rc):
               if not isinstance(raw, bytes) or not 0 < len(raw) <= 8192 or b'\x00' in raw:
@@ -1364,7 +1916,7 @@ jobs:
                   if set(report) != {'schema', 'observation'} or remote_rc != 0:
                       raise ValueError
                   return report, 0
-              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'timing_relation', 'journal'}:
+              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'timing_relation', 'journal', 'startup_details'}:
                   raise ValueError
               state = report['state']
               if not isinstance(state, dict) or set(state) != set(ENUMS) | set(LIMITS):
@@ -1414,6 +1966,7 @@ jobs:
                   raise ValueError
               if hints and ('INVALID_ARGUMENT' not in classes or journal['status'] not in ('CURRENT', 'CURRENT_PARTIAL')):
                   raise ValueError
+              checked_details(report)
               return report, 0
 
           import pathlib
