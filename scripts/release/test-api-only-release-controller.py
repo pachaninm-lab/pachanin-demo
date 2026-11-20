@@ -199,6 +199,125 @@ class FakeHost:
 
 
 class ControllerTests(unittest.TestCase):
+    def test_actual_pinned_binding_denial_keeps_safe_reason_and_stops_before_reservation(self):
+        import builtins
+        import types
+        raw = PATH.with_name('ir20-api-database-binding.py').read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), c.BINDING_SHA256)
+
+        class Runtime:
+            def inspect(self, identity):
+                return {'Id': identity, 'State': {'Running': True}, 'Image': 'sha256:' + 'c' * 64,
+                        'Config': {'Labels': {'com.docker.compose.project': 'fixture',
+                                              'com.docker.compose.service': 'api' if identity == '4' * 64 else 'postgres'},
+                                   'Env': ['PG_MAJOR=15', 'POSTGRES_USER=fixture', 'POSTGRES_DB=fixture']}}
+
+            def session(self, *_args, **_kwargs):
+                raise AssertionError('denial must precede a database session')
+
+            def run(self, *_args, **_kwargs):
+                raise AssertionError('denial must precede a database query')
+
+        def load_binding(code, namespace):
+            builtins.exec(code, namespace)
+            namespace['Runtime'] = Runtime
+
+        host = FakeHost()
+        host.pg_id, host.project = '8' * 64, 'fixture'
+        host.dependency = lambda relative, expected: raw
+        host.database = types.MethodType(c.Host.database, host)
+        with patch.object(c, 'exec', load_binding, create=True), \
+                patch.object(c.subprocess, 'Popen', side_effect=AssertionError('no external process')):
+            result = c.release(archive_intent(), host)
+        self.assertEqual(result['result'], 'HOLD')
+        self.assertEqual(result['reason'], 'BINDING_DEFAULT_POSTGRES_CONFIGURATION')
+        self.assertEqual(result['failure_stage'], 'BASELINE_DATABASE')
+        self.assertEqual(result['runtime_state'], 'BASELINE_OBSERVED')
+        self.assertFalse(result['api_image_updated'])
+        self.assertFalse(host.spent)
+        self.assertEqual(host.recreates, 0)
+        self.assertNotIn('backup', [name for name, _ in host.events])
+
+    def test_binding_error_boundary_is_closed_for_both_clients_and_never_exposes_private_text(self):
+        import ast
+        import builtins
+        import types
+        raw = PATH.with_name('ir20-api-database-binding.py').read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), c.BINDING_SHA256)
+        codes = {node.args[0].value for node in ast.walk(ast.parse(raw))
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                 and node.func.id == 'BindingError' and node.args
+                 and isinstance(node.args[0], ast.Constant) and type(node.args[0].value) is str}
+        self.assertEqual(c.BINDING_FAILURE_CODES, codes)
+        cases = [(code, lambda cls, code=code: cls(code)) for code in sorted(codes)]
+        cases.extend([
+            (None, lambda cls: cls('postgres://private-sentinel')),
+            (None, lambda cls: cls('FUTURE_UNADMITTED_CODE')),
+            (None, lambda cls: cls('POSTGRES_CONFIGURATION', 'private-sentinel')),
+            (None, lambda cls: type('DerivedBindingError', (cls,), {})('POSTGRES_CONFIGURATION')),
+            (None, lambda cls: ValueError('private-sentinel')),
+        ])
+        for client in ('default', 'registration'):
+            for code, make_error in cases:
+                with self.subTest(client=client, code=code):
+                    def load_binding(program, namespace):
+                        builtins.exec(program, namespace)
+                        error_class = namespace['BindingError']
+                        def bind(*_args, client='default', **_kwargs):
+                            if client == selected_client:
+                                raise make_error(error_class)
+                        namespace['bind'], namespace['Runtime'] = bind, lambda: None
+
+                    selected_client = client
+                    host = FakeHost()
+                    host.pg_id, host.project = '8' * 64, 'fixture'
+                    host.dependency = lambda relative, expected: raw
+                    host.run = lambda *_args, **_kwargs: b'{}'
+                    host.database = types.MethodType(c.Host.database, host)
+                    with patch.object(c, 'exec', load_binding, create=True), \
+                            patch.object(c, 'compare_database', return_value=False), \
+                            patch.object(c.subprocess, 'Popen', side_effect=AssertionError('no external process')):
+                        result = c.release(intent(), host)
+                    reason = 'BINDING_' + client.upper() + '_' + code if code else 'EXECUTION_UNAVAILABLE'
+                    self.assertEqual(result['reason'], reason)
+                    self.assertEqual(result['failure_stage'], 'BASELINE_DATABASE')
+                    self.assertEqual(result['result'], 'HOLD')
+                    self.assertFalse(host.spent)
+                    self.assertEqual(host.recreates, 0)
+                    self.assertNotIn('private-sentinel', json.dumps(result))
+                    self.assertNotIn('FUTURE_UNADMITTED_CODE', json.dumps(result))
+
+    def test_opaque_failure_stage_distinguishes_observation_from_preparation_without_claiming_cause(self):
+        for method, stage, reserved in [('capacity', 'BASELINE_CAPACITY', False),
+                                        ('retain_baseline_archive', 'BASELINE_ARCHIVE', True),
+                                        ('backup', 'BACKUP_RESTORE', True)]:
+            with self.subTest(method=method):
+                host = FakeHost()
+                original = getattr(host, method)
+                def fail(*args):
+                    original(*args)
+                    raise OSError('private-sentinel')
+                setattr(host, method, fail)
+                result = c.release(archive_intent(), host)
+                self.assertEqual(result['reason'], 'EXECUTION_UNAVAILABLE')
+                self.assertEqual(result['failure_stage'], stage)
+                self.assertEqual(result['result'], 'HOLD')
+                self.assertEqual(result['runtime_state'], 'BASELINE_OBSERVED')
+                self.assertEqual(host.spent, reserved)
+                self.assertEqual(host.recreates, 0)
+                self.assertNotIn('private-sentinel', json.dumps(result))
+
+    def test_failure_stage_does_not_replace_success_or_held_lock_rollback_evidence(self):
+        self.assertEqual(c.release(intent(), FakeHost())['failure_stage'], 'NONE')
+        self.assertEqual(c.release(intent(), FakeHost(), preflight=True)['failure_stage'], 'NONE')
+        host = FakeHost('write:target')
+        result = c.release(intent(), host)
+        self.assertEqual(result['failure_stage'], 'TARGET_OVERRIDE')
+        self.assertEqual(result['result'], 'ROLLED_BACK_API_IMAGE_ONLY')
+        self.assertEqual(result['rollback'], 'VERIFIED')
+        self.assertEqual(result['runtime_state'], 'BASELINE_IMAGE_VERIFIED')
+        self.assertTrue(all(held for name, held in host.events if name.startswith(('write:', 'recreate:', 'public:'))))
+
     def test_configure_preserves_ordered_repeated_compose_inputs(self):
         working = '/fixture'
         primary = working + '/compose.yml'

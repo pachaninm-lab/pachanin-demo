@@ -41,6 +41,16 @@ ENV = {'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
 BACKUPS = '/var/lib/pc-release-authority/backups'
 OVERRIDE = 'compose.production-api-only-image.override.yml'
 BINDING_SHA256 = '474ef140926b81627dad01076fb67c409a5785b4154c27890dfa2919e1b918ec'
+# Closed public codes from this exact pinned dependency. Do not expose arbitrary
+# exception text, subclasses, metadata, connection details or future new codes.
+BINDING_FAILURE_CODES = frozenset({
+    'ARGUMENTS', 'BACKEND_IDENTITY', 'CONTAINER_IDENTITY', 'DATABASE_BINDING_NOT_PROVEN',
+    'DUPLICATE_JSON_KEY', 'ENVIRONMENT_AMBIGUOUS', 'ENVIRONMENT_SHAPE', 'INPUT_LIMIT',
+    'INSPECTION_SHAPE', 'INVALID_JSON', 'JSON_CONSTANT', 'OUTPUT_LIMIT',
+    'POSTGRES_CONFIGURATION', 'PROCESS_EOF', 'PROCESS_FAILED', 'PROCESS_TIMEOUT',
+    'ROOT_AND_FOUR_OR_FIVE_ARGUMENTS_REQUIRED', 'RUNTIME_CHANGED',
+    'TRANSACTION_COMPLETION_NOT_PROVEN',
+})
 BACKUP_SHA256 = 'f3459f23ca7db27e64ebe91e5faa5ff36ff546498f933e7941c011dba1682710'
 PRESERVED = (
     ('cold-preservation-20261022', '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603'),
@@ -409,6 +419,7 @@ def verify_runtime(before, after, image_id, revision):
 
 def release(intent, host, *, preflight=False):
     report = {'schema': 'pc.api-only-release-result.v1', 'result': 'HOLD', 'reason': 'UNVERIFIED',
+              'failure_stage': 'NONE',
               'target_sha': intent.get('target_sha') if type(intent) is dict and type(intent.get('target_sha')) is str and SHA.fullmatch(intent['target_sha']) else None,
               'api_image_updated': False, 'runtime_state':'NOT_OBSERVED',
               'baseline_filesystem_attestation':'NOT_PROVEN', 'rollback': 'NOT_ATTEMPTED', 'business_data_rollback': 'NOT_PERFORMED',
@@ -418,63 +429,93 @@ def release(intent, host, *, preflight=False):
     baseline = None
     journal = False
     lease = contextlib.ExitStack()
+    stage = 'INTENT'
     try:
         validate_intent(intent, host.now())
+        stage = 'REFERENCE'
         host.admitted_reference(intent)
+        stage = 'LOCK'
         lease.enter_context(host.lock())
+        stage = 'BASELINE_SNAPSHOT'
         baseline = host.snapshot(intent)
         report['runtime_state']='BASELINE_OBSERVED'
+        stage = 'BASELINE_IDENTITY'
         demand(baseline['revision'] == intent['baseline_sha'] and
                baseline['image_id'] == intent['baseline_image_id'] and baseline['ready'] is True,
                'CANONICAL_BASELINE_CHANGED')
+        stage = 'BASELINE_PUBLICATION'
         host.assert_baseline_publication(intent,baseline)
+        stage = 'BASELINE_COMPOSE_IMAGE'
         demand(host.effective_api_image_id() == baseline['image_id'], 'BASELINE_COMPOSE_IMAGE_MISMATCH')
+        stage = 'BASELINE_RECHECK'
         host.assert_current(intent, baseline)
+        stage = 'BASELINE_CAPACITY'
         host.capacity(intent)
+        stage = 'BASELINE_DATABASE'
         db = host.database(intent, baseline)
         demand(db.get('database_compatibility') == 'VERIFIED_TARGET_CONTRACT' and
                db.get('catalog_match') is True and db.get('principals_match') is True and
                db.get('migration_match') is True and db.get('both_clients_bound') is True,
                'DATABASE_COMPATIBILITY_NOT_PROVEN')
+        stage = 'BASELINE_RECHECK'
         host.assert_current(intent, baseline)
+        stage = 'BASELINE_PUBLIC_SMOKE'
         host.public_smoke(intent)
         if preflight:
             report.update(result='PREFLIGHT_ONLY', reason='NONE')
             return report
         # Reservation is durable and exclusive BEFORE any image, backup or
         # configuration mutation. Interrupted/failed operations are never reset.
+        stage = 'JOURNAL_RESERVATION'
         host.journal_begin(intent, baseline)
         journal = True
+        stage = 'JOURNAL_PREPARATION'
         host.journal_write('PREPARING')
         if intent['baseline_publication']['schema'] == BASELINE_ARCHIVE_SCHEMA:
+            stage = 'BASELINE_ARCHIVE'
             host.retain_baseline_archive(intent)
+            stage = 'BASELINE_RECHECK'
             host.assert_current(intent, baseline)
+        stage = 'BACKUP_RESTORE'
         backup = host.backup(intent, baseline)
         demand(backup.get('classification') == 'CRITICAL_STATE_RESTORE_VERIFIED_NOT_RELEASE_ACCEPTANCE' and
                backup.get('target_sha') == intent['target_sha'] and backup.get('disposable_cleanup') == 'VERIFIED' and
                backup.get('source_mutation') == 'NONE' and backup.get('deployment_authorized') is False,
                'BACKUP_RESTORE_NOT_PROVEN')
+        stage = 'BASELINE_RECHECK'
         host.assert_current(intent, baseline)
+        stage = 'TARGET_CAPACITY'
         host.capacity(intent)
+        stage = 'TARGET_PULL'
         image_id = host.pull(intent['api_digest'], intent['target_sha'])
         demand(type(image_id) is str and IMAGE_ID.fullmatch(image_id), 'TARGET_IMAGE_ID_INVALID')
+        stage = 'BASELINE_RECHECK'
         host.assert_current(intent, baseline)
+        stage = 'MUTATION_ARMING'
         demand(host.now() <= intent['expires'], 'FINITE_WINDOW_EXPIRED')
         host.journal_write('API_MUTATION_ARMED')
         # An override write can fail after rename/fsync: arm first.
         armed = True
         report['runtime_state']='UNKNOWN_DURING_TRANSITION'
+        stage = 'TARGET_OVERRIDE'
         host.write_override(intent['api_digest'])
+        stage = 'TARGET_RECREATE'
         host.recreate_api()
+        stage = 'TARGET_READINESS'
         current = host.wait_api()
+        stage = 'TARGET_RUNTIME_VERIFY'
         verify_runtime(baseline, current, image_id, intent['target_sha'])
         demand(current['api_id'] != baseline['api_id'], 'API_NOT_RECREATED')
+        stage = 'TARGET_COMPOSE_IMAGE'
         demand(host.effective_api_image_id() == image_id, 'PERSISTED_IMAGE_BINDING_FAILED')
         # Rebind BOTH target image clients; a healthy HTTP process alone
         # cannot establish that AuthPrisma still resolves the intended DB.
+        stage = 'TARGET_DATABASE'
         after_db = host.database(intent, current)
         demand(after_db == db, 'TARGET_DATABASE_CONTRACT_CHANGED')
+        stage = 'TARGET_PUBLIC_SMOKE'
         host.public_smoke(intent)
+        stage = 'TARGET_JOURNAL'
         host.journal_write('API_IMAGE_VERIFIED')
         armed = False
         report.update(result='API_IMAGE_RELEASE_VERIFIED', reason='NONE', api_image_updated=True,runtime_state='TARGET_IMAGE_VERIFIED')
@@ -482,6 +523,7 @@ def release(intent, host, *, preflight=False):
     except BaseException as error:
         code = str(error) if type(error) is ReleaseError and re.fullmatch(r'[A-Z0-9_]{1,80}', str(error)) else 'EXECUTION_UNAVAILABLE'
         report['reason'] = code
+        report['failure_stage'] = stage
         if armed and baseline is not None:
             # Never delegate to the legacy tag-based rollback executor.
             report['rollback'] = 'ATTEMPTED'
@@ -2000,7 +2042,14 @@ class Host:
         exec(compile(binding_raw, '<accepted-binding>', 'exec'), module.__dict__)
         archived_ledger_history = False
         for client in ('default', 'registration'):
-            module.bind(intent['target_sha'], baseline['api_id'], self.pg_id, self.project, module.Runtime(), client=client)
+            try:
+                module.bind(intent['target_sha'], baseline['api_id'], self.pg_id, self.project, module.Runtime(), client=client)
+            except module.BindingError as error:
+                if (type(error) is module.BindingError and len(error.args) == 1 and
+                        type(error.args[0]) is str and error.args[0] in BINDING_FAILURE_CODES):
+                    prefix = 'BINDING_DEFAULT_' if client == 'default' else 'BINDING_REGISTRATION_'
+                    raise ReleaseError(prefix + error.args[0]) from None
+                raise
             value = closed_json(self.run(['exec', baseline['api_id'], '/nodejs/bin/node', '-e', database_program(client)],
                                         timeout=40))
             has_archived_history = compare_database(value, intent, client)
