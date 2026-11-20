@@ -122,7 +122,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   });
 
   for (const method of ['buffered', 'streaming'] as const) {
-    it.each([
+    it.each<{ locale: string; question: string; expected: string[]; currentDataRequired?: boolean }>([
       {
         locale: 'ru',
         question: 'Учёт затрат M03-443, овёс. Всего 689940 ₽, уборочная площадь 160,5 га, валовой сбор 497 т. Найди затраты на тонну и гектар с округлением до копеек.',
@@ -138,10 +138,64 @@ describe('RestrictedPublicQwenService.generateStream', () => {
         question: 'В условном инвойсе M16-444 (рожь) цена 262 USD за тонну. В задаче использовать курс 82,504 ₽ за доллар. Дай цену в рублях за тонну и за 245 т до копеек.',
         expected: ['21616,05 ₽/т', '5295931,76 ₽'],
       },
+      ...['triticale', 'canola', 'chickpeas', 'hard red spring wheat'].map(crop => ({
+        locale: 'en', currentDataRequired: true,
+        question: `Fictional invoice QA-10, ${crop}: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.`,
+        expected: ['800.00 RUB/t', '1600.00 RUB'],
+      })),
+      {
+        locale: 'ru', currentDataRequired: true,
+        question: 'В условном инвойсе QA-10 (яровая тритикале) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.',
+        expected: ['800,00 ₽/т', '1600,00 ₽'],
+      },
+      {
+        locale: 'zh', currentDataRequired: true,
+        question: '练习发票QA-10：鹰嘴豆报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。',
+        expected: ['800.00 卢布/吨', '1600.00 卢布'],
+      },
+      {
+        locale: 'ru', currentDataRequired: true,
+        question: 'В условном инвойсе QA-10 (пшеница погрузка отдельно) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.',
+        expected: ['800,00 ₽/т', '1600,00 ₽', 'Это стоимость товара', 'укажи их размер для расчёта суммы к оплате'],
+      },
+      {
+        locale: 'en', currentDataRequired: true,
+        question: 'Fictional invoice QA-10, canola handling extra: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.',
+        expected: ['800.00 RUB/t', '1600.00 RUB', 'goods at the quoted price', 'give their amounts to calculate the total payable'],
+      },
+      {
+        locale: 'zh', currentDataRequired: true,
+        question: '练习发票QA-10：小麦另计装卸费报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。',
+        expected: ['800.00 卢布/吨', '1600.00 卢布', '按报价计算的货值', '请告知金额，以便计算最终应付金额'],
+      },
+      {
+        locale: 'ru',
+        question: 'Есть 263 тонны ржи по 274 доллара за тонну, курс 83,386 рубля за доллар. Во сколько это обойдётся в рублях за тонну и за всю партию?',
+        currentDataRequired: true,
+        expected: ['22847,76 ₽/т', '6008961,93 ₽'],
+      },
+      {
+        locale: 'ru',
+        question: 'Купили 263 т ржи по 274 USD/т. Возьми курс 83,386 ₽ за доллар и посчитай цену за тонну и общую стоимость до копеек.',
+        currentDataRequired: true,
+        expected: ['22847,76 ₽/т', '6008961,93 ₽'],
+      },
+      {
+        locale: 'ru',
+        question: 'Цена пшеницы: 205,25 USD/т, масса партии 120,5 т, курс 91,375 ₽/USD. Сколько в рублях за тонну и за всю партию?',
+        currentDataRequired: true,
+        expected: ['18754,72 ₽/т', '2259943,61 ₽'],
+      },
       {
         locale: 'en',
         question: 'Two lots: 0.001 t at 10.01 RUB/t and 0.002 t at 10.02 RUB/t, same terms. Calculate the combined value and volume-weighted RUB/t.',
         expected: ['0.03 RUB', '0.03005 ÷ (0.001 + 0.002)', '10.02 RUB/t'],
+      },
+      {
+        locale: 'en',
+        question: 'We bought 263 tonnes of rye at 274 US dollars per tonne. Use the exchange rate of 83.386 RUB/USD. How much is that in RUB per tonne and for the whole lot?',
+        currentDataRequired: true,
+        expected: ['22847.76 RUB/t', '6008961.93 RUB'],
       },
       {
         locale: 'zh',
@@ -149,18 +203,24 @@ describe('RestrictedPublicQwenService.generateStream', () => {
         expected: ['14852.93 卢布/吨', '2079409.92 卢布'],
       },
       {
+        locale: 'zh',
+        question: '我买了263吨黑麦，每吨274美元，按1美元兑83.386卢布计算。每吨和整批分别是多少卢布？',
+        currentDataRequired: true,
+        expected: ['22847.76 卢布/吨', '6008961.93 卢布'],
+      },
+      {
         locale: 'ru',
         question: 'Себестоимость: общие затраты 1 000 ₽, площадь 5 га, сбор 0 т. Посчитай себестоимость на тонну и гектар.',
         expected: ['Оба значения должны быть больше нуля'],
       },
-    ])(`checks supplied trade operands in $locale (${method})`, async ({ locale, question, expected }) => {
+    ])(`checks supplied trade operands in $locale (${method})`, async ({ locale, question, expected, currentDataRequired = false }) => {
       const badArithmetic = 'Общая сумма 777777 RUB. The combined value is two hundred dollars.';
       const probe = method === 'streaming' ? installRuntime({ deltas: [badArithmetic], gapMs: 0 }) : null;
       const bufferedProvider = jest.fn().mockResolvedValue(new Response(JSON.stringify({
         choices: [{ message: { content: badArithmetic }, finish_reason: 'stop' }],
       })));
       if (!probe) global.fetch = bufferedProvider;
-      const raw = request({ question, originalQuestion: question, locale });
+      const raw = request({ question, originalQuestion: question, locale, currentDataRequired });
       let answer: string;
       if (method === 'streaming') {
         const stream = service.generateStream(raw);
@@ -178,9 +238,29 @@ describe('RestrictedPublicQwenService.generateStream', () => {
         answer = (await service.generate(raw)).answer;
       }
       for (const expectedValue of expected) expect(answer).toContain(expectedValue);
+      if (currentDataRequired) {
+        expect(answer).toMatch(/^(?:По заданному курсу|At the supplied exchange rate|按题设汇率)/u);
+      }
       expect(answer).not.toContain('777777');
       expect(answer).not.toContain('two hundred dollars');
       expect(probe?.requests ?? bufferedProvider.mock.calls).toHaveLength(1);
+    });
+
+    it.each([true, undefined])(`clarifies a truncated lot before publishing an amount (${method})`, async originalQuestionTruncated => {
+      const question = 'Есть 2 тонны овса по 10 долларов за тонну, курс 80 рублей за доллар. Во сколько это обойдётся в рублях за тонну и за всю партию?';
+      const wire = originalQuestionTruncated ? question : question.padEnd(1200, ' ');
+      const raw = request({ question, originalQuestion: wire, originalQuestionTruncated });
+      const unchecked = 'The lot costs 1600 RUB.';
+      let answer = '';
+      if (method === 'streaming') {
+        installRuntime({ deltas: [unchecked], gapMs: 0 });
+        for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: unchecked }, finish_reason: 'stop' }] })));
+        answer = (await service.generate(raw)).answer;
+      }
+      expect(answer).toContain('Конец вопроса');
+      expect(answer).not.toContain('1600');
     });
 
     it.each([
@@ -189,22 +269,38 @@ describe('RestrictedPublicQwenService.generateStream', () => {
       { ending: '', history: [{ role: 'user', text: 'Use the revised weight from the ledger.' }] },
       { ending: '', replaceRate: '8².50' },
       { ending: '', replaceRate: '1,200' },
+      { question: 'Есть 263 тонны ржи по 274 доллара за тонну. Во сколько это обойдётся в рублях за тонну и за всю партию по текущему курсу?', locale: 'ru' },
+      { question: 'Купили 263 т ржи с доставкой по 274 USD/т. Возьми курс 83,386 ₽ за доллар и посчитай цену за тонну и общую стоимость до копеек.', locale: 'ru' },
+      { question: 'Цена ржи: 274 USD/т, партия 263 т пшеницы, курс 83,386 ₽/USD. Сколько в рублях за тонну и за всю партию?', locale: 'ru' },
+      { question: 'Купили 263 т ржи по 274 USD/т. Возьми курс 83,386 USD за рубль и посчитай цену за тонну и общую стоимость до копеек.', locale: 'ru' },
+      { question: 'Fictional invoice FX-1, wheat with freight: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.', locale: 'en' },
+      { question: 'Fictional invoice FX-1, canola CIF: 10 USD/t at the supplied rate 80 RUB per USD. Calculate RUB/t and total RUB for 2 t.', locale: 'en' },
+      { question: 'В условном инвойсе QA-10 (нут с доставкой) цена 10 USD за тонну. В задаче использовать курс 80 ₽ за доллар. Дай цену в рублях за тонну и за 2 т.', locale: 'ru' },
+      { question: '练习发票QA-10：鹰嘴豆另加运费报价10美元/吨，题设汇率每美元80卢布。求卢布每吨和2吨总值。', locale: 'zh' },
+      { question: '我们买了263吨黑麦，每吨274美元，按1美元兑83.386卢布计算。每吨和整批分别是多少卢布？但最后请按今天的市场汇率。', locale: 'zh' },
+      { question: 'We bought 263 tons of rye at 274 US dollars per tonne. Use the exchange rate of 83.386 RUB/USD. How much is that in RUB per tonne and for the whole lot?', locale: 'en' },
     ])(`does not apply the supplied calculation to mixed or ambiguous inputs (${method})`, async item => {
-      const question = `Given price: 50 USD/t at the supplied rate ${item.replaceRate ?? '82.5'} RUB per USD. Calculate RUB/t and total RUB for 10 t.${item.ending}`;
+      const question = item.question ?? `Given price: 50 USD/t at the supplied rate ${item.replaceRate ?? '82.5'} RUB per USD. Calculate RUB/t and total RUB for 10 t.${item.ending}`;
+      const locale = item.locale ?? 'en';
+      const calculationLead = locale === 'ru' ? 'По заданному курсу:'
+        : locale === 'zh' ? '按题设汇率：' : 'At the supplied exchange rate:';
       const answer = 'The supplied terms need another check.';
       const probe = method === 'streaming' ? installRuntime({ deltas: [answer], gapMs: 0 }) : null;
       const bufferedProvider = jest.fn().mockResolvedValue(new Response(JSON.stringify({
         choices: [{ message: { content: answer }, finish_reason: 'stop' }],
       })));
       if (!probe) global.fetch = bufferedProvider;
-      const raw = request({ locale: 'en', question, originalQuestion: question,
+      const raw = request({ locale, question, originalQuestion: question, currentDataRequired: true,
         documents: item.documents, history: item.history ?? [] });
       if (method === 'streaming') {
         const events: PublicStreamEvent[] = [];
         for await (const event of service.generateStream(raw)) events.push(event);
-        expect(events.flatMap(event => event.type === 'delta' ? [event.text] : []).join('')).not.toContain('At the supplied exchange rate');
+        expect(events.flatMap(event => event.type === 'delta' ? [event.text] : []).join('')).not.toContain(calculationLead);
+        expect(events.at(-1)).toMatchObject({ type: 'done', safetyFlags: expect.arrayContaining(['CURRENT_EVIDENCE_REQUIRED']) });
       } else {
-        expect((await service.generate(raw)).answer).not.toContain('At the supplied exchange rate');
+        const result = await service.generate(raw);
+        expect(result.answer).not.toContain(calculationLead);
+        expect(result.safetyFlags).toContain('CURRENT_EVIDENCE_REQUIRED');
       }
       expect(probe?.requests ?? bufferedProvider.mock.calls).toHaveLength(1);
     });
