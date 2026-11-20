@@ -38,7 +38,7 @@
       "runId": 43976851355,
       "jobId": 136110668033,
       "url": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/43976851355/job/136110668033",
-      "apiRevision": "a81d69fb9aa0434ed581e057252808f4cda82f08",
+      "deployedSourceCommit": "a81d69fb9aa0434ed581e057252808f4cda82f08",
       "baseMatches": true,
       "modelMatches": true,
       "keyPresent": true,
