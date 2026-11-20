@@ -204,6 +204,163 @@ jobs:
           result=unittest.TextTestRunner(verbosity=2).run(suite)
           raise SystemExit(not result.wasSuccessful())
           UNIT_POLICY_FIXTURES
+          python3 -I -B - "$file" <<'UNIT_STATE_FIXTURES'
+          """Execute the actual unit-state reader and receipt validator with synthetic systemctl output."""
+          import ast, contextlib, fcntl, hashlib, io, os, pathlib, subprocess, sys, textwrap, types, unittest
+          from unittest import mock
+
+          workflow = pathlib.Path(sys.argv[1]).read_text()
+          def embedded(marker):
+              return textwrap.dedent(workflow.split("<<'" + marker + "'\n", 1)[1].split('\n          ' + marker, 1)[0])
+          source = embedded('UNIT_STATE_PROBE')
+          report_source = embedded('UNIT_STATE_REPORT')
+          reader = {'__name__': 'unit_state_fixture'}
+          reporter = {'__name__': 'unit_state_receipt_fixture'}
+          exec(compile(source, '<actual-unit-state-reader>', 'exec'), reader)
+          exec(compile(report_source, '<actual-unit-state-receipt>', 'exec'), reporter)
+          base = {'LoadState':'loaded','ActiveState':'inactive','SubState':'dead','Result':'success',
+                  'ExecMainCode':'0','ExecMainStatus':'0','NRestarts':'0'}
+
+          def run_reader(values=None, raw=None, rc=0, error=None, uid=(1001,1001), euid=(1001,1001), capture_error=None):
+              payload = raw if raw is not None else ''.join(key + '=' + value + '\n' for key, value in (base if values is None else values).items()).encode()
+              calls = []
+              def fake_run(argv, **kwargs):
+                  calls.append((argv, kwargs))
+                  fd = kwargs['stdout']
+                  assert os.fstat(fd).st_size == 4096
+                  seals = fcntl.fcntl(fd, getattr(fcntl, 'F_GET_SEALS', 1034))
+                  assert seals & 7 == 7
+                  if error is not None:
+                      raise error
+                  os.write(fd, payload)
+                  if len(payload) > 4096:
+                      try:
+                          os.write(fd, b'x')
+                      except OSError:
+                          pass
+                      else:
+                          raise AssertionError('capture grew')
+                  return types.SimpleNamespace(returncode=rc)
+              output = io.StringIO()
+              with contextlib.ExitStack() as stack:
+                  stack.enter_context(mock.patch.object(os, 'getuid', side_effect=uid))
+                  stack.enter_context(mock.patch.object(os, 'geteuid', side_effect=euid))
+                  stack.enter_context(mock.patch.object(subprocess, 'run', side_effect=fake_run))
+                  if capture_error:
+                      stack.enter_context(mock.patch.object(os, 'memfd_create', side_effect=capture_error))
+                  with contextlib.redirect_stdout(output):
+                      result = reader['main']()
+              return result, output.getvalue(), calls
+
+          class InactiveUnitObservation(unittest.TestCase):
+              def test_inactive_unit_emits_all_seven_facts_without_active_or_pid_prerequisite(self):
+                  rc, text, calls = run_reader()
+                  self.assertEqual(rc, 0)
+                  self.assertEqual(text.splitlines(), [
+                      'CONTROL_UNIT_OBSERVATION=COMPLETE','CONTROL_UNIT_LOAD_STATE=LOADED',
+                      'CONTROL_UNIT_ACTIVE_STATE=INACTIVE','CONTROL_UNIT_SUB_STATE=DEAD',
+                      'CONTROL_UNIT_RESULT=SUCCESS','CONTROL_UNIT_EXEC_MAIN_CODE=0',
+                      'CONTROL_UNIT_EXEC_MAIN_STATUS=0','CONTROL_UNIT_NRESTARTS=0'])
+                  self.assertEqual(reporter['checked_receipt'](text.encode(), rc), (text.splitlines(), 0))
+                  self.assertEqual(len(calls), 1)
+              def test_failed_oom_state_is_observation_not_health_or_start_authority(self):
+                  rc, text, calls = run_reader({**base,'ActiveState':'failed','SubState':'failed',
+                                              'Result':'oom-kill','ExecMainCode':'2','ExecMainStatus':'9','NRestarts':'3'})
+                  self.assertEqual(rc, 0)
+                  for field in ('ACTIVE_STATE=FAILED','SUB_STATE=FAILED','RESULT=OOM_KILL','EXEC_MAIN_STATUS=9','NRESTARTS=3'):
+                      self.assertIn('CONTROL_UNIT_' + field + '\n', text)
+                  self.assertEqual(len(calls), 1)
+                  self.assertNotIn('HEALTH', text)
+                  self.assertNotIn('AUTHORIZED', text)
+              def test_active_unit_is_observed_without_changing_old_active_probe(self):
+                  rc, text, _ = run_reader({**base,'ActiveState':'active','SubState':'running'})
+                  self.assertEqual(rc, 0)
+                  self.assertIn('CONTROL_UNIT_ACTIVE_STATE=ACTIVE\n', text)
+                  remote = workflow.split("<<'REMOTE_PROBE'\n",1)[1].split('\n          REMOTE_PROBE',1)[0]
+                  transport = workflow.split('      - name: Resolve protected model-host transport\n',1)[1].split('\n      - name:',1)[0]
+                  self.assertEqual(hashlib.sha256(remote.encode()).hexdigest(), '85cb0c0338c1fe269f57d0247075ba02555c973a083ce4d343d34330470db081')
+                  self.assertEqual(hashlib.sha256(transport.encode()).hexdigest(), '1afc768a2206afe172eca9be26e087963888400c3beeaefa10be9d686f080b69')
+                  self.assertLess(workflow.index('      - name: Read fixed unit lifecycle facts'), workflow.index('      - name: Read bounded control-plane facts'))
+              def test_single_fixed_read_has_deadline_sealed_capture_and_no_stdin_or_stderr(self):
+                  _, _, calls = run_reader()
+                  argv, kwargs = calls[0]
+                  self.assertEqual(argv, ['/usr/bin/systemctl','show','tai-qwen3-8b.service','--no-pager','--all',
+                                         '--property=LoadState,ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts'])
+                  self.assertEqual({k:v for k,v in kwargs.items() if k != 'stdout'},
+                                   {'stdin':subprocess.DEVNULL,'stderr':subprocess.DEVNULL,'timeout':5,
+                                    'check':False,'env':{'PATH':'/usr/bin:/bin','LC_ALL':'C'}})
+                  with self.assertRaises(OSError):
+                      os.fstat(kwargs['stdout'])
+                  tree = ast.parse(source)
+                  native = [n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='run']
+                  self.assertEqual(len(native), 1)
+                  for token in ('/proc/','environ','getenv','socket','urllib','pkcheck','sudo','--api-key','systemctl start','systemctl restart'):
+                      self.assertNotIn(token, source)
+              def test_root_or_mismatched_identity_prevents_query(self):
+                  for uid,euid in (((0,), (0,)), ((1001,), (0,)), ((1001,), (1002,))):
+                      with self.subTest(uid=uid,euid=euid):
+                          rc,text,calls = run_reader(uid=uid,euid=euid)
+                          self.assertEqual((rc,text,calls),(1,'CONTROL_UNIT_OBSERVATION=IDENTITY_REJECTED\n',[]))
+              def test_identity_change_after_query_discards_observation(self):
+                  rc,text,calls = run_reader(uid=(1001,1002),euid=(1001,1002))
+                  self.assertEqual((rc,text),(1,'CONTROL_UNIT_OBSERVATION=IDENTITY_REJECTED\n'))
+                  self.assertEqual(len(calls),1)
+              def test_unknown_enum_is_closed_other_and_unset_result_is_explicit(self):
+                  rc,text,_ = run_reader({**base,'SubState':'future-state','Result':''})
+                  self.assertEqual(rc,0)
+                  self.assertIn('CONTROL_UNIT_SUB_STATE=OTHER\n',text)
+                  self.assertIn('CONTROL_UNIT_RESULT=NOT_SET\n',text)
+                  self.assertNotIn('future-state',text)
+              def test_malformed_duplicate_missing_extra_and_sensitive_values_never_escape(self):
+                  raw = ''.join(k+'='+v+'\n' for k,v in base.items()).encode()
+                  cases = [raw+b'LoadState=loaded\n', raw.replace(b'LoadState=loaded\n',b''),
+                           raw+b'PRIVATE_KEY=PRIVATE_SENTINEL\n', raw.replace(b'SubState=dead',b'SubState=PRIVATE_SENTINEL'),
+                           raw.replace(b'Result=success',b'Result='+b'x'*65), raw+b'\x00',raw.replace(b'\n',b'\r\n'), b'\xff']
+                  for payload in cases:
+                      rc,text,_ = run_reader(raw=payload)
+                      self.assertEqual((rc,text),(1,'CONTROL_UNIT_OBSERVATION=OUTPUT_INVALID\n'))
+                      self.assertNotIn('PRIVATE_SENTINEL',text)
+              def test_numeric_boundaries_and_invalid_forms(self):
+                  for key,limit in reader['LIMITS'].items():
+                      for value in ('0',str(limit)):
+                          rc,_,_ = run_reader({**base,key:value})
+                          self.assertEqual(rc,0)
+                      for value in ('-1','01','+1',' 1','1 ',str(limit+1),'9'*11,'PRIVATE_SENTINEL'):
+                          rc,text,_ = run_reader({**base,key:value})
+                          self.assertEqual((rc,text),(1,'CONTROL_UNIT_OBSERVATION=OUTPUT_INVALID\n'))
+              def test_read_errors_timeout_and_capture_failure_do_not_retry_or_disclose(self):
+                  for kwargs,code,count in (
+                      ({'rc':3},'READ_ERROR',1),
+                      ({'error':OSError('PRIVATE_SENTINEL')},'READ_ERROR',1),
+                      ({'error':subprocess.TimeoutExpired('PRIVATE_SENTINEL',5)},'READ_TIMEOUT',1),
+                      ({'capture_error':OSError('PRIVATE_SENTINEL')},'CAPTURE_UNAVAILABLE',0)):
+                      rc,text,calls = run_reader(**kwargs)
+                      self.assertEqual((rc,text),(1,'CONTROL_UNIT_OBSERVATION='+code+'\n'))
+                      self.assertEqual(len(calls),count)
+              def test_oversize_capture_is_bounded_and_rejected(self):
+                  rc,text,_ = run_reader(raw=b'x'*8192)
+                  self.assertEqual((rc,text),(1,'CONTROL_UNIT_OBSERVATION=OUTPUT_INVALID\n'))
+              def test_receipt_parser_rejects_untrusted_shape_values_and_return_codes(self):
+                  rc,text,_ = run_reader()
+                  for raw,code in ((text.encode(),1),(text.encode()+b'PRIVATE_SENTINEL\n',0),
+                                   (text.replace('INACTIVE','PRIVATE_SENTINEL').encode(),0),
+                                   (text.replace('NRESTARTS=0','NRESTARTS=4294967296').encode(),0),
+                                   (text.encode()*100,0),(b'',255)):
+                      with self.assertRaises((ValueError,UnicodeError)):
+                          reporter['checked_receipt'](raw,code)
+                  for code in reader['ERRORS']:
+                      raw=('CONTROL_UNIT_OBSERVATION='+code+'\n').encode()
+                      self.assertEqual(reporter['checked_receipt'](raw,1),([raw.decode().strip()],1))
+                      with self.assertRaises(ValueError):
+                          reporter['checked_receipt'](raw,0)
+              def test_reader_and_runner_have_identical_closed_vocabulary(self):
+                  for key in ('FIELDS','ENUMS','LIMITS','ERRORS'):
+                      self.assertEqual(reader[key],reporter[key])
+
+          suite = unittest.defaultTestLoader.loadTestsFromTestCase(InactiveUnitObservation)
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          raise SystemExit(not result.wasSuccessful())
+          UNIT_STATE_FIXTURES
           GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-control-probe-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
   probe:
@@ -290,6 +447,271 @@ jobs:
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read fixed unit lifecycle facts
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/unit-state-raw"' EXIT
+          set +e
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$MODEL_USER@$MODEL_HOST" /usr/bin/python3 -I -B - > "$RUNNER_TEMP/unit-state-raw" 2>/dev/null <<'UNIT_STATE_PROBE'
+          import fcntl
+          import os
+          import re
+          import subprocess
+          import sys
+
+          ENUMS = {'LoadState': ('stub', 'loaded', 'not-found', 'bad-setting', 'error', 'merged', 'masked'),
+           'ActiveState': ('active',
+                           'reloading',
+                           'inactive',
+                           'failed',
+                           'activating',
+                           'deactivating',
+                           'maintenance',
+                           'refreshing'),
+           'SubState': ('dead',
+                        'condition',
+                        'start-pre',
+                        'start',
+                        'start-post',
+                        'running',
+                        'exited',
+                        'reload',
+                        'reload-signal',
+                        'reload-notify',
+                        'stop',
+                        'stop-watchdog',
+                        'stop-sigterm',
+                        'stop-sigkill',
+                        'stop-post',
+                        'final-watchdog',
+                        'final-sigterm',
+                        'final-sigkill',
+                        'failed',
+                        'auto-restart',
+                        'auto-restart-queued',
+                        'cleaning',
+                        'dead-before-auto-restart',
+                        'failed-before-auto-restart',
+                        'dead-resources-pinned'),
+           'Result': ('success',
+                      'resources',
+                      'protocol',
+                      'timeout',
+                      'exit-code',
+                      'signal',
+                      'core-dump',
+                      'watchdog',
+                      'start-limit-hit',
+                      'oom-kill',
+                      'exec-condition',
+                      'skip-condition')}
+          FIELDS = (('LoadState', 'LOAD_STATE'), ('ActiveState', 'ACTIVE_STATE'), ('SubState', 'SUB_STATE'), ('Result', 'RESULT'), ('ExecMainCode', 'EXEC_MAIN_CODE'), ('ExecMainStatus', 'EXEC_MAIN_STATUS'), ('NRestarts', 'NRESTARTS'))
+          LIMITS = {'ExecMainCode': 6, 'ExecMainStatus': 255, 'NRestarts': 4294967295}
+          ERRORS = ('IDENTITY_REJECTED', 'CAPTURE_UNAVAILABLE', 'READ_TIMEOUT', 'READ_ERROR', 'OUTPUT_INVALID')
+
+          class UnitObservationError(Exception):
+              pass
+
+          def nonroot_subject():
+              subject = (os.getuid(), os.geteuid())
+              if subject[0] <= 0 or subject[0] != subject[1]:
+                  raise UnitObservationError('IDENTITY_REJECTED')
+              return subject
+
+          def normalized_fields(raw):
+              if not isinstance(raw, bytes) or not 0 < len(raw) <= 4096 or b'\x00' in raw or b'\r' in raw:
+                  raise UnitObservationError('OUTPUT_INVALID')
+              try:
+                  rows = raw.decode('ascii').splitlines()
+              except UnicodeError:
+                  raise UnitObservationError('OUTPUT_INVALID') from None
+              values = {}
+              for line in rows:
+                  key, separator, value = line.partition('=')
+                  if not separator or key not in dict(FIELDS) or key in values:
+                      raise UnitObservationError('OUTPUT_INVALID')
+                  values[key] = value
+              if set(values) != set(dict(FIELDS)):
+                  raise UnitObservationError('OUTPUT_INVALID')
+              result = []
+              for key, label in FIELDS:
+                  value = values[key]
+                  if key in LIMITS:
+                      if not re.fullmatch(r'0|[1-9][0-9]{0,9}', value) or int(value) > LIMITS[key]:
+                          raise UnitObservationError('OUTPUT_INVALID')
+                      normalized = value
+                  else:
+                      if value == '' and key == 'Result':
+                          normalized = 'NOT_SET'
+                      elif not re.fullmatch(r'[a-z][a-z0-9-]{0,63}', value):
+                          raise UnitObservationError('OUTPUT_INVALID')
+                      else:
+                          normalized = value.upper().replace('-', '_') if value in ENUMS[key] else 'OTHER'
+                  result.append('CONTROL_UNIT_' + label + '=' + normalized)
+              return result
+
+          def observe_unit():
+              subject = nonroot_subject()
+              capture = None
+              try:
+                  try:
+                      capture = os.memfd_create('gekta-unit-state', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+                      os.ftruncate(capture, 4096)
+                      fcntl.fcntl(capture, getattr(fcntl, 'F_ADD_SEALS', 1033),
+                                  getattr(fcntl, 'F_SEAL_GROW', 4) | getattr(fcntl, 'F_SEAL_SHRINK', 2)
+                                  | getattr(fcntl, 'F_SEAL_SEAL', 1))
+                  except (AttributeError, OSError):
+                      raise UnitObservationError('CAPTURE_UNAVAILABLE') from None
+                  try:
+                      observed = subprocess.run(
+                          ['/usr/bin/systemctl', 'show', 'tai-qwen3-8b.service', '--no-pager', '--all',
+                           '--property=LoadState,ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts'],
+                          stdin=subprocess.DEVNULL, stdout=capture, stderr=subprocess.DEVNULL,
+                          timeout=5, check=False, env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
+                      )
+                  except subprocess.TimeoutExpired:
+                      raise UnitObservationError('READ_TIMEOUT') from None
+                  except OSError:
+                      raise UnitObservationError('READ_ERROR') from None
+                  if nonroot_subject() != subject:
+                      raise UnitObservationError('IDENTITY_REJECTED')
+                  if observed.returncode != 0:
+                      raise UnitObservationError('READ_ERROR')
+                  length = os.lseek(capture, 0, os.SEEK_CUR)
+                  if not 0 < length <= 4096:
+                      raise UnitObservationError('OUTPUT_INVALID')
+                  raw = os.pread(capture, length, 0)
+                  if len(raw) != length:
+                      raise UnitObservationError('OUTPUT_INVALID')
+                  return normalized_fields(raw)
+              finally:
+                  if capture is not None:
+                      os.close(capture)
+
+          def main():
+              try:
+                  fields = observe_unit()
+              except UnitObservationError as error:
+                  code = error.args[0] if error.args and error.args[0] in ERRORS else 'READ_ERROR'
+                  print('CONTROL_UNIT_OBSERVATION=' + code)
+                  return 1
+              except Exception:
+                  print('CONTROL_UNIT_OBSERVATION=READ_ERROR')
+                  return 1
+              print('CONTROL_UNIT_OBSERVATION=COMPLETE')
+              for line in fields:
+                  print(line)
+              return 0
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          UNIT_STATE_PROBE
+          unit_state_rc=$?
+          set -e
+          python3 -I -B - "$RUNNER_TEMP/unit-state-raw" "$unit_state_rc" <<'UNIT_STATE_REPORT'
+          import pathlib
+          import re
+          import sys
+
+          ENUMS = {'LoadState': ('stub', 'loaded', 'not-found', 'bad-setting', 'error', 'merged', 'masked'),
+           'ActiveState': ('active',
+                           'reloading',
+                           'inactive',
+                           'failed',
+                           'activating',
+                           'deactivating',
+                           'maintenance',
+                           'refreshing'),
+           'SubState': ('dead',
+                        'condition',
+                        'start-pre',
+                        'start',
+                        'start-post',
+                        'running',
+                        'exited',
+                        'reload',
+                        'reload-signal',
+                        'reload-notify',
+                        'stop',
+                        'stop-watchdog',
+                        'stop-sigterm',
+                        'stop-sigkill',
+                        'stop-post',
+                        'final-watchdog',
+                        'final-sigterm',
+                        'final-sigkill',
+                        'failed',
+                        'auto-restart',
+                        'auto-restart-queued',
+                        'cleaning',
+                        'dead-before-auto-restart',
+                        'failed-before-auto-restart',
+                        'dead-resources-pinned'),
+           'Result': ('success',
+                      'resources',
+                      'protocol',
+                      'timeout',
+                      'exit-code',
+                      'signal',
+                      'core-dump',
+                      'watchdog',
+                      'start-limit-hit',
+                      'oom-kill',
+                      'exec-condition',
+                      'skip-condition')}
+          FIELDS = (('LoadState', 'LOAD_STATE'), ('ActiveState', 'ACTIVE_STATE'), ('SubState', 'SUB_STATE'), ('Result', 'RESULT'), ('ExecMainCode', 'EXEC_MAIN_CODE'), ('ExecMainStatus', 'EXEC_MAIN_STATUS'), ('NRestarts', 'NRESTARTS'))
+          LIMITS = {'ExecMainCode': 6, 'ExecMainStatus': 255, 'NRestarts': 4294967295}
+          ERRORS = ('IDENTITY_REJECTED', 'CAPTURE_UNAVAILABLE', 'READ_TIMEOUT', 'READ_ERROR', 'OUTPUT_INVALID')
+
+          def checked_receipt(raw, remote_rc):
+              if not isinstance(raw, bytes) or not 0 < len(raw) <= 4096 or b'\x00' in raw or b'\r' in raw:
+                  raise ValueError
+              lines = raw.decode('ascii').splitlines()
+              if len(lines) == 1 and lines[0] in {'CONTROL_UNIT_OBSERVATION=' + code for code in ERRORS}:
+                  if remote_rc != 1:
+                      raise ValueError
+                  return lines, 1
+              if remote_rc != 0 or len(lines) != 8 or lines[0] != 'CONTROL_UNIT_OBSERVATION=COMPLETE':
+                  raise ValueError
+              for line, (key, label) in zip(lines[1:], FIELDS):
+                  name, separator, value = line.partition('=')
+                  if name != 'CONTROL_UNIT_' + label or not separator:
+                      raise ValueError
+                  if key in LIMITS:
+                      if not re.fullmatch(r'0|[1-9][0-9]{0,9}', value) or int(value) > LIMITS[key]:
+                          raise ValueError
+                  else:
+                      allowed = {item.upper().replace('-', '_') for item in ENUMS[key]} | {'OTHER'}
+                      if key == 'Result':
+                          allowed.add('NOT_SET')
+                      if value not in allowed:
+                          raise ValueError
+              return lines, 0
+
+          def main():
+              try:
+                  with pathlib.Path(sys.argv[1]).open('rb') as handle:
+                      raw = handle.read(4097)
+                  lines, rc = checked_receipt(raw, int(sys.argv[2]))
+              except Exception:
+                  print('CONTROL_UNIT_OBSERVATION=RECEIPT_INVALID')
+                  return 1
+              print('\n'.join(lines))
+              return rc
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          UNIT_STATE_REPORT
 
       - name: Read bounded control-plane facts
         env:
