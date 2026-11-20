@@ -29,7 +29,7 @@ FIXED = ['AGENTS.md', '.github/workflows/platform-v7-autopilot-guard.yml',
 
 class SourceBudgetChecks(unittest.TestCase):
     def expected_owned_guard_seconds(self, ref):
-        return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009') else 300
+        return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009', 'fix/gekta-han-stream-20260927') else 300
 
     def fixture(self, root, test_fail=False, guard_fail=False):
             repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()
@@ -326,6 +326,50 @@ while True:
                     self.assertEqual([c['budget_seconds'] for c in report['checks']], [180, 180])
                     self.assertEqual([c['outer_timeout'] for c in calls], [195, 195])
 
+    def test_supplied_rate_ref_requires_exact_repository_and_case_sensitive_branch(self):
+        ref = 'fix/gekta-han-stream-20260927'
+        repository = 'fixture/repository'
+        cases = [
+            (ref, repository, repository, 420),
+            (ref.upper(), repository, repository, 180),
+            (ref + '-extra', repository, repository, 180),
+            (ref + '/extra', repository, repository, 180),
+            ('prefix/' + ref, repository, repository, 180),
+            (ref + ' ', repository, repository, 180),
+            (' ' + ref, repository, repository, 180),
+            ('', repository, repository, 180),
+            (ref, 'fork/repository', repository, 180),
+            (ref, 'Fixture/repository', repository, 180),
+            (ref, repository + '/', repository, 180),
+            (ref, '', repository, 180),
+            (ref, repository, '', 180),
+            (ref, '', '', 180),
+        ]
+        for candidate, head_repository, own_repository, budget in cases:
+            with self.subTest(ref=candidate, head=head_repository, repository=own_repository):
+                report, calls, _ = self.execute_collector(
+                    head_ref=candidate, guard_seconds=budget,
+                    head_repository=head_repository, repository=own_repository,
+                )
+                self.assertEqual(report['result'], 'PASS')
+                self.assertEqual(report['stage'], 'complete')
+                self.assertEqual([check['budget_seconds'] for check in report['checks']], [budget, 180])
+                self.assertEqual([check['outer_timeout_seconds'] for check in report['checks']], [budget + 15, 195])
+                self.assertEqual([call['outer_timeout'] for call in calls], [budget + 15, 195])
+                self.assertEqual([check['exit_code'] for check in report['checks']], [0, 0])
+
+    def test_supplied_rate_budget_cannot_accept_partial_or_unsuccessful_tap(self):
+        for behavior in ['header-only', 'skipped-tap', 'inconsistent-tap', 'cancelled-tap', 'failed-tap']:
+            with self.subTest(behavior=behavior):
+                report, calls, _ = self.execute_collector(
+                    behavior, head_ref='fix/gekta-han-stream-20260927', guard_seconds=420,
+                )
+                self.assertEqual(report['result'], 'FAIL')
+                self.assertEqual([check['budget_seconds'] for check in report['checks']], [420, 180])
+                self.assertEqual([call['outer_timeout'] for call in calls], [435, 195])
+                self.assertFalse(report['independent_review'])
+                self.assertFalse(report['production_acceptance'])
+
     def test_incomplete_skipped_and_inconsistent_tap_cannot_pass(self):
         for behavior in ['header-only','skipped-tap','inconsistent-tap']:
             with self.subTest(behavior=behavior):
@@ -340,7 +384,7 @@ while True:
             '\n  production-like-kubernetes:\n', 1)[0]
         runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
             '\n  production-like-kubernetes-gate:\n', 1)[0]
-        self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-answer-copy-20260927' || github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\n", preflight)
+        self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-answer-copy-20260927' || github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009' || github.event.pull_request.head.ref == 'fix/gekta-han-stream-20260927') && 10 || 8 }}\n", preflight)
         job_expression = preflight.split('    timeout-minutes: ', 1)[1].splitlines()[0]
         # This fixed ASCII model follows GitHub's case-insensitive string comparison.
         self.assertTrue(job_expression.isascii())
@@ -358,6 +402,15 @@ while True:
             ('pull_request', 'fix/password-only-cabinet-login-20261005', 1, 1, 10),
             ('pull_request', 'fix/password-only-cabinet-login-20261005', 2, 1, 8),
             ('pull_request', 'fix/password-only-cabinet-login-20261005-extra', 1, 1, 8),
+            ('pull_request', 'fix/gekta-han-stream-20260927', 1, 1, 10),
+            ('pull_request', 'FIX/GEKTA-HAN-STREAM-20260927', 1, 1, 10),
+            ('pull_request', 'fix/gekta-han-stream-20260927', 2, 1, 8),
+            ('pull_request', 'fix/gekta-han-stream-20260927', None, 1, 8),
+            ('push', 'fix/gekta-han-stream-20260927', 1, 1, 8),
+            *[('pull_request', ref, 1, 1, 8) for ref in
+              ('fix/gekta-han-stream-20260927-extra', 'fix/gekta-han-stream-20260927/extra',
+               'prefix/fix/gekta-han-stream-20260927', 'fix/gekta-han-stream-20260927 ',
+               ' fix/gekta-han-stream-20260927')],
             *[('pull_request', ref, 1, 1, 8) for ref in
               ('', target + '-extra', target + '/extra', 'prefix/' + target, target + ' ')],
         ]:
