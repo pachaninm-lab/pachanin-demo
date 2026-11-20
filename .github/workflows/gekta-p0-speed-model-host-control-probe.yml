@@ -550,6 +550,83 @@ jobs:
                           reporter['checked_report'](json.dumps(changed).encode(), 0)
 
 
+              def test_late_auto_restart_transition_uses_only_validated_main_start_evidence(self):
+                  result, calls = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=record(__MONOTONIC_TIMESTAMP='1500000'))
+                  self.assertEqual(result['timing_relation'], 'UNIT_AFTER_MAIN_EXIT')
+                  self.assertEqual(result['journal']['status'], 'CURRENT_PARTIAL')
+                  self.assertEqual(result['journal']['error_classes'], ['INVALID_ARGUMENT'])
+                  self.assertEqual(result['main_exit_age_seconds'], 8)
+                  self.assertEqual(len(calls), 3)
+                  self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                  for private_field in ('InactiveExitTimestampMonotonic', 'ExecMainStartTimestampMonotonic', 'ExecMainExitTimestampMonotonic', 'InvocationID'):
+                      self.assertNotIn(private_field, json.dumps(result))
+
+              def test_mixed_old_current_rows_are_partial_and_all_old_stays_old_in_either_order(self):
+                  old = record('out of memory VALUE', __MONOTONIC_TIMESTAMP='999999')
+                  current = record(__MONOTONIC_TIMESTAMP='1500000')
+                  for rows in (old + current, current + old):
+                      result, _ = self.execute(journal=rows)
+                      self.assertEqual(result['journal']['status'], 'CURRENT_PARTIAL')
+                      self.assertEqual(result['journal']['entries'], 1)
+                      self.assertEqual(result['journal']['error_classes'], ['INVALID_ARGUMENT'])
+                      self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                  result, _ = self.execute(journal=old + old)
+                  self.assertEqual(result['journal'], reader['journal_result']('OLD'))
+                  result, _ = self.execute(journal=old + record(None))
+                  self.assertEqual(result['journal'], reader['journal_result']('UNREADABLE', 1, 1))
+                  for invalid, expected in ((record(__MONOTONIC_TIMESTAMP='10000001'), 'NOT_CURRENT'), (record(_SYSTEMD_INVOCATION_ID='2' * 32), 'NOT_CURRENT'), (record(_SYSTEMD_UNIT='other.service'), 'NOT_CURRENT'), (record(__MONOTONIC_TIMESTAMP='-1'), 'INVALID')):
+                      result, _ = self.execute(journal=old + current + invalid)
+                      self.assertEqual(result['journal'], reader['journal_result'](expected))
+
+              def test_unusable_unit_boundary_and_invalid_main_windows_never_enable_fallback(self):
+                  for begin in ('0', '10000001'):
+                      result, calls = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic=begin))
+                      self.assertEqual(result['timing_relation'], 'UNIT_BOUNDARY_UNAVAILABLE')
+                      self.assertEqual(result['journal'], reader['journal_result']('INVALID'))
+                      self.assertEqual(len(calls), 2)
+                      self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                  for start, end in (('0', '2000000'), ('1200000', '0'), ('3000000', '2000000'), ('1200000', '10000001')):
+                      result, calls = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000', ExecMainStartTimestampMonotonic=start, ExecMainExitTimestampMonotonic=end), journal=record(__MONOTONIC_TIMESTAMP='3000000'))
+                      self.assertEqual(result['timing_relation'], 'MAIN_WINDOW_UNAVAILABLE')
+                      self.assertEqual(result['journal'], reader['journal_result']('OLD'))
+                      self.assertIsNone(result['main_exit_age_seconds'])
+                      self.assertEqual(len(calls), 3)
+                      self.assertEqual(reporter['checked_report'](json.dumps(result).encode(), 0)[0], result)
+                  result, _ = self.execute(first=snapshot_blob(ExecMainStartTimestampMonotonic='0', ExecMainExitTimestampMonotonic='0'))
+                  self.assertEqual(result['timing_relation'], 'MAIN_WINDOW_UNAVAILABLE')
+                  self.assertEqual(result['journal']['status'], 'CURRENT')
+
+              def test_boundary_equality_is_inclusive_without_relaxing_current_invocation_checks(self):
+                  result, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='2000000'), journal=record(__MONOTONIC_TIMESTAMP='2000000'))
+                  self.assertEqual(result['timing_relation'], 'UNIT_BEFORE_OR_AT_MAIN_EXIT')
+                  self.assertEqual(result['journal']['status'], 'CURRENT')
+                  for stamp, expected in (('1200000', 'CURRENT_PARTIAL'), ('1199999', 'OLD')):
+                      result, _ = self.execute(first=snapshot_blob(InactiveExitTimestampMonotonic='4000000'), journal=record(__MONOTONIC_TIMESTAMP=stamp))
+                      self.assertEqual(result['timing_relation'], 'UNIT_AFTER_MAIN_EXIT')
+                      self.assertEqual(result['journal']['status'], expected)
+                  result, _ = self.execute(journal=record(__MONOTONIC_TIMESTAMP='1100000'))
+                  self.assertEqual(result['timing_relation'], 'UNIT_BEFORE_OR_AT_MAIN_EXIT')
+                  self.assertEqual(result['journal']['status'], 'CURRENT')
+
+              def test_reporter_enforces_closed_timing_relation_and_generated_receipt_consistency(self):
+                  result, _ = self.execute()
+                  mutations = (
+                      lambda value: value.pop('timing_relation'),
+                      lambda value: value.update(timing_relation='PRIVATE_VALUE'),
+                      lambda value: value.update(timing_relation=False),
+                      lambda value: value.update(timing_relation='UNIT_AFTER_MAIN_EXIT'),
+                      lambda value: value.update(timing_relation='UNIT_AFTER_MAIN_EXIT', main_exit_age_seconds=None),
+                      lambda value: value.update(timing_relation='MAIN_WINDOW_UNAVAILABLE'),
+                      lambda value: value.update(timing_relation='UNIT_BOUNDARY_UNAVAILABLE'),
+                      lambda value: value.update(raw_timestamp=1),
+                  )
+                  for mutate in mutations:
+                      changed = copy.deepcopy(result)
+                      mutate(changed)
+                      with self.assertRaises(ValueError):
+                          reporter['checked_report'](json.dumps(changed).encode(), 0)
+
+
           if __name__ == '__main__':
               unittest.main(verbosity=2)
           FAILED_STARTUP_CONTRACT
@@ -923,7 +1000,7 @@ jobs:
           import json
           import re
 
-          SCHEMA = 'gekta.fixed-unit-startup-evidence.v1'
+          SCHEMA = 'gekta.fixed-unit-startup-evidence.v2'
           ENUMS = {
               'LoadState': ('STUB', 'LOADED', 'NOT_FOUND', 'BAD_SETTING', 'ERROR', 'MERGED', 'MASKED', 'OTHER'),
               'ActiveState': ('ACTIVE', 'RELOADING', 'INACTIVE', 'FAILED', 'ACTIVATING', 'DEACTIVATING', 'MAINTENANCE', 'REFRESHING', 'OTHER'),
@@ -935,6 +1012,7 @@ jobs:
           LIMITS = {'ExecMainCode': 6, 'ExecMainStatus': 255, 'NRestarts': 4294967295}
           ERRORS = ('IDENTITY_REJECTED', 'CAPTURE_UNAVAILABLE', 'SNAPSHOT_TIMEOUT', 'SNAPSHOT_READ_ERROR', 'SNAPSHOT_INVALID', 'READ_ERROR')
           JOURNAL_STATES = ('CURRENT', 'CURRENT_PARTIAL', 'NO_EVIDENCE', 'UNREADABLE', 'OLD', 'NOT_CURRENT', 'NO_INVOCATION', 'TIMEOUT', 'READ_ERROR', 'OVERSIZE', 'INVALID')
+          TIMING_RELATIONS = ('UNIT_BEFORE_OR_AT_MAIN_EXIT', 'UNIT_AFTER_MAIN_EXIT', 'MAIN_WINDOW_UNAVAILABLE', 'UNIT_BOUNDARY_UNAVAILABLE')
           CLASSES = ('INVALID_ARGUMENT', 'MODEL_OPEN_FAILED', 'MODEL_LOAD_FAILED', 'MODEL_FORMAT_ERROR', 'UNSUPPORTED_ARCHITECTURE', 'ADDRESS_IN_USE', 'BIND_FAILED', 'ALLOCATION_FAILED', 'PERMISSION_DENIED', 'REQUIRED_FILE_UNAVAILABLE')
           ARGUMENT_HINTS = ('THREADS', 'THREADS_BATCH', 'PARALLEL', 'CTX_SIZE', 'BATCH_SIZE', 'UBATCH_SIZE', 'CACHE_RAM', 'CACHE_REUSE', 'CACHE_PROMPT', 'KV_UNIFIED', 'FLASH_ATTN', 'MODEL', 'HOST', 'PORT', 'API_KEY', 'API_KEY_FILE', 'OTHER')
 
@@ -962,7 +1040,7 @@ jobs:
                   if set(report) != {'schema', 'observation'} or remote_rc != 0:
                       raise ValueError
                   return report, 0
-              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'journal'}:
+              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'timing_relation', 'journal'}:
                   raise ValueError
               state = report['state']
               if not isinstance(state, dict) or set(state) != set(ENUMS) | set(LIMITS):
@@ -978,8 +1056,19 @@ jobs:
               age = report['main_exit_age_seconds']
               if age is not None and (type(age) is not int or not 0 <= age <= 4294967295):
                   raise ValueError
+              relation = report['timing_relation']
+              if type(relation) is not str or relation not in TIMING_RELATIONS:
+                  raise ValueError
+              if relation in ('UNIT_BEFORE_OR_AT_MAIN_EXIT', 'UNIT_AFTER_MAIN_EXIT') and age is None:
+                  raise ValueError
+              if relation == 'MAIN_WINDOW_UNAVAILABLE' and age is not None:
+                  raise ValueError
               journal = report['journal']
               if not isinstance(journal, dict) or set(journal) != {'status', 'entries', 'unsupported_messages', 'error_classes', 'argument_hints'} or journal['status'] not in JOURNAL_STATES:
+                  raise ValueError
+              if relation == 'UNIT_AFTER_MAIN_EXIT' and journal['status'] == 'CURRENT':
+                  raise ValueError
+              if relation == 'UNIT_BOUNDARY_UNAVAILABLE' and journal['status'] not in ('INVALID', 'NO_INVOCATION', 'NOT_CURRENT'):
                   raise ValueError
               for key in ('entries', 'unsupported_messages'):
                   if type(journal[key]) is not int or not 0 <= journal[key] <= 200:
@@ -1122,10 +1211,26 @@ jobs:
               return {'status': status, 'entries': entries, 'unsupported_messages': unsupported, 'error_classes': list(classes), 'argument_hints': list(hints)}
 
 
-          def read_journal(before):
+          def select_journal_window(before, now_us):
+              begin = before['times']['InactiveExitTimestampMonotonic']
+              start, end = (before['times'][key] for key in ('ExecMainStartTimestampMonotonic', 'ExecMainExitTimestampMonotonic'))
+              if not 0 < begin <= now_us:
+                  return 'UNIT_BOUNDARY_UNAVAILABLE', None
+              if not 0 < start <= end <= now_us:
+                  return 'MAIN_WINDOW_UNAVAILABLE', begin
+              # systemd may advance InactiveExit when scheduling auto-restart after main exit.
+              # In that proven relation, retain only evidence at/after the validated main start.
+              if begin > end:
+                  return 'UNIT_AFTER_MAIN_EXIT', start
+              return 'UNIT_BEFORE_OR_AT_MAIN_EXIT', begin
+
+
+          def read_journal(before, lower_bound, main_start_only):
               invocation = before['invocation']
               if not invocation:
                   return journal_result('NO_INVOCATION')
+              if lower_bound is None:
+                  return journal_result('INVALID')
               argv = ['/usr/bin/journalctl', '--no-pager', '--boot', '--lines=200', '--output=json', '--output-fields=MESSAGE,_SYSTEMD_INVOCATION_ID,_SYSTEMD_UNIT,__MONOTONIC_TIMESTAMP', '_SYSTEMD_UNIT=' + SERVICE, '_SYSTEMD_INVOCATION_ID=' + invocation]
               outcome, rc, raw, stderr = bounded_command(argv, 65536)
               if outcome != 'OK':
@@ -1140,7 +1245,7 @@ jobs:
                   if not 1 <= len(lines) <= 200:
                       raise ValueError
                   now_us = time.monotonic_ns() // 1000
-                  observations, unsupported, classes, hints = 0, 0, set(), set()
+                  observations, unsupported, older, classes, hints = 0, 0, 0, set(), set()
                   for line in lines:
                       row = json.loads(line, object_pairs_hook=unique_object)
                       if not isinstance(row, dict) or row.get('_SYSTEMD_UNIT') != SERVICE or row.get('_SYSTEMD_INVOCATION_ID') != invocation:
@@ -1149,11 +1254,11 @@ jobs:
                       if not isinstance(timestamp, str) or not re.fullmatch(r'[1-9][0-9]{0,19}', timestamp):
                           raise ValueError
                       stamp = int(timestamp)
-                      begin = before['times']['InactiveExitTimestampMonotonic']
-                      if begin and stamp < begin:
-                          return journal_result('OLD')
                       if stamp > now_us:
                           return journal_result('NOT_CURRENT')
+                      if stamp < lower_bound:
+                          older += 1
+                          continue
                       observations += 1
                       message = row.get('MESSAGE')
                       if not isinstance(message, str) or len(message.encode('utf-8')) > 4096:
@@ -1165,9 +1270,11 @@ jobs:
                       for match in re.finditer(r'\b(?:unknown|unrecognized|invalid) (?:command[- ]line )?(?:argument|option|flag)\s*[:=]?\s*[\x22\x27\x60]?(--[a-z][a-z0-9-]{0,63})\b', message, re.I):
                           label = match.group(1)[2:].upper().replace('-', '_')
                           hints.add(label if label in ARGUMENT_HINTS else 'OTHER')
+                  if not observations:
+                      return journal_result('OLD' if older else 'NO_EVIDENCE')
                   if unsupported == observations:
                       return journal_result('UNREADABLE', observations, unsupported)
-                  return journal_result('CURRENT_PARTIAL' if access_limited or unsupported else 'CURRENT', observations, unsupported, [value for value in CLASSES if value in classes], [value for value in ARGUMENT_HINTS if value in hints])
+                  return journal_result('CURRENT_PARTIAL' if access_limited or unsupported or older or main_start_only else 'CURRENT', observations, unsupported, [value for value in CLASSES if value in classes], [value for value in ARGUMENT_HINTS if value in hints])
               except (ValueError, UnicodeError, KeyError, OverflowError):
                   return journal_result('INVALID')
 
@@ -1180,18 +1287,19 @@ jobs:
                   if nonroot_subject() != subject:
                       raise ProbeError('IDENTITY_REJECTED')
                   return {'schema': SCHEMA, 'observation': 'NOT_FAILED'}
-              journal = read_journal(before)
+              now_us = time.monotonic_ns() // 1000
+              relation, lower_bound = select_journal_window(before, now_us)
+              journal = read_journal(before, lower_bound, relation == 'UNIT_AFTER_MAIN_EXIT')
               after = snapshot()
               if nonroot_subject() != subject:
                   raise ProbeError('IDENTITY_REJECTED')
               if before != after:
                   journal = journal_result('NOT_CURRENT')
-              now_us = time.monotonic_ns() // 1000
               start, end = (before['times'][key] for key in ('ExecMainStartTimestampMonotonic', 'ExecMainExitTimestampMonotonic'))
               age = (now_us - end) // 1000000 if 0 < start <= end <= now_us else None
               if age is not None and age > 4294967295:
                   age = None
-              return {'schema': SCHEMA, 'observation': 'COMPLETE', 'state': state, 'main_exit_age_seconds': age, 'journal': journal}
+              return {'schema': SCHEMA, 'observation': 'COMPLETE', 'state': state, 'main_exit_age_seconds': age, 'timing_relation': relation, 'journal': journal}
 
 
           def main():
@@ -1216,7 +1324,7 @@ jobs:
           import json
           import re
 
-          SCHEMA = 'gekta.fixed-unit-startup-evidence.v1'
+          SCHEMA = 'gekta.fixed-unit-startup-evidence.v2'
           ENUMS = {
               'LoadState': ('STUB', 'LOADED', 'NOT_FOUND', 'BAD_SETTING', 'ERROR', 'MERGED', 'MASKED', 'OTHER'),
               'ActiveState': ('ACTIVE', 'RELOADING', 'INACTIVE', 'FAILED', 'ACTIVATING', 'DEACTIVATING', 'MAINTENANCE', 'REFRESHING', 'OTHER'),
@@ -1228,6 +1336,7 @@ jobs:
           LIMITS = {'ExecMainCode': 6, 'ExecMainStatus': 255, 'NRestarts': 4294967295}
           ERRORS = ('IDENTITY_REJECTED', 'CAPTURE_UNAVAILABLE', 'SNAPSHOT_TIMEOUT', 'SNAPSHOT_READ_ERROR', 'SNAPSHOT_INVALID', 'READ_ERROR')
           JOURNAL_STATES = ('CURRENT', 'CURRENT_PARTIAL', 'NO_EVIDENCE', 'UNREADABLE', 'OLD', 'NOT_CURRENT', 'NO_INVOCATION', 'TIMEOUT', 'READ_ERROR', 'OVERSIZE', 'INVALID')
+          TIMING_RELATIONS = ('UNIT_BEFORE_OR_AT_MAIN_EXIT', 'UNIT_AFTER_MAIN_EXIT', 'MAIN_WINDOW_UNAVAILABLE', 'UNIT_BOUNDARY_UNAVAILABLE')
           CLASSES = ('INVALID_ARGUMENT', 'MODEL_OPEN_FAILED', 'MODEL_LOAD_FAILED', 'MODEL_FORMAT_ERROR', 'UNSUPPORTED_ARCHITECTURE', 'ADDRESS_IN_USE', 'BIND_FAILED', 'ALLOCATION_FAILED', 'PERMISSION_DENIED', 'REQUIRED_FILE_UNAVAILABLE')
           ARGUMENT_HINTS = ('THREADS', 'THREADS_BATCH', 'PARALLEL', 'CTX_SIZE', 'BATCH_SIZE', 'UBATCH_SIZE', 'CACHE_RAM', 'CACHE_REUSE', 'CACHE_PROMPT', 'KV_UNIFIED', 'FLASH_ATTN', 'MODEL', 'HOST', 'PORT', 'API_KEY', 'API_KEY_FILE', 'OTHER')
 
@@ -1255,7 +1364,7 @@ jobs:
                   if set(report) != {'schema', 'observation'} or remote_rc != 0:
                       raise ValueError
                   return report, 0
-              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'journal'}:
+              if remote_rc != 0 or report.get('observation') != 'COMPLETE' or set(report) != {'schema', 'observation', 'state', 'main_exit_age_seconds', 'timing_relation', 'journal'}:
                   raise ValueError
               state = report['state']
               if not isinstance(state, dict) or set(state) != set(ENUMS) | set(LIMITS):
@@ -1271,8 +1380,19 @@ jobs:
               age = report['main_exit_age_seconds']
               if age is not None and (type(age) is not int or not 0 <= age <= 4294967295):
                   raise ValueError
+              relation = report['timing_relation']
+              if type(relation) is not str or relation not in TIMING_RELATIONS:
+                  raise ValueError
+              if relation in ('UNIT_BEFORE_OR_AT_MAIN_EXIT', 'UNIT_AFTER_MAIN_EXIT') and age is None:
+                  raise ValueError
+              if relation == 'MAIN_WINDOW_UNAVAILABLE' and age is not None:
+                  raise ValueError
               journal = report['journal']
               if not isinstance(journal, dict) or set(journal) != {'status', 'entries', 'unsupported_messages', 'error_classes', 'argument_hints'} or journal['status'] not in JOURNAL_STATES:
+                  raise ValueError
+              if relation == 'UNIT_AFTER_MAIN_EXIT' and journal['status'] == 'CURRENT':
+                  raise ValueError
+              if relation == 'UNIT_BOUNDARY_UNAVAILABLE' and journal['status'] not in ('INVALID', 'NO_INVOCATION', 'NOT_CURRENT'):
                   raise ValueError
               for key in ('entries', 'unsupported_messages'):
                   if type(journal[key]) is not int or not 0 <= journal[key] <= 200:
