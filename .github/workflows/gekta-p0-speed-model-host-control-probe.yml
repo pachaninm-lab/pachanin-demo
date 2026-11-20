@@ -807,6 +807,397 @@ jobs:
           FAILED_STARTUP_CONTRACT
           GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-control-probe-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
+      - name: Prove failed-unit bind observation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -B - <<'FAILED_BIND_CONTRACT'
+          import ast
+          import contextlib
+          import copy
+          import fcntl
+          import io
+          import ipaddress
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import textwrap
+          import types
+          import unittest
+          from unittest.mock import patch
+
+          workflow = Path('.github/workflows/gekta-p0-speed-model-host-control-probe.yml').read_text()
+
+
+          def bind_extract(marker):
+              begin = workflow.index("<<'" + marker + "'\n") + len("<<'" + marker + "'\n")
+              end = workflow.index('\n          ' + marker, begin)
+              return textwrap.dedent(workflow[begin:end])
+
+
+          bind_reader_source = bind_extract('FAILED_BIND_PROBE')
+          bind_reader = {'__name__': 'bind_contract'}
+          exec(compile(bind_reader_source, '<actual failed-bind reader>', 'exec'), bind_reader)
+          bind_reporter_source = bind_extract('FAILED_BIND_REPORT')
+          bind_reporter = {'__name__': 'bind_contract'}
+          exec(compile(bind_reporter_source.split('\nimport pathlib\n', 1)[0], '<actual failed-bind reporter>', 'exec'), bind_reporter)
+
+
+          def bind_fixture_snapshot(**changes):
+              values = {'LoadState': 'loaded', 'ActiveState': 'failed', 'SubState': 'failed', 'Result': 'exit-code',
+                        'ExecMainCode': '1', 'ExecMainStatus': '1', 'NRestarts': '3', 'InvocationID': '1' * 32,
+                        'InactiveExitTimestampMonotonic': '4000000', 'ExecMainStartTimestampMonotonic': '1200000',
+                        'ExecMainExitTimestampMonotonic': '2000000', 'User': 'fixture', 'CanStart': 'yes',
+                        'RefuseManualStart': 'no', 'PrivateNetwork': 'no', 'NetworkNamespacePath': '', 'JoinsNamespaceOf': '',
+                        'ExecStart': '{ path=/fixture/bin/llama-server ; argv[]=/fixture/bin/llama-server --host ' + bind_reader['BIND_PRIVATE'] + ' --port 18080 --model /fixture/model.gguf ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=123 ; code=exited ; status=1 }'}
+              values.update(changes)
+              return ''.join(key + '=' + values[key] + '\n' for key in bind_reader['BIND_PROPERTIES']).encode()
+
+
+          def bind_fixture_record(host=None, port=18080, message=None, **changes):
+              if message is None:
+                  message = "srv         start: couldn't bind HTTP server socket, hostname: " + (host or bind_reader['BIND_PRIVATE']) + ', port: ' + str(port)
+              row = {'_SYSTEMD_UNIT': 'tai-qwen3-8b.service', '_SYSTEMD_INVOCATION_ID': '1' * 32, '_BOOT_ID': '2' * 32,
+                     '_UID': '1000', '__MONOTONIC_TIMESTAMP': '3000000', 'MESSAGE': message}
+              row.update(changes)
+              return json.dumps(row).encode() + b'\n'
+
+
+          def bind_fixture_tcp(*rows):
+              # Linux proc TCP words are represented in host byte order.
+              result = '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n'
+              for index, (address, port, uid, inode, state) in enumerate(rows):
+                  packed = ipaddress.ip_address(address).packed
+                  encoded = (b''.join(packed[i:i + 4][::-1] for i in range(0, len(packed), 4)) if sys.byteorder == 'little' else packed).hex().upper()
+                  result += f' {index}: {encoded}:{port:04X} ' + '0' * len(encoded) + f':0000 {state} 00000000:00000000 00:00000000 00000000 {uid} 0 {inode} 1\n'
+              return result.encode()
+
+
+          class FailedBindObservation(unittest.TestCase):
+              def execute(self, *, first=None, second=None, journal=None, journal_rc=0, journal_timeout=False,
+                          tcp4=None, tcp6=None, tcp4_after=None, address='PRESENT', address_after=None,
+                          namespace='MATCH', nonlocal_bind=b'0\n', policy=0, policy_stderr=b'', no_policy=False):
+                  calls, reads, shows = [], [], [first or bind_fixture_snapshot(), second or first or bind_fixture_snapshot()]
+                  versions = {'tcp4': 0, 'address': 0}
+                  def command(argv, limit, discard_stdout=False):
+                      calls.append((argv, limit, discard_stdout))
+                      if argv[0] == '/usr/bin/systemctl':
+                          self.assertEqual(argv, bind_reader['BIND_SHOW']); self.assertEqual(limit, 16384)
+                          return 'OK', 0, shows.pop(0), b''
+                      if argv[0] == '/usr/bin/journalctl':
+                          self.assertEqual(argv, ['/usr/bin/journalctl', '--no-pager', '--boot', '--lines=200', '--output=json',
+                              '--output-fields=MESSAGE,_SYSTEMD_INVOCATION_ID,_SYSTEMD_UNIT,_BOOT_ID,_UID,__MONOTONIC_TIMESTAMP',
+                              '_SYSTEMD_UNIT=tai-qwen3-8b.service', '_SYSTEMD_INVOCATION_ID=' + '1' * 32, '_UID=1000'])
+                          self.assertEqual(limit, 65536)
+                          return ('TIMEOUT', None, b'', b'') if journal_timeout else ('OK', journal_rc, bind_fixture_record() if journal is None else journal, b'')
+                      if argv[0] == '/usr/bin/ip':
+                          self.assertEqual(argv[:7], ['/usr/bin/ip', '-j', '-4', 'address', 'show', 'to', bind_reader['BIND_PRIVATE'] + '/32'])
+                          self.assertEqual(len(argv), 7); self.assertEqual(limit, 16384)
+                          current = address_after if versions['address'] and address_after is not None else address
+                          versions['address'] += 1
+                          data = [] if current == 'ABSENT' else [{'addr_info': [{'family': 'inet', 'local': bind_reader['BIND_PRIVATE']}]}]
+                          return ('UNAVAILABLE', None, b'', b'') if current == 'UNPROVEN' else ('OK', 0, json.dumps(data).encode(), b'')
+                      self.assertEqual(argv, ['/usr/bin/pkcheck', '--action-id', 'org.freedesktop.systemd1.manage-units',
+                          '--process', str(os.getpid()) + ',900,1000', '--detail', 'unit', 'tai-qwen3-8b.service', '--detail', 'verb', 'start'])
+                      self.assertTrue(discard_stdout); self.assertEqual(limit, 64)
+                      return ('TIMEOUT', None, b'', b'') if policy == 'TIMEOUT' else ('OK', policy, b'', policy_stderr)
+                  def read(path, limit):
+                      reads.append((path, limit))
+                      if path == '/proc/sys/kernel/random/boot_id':
+                          self.assertEqual(limit, 64); return b'22222222-2222-2222-2222-222222222222\n'
+                      if path == '/proc/self/stat':
+                          self.assertEqual(limit, 4096); return (str(os.getpid()) + ' (fixture with spaces) S ' + ' '.join(['0'] * 18 + ['900'])).encode()
+                      if path == '/proc/sys/net/ipv4/ip_nonlocal_bind':
+                          self.assertEqual(limit, 8); return nonlocal_bind
+                      if path == '/proc/net/tcp':
+                          self.assertEqual(limit, 65536)
+                          value = tcp4_after if versions['tcp4'] and tcp4_after is not None else tcp4
+                          versions['tcp4'] += 1
+                      else:
+                          self.assertEqual(path, '/proc/net/tcp6'); self.assertEqual(limit, 65536); value = tcp6
+                      if isinstance(value, Exception):
+                          raise value
+                      return bind_fixture_tcp() if value is None else value
+                  def readlink(path):
+                      self.assertIn(path, ('/proc/self/ns/net', '/proc/1/ns/net'))
+                      if path == '/proc/self/ns/net': return 'net:[100]'
+                      if namespace == 'UNPROVEN': raise PermissionError
+                      return 'net:[100]' if namespace == 'MATCH' else 'net:[101]'
+                  def which(name, **kwargs):
+                      self.assertIn(name, ('ip', 'pkcheck'))
+                      return None if name == 'pkcheck' and no_policy else '/usr/bin/' + name
+                  with patch.dict(bind_reader, {'bind_command': command, 'bind_read': read, 'bind_subject': lambda: (1000, 1000)}), \
+                          patch.object(bind_reader['os'], 'readlink', side_effect=readlink), \
+                          patch.object(bind_reader['time'], 'monotonic_ns', return_value=10000000000), \
+                          patch.object(bind_reader['shutil'], 'which', side_effect=which), \
+                          patch.object(bind_reader['pwd'], 'getpwuid', return_value=types.SimpleNamespace(pw_name='fixture')):
+                      report = bind_reader['observe_failed_bind']()
+                  encoded = json.dumps(report, separators=(',', ':'), sort_keys=True).encode()
+                  self.assertEqual(bind_reporter['checked_bind_report'](encoded, 0), (report, 0))
+                  return report, calls, reads
+
+              def test_failed_binding_observation_is_fixed_read_only_and_private(self):
+                  report, calls, reads = self.execute(address='ABSENT')
+                  self.assertEqual(report['observation'], 'COMPLETE')
+                  self.assertEqual(report['current_target']['mode'], 'PRIVATE_BASELINE_IPV4')
+                  self.assertEqual(report['failed_target']['status'], 'MATCHED')
+                  self.assertEqual(report['target_relation'], 'MATCH')
+                  self.assertEqual(report['network']['local_address'], 'ABSENT')
+                  self.assertEqual(report['network']['scope'], 'CALLER_NETWORK_NAMESPACE')
+                  self.assertEqual(report['network']['ownership'], 'NONE')
+                  self.assertEqual(report['start_authority']['service_action'], 'NONE')
+                  self.assertEqual(len(calls), 6)
+                  raw = json.dumps(report)
+                  for private in (bind_reader['BIND_PRIVATE'], '/fixture/', '1000', 'net:[', 'hostname', 'argv', 'InvocationID'):
+                      self.assertNotIn(private, raw)
+                  self.assertNotIn('EADDRINUSE', raw)
+                  self.assertTrue(all(call[0][1] == 'show' for call in calls if call[0][0] == '/usr/bin/systemctl'))
+
+              def test_active_unit_does_not_query_journal_network_or_start_policy(self):
+                  report, calls, reads = self.execute(first=bind_fixture_snapshot(ActiveState='active', SubState='running'))
+                  self.assertEqual(report['observation'], 'NOT_APPLICABLE'); self.assertEqual(len(calls), 1)
+                  self.assertEqual(reads, [('/proc/sys/kernel/random/boot_id', 64)])
+
+              def test_literal_parser_never_guesses_wrapper_environment_or_duplicate_flags(self):
+                  parser = bind_reader['bind_current_target']
+                  text = bind_fixture_snapshot().decode().split('ExecStart=', 1)[1].splitlines()[0]
+                  self.assertEqual(parser(text)['status'], 'LITERAL')
+                  for changed in (text.replace('llama-server', 'wrapper'), text.replace('--host ', '--host $'),
+                                  text.replace('--port 18080', '--port 18080 --port 18081'), text + ' ' + text,
+                                  text.replace('--host ', '--host \\'), text.replace('--port 18080', '--port -1'),
+                                  text.replace('--host ', '--alias --host '), text.replace('--port 18080', '--listen-port 18080'),
+                                  text.replace('--host ', '--host='), text.replace('--port 18080', '--port=18080'),
+                                  text.replace('--model ', '--unknown ')):
+                      self.assertEqual(parser(changed), {'status': 'UNPROVEN', 'mode': 'UNPROVEN', 'port': 'UNPROVEN'})
+                  self.assertEqual(parser(text.replace('--port 18080', '--port 18080 --threads 16 --ctx-size 4096'))['status'], 'LITERAL')
+
+              def test_historical_target_is_explicit_and_ambiguous_targets_never_select(self):
+                  wrapper = bind_fixture_snapshot(ExecStart='{ path=/fixture/wrapper ; argv[]=/fixture/wrapper ; ignore_errors=no ; }')
+                  report, _, _ = self.execute(first=wrapper)
+                  self.assertEqual(report['current_target']['status'], 'UNPROVEN')
+                  self.assertEqual(report['network']['target_basis'], 'LAST_FAILED_INVOCATION')
+                  report, _, _ = self.execute(first=wrapper, journal=bind_fixture_record() + bind_fixture_record(host='127.0.0.1'))
+                  self.assertEqual(report['failed_target']['status'], 'AMBIGUOUS')
+                  self.assertEqual(report['network']['target_basis'], 'UNPROVEN')
+                  self.assertEqual(report['network']['local_address'], 'UNPROVEN')
+
+              def test_error_template_requires_complete_grammar_and_never_exports_values(self):
+                  for message in ("couldn't bind HTTP server socket, hostname: sample.invalid, port: 18080 suffix",
+                                  "user prompt: couldn't bind HTTP server socket, hostname: 127.0.0.1, port: 18080",
+                                  "user prompt: srv         start: couldn't bind HTTP server socket, hostname: 127.0.0.1, port: 18080",
+                                  "srv          init: couldn't bind HTTP server socket, hostname: 127.0.0.1, port: 18080",
+                                  'failed to bind', 'fixture secret=short', 'could not start HTTP server'):
+                      report, _, _ = self.execute(journal=bind_fixture_record(message=message))
+                      self.assertEqual(report['failed_target']['status'], 'NO_MATCH')
+                      self.assertNotIn(message, json.dumps(report))
+                  report, _, _ = self.execute(journal=bind_fixture_record(host='sample.invalid'))
+                  self.assertEqual(report['failed_target']['mode'], 'OTHER_LITERAL')
+                  self.assertEqual(report['target_relation'], 'UNPROVEN')
+                  self.assertNotIn('sample.invalid', json.dumps(report))
+                  report, _, _ = self.execute(journal=bind_fixture_record(host='127.\x1b[31m0.0.1'))
+                  self.assertEqual(report['failed_target']['status'], 'NO_MATCH')
+                  message = json.loads(bind_fixture_record())['MESSAGE']
+                  for prefix in ('', 'E ', '0.01.002.003 E ', '\x1b[31mE '):
+                      report, _, _ = self.execute(journal=bind_fixture_record(message=prefix + message + '\x1b[0m\n'))
+                      self.assertEqual(report['failed_target']['status'], 'MATCHED')
+
+              def test_foreign_identity_future_and_duplicate_fields_fail_closed(self):
+                  for field, value in (('_SYSTEMD_UNIT', 'other.service'), ('_SYSTEMD_INVOCATION_ID', '3' * 32),
+                                       ('_BOOT_ID', '3' * 32), ('_UID', '0'), ('__MONOTONIC_TIMESTAMP', '10000001')):
+                      with self.assertRaisesRegex(bind_reader['BindError'], 'JOURNAL_INVALID'):
+                          self.execute(journal=bind_fixture_record() + bind_fixture_record(**{field: value}))
+                  raw = bind_fixture_record().replace(b'{', b'{"_UID":"1000",', 1)
+                  with self.assertRaisesRegex(bind_reader['BindError'], 'JOURNAL_INVALID'):
+                      self.execute(journal=raw)
+
+              def test_temporal_boundaries_old_empty_and_unsupported_remain_partial(self):
+                  old = bind_fixture_record(__MONOTONIC_TIMESTAMP='1199999')
+                  report, _, _ = self.execute(journal=old)
+                  self.assertEqual(report['failed_target']['status'], 'UNAVAILABLE')
+                  for raw in (old + bind_fixture_record(), bind_fixture_record() + old):
+                      report, _, _ = self.execute(journal=raw)
+                      self.assertEqual(report['failed_target']['matches'], 1)
+                      self.assertEqual(report['failed_target']['coverage'], 'CURRENT_INVOCATION_PARTIAL')
+                  report, _, _ = self.execute(journal=bind_fixture_record(__MONOTONIC_TIMESTAMP='1200000'))
+                  self.assertEqual(report['failed_target']['matches'], 1)
+                  report, _, _ = self.execute(journal=bind_fixture_record(message='\x00'))
+                  self.assertEqual(report['failed_target']['unsupported_messages'], 1)
+                  self.assertEqual(report['failed_target']['status'], 'NO_MATCH')
+                  for raw in (b'', b'-- No entries --\n'):
+                      report, _, _ = self.execute(journal=raw)
+                      self.assertEqual(report['failed_target']['status'], 'UNAVAILABLE')
+
+              def test_invalid_main_interval_never_queries_failure_journal(self):
+                  for changes in ({'ExecMainStartTimestampMonotonic': '0'}, {'ExecMainExitTimestampMonotonic': '10000001'},
+                                  {'ExecMainStartTimestampMonotonic': '3000000'}, {'InactiveExitTimestampMonotonic': '0'}):
+                      report, calls, _ = self.execute(first=bind_fixture_snapshot(**changes))
+                      self.assertEqual(report['failed_target']['status'], 'UNAVAILABLE')
+                      self.assertFalse(any(x[0][0] == '/usr/bin/journalctl' for x in calls))
+
+              def test_unavailable_journal_is_not_a_false_negative_or_retry(self):
+                  for kwargs in ({'journal_timeout': True}, {'journal_rc': 1}):
+                      report, calls, _ = self.execute(**kwargs)
+                      self.assertEqual(report['failed_target']['status'], 'UNAVAILABLE')
+                      self.assertEqual(report['network']['target_basis'], 'CURRENT_EXECSTART_LITERAL')
+                      self.assertEqual(sum(call[0][0] == '/usr/bin/journalctl' for call in calls), 1)
+                  with patch.dict(bind_reader, {'bind_subject': lambda: (1000, 1000), 'BIND_DEADLINE': None}), \
+                          patch.object(bind_reader['subprocess'], 'run', side_effect=subprocess.TimeoutExpired(['/fixture/read'], 5)) as run:
+                      self.assertEqual(bind_reader['bind_command'](['/fixture/read'], 64), ('TIMEOUT', None, b'', b''))
+                      self.assertEqual(run.call_count, 1)
+
+              def test_snapshot_extra_missing_duplicate_or_invalid_policy_cannot_leak(self):
+                  valid = bind_fixture_snapshot()
+                  for raw in (valid + b'Extra=short\n', valid + b'CanStart=yes\n', valid.replace(b'CanStart=yes\n', b''),
+                              valid.replace(b'CanStart=yes\n', b'CanStart=maybe\n')):
+                      with self.assertRaisesRegex(bind_reader['BindError'], 'SNAPSHOT_INVALID'):
+                          self.execute(first=raw)
+
+              def test_fixed_port_address_families_and_uid_categories_do_not_claim_conflict(self):
+                  tcp4 = bind_fixture_tcp((bind_reader['BIND_PRIVATE'], 18080, 1000, 100, '0A'),
+                                         ('0.0.0.0', 18080, 1000, 101, '0A'), ('127.0.0.2', 18080, 2000, 102, '0A'),
+                                         ('127.0.0.1', 18081, 2000, 103, '0A'), ('127.0.0.1', 18080, 2000, 0, '01'))
+                  tcp6 = bind_fixture_tcp(('::', 18080, 2000, 104, '0A'), ('::1', 18080, 2000, 105, '0A'))
+                  report, _, _ = self.execute(tcp4=tcp4, tcp6=tcp6)
+                  net = report['network']
+                  self.assertEqual([net[k] for k in ('ipv4_listeners', 'ipv6_listeners', 'target_ipv4_listeners',
+                                   'wildcard_ipv4_listeners', 'wildcard_ipv6_listeners', 'other_address_listeners')], [3, 2, 1, 1, 1, 2])
+                  self.assertEqual(net['ownership'], 'MIXED')
+                  for uid, category in ((1000, 'CALLER_UID'), (2000, 'OTHER_UID')):
+                      report, _, _ = self.execute(tcp4=bind_fixture_tcp(('0.0.0.0', 18080, uid, 100, '0A')))
+                      self.assertEqual(report['network']['ownership'], category)
+
+              def test_namespace_and_nonlocal_options_are_explicit_limits(self):
+                  for namespace in ('MATCH', 'DIFFERENT', 'UNPROVEN'):
+                      report, _, _ = self.execute(namespace=namespace, nonlocal_bind=b'1\n', first=bind_fixture_snapshot(PrivateNetwork='yes'))
+                      self.assertEqual(report['network']['manager_namespace'], namespace)
+                      self.assertEqual(report['network']['scope'], 'CALLER_NETWORK_NAMESPACE')
+                      self.assertEqual(report['network']['unit_network'], 'PRIVATE_OR_JOINED')
+                      self.assertEqual(report['network']['nonlocal_bind'], 'ENABLED')
+
+              def test_tcp_word_order_does_not_assume_host_architecture(self):
+                  for order in ('little', 'big'):
+                      with patch.object(bind_reader['sys'], 'byteorder', order):
+                          for family, address in ((4, '127.0.0.1'), (6, '::1')):
+                              raw = bind_fixture_tcp((address, 18080, 1000, 123, '0A'))
+                              self.assertEqual(bind_reader['bind_tcp'](raw, family), ((family, address, 1000, 123),))
+
+              def test_unreadable_network_and_missing_address_tool_do_not_mean_absence(self):
+                  report, _, _ = self.execute(tcp4=PermissionError(), tcp6=PermissionError(), address='UNPROVEN')
+                  self.assertEqual(report['network']['status'], 'UNAVAILABLE')
+                  self.assertEqual(report['network']['ownership'], 'UNPROVEN')
+                  self.assertEqual(report['network']['local_address'], 'UNPROVEN')
+                  report, _, _ = self.execute(tcp6=FileNotFoundError(), tcp4=bind_fixture_tcp(('0.0.0.0', 18080, 1000, 123, '0A')))
+                  self.assertEqual(report['network']['status'], 'PARTIAL')
+                  self.assertEqual(report['network']['ipv6_status'], 'UNAVAILABLE')
+                  self.assertEqual(report['network']['ipv4_listeners'], 1)
+
+              def test_unit_network_and_address_drift_clear_all_derived_facts(self):
+                  for kwargs, code in (({'second': bind_fixture_snapshot(NRestarts='4')}, 'STATE_CHANGED'),
+                                       ({'tcp4_after': bind_fixture_tcp(('0.0.0.0', 18080, 1000, 123, '0A'))}, 'NETWORK_CHANGED'),
+                                       ({'address_after': 'ABSENT'}, 'NETWORK_CHANGED')):
+                      with self.assertRaisesRegex(bind_reader['BindError'], code):
+                          self.execute(**kwargs)
+
+              def test_start_authority_is_a_noninteractive_fixed_query_with_closed_denial(self):
+                  for code, outcome in ((0, 'AUTHORIZED_QUERY'), (1, 'DENIED_QUERY'), (2, 'INTERACTION_REQUIRED'),
+                                        (3, 'DISMISSED'), (126, 'INVALID_INVOCATION'), (127, 'CHECK_ERROR'),
+                                        (4, 'OTHER_RESULT'), ('TIMEOUT', 'CHECK_TIMEOUT')):
+                      report, calls, _ = self.execute(policy=code)
+                      self.assertEqual(report['start_authority']['polkit'], outcome)
+                      query = [x for x in calls if x[0][0] == '/usr/bin/pkcheck']
+                      self.assertEqual(len(query), 1)
+                      self.assertNotIn('--allow-user-interaction', query[0][0])
+                  report, _, _ = self.execute(policy=127, policy_stderr=b'Only trusted callers (e.g. uid 0 or an action owner) can use CheckAuthorization() and pass details: fixture')
+                  self.assertEqual(report['start_authority']['reason'], 'DETAILS_CALLER_NOT_TRUSTED')
+                  report, _, _ = self.execute(no_policy=True)
+                  self.assertEqual(report['start_authority']['polkit'], 'UNAVAILABLE')
+
+              def test_actual_capture_is_sealed_bounded_timed_and_discards_policy_stdout(self):
+                  def child(argv, **kwargs):
+                      self.assertFalse(kwargs['check']); self.assertEqual(kwargs['stdin'], subprocess.DEVNULL)
+                      self.assertEqual(kwargs['timeout'], 5); self.assertNotIn('shell', kwargs)
+                      self.assertEqual(kwargs['env'], {'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'})
+                      for key in ('stdout', 'stderr'):
+                          fd = kwargs[key]
+                          if fd == subprocess.DEVNULL: continue
+                          self.assertTrue(fcntl.fcntl(fd, getattr(fcntl, 'F_GET_SEALS', 1034)) & getattr(fcntl, 'F_SEAL_GROW', 4))
+                          with self.assertRaises(OSError): os.pwrite(fd, b'x', os.fstat(fd).st_size)
+                          os.write(fd, b'ok')
+                      return types.SimpleNamespace(returncode=0)
+                  with patch.dict(bind_reader, {'bind_subject': lambda: (1000, 1000), 'BIND_DEADLINE': None}), patch.object(bind_reader['subprocess'], 'run', side_effect=child):
+                      self.assertEqual(bind_reader['bind_command'](['/fixture/read'], 64), ('OK', 0, b'ok', b'ok'))
+                      self.assertEqual(bind_reader['bind_command'](['/fixture/query'], 64, discard_stdout=True), ('OK', 0, b'', b'ok'))
+                  def full(argv, **kwargs):
+                      os.write(kwargs['stdout'], b'x' * 64); return types.SimpleNamespace(returncode=0)
+                  with patch.dict(bind_reader, {'bind_subject': lambda: (1000, 1000)}), patch.object(bind_reader['subprocess'], 'run', side_effect=full):
+                      with self.assertRaisesRegex(bind_reader['BindError'], 'CAP_EXCEEDED'):
+                          bind_reader['bind_command'](['/fixture/read'], 64)
+
+              def test_root_identity_and_capture_failure_never_fall_back(self):
+                  with patch.object(bind_reader['os'], 'getuid', return_value=0), patch.object(bind_reader['os'], 'geteuid', return_value=0):
+                      with self.assertRaisesRegex(bind_reader['BindError'], 'IDENTITY_REJECTED'): bind_reader['bind_subject']()
+                  with patch.dict(bind_reader, {'bind_subject': lambda: (1000, 1000)}), patch.object(bind_reader['os'], 'memfd_create', side_effect=OSError):
+                      with self.assertRaisesRegex(bind_reader['BindError'], 'CAPTURE_UNAVAILABLE'): bind_reader['bind_command'](['/fixture/read'], 64)
+
+              def test_malformed_and_oversize_tcp_and_journal_fail_closed(self):
+                  for raw in (b'not a proc table\n', bind_fixture_tcp(('0.0.0.0', 18080, 1000, 0, '0A')), b'x' * 65537):
+                      with self.assertRaises(bind_reader['BindError']): self.execute(tcp4=raw)
+                  with self.assertRaisesRegex(bind_reader['BindError'], 'JOURNAL_INVALID'):
+                      self.execute(journal=bind_fixture_record() * 201)
+                  duplicate = bind_fixture_tcp(('0.0.0.0', 18080, 1000, 123, '0A'), ('127.0.0.1', 18080, 1000, 123, '0A'))
+                  with self.assertRaises(bind_reader['BindError']): self.execute(tcp4=duplicate)
+
+              def test_reporter_rejects_extra_missing_wrong_enum_bool_count_and_false_equivalence(self):
+                  good, _, _ = self.execute()
+                  cases = []
+                  for field, value in (('raw', 'short'), ('observation', 'GUESS')):
+                      bad = copy.deepcopy(good); bad[field] = value; cases.append(bad)
+                  bad = copy.deepcopy(good); del bad['state_stability']; cases.append(bad)
+                  for key, value in (('ipv4_listeners', True), ('target_ipv4_listeners', 1), ('local_address', 'NOT_REQUIRED'), ('scope', 'UNIT_NAMESPACE')):
+                      bad = copy.deepcopy(good); bad['network'][key] = value; cases.append(bad)
+                  bad = copy.deepcopy(good); bad['failed_target']['readable_entries'] = 0; cases.append(bad)
+                  bad = copy.deepcopy(good); bad['start_authority']['service_action'] = 'START'; cases.append(bad)
+                  bad = copy.deepcopy(good); bad['start_authority']['reason'] = 'UNCLASSIFIED'; cases.append(bad)
+                  for bad in cases:
+                      with self.assertRaises(ValueError): bind_reporter['checked_bind_report'](json.dumps(bad).encode(), 0)
+                  raw = json.dumps(good).encode()
+                  for data, rc in ((raw, 1), (raw + b' ' * 8193, 0), (raw.replace(b'{', b'{"schema":"x",', 1), 0)):
+                      with self.assertRaises(ValueError): bind_reporter['checked_bind_report'](data, rc)
+                  current = {'status': 'LITERAL', 'mode': 'OTHER_IPV4', 'port': 'OTHER'}
+                  failed = {'status': 'MATCHED', 'mode': 'OTHER_IPV4', 'port': 'OTHER'}
+                  self.assertEqual(bind_reader['bind_relation'](current, failed), 'UNPROVEN')
+
+              def test_main_emits_only_closed_error_for_drift_or_unexpected_exception(self):
+                  for error, code in ((bind_reader['BindError']('NETWORK_CHANGED'), 'NETWORK_CHANGED'), (RuntimeError('short private detail'), 'READ_ERROR')):
+                      output = io.StringIO()
+                      with patch.dict(bind_reader, {'observe_failed_bind': lambda: (_ for _ in ()).throw(error)}), \
+                              patch.object(bind_reader['signal'], 'signal'), patch.object(bind_reader['signal'], 'setitimer'), contextlib.redirect_stdout(output):
+                          with self.assertRaises(SystemExit) as stopped: bind_reader['bind_main']()
+                      self.assertEqual(stopped.exception.code, 1)
+                      report, rc = bind_reporter['checked_bind_report'](output.getvalue().encode(), 1)
+                      self.assertEqual(report, {'schema': 'gekta.fixed-unit-bind-evidence.v1', 'observation': 'ERROR', 'error': code})
+                      self.assertEqual(rc, 1)
+
+              def test_existing_diagnostic_and_new_query_are_separate_and_no_service_action_exists(self):
+                  self.assertLess(workflow.index('\n      - name: Read bounded failed-unit startup evidence'), workflow.index('\n      - name: Read bounded failed-unit HTTP bind facts'))
+                  self.assertLess(workflow.index('\n      - name: Read bounded failed-unit HTTP bind facts'), workflow.index('\n      - name: Read bounded control-plane facts'))
+                  self.assertNotIn('systemctl start', bind_reader_source)
+                  for forbidden in ('sudo ', 'pkexec', 'shell=True', 'socket.socket', 'os.kill', '/proc/*', 'os.environ', 'setns'):
+                      # A comment may mention setns only to describe the prohibition.
+                      tree_text = ast.dump(ast.parse(bind_reader_source), include_attributes=False)
+                      self.assertNotIn(forbidden, tree_text)
+                  self.assertEqual(bind_reader['BIND_PORT'], 18080)
+                  self.assertEqual(len(bind_reader['BIND_PROPERTIES']), 18)
+                  schema = bind_reader_source.split('\nimport fcntl\n', 1)[0]
+                  self.assertEqual(schema, bind_reporter_source.split('\nimport pathlib\n', 1)[0])
+
+
+          if __name__ == '__main__':
+              unittest.main(verbosity=2)
+          FAILED_BIND_CONTRACT
+
   probe:
     if: >-
       github.event_name == 'issue_comment' &&
@@ -1980,6 +2371,830 @@ jobs:
           print('CONTROL_STARTUP_DIAG=' + json.dumps(report, separators=(',', ':'), sort_keys=True, ensure_ascii=True))
           raise SystemExit(rc)
           FAILED_UNIT_REPORT
+
+      - name: Read bounded failed-unit HTTP bind facts
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/failed-bind-raw"' EXIT
+          set +e
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$MODEL_USER@$MODEL_HOST" python3 -I -B - > "$RUNNER_TEMP/failed-bind-raw" 2>/dev/null <<'FAILED_BIND_PROBE'
+          import json
+          import re
+
+          BIND_SCHEMA = 'gekta.fixed-unit-bind-evidence.v1'
+          BIND_MODES = ('PRIVATE_BASELINE_IPV4', 'LOOPBACK_IPV4', 'WILDCARD_IPV4', 'OTHER_IPV4', 'OTHER_IPV6', 'OTHER_LITERAL', 'UNPROVEN')
+          BIND_PORTS = ('FIXED_18080', 'OTHER', 'UNPROVEN')
+          BIND_ERRORS = ('IDENTITY_REJECTED', 'CAPTURE_UNAVAILABLE', 'CAP_EXCEEDED', 'DEADLINE', 'SNAPSHOT_READ_ERROR', 'SNAPSHOT_INVALID', 'JOURNAL_INVALID', 'STATE_CHANGED', 'NETWORK_CHANGED', 'READ_ERROR', 'RECEIPT_INVALID')
+          BIND_STATE_SPEC = {
+              'load': ('LOADED', 'OTHER'), 'active': ('FAILED', 'OTHER'), 'sub': ('FAILED', 'OTHER'),
+              'result': ('EXIT_CODE', 'OTHER'), 'exec_code': 2147483647, 'exec_status': 2147483647, 'restarts': 2147483647,
+          }
+          BIND_LITERAL_SPEC = {'status': ('LITERAL', 'UNPROVEN'), 'mode': BIND_MODES, 'port': BIND_PORTS}
+          BIND_FAILURE_SPEC = {'status': ('MATCHED', 'AMBIGUOUS', 'NO_MATCH', 'UNAVAILABLE'), 'mode': BIND_MODES, 'port': BIND_PORTS,
+                               'readable_entries': 200, 'unsupported_messages': 200, 'matches': 200,
+                               'coverage': ('CURRENT_INVOCATION_PARTIAL', 'UNAVAILABLE')}
+          BIND_NETWORK_SPEC = {
+              'scope': ('CALLER_NETWORK_NAMESPACE',), 'unit_network': ('DEFAULT_CONFIGURATION', 'PRIVATE_OR_JOINED', 'UNPROVEN'),
+              'manager_namespace': ('MATCH', 'DIFFERENT', 'UNPROVEN'),
+              'target_basis': ('CURRENT_EXECSTART_LITERAL', 'LAST_FAILED_INVOCATION', 'UNPROVEN'),
+              'target_mode': BIND_MODES, 'local_address': ('PRESENT', 'ABSENT', 'NOT_REQUIRED', 'UNPROVEN'),
+              'nonlocal_bind': ('ENABLED', 'DISABLED', 'UNPROVEN'), 'status': ('OBSERVED', 'PARTIAL', 'UNAVAILABLE'),
+              'ipv4_status': ('OBSERVED', 'UNAVAILABLE'), 'ipv6_status': ('OBSERVED', 'UNAVAILABLE'),
+              'ipv4_listeners': 200, 'ipv6_listeners': 200, 'target_ipv4_listeners': 200,
+              'wildcard_ipv4_listeners': 200, 'wildcard_ipv6_listeners': 200, 'other_address_listeners': 200,
+              'ownership': ('NONE', 'CALLER_UID', 'OTHER_UID', 'MIXED', 'UNPROVEN'),
+              'stability': ('UNCHANGED', 'UNPROVEN'),
+          }
+          BIND_AUTH_SPEC = {
+              'scope': ('FIXED_UNIT_START_QUERY_ONLY',), 'service_user_matches_caller': ('YES', 'NO', 'UNPROVEN'),
+              'can_start': ('YES', 'NO'), 'refuse_manual_start': ('YES', 'NO'),
+              'polkit': ('AUTHORIZED_QUERY', 'DENIED_QUERY', 'INTERACTION_REQUIRED', 'DISMISSED', 'UNAVAILABLE', 'SUBJECT_UNVERIFIED', 'CHECK_TIMEOUT', 'CHECK_ERROR', 'INVALID_INVOCATION', 'OTHER_RESULT'),
+              'reason': ('NONE', 'DETAILS_CALLER_NOT_TRUSTED', 'DBUS_SERVICE_UNKNOWN', 'DBUS_NAME_HAS_NO_OWNER', 'DBUS_NO_REPLY', 'DBUS_ACCESS_DENIED', 'UNCLASSIFIED'),
+              'service_action': ('NONE',),
+          }
+
+
+          def bind_unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError
+                  result[key] = value
+              return result
+
+
+          def bind_shape(value, spec):
+              if isinstance(spec, dict):
+                  if not isinstance(value, dict) or set(value) != set(spec):
+                      raise ValueError
+                  for key in spec:
+                      bind_shape(value[key], spec[key])
+              elif isinstance(spec, tuple):
+                  if type(value) is not str or value not in spec:
+                      raise ValueError
+              elif type(spec) is int:
+                  if type(value) is not int or not 0 <= value <= spec:
+                      raise ValueError
+              else:
+                  raise ValueError
+
+
+          def checked_bind_report(raw, remote_rc):
+              if not isinstance(raw, bytes) or not 0 < len(raw) <= 8192 or b'\x00' in raw:
+                  raise ValueError
+              report = json.loads(raw.decode('ascii'), object_pairs_hook=bind_unique_object)
+              if not isinstance(report, dict) or report.get('schema') != BIND_SCHEMA:
+                  raise ValueError
+              if report.get('observation') == 'ERROR':
+                  bind_shape(report, {'schema': (BIND_SCHEMA,), 'observation': ('ERROR',), 'error': BIND_ERRORS})
+                  if remote_rc != 1:
+                      raise ValueError
+                  return report, 1
+              if report.get('observation') == 'NOT_APPLICABLE':
+                  bind_shape(report, {'schema': (BIND_SCHEMA,), 'observation': ('NOT_APPLICABLE',), 'state': BIND_STATE_SPEC})
+                  if remote_rc != 0 or all(report['state'][key] == value for key, value in (('load', 'LOADED'), ('active', 'FAILED'), ('sub', 'FAILED'))):
+                      raise ValueError
+                  return report, 0
+              bind_shape(report, {'schema': (BIND_SCHEMA,), 'observation': ('COMPLETE',), 'state': BIND_STATE_SPEC,
+                                 'state_stability': ('UNCHANGED',), 'current_target': BIND_LITERAL_SPEC,
+                                 'failed_target': BIND_FAILURE_SPEC, 'target_relation': ('MATCH', 'DIFFERENT', 'UNPROVEN'),
+                                 'network': BIND_NETWORK_SPEC, 'start_authority': BIND_AUTH_SPEC})
+              if remote_rc != 0 or any(report['state'][key] != value for key, value in (('load', 'LOADED'), ('active', 'FAILED'), ('sub', 'FAILED'))):
+                  raise ValueError
+              current, failed, net, auth = (report[key] for key in ('current_target', 'failed_target', 'network', 'start_authority'))
+              if current['status'] == 'UNPROVEN' and (current['mode'], current['port']) != ('UNPROVEN', 'UNPROVEN'):
+                  raise ValueError
+              if current['status'] == 'LITERAL' and ('UNPROVEN' in (current['mode'], current['port'])):
+                  raise ValueError
+              if failed['readable_entries'] + failed['unsupported_messages'] > 200 or failed['matches'] > failed['readable_entries']:
+                  raise ValueError
+              if failed['status'] == 'MATCHED':
+                  if not failed['matches'] or failed['mode'] == 'UNPROVEN' or failed['port'] == 'UNPROVEN' or failed['coverage'] != 'CURRENT_INVOCATION_PARTIAL':
+                      raise ValueError
+              elif failed['mode'] != 'UNPROVEN' or failed['port'] != 'UNPROVEN':
+                  raise ValueError
+              if failed['status'] == 'NO_MATCH' and (failed['matches'] or not failed['readable_entries'] + failed['unsupported_messages']):
+                  raise ValueError
+              if failed['status'] == 'AMBIGUOUS' and failed['matches'] < 2:
+                  raise ValueError
+              if failed['status'] == 'UNAVAILABLE' and (failed['readable_entries'] or failed['unsupported_messages'] or failed['matches'] or failed['coverage'] != 'UNAVAILABLE'):
+                  raise ValueError
+              if failed['status'] != 'UNAVAILABLE' and failed['coverage'] != 'CURRENT_INVOCATION_PARTIAL':
+                  raise ValueError
+              usable = ('PRIVATE_BASELINE_IPV4', 'LOOPBACK_IPV4', 'WILDCARD_IPV4')
+              relation = 'UNPROVEN'
+              if current['status'] == 'LITERAL' and failed['status'] == 'MATCHED':
+                  if current['port'] != failed['port'] or (current['mode'] in usable and failed['mode'] in usable and current['mode'] != failed['mode']):
+                      relation = 'DIFFERENT'
+                  elif current['port'] == failed['port'] == 'FIXED_18080' and current['mode'] == failed['mode'] and current['mode'] in usable:
+                      relation = 'MATCH'
+              if report['target_relation'] != relation:
+                  raise ValueError
+              selected = current if current['status'] == 'LITERAL' and current['port'] == 'FIXED_18080' and current['mode'] in usable else failed if failed['status'] == 'MATCHED' and failed['port'] == 'FIXED_18080' and failed['mode'] in usable else None
+              expected_basis = 'CURRENT_EXECSTART_LITERAL' if selected is current else 'LAST_FAILED_INVOCATION' if selected is failed else 'UNPROVEN'
+              if net['target_basis'] != expected_basis or net['target_mode'] != (selected['mode'] if selected else 'UNPROVEN'):
+                  raise ValueError
+              if net['target_mode'] == 'WILDCARD_IPV4':
+                  if net['local_address'] != 'NOT_REQUIRED':
+                      raise ValueError
+              elif net['target_mode'] == 'UNPROVEN' and net['local_address'] != 'UNPROVEN':
+                  raise ValueError
+              elif net['local_address'] == 'NOT_REQUIRED':
+                  raise ValueError
+              total = net['ipv4_listeners'] + net['ipv6_listeners']
+              readable_families = sum(net[key] == 'OBSERVED' for key in ('ipv4_status', 'ipv6_status'))
+              if net['status'] != ('OBSERVED' if readable_families == 2 else 'PARTIAL' if readable_families else 'UNAVAILABLE'):
+                  raise ValueError
+              if (net['ipv4_status'] == 'UNAVAILABLE' and net['ipv4_listeners']) or (net['ipv6_status'] == 'UNAVAILABLE' and net['ipv6_listeners']):
+                  raise ValueError
+              if net['target_mode'] in ('WILDCARD_IPV4', 'UNPROVEN') and net['target_ipv4_listeners']:
+                  raise ValueError
+              if total > 200 or net['target_ipv4_listeners'] + net['wildcard_ipv4_listeners'] > net['ipv4_listeners'] or net['wildcard_ipv6_listeners'] > net['ipv6_listeners']:
+                  raise ValueError
+              if net['other_address_listeners'] != total - net['target_ipv4_listeners'] - net['wildcard_ipv4_listeners'] - net['wildcard_ipv6_listeners']:
+                  raise ValueError
+              if net['status'] == 'UNAVAILABLE':
+                  if total or net['ownership'] != 'UNPROVEN' or net['stability'] != 'UNPROVEN':
+                      raise ValueError
+              elif net['stability'] != 'UNCHANGED' or (total == 0) != (net['ownership'] == 'NONE') or (total and net['ownership'] == 'UNPROVEN'):
+                  raise ValueError
+              if auth['polkit'] != 'CHECK_ERROR' and auth['reason'] != 'NONE':
+                  raise ValueError
+              return report, 0
+
+          import fcntl
+          import ipaddress
+          import os
+          import pwd
+          import shlex
+          import shutil
+          import signal
+          import subprocess
+          import sys
+          import time
+
+          BIND_UNIT = 'tai-qwen3-8b.service'
+          BIND_PORT = 18080
+          BIND_PRIVATE = '192.168.0.206'
+          BIND_TARGETS = {'PRIVATE_BASELINE_IPV4': BIND_PRIVATE, 'LOOPBACK_IPV4': '127.0.0.1', 'WILDCARD_IPV4': '0.0.0.0'}
+          BIND_TIMES = ('InactiveExitTimestampMonotonic', 'ExecMainStartTimestampMonotonic', 'ExecMainExitTimestampMonotonic')
+          BIND_PROPERTIES = ('LoadState', 'ActiveState', 'SubState', 'Result', 'ExecMainCode', 'ExecMainStatus', 'NRestarts', 'InvocationID') + BIND_TIMES + ('User', 'ExecStart', 'CanStart', 'RefuseManualStart', 'PrivateNetwork', 'NetworkNamespacePath', 'JoinsNamespaceOf')
+          BIND_SHOW = ['/usr/bin/systemctl', 'show', BIND_UNIT, '--no-pager', '--all', '--property=' + ','.join(BIND_PROPERTIES)]
+          BIND_DEADLINE = None
+
+
+          class BindError(Exception):
+              pass
+
+
+          def bind_subject():
+              pair = (os.getuid(), os.geteuid())
+              if pair[0] <= 0 or pair[0] != pair[1]:
+                  raise BindError('IDENTITY_REJECTED')
+              return pair
+
+
+          def bind_remaining():
+              remaining = 5.0 if BIND_DEADLINE is None else min(5.0, BIND_DEADLINE - time.monotonic())
+              if remaining <= 0:
+                  raise BindError('DEADLINE')
+              return remaining
+
+
+          def bind_command(argv, limit, discard_stdout=False):
+              subject = bind_subject()
+              captures = []
+              try:
+                  for size in (limit, 4096):
+                      try:
+                          fd = os.memfd_create('gekta-bind-observation', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+                          captures.append(fd)
+                          os.ftruncate(fd, size)
+                          fcntl.fcntl(fd, getattr(fcntl, 'F_ADD_SEALS', 1033), getattr(fcntl, 'F_SEAL_GROW', 4) | getattr(fcntl, 'F_SEAL_SHRINK', 2) | getattr(fcntl, 'F_SEAL_SEAL', 1))
+                      except (AttributeError, OSError):
+                          raise BindError('CAPTURE_UNAVAILABLE') from None
+                  try:
+                      result = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL if discard_stdout else captures[0], stderr=captures[1],
+                                              timeout=bind_remaining(), check=False, env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'})
+                      status, rc = 'OK', result.returncode
+                  except subprocess.TimeoutExpired:
+                      status, rc = 'TIMEOUT', None
+                  except OSError:
+                      status, rc = 'UNAVAILABLE', None
+                  if bind_subject() != subject:
+                      raise BindError('IDENTITY_REJECTED')
+                  data = []
+                  for fd, cap in zip(captures, (limit, 4096)):
+                      count = os.lseek(fd, 0, os.SEEK_CUR)
+                      if not 0 <= count < cap:
+                          raise BindError('CAP_EXCEEDED')
+                      raw = os.pread(fd, count, 0)
+                      if len(raw) != count:
+                          raise BindError('READ_ERROR')
+                      data.append(raw)
+                  return status, rc, data[0], data[1]
+              finally:
+                  for fd in captures:
+                      os.close(fd)
+
+
+          def bind_read(path, limit):
+              bind_remaining()
+              fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+              try:
+                  data = bytearray()
+                  while True:
+                      bind_remaining()
+                      chunk = os.read(fd, min(8192, limit + 1 - len(data)))
+                      if not chunk:
+                          return bytes(data)
+                      data.extend(chunk)
+                      if len(data) > limit:
+                          raise BindError('CAP_EXCEEDED')
+              finally:
+                  os.close(fd)
+
+
+          def bind_uint(text, limit=18446744073709551615):
+              if not isinstance(text, str) or not re.fullmatch(r'0|[1-9][0-9]{0,19}', text) or int(text) > limit:
+                  raise ValueError
+              return int(text)
+
+
+          def bind_snapshot():
+              status, rc, raw, _ = bind_command(BIND_SHOW, 16384)
+              if status != 'OK' or rc != 0:
+                  raise BindError('SNAPSHOT_READ_ERROR')
+              try:
+                  if not raw or b'\x00' in raw or b'\r' in raw:
+                      raise ValueError
+                  pairs = []
+                  for line in raw.decode('ascii').splitlines():
+                      key, sep, value = line.partition('=')
+                      if not sep:
+                          raise ValueError
+                      pairs.append((key, value))
+                  values = bind_unique_object(pairs)
+                  if set(values) != set(BIND_PROPERTIES):
+                      raise ValueError
+                  for key in ('CanStart', 'RefuseManualStart', 'PrivateNetwork'):
+                      if values[key] not in ('yes', 'no'):
+                          raise ValueError
+                  for key in ('LoadState', 'ActiveState', 'SubState', 'Result'):
+                      if values[key] and not re.fullmatch(r'[a-z][a-z0-9-]{0,47}', values[key]):
+                          raise ValueError
+                  state = {key: desired if values[prop] == raw_value else 'OTHER' for key, prop, raw_value, desired in (
+                      ('load', 'LoadState', 'loaded', 'LOADED'), ('active', 'ActiveState', 'failed', 'FAILED'),
+                      ('sub', 'SubState', 'failed', 'FAILED'), ('result', 'Result', 'exit-code', 'EXIT_CODE'))}
+                  for key, prop in (('exec_code', 'ExecMainCode'), ('exec_status', 'ExecMainStatus'), ('restarts', 'NRestarts')):
+                      state[key] = bind_uint(values[prop], 2147483647)
+                  times = {key: bind_uint(values[key]) for key in BIND_TIMES}
+                  invocation = values['InvocationID']
+                  if invocation and not re.fullmatch(r'[0-9a-f]{32}', invocation):
+                      raise ValueError
+                  boot = bind_read('/proc/sys/kernel/random/boot_id', 64).decode('ascii').strip()
+                  if not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', boot):
+                      raise ValueError
+                  return {'values': values, 'state': state, 'times': times, 'invocation': invocation if invocation.strip('0') else None, 'boot': boot.replace('-', '')}
+              except (ValueError, UnicodeError, OSError):
+                  raise BindError('SNAPSHOT_INVALID') from None
+
+
+          def bind_mode(host):
+              for mode, value in BIND_TARGETS.items():
+                  if host == value:
+                      return mode
+              try:
+                  address = ipaddress.ip_address(host)
+                  return 'OTHER_IPV4' if address.version == 4 else 'OTHER_IPV6'
+              except ValueError:
+                  return 'OTHER_LITERAL'
+
+
+          def bind_current_target(execstart):
+              missing = {'status': 'UNPROVEN', 'mode': 'UNPROVEN', 'port': 'UNPROVEN'}
+              # Only the literal direct-server argv representation is interpreted. Shell,
+              # wrappers, environment expansion, duplicate flags and ambiguous escapes are not guessed.
+              if not isinstance(execstart, str) or any(c in execstart for c in ('\\', '$', '`', '\n', '\r', '\x00')):
+                  return missing
+              match = re.fullmatch(r'\{\s*path=([^;{}]+?)\s*;\s*argv\[\]=([^;{}]+?)\s*;\s*ignore_errors=(?:yes|no)\s*;[^{}]*\}', execstart)
+              if not match:
+                  return missing
+              path, raw = match.groups()
+              path = path.strip()
+              if path.rsplit('/', 1)[-1] not in ('llama-server', 'server'):
+                  return missing
+              try:
+                  args = shlex.split(raw, posix=True)
+              except ValueError:
+                  return missing
+              if not 1 <= len(args) <= 256 or args[0] != path:
+                  return missing
+              # A finite complete argv grammar avoids mistaking an option's opaque value
+              # for --host/--port. Unknown options or expansion make the target unproven.
+              grammar = {'--host': 'host', '--port': 'port', '--model': 'text', '-m': 'text',
+                         '--alias': 'text', '-a': 'text'}
+              grammar.update({flag: 'number' for flag in ('--ctx-size', '-c', '--threads', '-t', '--threads-batch', '-tb',
+                              '--parallel', '-np', '--batch-size', '-b', '--ubatch-size', '-ub',
+                              '--n-gpu-layers', '--gpu-layers', '-ngl')})
+              hits, index = {'host': [], 'port': []}, 1
+              while index < len(args):
+                  name = args[index]
+                  if name not in grammar:
+                      return missing
+                  if index + 1 >= len(args):
+                      return missing
+                  value, index = args[index + 1], index + 2
+                  if not value or value.startswith('-'):
+                      return missing
+                  kind = grammar[name]
+                  if kind in ('number', 'port'):
+                      try:
+                          bind_uint(value, 65535 if kind == 'port' else 2147483647)
+                      except ValueError:
+                          return missing
+                  if kind in hits:
+                      hits[kind].append(value)
+              if any(len(v) != 1 or not v[0] for v in hits.values()):
+                  return missing
+              try:
+                  port = bind_uint(hits['port'][0], 65535)
+              except ValueError:
+                  return missing
+              return {'status': 'LITERAL', 'mode': bind_mode(hits['host'][0]), 'port': 'FIXED_18080' if port == BIND_PORT else 'OTHER'}
+
+
+          def bind_empty_failure():
+              return {'status': 'UNAVAILABLE', 'mode': 'UNPROVEN', 'port': 'UNPROVEN', 'readable_entries': 0,
+                      'unsupported_messages': 0, 'matches': 0, 'coverage': 'UNAVAILABLE'}
+
+
+          def bind_failed_target(before):
+              now_us = time.monotonic_ns() // 1000
+              times = before['times']
+              start, end, unit = (times[k] for k in ('ExecMainStartTimestampMonotonic', 'ExecMainExitTimestampMonotonic', 'InactiveExitTimestampMonotonic'))
+              if not before['invocation'] or not (0 < start <= end <= now_us and 0 < unit <= now_us):
+                  return bind_empty_failure()
+              lower = start if unit > end else unit
+              uid = bind_subject()[0]
+              argv = ['/usr/bin/journalctl', '--no-pager', '--boot', '--lines=200', '--output=json',
+                      '--output-fields=MESSAGE,_SYSTEMD_INVOCATION_ID,_SYSTEMD_UNIT,_BOOT_ID,_UID,__MONOTONIC_TIMESTAMP',
+                      '_SYSTEMD_UNIT=' + BIND_UNIT, '_SYSTEMD_INVOCATION_ID=' + before['invocation'], '_UID=' + str(uid)]
+              status, rc, raw, _ = bind_command(argv, 65536)
+              if status != 'OK' or rc != 0 or not raw.strip() or raw.strip() == b'-- No entries --':
+                  return bind_empty_failure()
+              try:
+                  lines = raw.decode('utf-8').splitlines()
+                  if not 1 <= len(lines) <= 200:
+                      raise ValueError
+                  readable = unsupported = matches = 0
+                  targets = set()
+                  for line in lines:
+                      row = json.loads(line, object_pairs_hook=bind_unique_object)
+                      if not isinstance(row, dict) or any(row.get(key) != wanted for key, wanted in (
+                              ('_SYSTEMD_UNIT', BIND_UNIT), ('_SYSTEMD_INVOCATION_ID', before['invocation']),
+                              ('_BOOT_ID', before['boot']), ('_UID', str(uid)))):
+                          raise ValueError
+                      stamp = bind_uint(row.get('__MONOTONIC_TIMESTAMP'))
+                      if stamp <= 0 or stamp > time.monotonic_ns() // 1000:
+                          raise ValueError
+                      if stamp < lower:
+                          continue
+                      message = row.get('MESSAGE')
+                      if not isinstance(message, str) or len(message.encode('utf-8')) > 4096 or '\x00' in message:
+                          unsupported += 1
+                          continue
+                      readable += 1
+                      if message.endswith('\n'):
+                          message = message[:-1]
+                      message = re.sub(r'(?:\x1b\[[0-9;]{0,20}m)+$', '', message)
+                      prefix, separator, body = message.partition('srv         start: ')
+                      if not separator or '\x1b' in body:
+                          continue
+                      # Logger colors occur in the prefix and final reset, never in a
+                      # hostname value. Do not normalize control bytes inside that value.
+                      message = re.sub(r'\x1b\[[0-9;]{0,20}m', '', prefix) + separator + body
+                      # Pinned SRV_ERR expands to srv + two spaces + %12.*s(__func__);
+                      # this call site is start(). Only its complete logger grammar matches.
+                      match = re.fullmatch(r"(?:(?:[0-9]{1,10}\.[0-9]{2}\.[0-9]{3}\.[0-9]{3} )?E )?srv {9}start: couldn't bind HTTP server socket, hostname: ([^,\r\n]{1,255}), port: (0|[1-9][0-9]{0,4})", message)
+                      if match:
+                          host, port_text = match.groups()
+                          port = bind_uint(port_text, 65535)
+                          matches += 1
+                          targets.add((host, port))
+                  if not readable and not unsupported:
+                      return bind_empty_failure()
+                  result = {'status': 'NO_MATCH', 'mode': 'UNPROVEN', 'port': 'UNPROVEN', 'readable_entries': readable,
+                            'unsupported_messages': unsupported, 'matches': matches, 'coverage': 'CURRENT_INVOCATION_PARTIAL'}
+                  if len(targets) > 1:
+                      result['status'] = 'AMBIGUOUS'
+                  elif targets:
+                      host, port = next(iter(targets))
+                      result.update(status='MATCHED', mode=bind_mode(host), port='FIXED_18080' if port == BIND_PORT else 'OTHER')
+                  return result
+              except (ValueError, UnicodeError, TypeError):
+                  raise BindError('JOURNAL_INVALID') from None
+
+
+          def bind_tcp(raw, family):
+              try:
+                  if not raw or b'\x00' in raw or len(raw) > 65536:
+                      raise ValueError
+                  lines = raw.decode('ascii').splitlines()
+                  if not lines or not re.match(r'\s*sl\s+local_address\s+(?:rem_address|remote_address)\s+st\s+', lines[0]):
+                      raise ValueError
+                  result = []
+                  for line in lines[1:]:
+                      columns = line.split()
+                      if not 10 <= len(columns) <= 32 or not re.fullmatch(r'[0-9]+:', columns[0]):
+                          raise ValueError
+                      size = 8 if family == 4 else 32
+                      local = re.fullmatch(r'([0-9A-Fa-f]{' + str(size) + r'}):([0-9A-Fa-f]{4})', columns[1])
+                      if not local or not re.fullmatch(r'[0-9A-Fa-f]{2}', columns[3]):
+                          raise ValueError
+                      uid, inode = bind_uint(columns[7], 4294967295), bind_uint(columns[9])
+                      if int(local[2], 16) != BIND_PORT or columns[3].upper() != '0A':
+                          continue
+                      if inode == 0:
+                          raise ValueError
+                      address_raw = bytes.fromhex(local[1])
+                      if sys.byteorder == 'little':
+                          address_raw = b''.join(address_raw[i:i + 4][::-1] for i in range(0, len(address_raw), 4))
+                      address = str(ipaddress.ip_address(address_raw))
+                      result.append((family, address, uid, inode))
+                      if len(result) > 200:
+                          raise BindError('CAP_EXCEEDED')
+                  if len(set(result)) != len(result) or len({x[3] for x in result}) != len(result):
+                      raise ValueError
+                  return tuple(sorted(result))
+              except (ValueError, UnicodeError, IndexError):
+                  raise BindError('READ_ERROR') from None
+
+
+          def bind_namespace():
+              # Only fixed kernel namespace links. No process enumeration or setns call.
+              own = os.readlink('/proc/self/ns/net')
+              if not re.fullmatch(r'net:\[[1-9][0-9]{0,19}\]', own):
+                  raise BindError('IDENTITY_REJECTED')
+              try:
+                  manager = os.readlink('/proc/1/ns/net')
+              except OSError:
+                  return own, 'UNPROVEN'
+              if not re.fullmatch(r'net:\[[1-9][0-9]{0,19}\]', manager):
+                  return own, 'UNPROVEN'
+              return own, 'MATCH' if own == manager else 'DIFFERENT'
+
+
+          def bind_address(mode):
+              if mode == 'WILDCARD_IPV4':
+                  return 'NOT_REQUIRED'
+              if mode not in ('PRIVATE_BASELINE_IPV4', 'LOOPBACK_IPV4'):
+                  return 'UNPROVEN'
+              ip = shutil.which('ip', path='/usr/sbin:/usr/bin:/sbin:/bin')
+              if not ip:
+                  return 'UNPROVEN'
+              wanted = BIND_TARGETS[mode]
+              status, rc, raw, _ = bind_command([ip, '-j', '-4', 'address', 'show', 'to', wanted + '/32'], 16384)
+              if status != 'OK' or rc != 0:
+                  return 'UNPROVEN'
+              try:
+                  rows = json.loads(raw.decode('ascii'), object_pairs_hook=bind_unique_object)
+                  if not isinstance(rows, list) or len(rows) > 32:
+                      raise ValueError
+                  present, count = False, 0
+                  for row in rows:
+                      if not isinstance(row, dict) or not isinstance(row.get('addr_info'), list):
+                          raise ValueError
+                      for address in row['addr_info']:
+                          count += 1
+                          if count > 64 or not isinstance(address, dict) or address.get('family') != 'inet':
+                              raise ValueError
+                          value = str(ipaddress.IPv4Address(address.get('local')))
+                          if value != wanted:
+                              raise ValueError
+                          present = True
+                  return 'PRESENT' if present else 'ABSENT'
+              except (ValueError, UnicodeError, TypeError):
+                  return 'UNPROVEN'
+
+
+          def bind_network_snapshot(mode):
+              own_ns, manager = bind_namespace()
+              families = {}
+              for family, path in ((4, '/proc/net/tcp'), (6, '/proc/net/tcp6')):
+                  try:
+                      families[family] = bind_tcp(bind_read(path, 65536), family)
+                  except OSError:
+                      families[family] = None
+              rows = None if all(value is None for value in families.values()) else tuple(row for value in families.values() if value is not None for row in value)
+              if rows is not None and (len(rows) > 200 or len({x[3] for x in rows}) != len(rows)):
+                  raise BindError('CAP_EXCEEDED')
+              try:
+                  raw = bind_read('/proc/sys/net/ipv4/ip_nonlocal_bind', 8).strip()
+                  nonlocal_bind = 'ENABLED' if raw == b'1' else 'DISABLED' if raw == b'0' else 'UNPROVEN'
+              except OSError:
+                  nonlocal_bind = 'UNPROVEN'
+              return {'namespace_identity': own_ns, 'manager_namespace': manager, 'rows': rows,
+                      'ipv4_status': 'UNAVAILABLE' if families[4] is None else 'OBSERVED',
+                      'ipv6_status': 'UNAVAILABLE' if families[6] is None else 'OBSERVED',
+                      'local_address': bind_address(mode), 'nonlocal_bind': nonlocal_bind}
+
+
+          def bind_polkit():
+              result = {'polkit': 'UNAVAILABLE', 'reason': 'NONE'}
+              command = shutil.which('pkcheck', path='/usr/bin:/bin')
+              if not command:
+                  return result
+              try:
+                  raw = bind_read('/proc/self/stat', 4096).decode('ascii')
+                  pid = os.getpid()
+                  start = bind_uint(raw.rsplit(')', 1)[1].split()[19])
+                  if int(raw.split(' ', 1)[0]) != pid or not start:
+                      raise ValueError
+                  subject = str(pid) + ',' + str(start) + ',' + str(bind_subject()[0])
+              except (ValueError, OSError, UnicodeError, IndexError):
+                  return {'polkit': 'SUBJECT_UNVERIFIED', 'reason': 'NONE'}
+              status, rc, _, stderr = bind_command([command, '--action-id', 'org.freedesktop.systemd1.manage-units',
+                  '--process', subject, '--detail', 'unit', BIND_UNIT, '--detail', 'verb', 'start'], 64, discard_stdout=True)
+              if status == 'TIMEOUT':
+                  return {'polkit': 'CHECK_TIMEOUT', 'reason': 'NONE'}
+              if status != 'OK':
+                  return {'polkit': 'CHECK_ERROR', 'reason': 'UNCLASSIFIED'}
+              name = {0: 'AUTHORIZED_QUERY', 1: 'DENIED_QUERY', 2: 'INTERACTION_REQUIRED', 3: 'DISMISSED', 126: 'INVALID_INVOCATION', 127: 'CHECK_ERROR'}.get(rc, 'OTHER_RESULT')
+              reason = 'NONE'
+              if name == 'CHECK_ERROR':
+                  reason = 'UNCLASSIFIED'
+                  for marker, code in (
+                      (b'Only trusted callers (e.g. uid 0 or an action owner) can use CheckAuthorization() and pass details', 'DETAILS_CALLER_NOT_TRUSTED'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown:', 'DBUS_SERVICE_UNKNOWN'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.NameHasNoOwner:', 'DBUS_NAME_HAS_NO_OWNER'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.NoReply:', 'DBUS_NO_REPLY'),
+                      (b'GDBus.Error:org.freedesktop.DBus.Error.AccessDenied:', 'DBUS_ACCESS_DENIED')):
+                      if marker in stderr:
+                          reason = code
+                          break
+              return {'polkit': name, 'reason': reason}
+
+
+          def bind_relation(current, failed):
+              if current['status'] != 'LITERAL' or failed['status'] != 'MATCHED':
+                  return 'UNPROVEN'
+              known = tuple(BIND_TARGETS)
+              if current['port'] != failed['port'] or (current['mode'] in known and failed['mode'] in known and current['mode'] != failed['mode']):
+                  return 'DIFFERENT'
+              if current['port'] == failed['port'] == 'FIXED_18080' and current['mode'] == failed['mode'] and current['mode'] in known:
+                  return 'MATCH'
+              return 'UNPROVEN'
+
+
+          def observe_failed_bind():
+              identity = bind_subject()
+              before = bind_snapshot()
+              if any(before['state'][k] != v for k, v in (('load', 'LOADED'), ('active', 'FAILED'), ('sub', 'FAILED'))):
+                  return {'schema': BIND_SCHEMA, 'observation': 'NOT_APPLICABLE', 'state': before['state']}
+              current = bind_current_target(before['values']['ExecStart'])
+              failed = bind_failed_target(before)
+              usable = tuple(BIND_TARGETS)
+              selected = current if current['status'] == 'LITERAL' and current['port'] == 'FIXED_18080' and current['mode'] in usable else failed if failed['status'] == 'MATCHED' and failed['port'] == 'FIXED_18080' and failed['mode'] in usable else None
+              basis = 'CURRENT_EXECSTART_LITERAL' if selected is current else 'LAST_FAILED_INVOCATION' if selected is failed else 'UNPROVEN'
+              mode = selected['mode'] if selected else 'UNPROVEN'
+              first = bind_network_snapshot(mode)
+              authority = bind_polkit()
+              last = bind_network_snapshot(mode)
+              after = bind_snapshot()
+              if bind_subject() != identity or before != after:
+                  raise BindError('STATE_CHANGED')
+              if first != last:
+                  raise BindError('NETWORK_CHANGED')
+              values = before['values']
+              try:
+                  service_match = 'YES' if values['User'] == pwd.getpwuid(identity[0]).pw_name or values['User'] == str(identity[0]) else 'NO'
+              except KeyError:
+                  service_match = 'UNPROVEN'
+              authority.update(scope='FIXED_UNIT_START_QUERY_ONLY', service_user_matches_caller=service_match,
+                               can_start=values['CanStart'].upper(), refuse_manual_start=values['RefuseManualStart'].upper(), service_action='NONE')
+              rows = first['rows']
+              readable_families = sum(first[key] == 'OBSERVED' for key in ('ipv4_status', 'ipv6_status'))
+              net = {'scope': 'CALLER_NETWORK_NAMESPACE',
+                     'unit_network': 'DEFAULT_CONFIGURATION' if values['PrivateNetwork'] == 'no' and not values['NetworkNamespacePath'] and not values['JoinsNamespaceOf'] else 'PRIVATE_OR_JOINED',
+                     'manager_namespace': first['manager_namespace'], 'target_basis': basis, 'target_mode': mode,
+                     'local_address': first['local_address'], 'nonlocal_bind': first['nonlocal_bind'],
+                     'status': 'OBSERVED' if readable_families == 2 else 'PARTIAL' if readable_families else 'UNAVAILABLE',
+                     'ipv4_status': first['ipv4_status'], 'ipv6_status': first['ipv6_status'],
+                     'stability': 'UNPROVEN' if rows is None else 'UNCHANGED',
+                     'ipv4_listeners': 0, 'ipv6_listeners': 0, 'target_ipv4_listeners': 0, 'wildcard_ipv4_listeners': 0,
+                     'wildcard_ipv6_listeners': 0, 'other_address_listeners': 0, 'ownership': 'UNPROVEN'}
+              if rows is not None:
+                  target = BIND_TARGETS.get(mode)
+                  for family, address, uid, inode in rows:
+                      net['ipv4_listeners' if family == 4 else 'ipv6_listeners'] += 1
+                      if family == 4 and address == '0.0.0.0':
+                          net['wildcard_ipv4_listeners'] += 1
+                      elif family == 6 and address == '::':
+                          net['wildcard_ipv6_listeners'] += 1
+                      elif family == 4 and target is not None and address == target:
+                          net['target_ipv4_listeners'] += 1
+                      else:
+                          net['other_address_listeners'] += 1
+                  owners = {row[2] == identity[0] for row in rows}
+                  net['ownership'] = 'NONE' if not owners else 'CALLER_UID' if owners == {True} else 'OTHER_UID' if owners == {False} else 'MIXED'
+              return {'schema': BIND_SCHEMA, 'observation': 'COMPLETE', 'state': before['state'], 'state_stability': 'UNCHANGED',
+                      'current_target': current, 'failed_target': failed, 'target_relation': bind_relation(current, failed),
+                      'network': net, 'start_authority': authority}
+
+
+          def bind_main():
+              global BIND_DEADLINE
+              BIND_DEADLINE = time.monotonic() + 30
+              def expired(signum, frame):
+                  raise BindError('DEADLINE')
+              signal.signal(signal.SIGALRM, expired)
+              signal.setitimer(signal.ITIMER_REAL, 35)
+              try:
+                  report, rc = observe_failed_bind(), 0
+                  encoded = json.dumps(report, separators=(',', ':'), sort_keys=True, ensure_ascii=True).encode('ascii')
+                  report, rc = checked_bind_report(encoded, rc)
+              except BindError as error:
+                  code = str(error) if str(error) in BIND_ERRORS else 'READ_ERROR'
+                  report, rc = {'schema': BIND_SCHEMA, 'observation': 'ERROR', 'error': code}, 1
+              except Exception:
+                  report, rc = {'schema': BIND_SCHEMA, 'observation': 'ERROR', 'error': 'READ_ERROR'}, 1
+              finally:
+                  signal.setitimer(signal.ITIMER_REAL, 0)
+              print(json.dumps(report, separators=(',', ':'), sort_keys=True, ensure_ascii=True))
+              raise SystemExit(rc)
+
+
+          if __name__ == '__main__':
+              bind_main()
+          FAILED_BIND_PROBE
+          failed_bind_rc=$?
+          set -e
+          python3 -I -B - "$RUNNER_TEMP/failed-bind-raw" "$failed_bind_rc" <<'FAILED_BIND_REPORT'
+          import json
+          import re
+
+          BIND_SCHEMA = 'gekta.fixed-unit-bind-evidence.v1'
+          BIND_MODES = ('PRIVATE_BASELINE_IPV4', 'LOOPBACK_IPV4', 'WILDCARD_IPV4', 'OTHER_IPV4', 'OTHER_IPV6', 'OTHER_LITERAL', 'UNPROVEN')
+          BIND_PORTS = ('FIXED_18080', 'OTHER', 'UNPROVEN')
+          BIND_ERRORS = ('IDENTITY_REJECTED', 'CAPTURE_UNAVAILABLE', 'CAP_EXCEEDED', 'DEADLINE', 'SNAPSHOT_READ_ERROR', 'SNAPSHOT_INVALID', 'JOURNAL_INVALID', 'STATE_CHANGED', 'NETWORK_CHANGED', 'READ_ERROR', 'RECEIPT_INVALID')
+          BIND_STATE_SPEC = {
+              'load': ('LOADED', 'OTHER'), 'active': ('FAILED', 'OTHER'), 'sub': ('FAILED', 'OTHER'),
+              'result': ('EXIT_CODE', 'OTHER'), 'exec_code': 2147483647, 'exec_status': 2147483647, 'restarts': 2147483647,
+          }
+          BIND_LITERAL_SPEC = {'status': ('LITERAL', 'UNPROVEN'), 'mode': BIND_MODES, 'port': BIND_PORTS}
+          BIND_FAILURE_SPEC = {'status': ('MATCHED', 'AMBIGUOUS', 'NO_MATCH', 'UNAVAILABLE'), 'mode': BIND_MODES, 'port': BIND_PORTS,
+                               'readable_entries': 200, 'unsupported_messages': 200, 'matches': 200,
+                               'coverage': ('CURRENT_INVOCATION_PARTIAL', 'UNAVAILABLE')}
+          BIND_NETWORK_SPEC = {
+              'scope': ('CALLER_NETWORK_NAMESPACE',), 'unit_network': ('DEFAULT_CONFIGURATION', 'PRIVATE_OR_JOINED', 'UNPROVEN'),
+              'manager_namespace': ('MATCH', 'DIFFERENT', 'UNPROVEN'),
+              'target_basis': ('CURRENT_EXECSTART_LITERAL', 'LAST_FAILED_INVOCATION', 'UNPROVEN'),
+              'target_mode': BIND_MODES, 'local_address': ('PRESENT', 'ABSENT', 'NOT_REQUIRED', 'UNPROVEN'),
+              'nonlocal_bind': ('ENABLED', 'DISABLED', 'UNPROVEN'), 'status': ('OBSERVED', 'PARTIAL', 'UNAVAILABLE'),
+              'ipv4_status': ('OBSERVED', 'UNAVAILABLE'), 'ipv6_status': ('OBSERVED', 'UNAVAILABLE'),
+              'ipv4_listeners': 200, 'ipv6_listeners': 200, 'target_ipv4_listeners': 200,
+              'wildcard_ipv4_listeners': 200, 'wildcard_ipv6_listeners': 200, 'other_address_listeners': 200,
+              'ownership': ('NONE', 'CALLER_UID', 'OTHER_UID', 'MIXED', 'UNPROVEN'),
+              'stability': ('UNCHANGED', 'UNPROVEN'),
+          }
+          BIND_AUTH_SPEC = {
+              'scope': ('FIXED_UNIT_START_QUERY_ONLY',), 'service_user_matches_caller': ('YES', 'NO', 'UNPROVEN'),
+              'can_start': ('YES', 'NO'), 'refuse_manual_start': ('YES', 'NO'),
+              'polkit': ('AUTHORIZED_QUERY', 'DENIED_QUERY', 'INTERACTION_REQUIRED', 'DISMISSED', 'UNAVAILABLE', 'SUBJECT_UNVERIFIED', 'CHECK_TIMEOUT', 'CHECK_ERROR', 'INVALID_INVOCATION', 'OTHER_RESULT'),
+              'reason': ('NONE', 'DETAILS_CALLER_NOT_TRUSTED', 'DBUS_SERVICE_UNKNOWN', 'DBUS_NAME_HAS_NO_OWNER', 'DBUS_NO_REPLY', 'DBUS_ACCESS_DENIED', 'UNCLASSIFIED'),
+              'service_action': ('NONE',),
+          }
+
+
+          def bind_unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError
+                  result[key] = value
+              return result
+
+
+          def bind_shape(value, spec):
+              if isinstance(spec, dict):
+                  if not isinstance(value, dict) or set(value) != set(spec):
+                      raise ValueError
+                  for key in spec:
+                      bind_shape(value[key], spec[key])
+              elif isinstance(spec, tuple):
+                  if type(value) is not str or value not in spec:
+                      raise ValueError
+              elif type(spec) is int:
+                  if type(value) is not int or not 0 <= value <= spec:
+                      raise ValueError
+              else:
+                  raise ValueError
+
+
+          def checked_bind_report(raw, remote_rc):
+              if not isinstance(raw, bytes) or not 0 < len(raw) <= 8192 or b'\x00' in raw:
+                  raise ValueError
+              report = json.loads(raw.decode('ascii'), object_pairs_hook=bind_unique_object)
+              if not isinstance(report, dict) or report.get('schema') != BIND_SCHEMA:
+                  raise ValueError
+              if report.get('observation') == 'ERROR':
+                  bind_shape(report, {'schema': (BIND_SCHEMA,), 'observation': ('ERROR',), 'error': BIND_ERRORS})
+                  if remote_rc != 1:
+                      raise ValueError
+                  return report, 1
+              if report.get('observation') == 'NOT_APPLICABLE':
+                  bind_shape(report, {'schema': (BIND_SCHEMA,), 'observation': ('NOT_APPLICABLE',), 'state': BIND_STATE_SPEC})
+                  if remote_rc != 0 or all(report['state'][key] == value for key, value in (('load', 'LOADED'), ('active', 'FAILED'), ('sub', 'FAILED'))):
+                      raise ValueError
+                  return report, 0
+              bind_shape(report, {'schema': (BIND_SCHEMA,), 'observation': ('COMPLETE',), 'state': BIND_STATE_SPEC,
+                                 'state_stability': ('UNCHANGED',), 'current_target': BIND_LITERAL_SPEC,
+                                 'failed_target': BIND_FAILURE_SPEC, 'target_relation': ('MATCH', 'DIFFERENT', 'UNPROVEN'),
+                                 'network': BIND_NETWORK_SPEC, 'start_authority': BIND_AUTH_SPEC})
+              if remote_rc != 0 or any(report['state'][key] != value for key, value in (('load', 'LOADED'), ('active', 'FAILED'), ('sub', 'FAILED'))):
+                  raise ValueError
+              current, failed, net, auth = (report[key] for key in ('current_target', 'failed_target', 'network', 'start_authority'))
+              if current['status'] == 'UNPROVEN' and (current['mode'], current['port']) != ('UNPROVEN', 'UNPROVEN'):
+                  raise ValueError
+              if current['status'] == 'LITERAL' and ('UNPROVEN' in (current['mode'], current['port'])):
+                  raise ValueError
+              if failed['readable_entries'] + failed['unsupported_messages'] > 200 or failed['matches'] > failed['readable_entries']:
+                  raise ValueError
+              if failed['status'] == 'MATCHED':
+                  if not failed['matches'] or failed['mode'] == 'UNPROVEN' or failed['port'] == 'UNPROVEN' or failed['coverage'] != 'CURRENT_INVOCATION_PARTIAL':
+                      raise ValueError
+              elif failed['mode'] != 'UNPROVEN' or failed['port'] != 'UNPROVEN':
+                  raise ValueError
+              if failed['status'] == 'NO_MATCH' and (failed['matches'] or not failed['readable_entries'] + failed['unsupported_messages']):
+                  raise ValueError
+              if failed['status'] == 'AMBIGUOUS' and failed['matches'] < 2:
+                  raise ValueError
+              if failed['status'] == 'UNAVAILABLE' and (failed['readable_entries'] or failed['unsupported_messages'] or failed['matches'] or failed['coverage'] != 'UNAVAILABLE'):
+                  raise ValueError
+              if failed['status'] != 'UNAVAILABLE' and failed['coverage'] != 'CURRENT_INVOCATION_PARTIAL':
+                  raise ValueError
+              usable = ('PRIVATE_BASELINE_IPV4', 'LOOPBACK_IPV4', 'WILDCARD_IPV4')
+              relation = 'UNPROVEN'
+              if current['status'] == 'LITERAL' and failed['status'] == 'MATCHED':
+                  if current['port'] != failed['port'] or (current['mode'] in usable and failed['mode'] in usable and current['mode'] != failed['mode']):
+                      relation = 'DIFFERENT'
+                  elif current['port'] == failed['port'] == 'FIXED_18080' and current['mode'] == failed['mode'] and current['mode'] in usable:
+                      relation = 'MATCH'
+              if report['target_relation'] != relation:
+                  raise ValueError
+              selected = current if current['status'] == 'LITERAL' and current['port'] == 'FIXED_18080' and current['mode'] in usable else failed if failed['status'] == 'MATCHED' and failed['port'] == 'FIXED_18080' and failed['mode'] in usable else None
+              expected_basis = 'CURRENT_EXECSTART_LITERAL' if selected is current else 'LAST_FAILED_INVOCATION' if selected is failed else 'UNPROVEN'
+              if net['target_basis'] != expected_basis or net['target_mode'] != (selected['mode'] if selected else 'UNPROVEN'):
+                  raise ValueError
+              if net['target_mode'] == 'WILDCARD_IPV4':
+                  if net['local_address'] != 'NOT_REQUIRED':
+                      raise ValueError
+              elif net['target_mode'] == 'UNPROVEN' and net['local_address'] != 'UNPROVEN':
+                  raise ValueError
+              elif net['local_address'] == 'NOT_REQUIRED':
+                  raise ValueError
+              total = net['ipv4_listeners'] + net['ipv6_listeners']
+              readable_families = sum(net[key] == 'OBSERVED' for key in ('ipv4_status', 'ipv6_status'))
+              if net['status'] != ('OBSERVED' if readable_families == 2 else 'PARTIAL' if readable_families else 'UNAVAILABLE'):
+                  raise ValueError
+              if (net['ipv4_status'] == 'UNAVAILABLE' and net['ipv4_listeners']) or (net['ipv6_status'] == 'UNAVAILABLE' and net['ipv6_listeners']):
+                  raise ValueError
+              if net['target_mode'] in ('WILDCARD_IPV4', 'UNPROVEN') and net['target_ipv4_listeners']:
+                  raise ValueError
+              if total > 200 or net['target_ipv4_listeners'] + net['wildcard_ipv4_listeners'] > net['ipv4_listeners'] or net['wildcard_ipv6_listeners'] > net['ipv6_listeners']:
+                  raise ValueError
+              if net['other_address_listeners'] != total - net['target_ipv4_listeners'] - net['wildcard_ipv4_listeners'] - net['wildcard_ipv6_listeners']:
+                  raise ValueError
+              if net['status'] == 'UNAVAILABLE':
+                  if total or net['ownership'] != 'UNPROVEN' or net['stability'] != 'UNPROVEN':
+                      raise ValueError
+              elif net['stability'] != 'UNCHANGED' or (total == 0) != (net['ownership'] == 'NONE') or (total and net['ownership'] == 'UNPROVEN'):
+                  raise ValueError
+              if auth['polkit'] != 'CHECK_ERROR' and auth['reason'] != 'NONE':
+                  raise ValueError
+              return report, 0
+
+          import pathlib
+          import sys
+
+          try:
+              with pathlib.Path(sys.argv[1]).open('rb') as handle:
+                  report, rc = checked_bind_report(handle.read(8193), int(sys.argv[2]))
+          except Exception:
+              report, rc = {'schema': BIND_SCHEMA, 'observation': 'ERROR', 'error': 'RECEIPT_INVALID'}, 1
+          print('CONTROL_BIND_DIAG=' + json.dumps(report, separators=(',', ':'), sort_keys=True, ensure_ascii=True))
+          raise SystemExit(rc)
+          FAILED_BIND_REPORT
 
       - name: Read bounded control-plane facts
         env:
