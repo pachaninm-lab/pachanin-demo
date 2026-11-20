@@ -12,17 +12,17 @@
     {
       "path": "scripts/release/api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "64eafa8337649537d2ca8381e3976266be3e63c2",
-      "bytes": 124477,
-      "sha256": "39650338f881bc232bcdff30d2c036ac3a0a2cef998692ff51ea2d34d561e8d0",
+      "afterBlob": "e7db6c1184b2f801d7a98b2db4ddd4c437d563aa",
+      "bytes": 126689,
+      "sha256": "42697b1349b40cf57834a7a579680d21195a800c2ac10a38643691c29c513071",
       "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
     },
     {
       "path": "scripts/release/test-api-only-release-controller.py",
       "mode": "100644",
-      "afterBlob": "3648fc7d2afc2bbd341a4bf1caed32c762775ed6",
-      "bytes": 86351,
-      "sha256": "7138bf4a09bfe4cd411c7cec46c216d2ace7296fca4768cfe06d74b0473d330e",
+      "afterBlob": "76cfda02f10b97381fdaf9b228389c8c1cfe2ebb",
+      "bytes": 93430,
+      "sha256": "13282a24ddebd8653d2e89071eb532c98d91a09c13c2cf3bb033d073fcda711b",
       "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
     },
     {
@@ -98,5 +98,186 @@
     "productionHoldRun": 43873233340,
     "historicalArchiveEvidenceComment": 5600883938,
     "purpose": "Recognize the exact four reconciled W1 ledger rows on an existing database with the canonical corrective migration. Keep fresh-ledger, catalog, privilege, and before/after history comparisons."
+  },
+  "releaseFailureDiagnosticsEvidence": {
+    "schema": "pc.api-only-release-diagnostics.exact-purpose.v1",
+    "purposeId": "api-only-release-failure-diagnostics-20261120",
+    "status": "PROSPECTIVE_SOURCE_PREREQUISITE",
+    "authorityBaseExactMain": "220a34ab817215a1a7fe0c83080d229fe9eb575a",
+    "metadataBranch": "governance/api-only-failure-diagnostics-20261120",
+    "sourceBranch": "ops/production-api-only-archive-rollback-20261112",
+    "metadataPaths": [
+      "docs/platform-v7/autopilot/scopes/production-api-only-archive-rollback-20261112.json"
+    ],
+    "sourcePaths": [
+      "scripts/release/api-only-release-controller.py",
+      "scripts/release/test-api-only-release-controller.py"
+    ],
+    "purpose": "Preserve only closed errors from the exact pinned database-binding primitive and report a closed failure stage. This changes diagnostics, not release eligibility or execution order.",
+    "historicalReceipt": {
+      "source": "13a998e86e95914006df7766a6c6208a229fe10c",
+      "run": 44428290843,
+      "attempt": 1,
+      "job": 135240893824,
+      "artifact": 14485318646,
+      "artifactBytes": 428,
+      "artifactSha256": "bd55062a5c1a4996f3d02c6cee0d7a30acb7eba5c976b24ce8822023968afd20",
+      "result": "HOLD",
+      "reason": "EXECUTION_UNAVAILABLE",
+      "runtimeState": "BASELINE_OBSERVED",
+      "apiImageUpdated": false,
+      "historicalHostCause": "UNKNOWN_NOT_RECONSTRUCTIBLE_FROM_RETAINED_RECEIPT",
+      "qualification": "The receipt proves no armed API image transition; its broad runtime state does not prove absence of journal, archive or backup preparation."
+    },
+    "reproducedDefect": {
+      "bindingSha256": "474ef140926b81627dad01076fb67c409a5785b4154c27890dfa2919e1b918ec",
+      "before": "Actual pinned bind() raises BindingError POSTGRES_CONFIGURATION for synthetic PG_MAJOR=15; unchanged Host.database/release() erases it to EXECUTION_UNAVAILABLE.",
+      "after": "The same synthetic read-only boundary yields BINDING_DEFAULT_POSTGRES_CONFIGURATION and BASELINE_DATABASE, before reservation or API mutation.",
+      "qualification": "Synthetic regression with fake runtime and external processes forbidden. It does not assert the production PostgreSQL version or historical host cause."
+    },
+    "previousSourcePins": [
+      {
+        "path": "scripts/release/api-only-release-controller.py",
+        "mode": "100644",
+        "afterBlob": "64eafa8337649537d2ca8381e3976266be3e63c2",
+        "bytes": 124477,
+        "sha256": "39650338f881bc232bcdff30d2c036ac3a0a2cef998692ff51ea2d34d561e8d0",
+        "beforeBlob": "f9adfea6dbb238de3ffe9c83df3566edf1072996"
+      },
+      {
+        "path": "scripts/release/test-api-only-release-controller.py",
+        "mode": "100644",
+        "afterBlob": "3648fc7d2afc2bbd341a4bf1caed32c762775ed6",
+        "bytes": 86351,
+        "sha256": "7138bf4a09bfe4cd411c7cec46c216d2ace7296fca4768cfe06d74b0473d330e",
+        "beforeBlob": "0b9c353cc56152bc3bd1af972b04f790596ece13"
+      },
+      {
+        "path": ".github/workflows/production-api-only-release.yml",
+        "mode": "100644",
+        "afterBlob": "75f4157bf30bfb2fcbb4b3502acdfcac7d5b9d48",
+        "bytes": 29762,
+        "sha256": "c14d9646dafc187b656b77b6971fe33e6c4d39d84eaae87eb76b17b191f3792c",
+        "beforeBlob": "74a4345b57973e1baceece3ac1124cf2ac06535d"
+      },
+      {
+        "path": "docs/ops/production-api-only-release.md",
+        "mode": "100644",
+        "afterBlob": "9f676cbae0e94f2ea49ffd44dd00ee052ef969a1",
+        "bytes": 9488,
+        "sha256": "2b96f0bd86830362205298f78e7774cb311a2d31cb9b0af31587e6ecd6a97eb0",
+        "beforeBlob": "7c4b724763efe2a578730aeace41a267c01c5a9b"
+      }
+    ],
+    "sourceChanges": [
+      {
+        "path": "scripts/release/api-only-release-controller.py",
+        "before": {
+          "path": "scripts/release/api-only-release-controller.py",
+          "mode": "100644",
+          "blob": "64eafa8337649537d2ca8381e3976266be3e63c2",
+          "bytes": 124477,
+          "sha256": "39650338f881bc232bcdff30d2c036ac3a0a2cef998692ff51ea2d34d561e8d0"
+        },
+        "after": {
+          "path": "scripts/release/api-only-release-controller.py",
+          "mode": "100644",
+          "blob": "e7db6c1184b2f801d7a98b2db4ddd4c437d563aa",
+          "bytes": 126689,
+          "sha256": "42697b1349b40cf57834a7a579680d21195a800c2ac10a38643691c29c513071"
+        }
+      },
+      {
+        "path": "scripts/release/test-api-only-release-controller.py",
+        "before": {
+          "path": "scripts/release/test-api-only-release-controller.py",
+          "mode": "100644",
+          "blob": "3648fc7d2afc2bbd341a4bf1caed32c762775ed6",
+          "bytes": 86351,
+          "sha256": "7138bf4a09bfe4cd411c7cec46c216d2ace7296fca4768cfe06d74b0473d330e"
+        },
+        "after": {
+          "path": "scripts/release/test-api-only-release-controller.py",
+          "mode": "100644",
+          "blob": "76cfda02f10b97381fdaf9b228389c8c1cfe2ebb",
+          "bytes": 93430,
+          "sha256": "13282a24ddebd8653d2e89071eb532c98d91a09c13c2cf3bb033d073fcda711b"
+        }
+      }
+    ],
+    "privateCandidate": {
+      "head": "6f9cc3e2162b1bae91110af23c7ce749a243e085",
+      "tree": "64c252a6c4e79fbf03e98dbf20ac7be6299aed2c",
+      "parent": "220a34ab817215a1a7fe0c83080d229fe9eb575a",
+      "accepted": false
+    },
+    "completeSourcePatch": {
+      "format": "git-diff-full-index-binary",
+      "encoding": "utf-8",
+      "bytes": 16317,
+      "sha256": "70791bfb38fc7c8e2b9bf277f9a724430a554877ef8f0f6fb312d766aa713b11",
+      "text": "diff --git a/scripts/release/api-only-release-controller.py b/scripts/release/api-only-release-controller.py\nindex 64eafa8337649537d2ca8381e3976266be3e63c2..e7db6c1184b2f801d7a98b2db4ddd4c437d563aa 100644\n--- a/scripts/release/api-only-release-controller.py\n+++ b/scripts/release/api-only-release-controller.py\n@@ -41,6 +41,16 @@ ENV = {'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',\n BACKUPS = '/var/lib/pc-release-authority/backups'\n OVERRIDE = 'compose.production-api-only-image.override.yml'\n BINDING_SHA256 = '474ef140926b81627dad01076fb67c409a5785b4154c27890dfa2919e1b918ec'\n+# Closed public codes from this exact pinned dependency. Do not expose arbitrary\n+# exception text, subclasses, metadata, connection details or future new codes.\n+BINDING_FAILURE_CODES = frozenset({\n+    'ARGUMENTS', 'BACKEND_IDENTITY', 'CONTAINER_IDENTITY', 'DATABASE_BINDING_NOT_PROVEN',\n+    'DUPLICATE_JSON_KEY', 'ENVIRONMENT_AMBIGUOUS', 'ENVIRONMENT_SHAPE', 'INPUT_LIMIT',\n+    'INSPECTION_SHAPE', 'INVALID_JSON', 'JSON_CONSTANT', 'OUTPUT_LIMIT',\n+    'POSTGRES_CONFIGURATION', 'PROCESS_EOF', 'PROCESS_FAILED', 'PROCESS_TIMEOUT',\n+    'ROOT_AND_FOUR_OR_FIVE_ARGUMENTS_REQUIRED', 'RUNTIME_CHANGED',\n+    'TRANSACTION_COMPLETION_NOT_PROVEN',\n+})\n BACKUP_SHA256 = 'f3459f23ca7db27e64ebe91e5faa5ff36ff546498f933e7941c011dba1682710'\n PRESERVED = (\n     ('cold-preservation-20261022', '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603'),\n@@ -409,6 +419,7 @@ def verify_runtime(before, after, image_id, revision):\n \n def release(intent, host, *, preflight=False):\n     report = {'schema': 'pc.api-only-release-result.v1', 'result': 'HOLD', 'reason': 'UNVERIFIED',\n+              'failure_stage': 'NONE',\n               'target_sha': intent.get('target_sha') if type(intent) is dict and type(intent.get('target_sha')) is str and SHA.fullmatch(intent['target_sha']) else None,\n               'api_image_updated': False, 'runtime_state':'NOT_OBSERVED',\n               'baseline_filesystem_attestation':'NOT_PROVEN', 'rollback': 'NOT_ATTEMPTED', 'business_data_rollback': 'NOT_PERFORMED',\n@@ -418,63 +429,93 @@ def release(intent, host, *, preflight=False):\n     baseline = None\n     journal = False\n     lease = contextlib.ExitStack()\n+    stage = 'INTENT'\n     try:\n         validate_intent(intent, host.now())\n+        stage = 'REFERENCE'\n         host.admitted_reference(intent)\n+        stage = 'LOCK'\n         lease.enter_context(host.lock())\n+        stage = 'BASELINE_SNAPSHOT'\n         baseline = host.snapshot(intent)\n         report['runtime_state']='BASELINE_OBSERVED'\n+        stage = 'BASELINE_IDENTITY'\n         demand(baseline['revision'] == intent['baseline_sha'] and\n                baseline['image_id'] == intent['baseline_image_id'] and baseline['ready'] is True,\n                'CANONICAL_BASELINE_CHANGED')\n+        stage = 'BASELINE_PUBLICATION'\n         host.assert_baseline_publication(intent,baseline)\n+        stage = 'BASELINE_COMPOSE_IMAGE'\n         demand(host.effective_api_image_id() == baseline['image_id'], 'BASELINE_COMPOSE_IMAGE_MISMATCH')\n+        stage = 'BASELINE_RECHECK'\n         host.assert_current(intent, baseline)\n+        stage = 'BASELINE_CAPACITY'\n         host.capacity(intent)\n+        stage = 'BASELINE_DATABASE'\n         db = host.database(intent, baseline)\n         demand(db.get('database_compatibility') == 'VERIFIED_TARGET_CONTRACT' and\n                db.get('catalog_match') is True and db.get('principals_match') is True and\n                db.get('migration_match') is True and db.get('both_clients_bound') is True,\n                'DATABASE_COMPATIBILITY_NOT_PROVEN')\n+        stage = 'BASELINE_RECHECK'\n         host.assert_current(intent, baseline)\n+        stage = 'BASELINE_PUBLIC_SMOKE'\n         host.public_smoke(intent)\n         if preflight:\n             report.update(result='PREFLIGHT_ONLY', reason='NONE')\n             return report\n         # Reservation is durable and exclusive BEFORE any image, backup or\n         # configuration mutation. Interrupted/failed operations are never reset.\n+        stage = 'JOURNAL_RESERVATION'\n         host.journal_begin(intent, baseline)\n         journal = True\n+        stage = 'JOURNAL_PREPARATION'\n         host.journal_write('PREPARING')\n         if intent['baseline_publication']['schema'] == BASELINE_ARCHIVE_SCHEMA:\n+            stage = 'BASELINE_ARCHIVE'\n             host.retain_baseline_archive(intent)\n+            stage = 'BASELINE_RECHECK'\n             host.assert_current(intent, baseline)\n+        stage = 'BACKUP_RESTORE'\n         backup = host.backup(intent, baseline)\n         demand(backup.get('classification') == 'CRITICAL_STATE_RESTORE_VERIFIED_NOT_RELEASE_ACCEPTANCE' and\n                backup.get('target_sha') == intent['target_sha'] and backup.get('disposable_cleanup') == 'VERIFIED' and\n                backup.get('source_mutation') == 'NONE' and backup.get('deployment_authorized') is False,\n                'BACKUP_RESTORE_NOT_PROVEN')\n+        stage = 'BASELINE_RECHECK'\n         host.assert_current(intent, baseline)\n+        stage = 'TARGET_CAPACITY'\n         host.capacity(intent)\n+        stage = 'TARGET_PULL'\n         image_id = host.pull(intent['api_digest'], intent['target_sha'])\n         demand(type(image_id) is str and IMAGE_ID.fullmatch(image_id), 'TARGET_IMAGE_ID_INVALID')\n+        stage = 'BASELINE_RECHECK'\n         host.assert_current(intent, baseline)\n+        stage = 'MUTATION_ARMING'\n         demand(host.now() <= intent['expires'], 'FINITE_WINDOW_EXPIRED')\n         host.journal_write('API_MUTATION_ARMED')\n         # An override write can fail after rename/fsync: arm first.\n         armed = True\n         report['runtime_state']='UNKNOWN_DURING_TRANSITION'\n+        stage = 'TARGET_OVERRIDE'\n         host.write_override(intent['api_digest'])\n+        stage = 'TARGET_RECREATE'\n         host.recreate_api()\n+        stage = 'TARGET_READINESS'\n         current = host.wait_api()\n+        stage = 'TARGET_RUNTIME_VERIFY'\n         verify_runtime(baseline, current, image_id, intent['target_sha'])\n         demand(current['api_id'] != baseline['api_id'], 'API_NOT_RECREATED')\n+        stage = 'TARGET_COMPOSE_IMAGE'\n         demand(host.effective_api_image_id() == image_id, 'PERSISTED_IMAGE_BINDING_FAILED')\n         # Rebind BOTH target image clients; a healthy HTTP process alone\n         # cannot establish that AuthPrisma still resolves the intended DB.\n+        stage = 'TARGET_DATABASE'\n         after_db = host.database(intent, current)\n         demand(after_db == db, 'TARGET_DATABASE_CONTRACT_CHANGED')\n+        stage = 'TARGET_PUBLIC_SMOKE'\n         host.public_smoke(intent)\n+        stage = 'TARGET_JOURNAL'\n         host.journal_write('API_IMAGE_VERIFIED')\n         armed = False\n         report.update(result='API_IMAGE_RELEASE_VERIFIED', reason='NONE', api_image_updated=True,runtime_state='TARGET_IMAGE_VERIFIED')\n@@ -482,6 +523,7 @@ def release(intent, host, *, preflight=False):\n     except BaseException as error:\n         code = str(error) if type(error) is ReleaseError and re.fullmatch(r'[A-Z0-9_]{1,80}', str(error)) else 'EXECUTION_UNAVAILABLE'\n         report['reason'] = code\n+        report['failure_stage'] = stage\n         if armed and baseline is not None:\n             # Never delegate to the legacy tag-based rollback executor.\n             report['rollback'] = 'ATTEMPTED'\n@@ -2000,7 +2042,14 @@ class Host:\n         exec(compile(binding_raw, '<accepted-binding>', 'exec'), module.__dict__)\n         archived_ledger_history = False\n         for client in ('default', 'registration'):\n-            module.bind(intent['target_sha'], baseline['api_id'], self.pg_id, self.project, module.Runtime(), client=client)\n+            try:\n+                module.bind(intent['target_sha'], baseline['api_id'], self.pg_id, self.project, module.Runtime(), client=client)\n+            except module.BindingError as error:\n+                if (type(error) is module.BindingError and len(error.args) == 1 and\n+                        type(error.args[0]) is str and error.args[0] in BINDING_FAILURE_CODES):\n+                    prefix = 'BINDING_DEFAULT_' if client == 'default' else 'BINDING_REGISTRATION_'\n+                    raise ReleaseError(prefix + error.args[0]) from None\n+                raise\n             value = closed_json(self.run(['exec', baseline['api_id'], '/nodejs/bin/node', '-e', database_program(client)],\n                                         timeout=40))\n             has_archived_history = compare_database(value, intent, client)\ndiff --git a/scripts/release/test-api-only-release-controller.py b/scripts/release/test-api-only-release-controller.py\nindex 3648fc7d2afc2bbd341a4bf1caed32c762775ed6..76cfda02f10b97381fdaf9b228389c8c1cfe2ebb 100644\n--- a/scripts/release/test-api-only-release-controller.py\n+++ b/scripts/release/test-api-only-release-controller.py\n@@ -199,6 +199,125 @@ class FakeHost:\n \n \n class ControllerTests(unittest.TestCase):\n+    def test_actual_pinned_binding_denial_keeps_safe_reason_and_stops_before_reservation(self):\n+        import builtins\n+        import types\n+        raw = PATH.with_name('ir20-api-database-binding.py').read_bytes()\n+        self.assertEqual(hashlib.sha256(raw).hexdigest(), c.BINDING_SHA256)\n+\n+        class Runtime:\n+            def inspect(self, identity):\n+                return {'Id': identity, 'State': {'Running': True}, 'Image': 'sha256:' + 'c' * 64,\n+                        'Config': {'Labels': {'com.docker.compose.project': 'fixture',\n+                                              'com.docker.compose.service': 'api' if identity == '4' * 64 else 'postgres'},\n+                                   'Env': ['PG_MAJOR=15', 'POSTGRES_USER=fixture', 'POSTGRES_DB=fixture']}}\n+\n+            def session(self, *_args, **_kwargs):\n+                raise AssertionError('denial must precede a database session')\n+\n+            def run(self, *_args, **_kwargs):\n+                raise AssertionError('denial must precede a database query')\n+\n+        def load_binding(code, namespace):\n+            builtins.exec(code, namespace)\n+            namespace['Runtime'] = Runtime\n+\n+        host = FakeHost()\n+        host.pg_id, host.project = '8' * 64, 'fixture'\n+        host.dependency = lambda relative, expected: raw\n+        host.database = types.MethodType(c.Host.database, host)\n+        with patch.object(c, 'exec', load_binding, create=True), \\\n+                patch.object(c.subprocess, 'Popen', side_effect=AssertionError('no external process')):\n+            result = c.release(archive_intent(), host)\n+        self.assertEqual(result['result'], 'HOLD')\n+        self.assertEqual(result['reason'], 'BINDING_DEFAULT_POSTGRES_CONFIGURATION')\n+        self.assertEqual(result['failure_stage'], 'BASELINE_DATABASE')\n+        self.assertEqual(result['runtime_state'], 'BASELINE_OBSERVED')\n+        self.assertFalse(result['api_image_updated'])\n+        self.assertFalse(host.spent)\n+        self.assertEqual(host.recreates, 0)\n+        self.assertNotIn('backup', [name for name, _ in host.events])\n+\n+    def test_binding_error_boundary_is_closed_for_both_clients_and_never_exposes_private_text(self):\n+        import ast\n+        import builtins\n+        import types\n+        raw = PATH.with_name('ir20-api-database-binding.py').read_bytes()\n+        self.assertEqual(hashlib.sha256(raw).hexdigest(), c.BINDING_SHA256)\n+        codes = {node.args[0].value for node in ast.walk(ast.parse(raw))\n+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)\n+                 and node.func.id == 'BindingError' and node.args\n+                 and isinstance(node.args[0], ast.Constant) and type(node.args[0].value) is str}\n+        self.assertEqual(c.BINDING_FAILURE_CODES, codes)\n+        cases = [(code, lambda cls, code=code: cls(code)) for code in sorted(codes)]\n+        cases.extend([\n+            (None, lambda cls: cls('postgres://private-sentinel')),\n+            (None, lambda cls: cls('FUTURE_UNADMITTED_CODE')),\n+            (None, lambda cls: cls('POSTGRES_CONFIGURATION', 'private-sentinel')),\n+            (None, lambda cls: type('DerivedBindingError', (cls,), {})('POSTGRES_CONFIGURATION')),\n+            (None, lambda cls: ValueError('private-sentinel')),\n+        ])\n+        for client in ('default', 'registration'):\n+            for code, make_error in cases:\n+                with self.subTest(client=client, code=code):\n+                    def load_binding(program, namespace):\n+                        builtins.exec(program, namespace)\n+                        error_class = namespace['BindingError']\n+                        def bind(*_args, client='default', **_kwargs):\n+                            if client == selected_client:\n+                                raise make_error(error_class)\n+                        namespace['bind'], namespace['Runtime'] = bind, lambda: None\n+\n+                    selected_client = client\n+                    host = FakeHost()\n+                    host.pg_id, host.project = '8' * 64, 'fixture'\n+                    host.dependency = lambda relative, expected: raw\n+                    host.run = lambda *_args, **_kwargs: b'{}'\n+                    host.database = types.MethodType(c.Host.database, host)\n+                    with patch.object(c, 'exec', load_binding, create=True), \\\n+                            patch.object(c, 'compare_database', return_value=False), \\\n+                            patch.object(c.subprocess, 'Popen', side_effect=AssertionError('no external process')):\n+                        result = c.release(intent(), host)\n+                    reason = 'BINDING_' + client.upper() + '_' + code if code else 'EXECUTION_UNAVAILABLE'\n+                    self.assertEqual(result['reason'], reason)\n+                    self.assertEqual(result['failure_stage'], 'BASELINE_DATABASE')\n+                    self.assertEqual(result['result'], 'HOLD')\n+                    self.assertFalse(host.spent)\n+                    self.assertEqual(host.recreates, 0)\n+                    self.assertNotIn('private-sentinel', json.dumps(result))\n+                    self.assertNotIn('FUTURE_UNADMITTED_CODE', json.dumps(result))\n+\n+    def test_opaque_failure_stage_distinguishes_observation_from_preparation_without_claiming_cause(self):\n+        for method, stage, reserved in [('capacity', 'BASELINE_CAPACITY', False),\n+                                        ('retain_baseline_archive', 'BASELINE_ARCHIVE', True),\n+                                        ('backup', 'BACKUP_RESTORE', True)]:\n+            with self.subTest(method=method):\n+                host = FakeHost()\n+                original = getattr(host, method)\n+                def fail(*args):\n+                    original(*args)\n+                    raise OSError('private-sentinel')\n+                setattr(host, method, fail)\n+                result = c.release(archive_intent(), host)\n+                self.assertEqual(result['reason'], 'EXECUTION_UNAVAILABLE')\n+                self.assertEqual(result['failure_stage'], stage)\n+                self.assertEqual(result['result'], 'HOLD')\n+                self.assertEqual(result['runtime_state'], 'BASELINE_OBSERVED')\n+                self.assertEqual(host.spent, reserved)\n+                self.assertEqual(host.recreates, 0)\n+                self.assertNotIn('private-sentinel', json.dumps(result))\n+\n+    def test_failure_stage_does_not_replace_success_or_held_lock_rollback_evidence(self):\n+        self.assertEqual(c.release(intent(), FakeHost())['failure_stage'], 'NONE')\n+        self.assertEqual(c.release(intent(), FakeHost(), preflight=True)['failure_stage'], 'NONE')\n+        host = FakeHost('write:target')\n+        result = c.release(intent(), host)\n+        self.assertEqual(result['failure_stage'], 'TARGET_OVERRIDE')\n+        self.assertEqual(result['result'], 'ROLLED_BACK_API_IMAGE_ONLY')\n+        self.assertEqual(result['rollback'], 'VERIFIED')\n+        self.assertEqual(result['runtime_state'], 'BASELINE_IMAGE_VERIFIED')\n+        self.assertTrue(all(held for name, held in host.events if name.startswith(('write:', 'recreate:', 'public:'))))\n+\n     def test_configure_preserves_ordered_repeated_compose_inputs(self):\n         working = '/fixture'\n         primary = working + '/compose.yml'\n"
+    },
+    "validation": {
+      "newRegressionMethods": {
+        "passed": 4,
+        "failed": 0,
+        "seconds": 0.128
+      },
+      "realGitSourceParity": {
+        "passed": 27,
+        "failed": 0,
+        "durationMs": 1565.534332,
+        "node": "24.22.3"
+      },
+      "unmodifiedSourceRegression": {
+        "tests": 1,
+        "expectedFailures": 1,
+        "errors": 0
+      },
+      "structuralPreservation": {
+        "existingTestMethodsAstIdentical": true,
+        "controllerAstIdenticalAfterRemovingOnlyAddedDiagnostics": true
+      },
+      "fullLocalController": {
+        "testMethods": 93,
+        "exitCode": 1,
+        "failedRootMethods": [
+          "ControllerTests.test_actual_gnu_tar_transport_creates_root_owned_private_dependencies",
+          "ControllerTests.test_multifile_env_inputs_use_explicit_project_directory_not_override_parent",
+          "ControllerTests.test_owned_filesystem_atomic_mode_bytes_and_absence_recovery",
+          "ControllerTests.test_preservation_hash_streams_and_rejects_wrong_ciphertext",
+          "ControllerTests.test_protected_file_rejects_symlink_hardlink_and_shared_parent",
+          "RestoreDrillPreservationTests.test_existing_lock_identity_permissions_and_empty_size_remain_preserved",
+          "RestoreDrillPreservationTests.test_pinned_drill_can_reopen_existing_empty_lock",
+          "RestoreDrillPreservationTests.test_retained_keys_journals_and_other_locks_keep_full_timestamp_checks",
+          "RestoreDrillPreservationTests.test_timestamp_exception_requires_exact_safe_empty_lock"
+        ],
+        "failureEventsIncludingSubtests": 16,
+        "uid": 1000,
+        "documentedSudoAttemptExitCode": 127,
+        "reason": "sudo is absent; required root/filesystem checks are not claimed passed."
+      },
+      "nativeRequirement": "The complete unchanged controller suite must pass with the documented sudo invocation on the actual source head; no root check may be skipped or simulated."
+    },
+    "preservedBoundaries": [
+      "Every existing controller gate, its order, source/oracle/OIDC/finite-window binding, dependency SHA, lock, retention, capacity, database, public smoke and rollback checks remain in force.",
+      "Only exact-class, one-string BindingError values from the fixed pinned-source enum receive a client-specific fixed code. Unknown values, subclasses and other exception types retain opaque reporting.",
+      "Failure stages are static controller literals, not exception text, host paths, metadata, credentials, DSNs or protected records.",
+      "Previous active source pins are retained verbatim in this record. Existing beforeBlob roots, other active pins, allowedPaths, branch, all prior evidence records and false production authorization fields remain unchanged.",
+      "No new command, read-only route, production operation, scope path, cap, guard, state or queue modification is admitted."
+    ],
+    "acceptanceRequirements": [
+      "Accept this metadata-only prerequisite under its actual head, independent review and native checks before publishing the two-file source.",
+      "Recompose the exact retained source patch on then-current accepted main only if all four original current source identities still match previousSourcePins; retain all unrelated accepted source and metadata.",
+      "Verify all four active sourcePins against the recomposed source using the existing release-workflow verifier, including unchanged original beforeBlob roots.",
+      "Obtain fresh exact-head source review, owner audit, complete native contract/oracle and repository required checks before ordinary expected-SHA source acceptance.",
+      "A future authorized release still requires its actual accepted target, same-run images/oracle and fresh exact-target OWNER window. No release success or operational root cause is claimed by this metadata."
+    ],
+    "sourceAccepted": false,
+    "productionInvocationAuthorized": false,
+    "productionMutationAuthorized": false,
+    "releaseAuthorized": false,
+    "masterCredit": 0
   }
 }
