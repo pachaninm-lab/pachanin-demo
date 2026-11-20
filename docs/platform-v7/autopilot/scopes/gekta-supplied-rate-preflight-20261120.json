@@ -109,5 +109,150 @@
     "The new source head requires its own independent review, owner audit and complete applicable substantive native/security/readiness checks before manual expected-SHA merge. A private contract PASS is not native source-preflight PASS.",
     "Recompose the original product PR on accepted CI main, preserve its product diff, and obtain a fresh full native source-bound guard result and all other release gates. Production deployment and 5000-question answer-quality acceptance remain separate."
   ],
-  "virtualServerDeploymentState": "not required"
+  "virtualServerDeploymentState": "not required",
+  "qaCarrierBudgetRenewal20261120": {
+    "purpose": "Allow the unchanged complete source-bound guard suite to finish for the existing GEKTA operator-permissions repair and same-account quality-acceptance carrier. This finite two-ref scheduling prerequisite preserves the original supplied-rate fix and grants no product, model, quota, account or production authority.",
+    "ownerBasis": "The existing owner instruction to fix and release GEKTA and run real 1000 plus 5000 quality questions; no additional source path or execution capability is admitted here.",
+    "metadataBranch": "governance/gekta-qa-carrier-budget-20261120",
+    "sourceBranch": "fix/gekta-k8s-retained-capacity-20261009",
+    "allowedPathVectorUnchanged": true,
+    "retainedPreviousRecord": "Every previous manifest key and value, including its purpose, boundedChange, full source patch and original before/after identities, remains unchanged historical admission. This separately accepted prospective record selects the complete successor source bytes below; it does not retrospectively accept or modify prior source evidence.",
+    "privateBaseline": {
+      "commit": "1f7a1d519b6f5669e3cb92eba5ad19be8711bd76",
+      "tree": "7f810e2bf4a8d0659e0ca663334eb1fc504ce8cf"
+    },
+    "beneficiaries": [
+      {
+        "branch": "claude/gekta-product-session-scope",
+        "existingManifest": "docs/platform-v7/autopilot/scopes/gekta-product-session-scope-20260813.json",
+        "manifestBlob": "5426d0bfc50283d19d7245c23d7334226b88831c",
+        "manifestSha256": "e60bb54af3f4a391e6ae62ceb91b17bee58ddf4b0e5ac71a4a5c428915095551",
+        "existingAllowedPathCount": 21,
+        "priorCollectorGuardSeconds": 180,
+        "newCollectorGuardSeconds": 420
+      },
+      {
+        "branch": "fix/gekta-first-user-consent-race-3072",
+        "existingManifest": "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json",
+        "manifestBlob": "636c1c96b4a47eda04af93309eac8d88da691597",
+        "manifestSha256": "28c0c1b4ecdb310595dd833374959dd67bb036d34657802d31072e75182c64c3",
+        "existingAllowedPathCount": 8,
+        "priorCollectorGuardSeconds": 180,
+        "newCollectorGuardSeconds": 420
+      }
+    ],
+    "measuredEvidence": {
+      "head": "22b7205387db9c17d009319630aecf193a1f5348",
+      "base": "e7c9df26404cb609684562799838104de6dee9e1",
+      "runId": "44685341428",
+      "attempt": "1",
+      "artifactId": 14606786165,
+      "artifactSha256": "51470ca86fb0988da924582e8be7d4d1e765e689cbaaf96a04fe030c982974d2",
+      "node": "v24.8.0",
+      "guard": {
+        "name": "guard-regressions",
+        "exit_code": 0,
+        "output_bytes": 269385,
+        "budget_seconds": 420,
+        "outer_timeout_seconds": 435,
+        "elapsed_ms": 307775.416,
+        "output_sha256": "cc59f4f381378f41f60cfb881184f06083aa51e963f86351996a176160145e50",
+        "summary_truncated": false,
+        "tap_totals": {
+          "tests": 1232,
+          "pass": 1232,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failing_ordinals": [],
+        "source_matched_failing_names": [],
+        "test_locations": []
+      },
+      "qualification": "This is a real earlier complete 1232/1232 execution taking 307775.416 milliseconds. Both additional exact branches currently select 180 seconds. The new identity contract fails against the unchanged prior candidate with 180s != 420s for both positive cases. No timed-out native run of either new product candidate is asserted, and this observation is not native acceptance of the successor head."
+    },
+    "boundedChange": {
+      "additionalExactRefs": [
+        "claude/gekta-product-session-scope",
+        "fix/gekta-first-user-consent-race-3072"
+      ],
+      "repositoryRequirement": "Nonempty case-sensitive equality of GITHUB_REPOSITORY and SOURCE_BUDGET_HEAD_REPOSITORY.",
+      "collectorComparison": "Case-sensitive exact branch equality.",
+      "guardSeconds": 420,
+      "outerGuardSeconds": 435,
+      "killAfterSeconds": 5,
+      "schedulerMinutes": 10,
+      "branchScopeSeconds": 180,
+      "branchScopeOuterSeconds": 195,
+      "otherSelectionsUnchanged": true,
+      "schedulerQualification": "The existing GitHub expression comparison is case-insensitive; exact uppercase spellings in the same repository may receive scheduler10, while the case-sensitive collector still gives them180/195. Fork, missing identity, prefix, suffix, whitespace and non-PR scheduler paths retain their original bounds.",
+      "sufficiency": "The complete actual native source run must finish within this bound. No automatic further increase, retry allowance, test filtering or success substitution exists."
+    },
+    "sourceEvidence": {
+      "privateSourceCommit": "639d510eb6bd6d8516791eefb4401813286b39f5",
+      "privateSourceTree": "559f43c8f3ab68c7bdc2431d14c4ad0114ffdcda",
+      "previousUnacceptedCandidate": "22b7205387db9c17d009319630aecf193a1f5348",
+      "changedPathCount": 2,
+      "transitions": [
+        {
+          "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+          "mode": "100644",
+          "before": {
+            "blob": "bc03b0d916ab2ed8c7f6c32aa958249a032b91cd",
+            "bytes": 21599,
+            "sha256": "c0edf5ad5790f254b15bb7cc92b44d698f21e46bfa2727b5a6bdaebd900970ec"
+          },
+          "previousCandidate": {
+            "blob": "5de3ce3ae90ad73db45201871bd55013c4a3d655",
+            "bytes": 21705,
+            "sha256": "9c0562ac22c77d4cd8e2447e35f7ccd9399665772d6c3d4a5a071344e5408548"
+          },
+          "after": {
+            "blob": "c275199b796426fac07ddfe1af98b94043a12ce1",
+            "bytes": 22047,
+            "sha256": "7b1e8d8ab454101c250ad3c04aeadc862791d6f8e5c0feedd44abff9628969c3"
+          }
+        },
+        {
+          "path": "scripts/release/production-like-kubernetes-source-preflight-test.sh",
+          "mode": "100755",
+          "before": {
+            "blob": "25fdcb31536fe4f1d9a56f06fa0c1ecf085a2fd5",
+            "bytes": 56705,
+            "sha256": "4ca418f933313e092efcde74caab20e78959a3ab900de8a87f7f070c227274ee"
+          },
+          "previousCandidate": {
+            "blob": "7735d3433070b6e211b5c1f5f330560da8c81f1b",
+            "bytes": 60086,
+            "sha256": "9fad44934b7f02d94d64125b8b0f60a1af71d33bdda206e5e2ed14e5a09bbb92"
+          },
+          "after": {
+            "blob": "a5e9cec1a52d6b232149bffbfc309561ce8948af",
+            "bytes": 65077,
+            "sha256": "37177d6421ddbb1f4f5183db2f6af8b6e9017041386cc201c75ad3616275342c"
+          }
+        }
+      ],
+      "patchBytes": 18524,
+      "patchSha256": "a0730e37afc2a4ac0566c65f9d7166ecff6e1737f8407822fb67dd517f72737c",
+      "completePatchUtf8": "diff --git a/.github/workflows/production-like-kubernetes-acceptance.yml b/.github/workflows/production-like-kubernetes-acceptance.yml\nindex bc03b0d916ab2ed8c7f6c32aa958249a032b91cd..c275199b796426fac07ddfe1af98b94043a12ce1 100644\n--- a/.github/workflows/production-like-kubernetes-acceptance.yml\n+++ b/.github/workflows/production-like-kubernetes-acceptance.yml\n@@ -42,7 +42,7 @@ jobs:\n     name: Exact-head source and scope preflight\n     if: github.event_name == 'pull_request'\n     runs-on: ubuntu-latest\n-    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-answer-copy-20260927' || github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\n+    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-answer-copy-20260927' || github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009' || github.event.pull_request.head.ref == 'fix/gekta-han-stream-20260927' || github.event.pull_request.head.ref == 'claude/gekta-product-session-scope' || github.event.pull_request.head.ref == 'fix/gekta-first-user-consent-race-3072') && 10 || 8 }}\n     permissions:\n       contents: read\n     env:\n@@ -165,12 +165,13 @@ jobs:\n                       'fix/codeql-v2-26-3-upstream-lock-4072',\n                       'agent/ir-sec-transitive-runtime-remediation',\n                       'fix/gekta-anonymous-document-evidence-20261009',\n+                      'claude/gekta-product-session-scope', 'fix/gekta-first-user-consent-race-3072',\n                   }\n                   own_repository = os.environ.get('GITHUB_REPOSITORY', '')\n                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and\n                                   bool(own_repository) and\n                                   os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)\n-                  measured_budget_refs = {'fix/gekta-answer-copy-20260927', 'fix/gekta-k8s-retained-capacity-20261009', 'ops/production-api-only-archive-rollback-20261112', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009'}\n+                  measured_budget_refs = {'fix/gekta-answer-copy-20260927', 'fix/gekta-k8s-retained-capacity-20261009', 'ops/production-api-only-archive-rollback-20261112', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009', 'fix/gekta-han-stream-20260927', 'claude/gekta-product-session-scope', 'fix/gekta-first-user-consent-race-3072'}\n                   measured_budget = owned_budget and os.environ.get('GITHUB_HEAD_REF', '') in measured_budget_refs\n                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),\n                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]\ndiff --git a/scripts/release/production-like-kubernetes-source-preflight-test.sh b/scripts/release/production-like-kubernetes-source-preflight-test.sh\nindex 25fdcb31536fe4f1d9a56f06fa0c1ecf085a2fd5..a5e9cec1a52d6b232149bffbfc309561ce8948af 100755\n--- a/scripts/release/production-like-kubernetes-source-preflight-test.sh\n+++ b/scripts/release/production-like-kubernetes-source-preflight-test.sh\n@@ -29,7 +29,7 @@ FIXED = ['AGENTS.md', '.github/workflows/platform-v7-autopilot-guard.yml',\n \n class SourceBudgetChecks(unittest.TestCase):\n     def expected_owned_guard_seconds(self, ref):\n-        return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009') else 300\n+        return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'test/bank-acceptance-contract-6085', 'fix/bank-acceptance-preflight-budget-6089', 'fix/password-only-cabinet-login-20261005', 'fix/codeql-v2-26-3-upstream-lock-4072', 'agent/ir-sec-transitive-runtime-remediation', 'fix/gekta-anonymous-document-evidence-20261009', 'fix/gekta-han-stream-20260927') else 300\n \n     def fixture(self, root, test_fail=False, guard_fail=False):\n             repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()\n@@ -326,6 +326,50 @@ while True:\n                     self.assertEqual([c['budget_seconds'] for c in report['checks']], [180, 180])\n                     self.assertEqual([c['outer_timeout'] for c in calls], [195, 195])\n \n+    def test_supplied_rate_ref_requires_exact_repository_and_case_sensitive_branch(self):\n+        ref = 'fix/gekta-han-stream-20260927'\n+        repository = 'fixture/repository'\n+        cases = [\n+            (ref, repository, repository, 420),\n+            (ref.upper(), repository, repository, 180),\n+            (ref + '-extra', repository, repository, 180),\n+            (ref + '/extra', repository, repository, 180),\n+            ('prefix/' + ref, repository, repository, 180),\n+            (ref + ' ', repository, repository, 180),\n+            (' ' + ref, repository, repository, 180),\n+            ('', repository, repository, 180),\n+            (ref, 'fork/repository', repository, 180),\n+            (ref, 'Fixture/repository', repository, 180),\n+            (ref, repository + '/', repository, 180),\n+            (ref, '', repository, 180),\n+            (ref, repository, '', 180),\n+            (ref, '', '', 180),\n+        ]\n+        for candidate, head_repository, own_repository, budget in cases:\n+            with self.subTest(ref=candidate, head=head_repository, repository=own_repository):\n+                report, calls, _ = self.execute_collector(\n+                    head_ref=candidate, guard_seconds=budget,\n+                    head_repository=head_repository, repository=own_repository,\n+                )\n+                self.assertEqual(report['result'], 'PASS')\n+                self.assertEqual(report['stage'], 'complete')\n+                self.assertEqual([check['budget_seconds'] for check in report['checks']], [budget, 180])\n+                self.assertEqual([check['outer_timeout_seconds'] for check in report['checks']], [budget + 15, 195])\n+                self.assertEqual([call['outer_timeout'] for call in calls], [budget + 15, 195])\n+                self.assertEqual([check['exit_code'] for check in report['checks']], [0, 0])\n+\n+    def test_supplied_rate_budget_cannot_accept_partial_or_unsuccessful_tap(self):\n+        for behavior in ['header-only', 'skipped-tap', 'inconsistent-tap', 'cancelled-tap', 'failed-tap']:\n+            with self.subTest(behavior=behavior):\n+                report, calls, _ = self.execute_collector(\n+                    behavior, head_ref='fix/gekta-han-stream-20260927', guard_seconds=420,\n+                )\n+                self.assertEqual(report['result'], 'FAIL')\n+                self.assertEqual([check['budget_seconds'] for check in report['checks']], [420, 180])\n+                self.assertEqual([call['outer_timeout'] for call in calls], [435, 195])\n+                self.assertFalse(report['independent_review'])\n+                self.assertFalse(report['production_acceptance'])\n+\n     def test_incomplete_skipped_and_inconsistent_tap_cannot_pass(self):\n         for behavior in ['header-only','skipped-tap','inconsistent-tap']:\n             with self.subTest(behavior=behavior):\n@@ -335,12 +379,71 @@ while True:\n                 self.assertEqual([c['exit_code'] for c in report['checks']], [0,0])\n                 self.assertEqual(report['checks'][0]['budget_seconds'], 420)\n \n+    def test_qa_carrier_refs_require_exact_same_repository_identity(self):\n+        repository = 'fixture/repository'\n+        for ref in ('claude/gekta-product-session-scope', 'fix/gekta-first-user-consent-race-3072'):\n+            cases = [\n+                (ref, repository, repository, 420),\n+                (ref.upper(), repository, repository, 180),\n+                (ref + '-extra', repository, repository, 180),\n+                (ref + '/extra', repository, repository, 180),\n+                ('prefix/' + ref, repository, repository, 180),\n+                (ref + ' ', repository, repository, 180),\n+                (' ' + ref, repository, repository, 180),\n+                (ref, 'fork/repository', repository, 180),\n+                (ref, repository + '/', repository, 180),\n+                (ref, 'Fixture/repository', repository, 180),\n+                (ref, '', repository, 180),\n+                (ref, repository, '', 180),\n+                (ref, '', '', 180),\n+            ]\n+            for branch, head_repo, repo, budget in cases:\n+                with self.subTest(ref=branch, head=head_repo, repository=repo):\n+                    report, calls, _ = self.execute_collector(\n+                        head_ref=branch, head_repository=head_repo,\n+                        repository=repo, guard_seconds=budget,\n+                    )\n+                    self.assertEqual(report['result'], 'PASS')\n+                    self.assertEqual([c['budget_seconds'] for c in report['checks']], [budget, 180])\n+                    self.assertEqual([c['outer_timeout_seconds'] for c in report['checks']], [budget + 15, 195])\n+                    self.assertEqual([c['outer_timeout'] for c in calls], [budget + 15, 195])\n+                    self.assertFalse(report['independent_review'])\n+                    self.assertFalse(report['production_acceptance'])\n+\n+    def test_qa_carrier_timeout_and_incomplete_results_remain_failures(self):\n+        for ref in ('claude/gekta-product-session-scope', 'fix/gekta-first-user-consent-race-3072'):\n+            for behavior in ('header-only', 'skipped-tap', 'inconsistent-tap', 'cancelled-tap', 'failed-tap'):\n+                with self.subTest(ref=ref, behavior=behavior):\n+                    report, calls, _ = self.execute_collector(behavior, head_ref=ref, guard_seconds=420)\n+                    self.assertEqual(report['result'], 'FAIL')\n+                    self.assertEqual([c['budget_seconds'] for c in report['checks']], [420, 180])\n+                    self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])\n+                    self.assertFalse(report['independent_review'])\n+                    self.assertFalse(report['production_acceptance'])\n+            with self.subTest(ref=ref, behavior='guard-timeout'):\n+                report, calls, group = self.execute_collector('guard-timeout', head_ref=ref, guard_seconds=420)\n+                self.assertEqual(report['result'], 'FAIL')\n+                self.assertEqual(group['exit_code'], 124)\n+                self.assertEqual([c['exit_code'] for c in report['checks']], [124, 0])\n+                self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])\n+            with self.subTest(ref=ref, behavior='branch-timeout'):\n+                report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref, guard_seconds=420)\n+                self.assertEqual(report['result'], 'FAIL')\n+                self.assertEqual([c['exit_code'] for c in report['checks']], [0, 124])\n+                self.assertEqual([c['outer_timeout'] for c in calls], [435, 195])\n+            with self.subTest(ref=ref, behavior='outer-timeout'):\n+                report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref, guard_seconds=420)\n+                self.assertEqual(report['result'], 'FAIL')\n+                self.assertEqual(report['stage'], 'guard-regressions')\n+                self.assertEqual(report['checks'], [])\n+                self.assertEqual([c['outer_timeout'] for c in calls], [435])\n+\n     def test_workflow_retains_job_bounds_and_always_artifact_step(self):\n         preflight = source.split('\\n  source-preflight:\\n', 1)[1].split(\n             '\\n  production-like-kubernetes:\\n', 1)[0]\n         runtime = source.split('\\n  production-like-kubernetes:\\n', 1)[1].split(\n             '\\n  production-like-kubernetes-gate:\\n', 1)[0]\n-        self.assertIn('    timeout-minutes: ' + '$' + \"{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-answer-copy-20260927' || github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009') && 10 || 8 }}\\n\", preflight)\n+        self.assertIn('    timeout-minutes: ' + '$' + \"{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-answer-copy-20260927' || github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'ops/production-api-only-archive-rollback-20261112' || github.event.pull_request.head.ref == 'codex/gekta-security-review' || github.event.pull_request.head.ref == 'test/bank-acceptance-contract-6085' || github.event.pull_request.head.ref == 'fix/bank-acceptance-preflight-budget-6089' || github.event.pull_request.head.ref == 'fix/password-only-cabinet-login-20261005' || github.event.pull_request.head.ref == 'fix/codeql-v2-26-3-upstream-lock-4072' || github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' || github.event.pull_request.head.ref == 'fix/gekta-anonymous-document-evidence-20261009' || github.event.pull_request.head.ref == 'fix/gekta-han-stream-20260927' || github.event.pull_request.head.ref == 'claude/gekta-product-session-scope' || github.event.pull_request.head.ref == 'fix/gekta-first-user-consent-race-3072') && 10 || 8 }}\\n\", preflight)\n         job_expression = preflight.split('    timeout-minutes: ', 1)[1].splitlines()[0]\n         # This fixed ASCII model follows GitHub's case-insensitive string comparison.\n         self.assertTrue(job_expression.isascii())\n@@ -358,6 +461,29 @@ while True:\n             ('pull_request', 'fix/password-only-cabinet-login-20261005', 1, 1, 10),\n             ('pull_request', 'fix/password-only-cabinet-login-20261005', 2, 1, 8),\n             ('pull_request', 'fix/password-only-cabinet-login-20261005-extra', 1, 1, 8),\n+            ('pull_request', 'fix/gekta-han-stream-20260927', 1, 1, 10),\n+            ('pull_request', 'FIX/GEKTA-HAN-STREAM-20260927', 1, 1, 10),\n+            ('pull_request', 'fix/gekta-han-stream-20260927', 2, 1, 8),\n+            ('pull_request', 'fix/gekta-han-stream-20260927', None, 1, 8),\n+            ('push', 'fix/gekta-han-stream-20260927', 1, 1, 8),\n+            *[('pull_request', ref, 1, 1, 8) for ref in\n+              ('fix/gekta-han-stream-20260927-extra', 'fix/gekta-han-stream-20260927/extra',\n+               'prefix/fix/gekta-han-stream-20260927', 'fix/gekta-han-stream-20260927 ',\n+               ' fix/gekta-han-stream-20260927')],\n+            *[(event, candidate, head_id, repository_id, expected)\n+              for qa_ref in ('claude/gekta-product-session-scope', 'fix/gekta-first-user-consent-race-3072')\n+              for event, candidate, head_id, repository_id, expected in (\n+                  ('pull_request', qa_ref, 1, 1, 10),\n+                  ('pull_request', qa_ref.upper(), 1, 1, 10),\n+                  ('pull_request', qa_ref, 2, 1, 8),\n+                  ('pull_request', qa_ref, None, 1, 8),\n+                  ('pull_request', qa_ref, 1, None, 8),\n+                  ('push', qa_ref, 1, 1, 8),\n+                  ('pull_request', qa_ref + '-extra', 1, 1, 8),\n+                  ('pull_request', qa_ref + '/extra', 1, 1, 8),\n+                  ('pull_request', 'prefix/' + qa_ref, 1, 1, 8),\n+                  ('pull_request', qa_ref + ' ', 1, 1, 8),\n+              )],\n             *[('pull_request', ref, 1, 1, 8) for ref in\n               ('', target + '-extra', target + '/extra', 'prefix/' + target, target + ' ')],\n         ]:\n"
+    },
+    "authorChecks": {
+      "SourceBudgetChecks": "19/19 PASS,63.441seconds",
+      "defaultCollectorSchema": "35/35 PASS,20.546seconds",
+      "negativePreviousCandidate": "Both new positive same-repository cases fail with180s !=420s; remaining identity cases continue.",
+      "preservation": "59 existing function ASTs unchanged; original scheduler method updates only its expected fixed expression and adds cases. Two new methods test exact identity, real process-group/branch/outer timeouts and incomplete/failed TAP rejection. All original tests and assertions are retained.",
+      "workflowPreservation": "Removing the three exact named budget-selection additions restores the previous candidate workflow byte-for-byte. Runtime job, source commands/bindings/caps, artifact handling, cleanup and all unrelated deadlines remain unchanged.",
+      "nativeSuccessClaim": false
+    },
+    "acceptance": [
+      "Independently review and accept this metadata-only append through the ordinary exact-head owner-audit, complete native/security/readiness and expected-SHA manual merge gates before successor source publication.",
+      "Recompose on the then-current accepted main. Both original before leaves must retain their exact mode/blob/byte/SHA256 identities. Apply the full retained source patch and verify every after identity; preserve all unrelated current-main leaves. A changed source pin requires renewed review.",
+      "Preserve the existing CI branch history with an ordinary merge of accepted main into its current unaccepted source head and a normal expected-lease update, never a forced ref update. A head change requires new independent review and distinct owner audit.",
+      "The actual new source head must pass full unfiltered native source-preflight, Kubernetes, deep outbox, relevant runtime/security checks and fresh real readiness before normal manual expected-SHA acceptance. Earlier22b native evidence is historical and cannot substitute.",
+      "Recompose dependent product and acceptance sources on the actually accepted CI base; any changed UX companion bytes require their own exact prospective renewal. Product tests, deployment, model recovery, operator grant and real1000/5000 answer assessment remain separate."
+    ],
+    "productionInvocationAuthorized": false,
+    "virtualServerDeploymentState": "not required"
+  }
 }
